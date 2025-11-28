@@ -1,0 +1,68 @@
+{
+  "project_info": {
+    "project_number": "575093596108",
+    "project_id": "prout-5e6ec",
+    "storage_bucket": "prout-5e6ec.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:575093596108:android:757ac1a9d3b30d92ae0769",
+        "android_client_info": {
+          "package_name": "com.anonymous.ProutApp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "575093596108-893njb79q19ns8mb2pkv88qg7edkvn09.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDpQx9pvTdRkkVeIkZjNjln7V-APbm91EQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "575093596108-893njb79q19ns8mb2pkv88qg7edkvn09.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:575093596108:android:0d221e972b1e7208ae0769",
+        "android_client_info": {
+          "package_name": "com.fuzztrack.proutapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "575093596108-893njb79q19ns8mb2pkv88qg7edkvn09.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDpQx9pvTdRkkVeIkZjNjln7V-APbm91EQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "575093596108-893njb79q19ns8mb2pkv88qg7edkvn09.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
