@@ -128,12 +128,10 @@ export default function RootLayout() {
                                   (proutName ? `${sender} t'a envoyé ${proutName} ! 💨` : 
                                    `${sender} t'a envoyé un prout 💨`);
               
-              // 🎨 Utiliser le nom stylé dans le body aussi, ou le body de la notification
-              const displayBody = proutName || remoteMessage.notification?.body || '';
-              
+              // 🎨 Le body du toast affiche juste un emoji, le nom stylé est déjà dans le titre
               setToastMessage({
                 title: displayTitle,
-                body: displayBody,
+                body: '💨',
               });
               
               // Animation d'apparition
