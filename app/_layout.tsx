@@ -123,15 +123,15 @@ export default function RootLayout() {
 
             // Afficher un toast qui disparaît automatiquement après 1.5s
             if (sender) {
-              // 🎨 Utiliser le nom stylé si disponible, sinon utiliser le titre de la notification
-              const displayTitle = remoteMessage.notification?.title || 
-                                  (proutName ? `${sender} t'a envoyé ${proutName} ! 💨` : 
-                                   `${sender} t'a envoyé un prout 💨`);
+              // 🎨 Construire le titre avec le nom stylé depuis les data (pas depuis notification.title qui est générique)
+              const displayTitle = proutName 
+                ? `${sender} t'a envoyé ${proutName} ! 💨`
+                : `${sender} t'a envoyé un prout 💨`;
               
-              // 🎨 Le body du toast affiche juste un emoji, le nom stylé est déjà dans le titre
+              // 🎨 Pas de body dans le toast, juste le titre avec le nom stylé
               setToastMessage({
                 title: displayTitle,
-                body: '💨',
+                body: '', // Body vide pour éviter d'afficher proutKey ou autre chose
               });
               
               // Animation d'apparition
