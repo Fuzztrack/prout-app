@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "ProutApp",
+    "name": "Prout",
     "slug": "ProutApp",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -8,41 +8,93 @@
     "scheme": "proutapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ebb89b"
+    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.prout.app",
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "remote-notification"
+        ],
+        "NSUserTrackingUsageDescription": "Used for notifications"
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "foregroundImage": "./assets/images/adaptive_icon.png",
+        "backgroundColor": "#ebb89b"
       },
-      "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "package": "com.fuzztrack.proutapp",
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      "./withAndroidNotificationMetadata",
       "expo-router",
+      "expo-audio",
+      "expo-secure-store",
       [
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
-          "dark": {
-            "backgroundColor": "#000000"
-          }
+          "backgroundColor": "#ebb89b"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#ffffff",
+          "sounds": [
+            "./assets/sounds/prout1.ogg",
+            "./assets/sounds/prout2.ogg",
+            "./assets/sounds/prout3.ogg",
+            "./assets/sounds/prout4.ogg",
+            "./assets/sounds/prout5.ogg",
+            "./assets/sounds/prout6.ogg",
+            "./assets/sounds/prout7.ogg",
+            "./assets/sounds/prout8.ogg",
+            "./assets/sounds/prout9.ogg",
+            "./assets/sounds/prout10.ogg",
+            "./assets/sounds/prout11.ogg",
+            "./assets/sounds/prout12.ogg",
+            "./assets/sounds/prout13.ogg",
+            "./assets/sounds/prout14.ogg",
+            "./assets/sounds/prout15.ogg",
+            "./assets/sounds/prout16.ogg",
+            "./assets/sounds/prout17.ogg",
+            "./assets/sounds/prout18.ogg",
+            "./assets/sounds/prout19.ogg",
+            "./assets/sounds/prout20.ogg"
+          ]
         }
       ]
+    ],
+    "assetBundlePatterns": [
+      "assets/**/*"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "f2545544-14d4-4739-96a1-1fb75515e1e9"
+      }
     }
   }
 }
