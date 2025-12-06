@@ -128,3 +128,6 @@ npx expo prebuild --clean
 
 **Firebase est complètement supprimé !** Le code est maintenant plus simple, plus cohérent, et le build iOS devrait fonctionner sans erreur.
 
+
+
+

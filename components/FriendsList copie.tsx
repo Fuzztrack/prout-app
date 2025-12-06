@@ -1,13 +1,34 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAudioPlayer } from 'expo-audio';
 import * as Contacts from 'expo-contacts';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Animated, FlatList, PanResponder, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ActivityIndicator, Alert, Dimensions, FlatList, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  runOnJS,
+  interpolate,
+  Extrapolation,
+} from 'react-native-reanimated';
+import { Animated as RNAnimated } from 'react-native'; // Pour le toast qui utilise encore l'ancien système
 import { normalizePhone } from '../lib/normalizePhone';
 import { sendProutViaBackend } from '../lib/sendProutBackend';
 // Import supprimé : on utilise maintenant sync_contacts (fonction SQL Supabase)
 import { supabase } from '../lib/supabase';
+
+// Import des images d'animation
+const ANIM_IMAGES = [
+  require('../assets/images/animprout1.png'),
+  require('../assets/images/animprout2.png'),
+  require('../assets/images/animprout3.png'),
+  require('../assets/images/animprout4.png'),
+];
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const SWIPE_THRESHOLD = 150; // Seuil pour déclencher l'action
 
 const PROUT_SOUNDS: { [key: string]: any } = {
   prout1: require('../assets/sounds/prout1.ogg'),
@@ -31,6 +52,31 @@ const PROUT_SOUNDS: { [key: string]: any } = {
   prout19: require('../assets/sounds/prout19.ogg'),
   prout20: require('../assets/sounds/prout20.ogg'),
 };
+
+// Mapping des noms de prouts (doit correspondre au backend)
+const PROUT_NAMES: Record<string, string> = {
+  prout1: "La Petite Bourrasque",
+  prout2: "Le Crépitant",
+  prout3: "Le Rebond du Tonnerre",
+  prout4: "Le Faux Départ",
+  prout5: "Le Frelon Trébuchant",
+  prout6: "Le Kraken Douillet",
+  prout7: "La Farandole",
+  prout8: "Le Question Réponse",
+  prout9: "Le Oulala… Problème",
+  prout10: "Le Ballon Dégonflé",
+  prout11: "La Mitraille Molle",
+  prout12: "La Rafale Infernale",
+  prout13: "Le Lâché Prise",
+  prout14: "Le Basson Dubitatif",
+  prout15: "La Fantaisie de Minuit",
+  prout16: "Le Marmiton Furieux",
+  prout17: "L'Éclair Fromager",
+  prout18: "L'Impromptu",
+  prout19: "Le Tuba Chaotique",
+  prout20: "L'Eternel",
+};
+
 const SOUND_KEYS = Object.keys(PROUT_SOUNDS);
 
 // Clés de cache pour AsyncStorage
@@ -48,19 +94,19 @@ const loadCacheSafely = async (key: string) => {
     
     // Vérifier que c'est un tableau
     if (!Array.isArray(parsed.data)) {
-      console.warn('⚠️ Cache invalide (pas un tableau), ignoré');
+      // Cache invalide, ignoré
       return null;
     }
     
     // Vérifier l'âge du cache (optionnel)
     if (parsed.timestamp && Date.now() - parsed.timestamp > CACHE_MAX_AGE) {
-      console.log('🕐 Cache expiré, ignoré');
+      // Cache expiré, ignoré
       return null;
     }
     
     return parsed.data;
   } catch (e) {
-    console.warn('⚠️ Erreur lecture cache (ignoré):', e);
+    // Erreur lecture cache (non critique)
     return null; // En cas d'erreur, on ignore le cache et on continue normalement
   }
 };
@@ -73,75 +119,230 @@ const saveCacheSafely = async (key: string, data: any[]) => {
       timestamp: Date.now()
     }));
   } catch (e) {
-    console.warn('⚠️ Erreur sauvegarde cache (ignoré):', e);
+    // Erreur sauvegarde cache (non critique)
     // On ignore l'erreur, ce n'est pas critique
   }
 };
 
-const ProutSlider = ({ onComplete }: { onComplete: () => void }) => {
-  const [active, setActive] = useState(false);
-  const pan = useRef(new Animated.ValueXY()).current;
-  const cloudY = useRef(new Animated.Value(0)).current;
-  const cloudOpacity = useRef(new Animated.Value(0)).current;
-  const WIDTH = 180;
-  const MAX_SLIDE = WIDTH - 40 - 4;
-
-  const triggerCloudAnimation = () => {
-    cloudY.setValue(0);
-    cloudOpacity.setValue(1);
-    Animated.parallel([
-      Animated.timing(cloudY, { toValue: -100, duration: 1500, useNativeDriver: true }),
-      Animated.timing(cloudOpacity, { toValue: 0, duration: 1500, useNativeDriver: true })
-    ]).start();
+// Composant SwipeableFriendRow : Swipe to Action avec animation frame-by-frame (version Reanimated pour iOS fluide)
+const SwipeableFriendRow = ({ 
+  friend, 
+  backgroundColor, 
+  onSendProut, 
+  onLongPressName,
+  onDeleteFriend
+}: { 
+  friend: any; 
+  backgroundColor: string; 
+  onSendProut: () => void; 
+  onLongPressName: () => void;
+  onDeleteFriend: () => void;
+}) => {
+  const translationX = useSharedValue(0);
+  const maxSwipeRight = SCREEN_WIDTH * 0.7; // Maximum 70% de l'écran vers la droite
+  const maxSwipeLeft = SCREEN_WIDTH * 0.7; // Maximum 70% de l'écran vers la gauche
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [showFinalImage, setShowFinalImage] = useState(false);
+  
+  // Calculer l'index de l'image en fonction de la distance du swipe (seulement pour swipe droite)
+  const getImageIndex = (dx: number) => {
+    const percentage = Math.min(dx / maxSwipeRight, 1);
+    if (percentage <= 0.10) return 0; // animprout1 (0-10%)
+    if (percentage <= 0.90) return 1; // animprout2 (10-90%)
+    return 2; // animprout3 (90-100%)
   };
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => setActive(true),
-      onPanResponderMove: (_, gestureState) => {
-        let newX = Math.max(0, Math.min(gestureState.dx, MAX_SLIDE));
-        pan.x.setValue(newX);
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        setActive(false);
-        if (gestureState.dx >= MAX_SLIDE) {
-          onComplete();
-          triggerCloudAnimation();
-        }
-        Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: false }).start();
-      },
+  // Fonction pour mettre à jour l'index d'image (appelée depuis le thread JS)
+  const updateImageIndex = (x: number) => {
+    const imageIndex = getImageIndex(x);
+    if (imageIndex !== currentImageIndex) {
+      setCurrentImageIndex(imageIndex);
+    }
+  };
+
+  // Fonction pour déclencher l'action (swipe droite)
+  const triggerAction = () => {
+    setShowFinalImage(true);
+    setCurrentImageIndex(0);
+    onSendProut();
+    
+    // Après le retour du slider, attendre 0.5 seconde avant de cacher l'image
+    setTimeout(() => {
+      setShowFinalImage(false);
+      setCurrentImageIndex(0);
+    }, 500);
+  };
+
+  // Fonction pour déclencher la suppression (swipe gauche)
+  const triggerDelete = () => {
+    onDeleteFriend();
+    // Retour à la position initiale après confirmation
+    translationX.value = withSpring(0, {
+      damping: 15,
+      stiffness: 150,
+    });
+  };
+
+  // Geste avec Reanimated (fluide sur iOS) - Supporte gauche et droite
+  const gesture = Gesture.Pan()
+    .onStart(() => {
+      // Reset si nécessaire
     })
-  ).current;
+    .onUpdate((e) => {
+      // Permettre le swipe dans les deux sens
+      const newX = Math.max(-maxSwipeLeft, Math.min(e.translationX, maxSwipeRight));
+      translationX.value = newX;
+      
+      // Mettre à jour l'image seulement si swipe vers la droite
+      if (newX > 0) {
+        runOnJS(updateImageIndex)(newX);
+      }
+    })
+    .onEnd((e) => {
+      const finalX = e.translationX;
+      
+      // Swipe vers la droite (envoi de prout)
+      if (finalX >= SWIPE_THRESHOLD) {
+        runOnJS(triggerAction)();
+        translationX.value = withSpring(0, {
+          damping: 15,
+          stiffness: 150,
+        });
+      } 
+      // Swipe vers la gauche (suppression)
+      else if (finalX <= -SWIPE_THRESHOLD) {
+        runOnJS(triggerDelete)();
+      } 
+      // Seuil non atteint : retourner à la position initiale
+      else {
+        translationX.value = withSpring(0, {
+          damping: 15,
+          stiffness: 150,
+        });
+        if (finalX > 0) {
+          runOnJS(setCurrentImageIndex)(0);
+        }
+      }
+    });
+
+  // Style animé pour la ligne qui se déplace
+  const animatedLineStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateX: translationX.value }],
+    };
+  });
+
+  // Style animé pour le zoom de l'image de fond (seulement pour swipe droite)
+  const animatedImageScale = useAnimatedStyle(() => {
+    // Ne zoomer que si on swipe vers la droite
+    const positiveX = Math.max(0, translationX.value);
+    const scale = interpolate(
+      positiveX,
+      [0, maxSwipeRight],
+      [0.5, 4.0],
+      Extrapolation.CLAMP
+    );
+    
+    return {
+      transform: [{ scale }],
+      opacity: translationX.value > 0 ? 1 : 0, // Cacher l'image si swipe gauche
+    };
+  });
+
+  // Style animé pour le fond rouge (seulement pour swipe gauche)
+  const animatedRedBackground = useAnimatedStyle(() => {
+    const negativeX = Math.min(0, translationX.value);
+    const opacity = interpolate(
+      Math.abs(negativeX),
+      [0, SWIPE_THRESHOLD],
+      [0, 1],
+      Extrapolation.CLAMP
+    );
+    
+    return {
+      opacity,
+    };
+  });
 
   return (
-    <View style={[styles.sliderContainer, { width: WIDTH }]}>
-      <Animated.Text style={[styles.flyingCloud, { transform: [{ translateY: cloudY }], opacity: cloudOpacity }]}>💨</Animated.Text>
-      <View style={[styles.sliderTrack, { width: WIDTH }]}>
-        <Text style={styles.sliderText}>Glisser 👉</Text>
-        <Animated.View
-          style={[styles.sliderThumb, { transform: [{ translateX: pan.x }] }, active && { backgroundColor: '#FF3B30' }]}
-          {...panResponder.panHandlers}
-        >
-          <Text>💨</Text>
-        </Animated.View>
+    <View style={[styles.swipeableRow, { backgroundColor }]} collapsable={false}>
+      {/* Background gauche : Fond rouge pour suppression */}
+      <Animated.View 
+        style={[
+          styles.deleteBackground,
+          animatedRedBackground
+        ]}
+        collapsable={false}
+      >
+        <Text style={styles.deleteText}>Supprimer</Text>
+      </Animated.View>
+
+      {/* Background droite : Image d'animation avec fond clair */}
+      <View style={styles.swipeBackground} collapsable={false}>
+        {/* Image finale (animprout4) après l'envoi du prout */}
+        {showFinalImage ? (
+          <View style={styles.finalImageContainer} collapsable={false}>
+            <Animated.Image 
+              source={ANIM_IMAGES[3]} 
+              style={[
+                styles.animImage,
+                {
+                  transform: [{ scale: 4.0 }], // Même taille que la fin du zoom
+                },
+              ]}
+              resizeMode="contain"
+            />
+          </View>
+        ) : (
+          /* Image normale pendant le swipe */
+          currentImageIndex >= 0 && currentImageIndex < 3 && (
+            <Animated.Image 
+              source={ANIM_IMAGES[currentImageIndex]} 
+              style={[styles.animImage, animatedImageScale]}
+              resizeMode="contain"
+            />
+          )
+        )}
       </View>
+
+      {/* Foreground : Ligne de contact */}
+      <GestureDetector gesture={gesture}>
+        <Animated.View
+          style={[
+            styles.swipeForeground,
+            {
+              backgroundColor,
+            },
+            animatedLineStyle,
+          ]}
+        >
+          <View style={styles.userInfo}>
+            <TouchableOpacity onLongPress={onLongPressName} activeOpacity={0.7}>
+              <Text style={styles.pseudo} numberOfLines={1}>{friend.pseudo}</Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      </GestureDetector>
     </View>
   );
 };
 
-export function FriendsList() {
+export function FriendsList({ onProutSent }: { onProutSent?: () => void } = {}) {
   const [appUsers, setAppUsers] = useState<any[]>([]);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true); // Commencer à true pour éviter le flash
   const [currentPseudo, setCurrentPseudo] = useState<string>("Un ami");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const toastOpacity = useRef(new Animated.Value(0)).current;
+  const toastOpacity = useRef(new RNAnimated.Value(0)).current;
   const subscriptionRef = useRef<any>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const cacheLoadedRef = useRef(false); // Pour éviter de charger le cache plusieurs fois
   const contactsSyncedRef = useRef(false); // Pour éviter de synchroniser les contacts plusieurs fois
+  
+  // Cooldown par utilisateur pour éviter le spam (Map<userId, timestamp>)
+  const cooldownMapRef = useRef<Map<string, number>>(new Map());
+  const COOLDOWN_DURATION = 2000; // 2 secondes de pause entre chaque envoi
 
   const player = useAudioPlayer(); // ⚡ Audio player sans son par défaut
 
@@ -166,9 +367,8 @@ export function FriendsList() {
             setAppUsers(cachedFriends);
             setLoading(false); // Cache trouvé, pas de spinner
             hasCache = true;
-            console.log('✅ Cache chargé avec tokens valides');
           } else if (cachedFriends && cachedFriends.length > 0) {
-            console.warn('⚠️ Cache ignoré car tokens manquants, rechargement depuis la base...');
+            // Cache ignoré, rechargement depuis la base
           }
           
           if (cachedRequests) {
@@ -303,7 +503,6 @@ export function FriendsList() {
               } else if (matchedFriends) {
                 phoneFriendsIds = matchedFriends.map(u => u.id);
                 contactsSyncedRef.current = true; // Marquer comme synchronisé
-                console.log(`✅ ${matchedFriends.length} ami(s) trouvé(s) et enregistré(s) dans friends`);
               }
             } else {
               // Lors du polling, on récupère juste les IDs depuis la base (sans appeler sync_contacts)
@@ -351,12 +550,10 @@ export function FriendsList() {
           
           const friendsList = finalFriends || [];
           
-          // Log pour debug : vérifier les tokens
+          // Vérifier les tokens (sans logs)
           friendsList.forEach(friend => {
             if (!friend.expo_push_token || friend.expo_push_token.trim() === '') {
-              console.warn(`⚠️ ${friend.pseudo} (${friend.id}) n'a pas de token FCM dans la base`);
-            } else {
-              console.log(`✅ ${friend.pseudo} (${friend.id}) a un token FCM: ${friend.expo_push_token.substring(0, 20)}...`);
+              // Token manquant, mais on ne log plus
             }
           });
           
@@ -392,7 +589,7 @@ export function FriendsList() {
             table: 'friends',
           },
           (payload) => {
-            console.log('🔔 Relation friend mise à jour via Realtime:', payload);
+            // Relation friend mise à jour via Realtime
             // Recharger les données si le statut change (sans remettre loading si données déjà affichées)
             if (payload.new.status !== payload.old.status) {
               loadData(false, false);
@@ -407,13 +604,13 @@ export function FriendsList() {
             table: 'friends',
           },
           (payload) => {
-            console.log('🔔 Nouvelle relation friend créée via Realtime:', payload);
+            // Nouvelle relation friend créée via Realtime
             // Recharger les données (sans remettre loading si données déjà affichées)
             loadData(false, false);
           }
         )
-        .subscribe((status) => {
-          console.log('📡 Statut subscription Realtime friends:', status);
+        .subscribe(() => {
+          // Subscription active, pas besoin de log
         });
 
       subscriptionRef.current = channel;
@@ -497,17 +694,67 @@ export function FriendsList() {
     try { await supabase.from('friends').delete().eq('id', requestId); loadData(); } catch (e) {}
   };
 
+  const handleDeleteFriend = async (friend: any) => {
+    if (!currentUserId) return;
+    
+    // Afficher la confirmation avec Alert
+    Alert.alert(
+      'Confirmer la suppression',
+      `Voulez-vous supprimer "${friend.pseudo}" de votre liste ?`,
+      [
+        {
+          text: 'Non',
+          style: 'cancel',
+          onPress: () => {
+            // Rien à faire, le slider reviendra automatiquement
+          },
+        },
+        {
+          text: 'Confirmer',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Supprimer les deux relations dans friends (A→B et B→A)
+              // Relation A→B (où currentUserId est user_id)
+              await supabase
+                .from('friends')
+                .delete()
+                .eq('user_id', currentUserId)
+                .eq('friend_id', friend.id);
+              
+              // Relation B→A (où friend.id est user_id)
+              await supabase
+                .from('friends')
+                .delete()
+                .eq('user_id', friend.id)
+                .eq('friend_id', currentUserId);
+              
+              // Recharger la liste
+              loadData();
+              
+              // Afficher un toast de confirmation
+              showToast(`${friend.pseudo} a été supprimé de votre liste`);
+            } catch (error) {
+              console.error('Erreur lors de la suppression:', error);
+              Alert.alert('Erreur', 'Impossible de supprimer cet ami');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const showToast = (message: string) => {
     setToastMessage(message);
     // Animation d'apparition
-    Animated.sequence([
-      Animated.timing(toastOpacity, {
+    RNAnimated.sequence([
+      RNAnimated.timing(toastOpacity, {
         toValue: 1,
         duration: 200,
         useNativeDriver: true,
       }),
-      Animated.delay(1300), // Afficher pendant 1.3s
-      Animated.timing(toastOpacity, {
+      RNAnimated.delay(1300), // Afficher pendant 1.3s
+      RNAnimated.timing(toastOpacity, {
         toValue: 0,
         duration: 200,
         useNativeDriver: true,
@@ -565,11 +812,27 @@ export function FriendsList() {
   };
 
   const handleSendProut = async (recipient: any) => {
+    // Vérifier le cooldown pour cet utilisateur
+    const now = Date.now();
+    const lastSent = cooldownMapRef.current.get(recipient.id);
+    
+    if (lastSent && (now - lastSent) < COOLDOWN_DURATION) {
+      // En cooldown, ignorer la requête
+      const remainingTime = Math.ceil((COOLDOWN_DURATION - (now - lastSent)) / 1000);
+      // Cooldown actif, réessayez plus tard
+      return;
+    }
+    
+    // Mettre à jour le timestamp pour cet utilisateur
+    cooldownMapRef.current.set(recipient.id, now);
+    
     try {
       // TOUJOURS recharger le pseudo depuis la base pour être sûr d'avoir la valeur à jour
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         Alert.alert("Erreur", "Vous n'êtes pas connecté.");
+        // Retirer le cooldown en cas d'erreur
+        cooldownMapRef.current.delete(recipient.id);
         return;
       }
 
@@ -583,12 +846,14 @@ export function FriendsList() {
       if (senderProfileError || !senderProfile?.pseudo) {
         console.error('❌ Erreur lors de la récupération du pseudo de l\'expéditeur:', senderProfileError);
         Alert.alert("Erreur", "Impossible de récupérer votre pseudo. Veuillez réessayer.");
+        cooldownMapRef.current.delete(recipient.id);
         return;
       }
 
       const senderPseudo = senderProfile.pseudo.trim();
       if (!senderPseudo || senderPseudo === '') {
         Alert.alert("Erreur", "Votre pseudo n'est pas défini. Veuillez compléter votre profil.");
+        cooldownMapRef.current.delete(recipient.id);
         return;
       }
 
@@ -600,17 +865,8 @@ export function FriendsList() {
       // Le token FCM est stocké dans expo_push_token (réutilisation du champ existant)
       let fcmToken = recipient.expo_push_token;
       
-      // Log de debug pour voir ce qui est passé
-      console.log(`🔍 [DEBUG] Tentative d'envoi à ${recipient.pseudo} (${recipient.id}):`, {
-        hasTokenInObject: !!fcmToken,
-        tokenLength: fcmToken?.length || 0,
-        tokenPreview: fcmToken ? fcmToken.substring(0, 20) + '...' : 'null/undefined',
-        senderPseudo: senderPseudo
-      });
-      
       // Si le token n'est pas présent, essayer de le récupérer depuis la base
       if (!fcmToken || fcmToken.trim() === '') {
-        console.warn(`⚠️ Token FCM manquant pour ${recipient.pseudo} (${recipient.id}), tentative de récupération depuis la base...`);
         const { data: profile, error: profileError } = await supabase
           .from('user_profiles')
           .select('expo_push_token, pseudo')
@@ -623,7 +879,6 @@ export function FriendsList() {
         
         if (profile?.expo_push_token && profile.expo_push_token.trim() !== '') {
           fcmToken = profile.expo_push_token;
-          console.log(`✅ Token FCM récupéré depuis la base pour ${recipient.pseudo} (${recipient.id})`);
           
           // Mettre à jour l'objet dans la liste pour éviter de refaire la requête
           const updatedUsers = appUsers.map(u => 
@@ -631,26 +886,21 @@ export function FriendsList() {
           );
           setAppUsers(updatedUsers);
         } else {
-          console.error(`❌ Token FCM vraiment absent pour ${recipient.pseudo} (${recipient.id}) dans la base de données`);
           Alert.alert(
             "Oups", 
             `${recipient.pseudo} n'a pas activé les notifications. Le token n'est pas disponible dans la base de données.`
           );
+          // Retirer le cooldown en cas d'erreur
+          cooldownMapRef.current.delete(recipient.id);
           return;
         }
       }
 
-      // Vérifier que c'est bien un token FCM (pas un token Expo Push)
-      if (fcmToken.startsWith('ExponentPushToken[')) {
-        console.warn('⚠️ Token Expo Push détecté au lieu d\'un token FCM. Le backend nécessite un token FCM natif.');
-        Alert.alert("Erreur", "Le token de notification n'est pas valide. Veuillez redémarrer l'app.");
-        return;
-      }
+      // Le backend se charge de détecter le type de token (iOS Expo ou Android FCM)
+      // et d'utiliser la bonne API. On envoie le token tel quel.
 
       // ⚡ Choisir un prout aléatoire AVANT de l'utiliser
       const randomKey = SOUND_KEYS[Math.floor(Math.random() * SOUND_KEYS.length)];
-      
-      console.log('📤 Envoi prout à:', recipient.pseudo, 'De:', senderPseudo, 'Token:', fcmToken.substring(0, 20) + '...', 'Prout:', randomKey);
 
       // Jouer localement
       const soundFile = PROUT_SOUNDS[randomKey];
@@ -659,10 +909,33 @@ export function FriendsList() {
 
       // Envoyer le push via backend avec le token FCM et le bon pseudo
       await sendProutViaBackend(fcmToken, senderPseudo, randomKey);
+      
+      // Afficher le nom du prout dans un toast
+      const proutName = PROUT_NAMES[randomKey] || randomKey;
+      showToast(`${proutName} !`);
+      
+      // Déclencher l'animation de secousse du header
+      if (onProutSent) {
+        onProutSent();
+      }
 
-    } catch (error) {
-      console.error("Erreur prout:", error);
-      Alert.alert("Erreur", "Impossible d'envoyer le prout.");
+    } catch (error: any) {
+      console.error("Erreur lors de l'envoi du prout:", error?.message || error);
+      
+      // Si c'est une erreur 429 (Too Many Requests), informer l'utilisateur
+      if (error?.message?.includes('429') || error?.message?.includes('Too Many Requests')) {
+        Alert.alert("Trop rapide !", "Attendez un peu avant d'envoyer un autre prout.");
+      } else {
+        // Message plus détaillé selon le type d'erreur
+        let errorMessage = "Impossible d'envoyer le prout.";
+        if (error?.message?.includes('Backend error')) {
+          errorMessage = "Erreur serveur. Le backend ne peut pas traiter ce type de token.\n\nVérifiez que le backend est configuré pour iOS (Expo Push).";
+        }
+        Alert.alert("Erreur", errorMessage);
+      }
+      
+      // En cas d'erreur, on retire le cooldown pour permettre une nouvelle tentative
+      cooldownMapRef.current.delete(recipient.id);
     }
   };
 
@@ -696,13 +969,14 @@ export function FriendsList() {
           keyExtractor={(item) => item.id}
           scrollEnabled={false}
           renderItem={({ item, index }) => (
-            <View style={[styles.userRow, { backgroundColor: index % 2 === 0 ? '#d2f1ef' : '#baded7' }]}>
-              <View style={styles.userInfo}>
-                <TouchableOpacity onLongPress={() => handleLongPressName(item)} activeOpacity={0.7}>
-                  <Text style={styles.pseudo} numberOfLines={1}>{item.pseudo}</Text>
-                </TouchableOpacity>
-              </View>
-              <ProutSlider onComplete={() => handleSendProut(item)} />
+            <View style={{ position: 'relative', marginBottom: 8 }}>
+              <SwipeableFriendRow
+                friend={item}
+                backgroundColor={index % 2 === 0 ? '#d2f1ef' : '#baded7'}
+                onSendProut={() => handleSendProut(item)}
+                onLongPressName={() => handleLongPressName(item)}
+                onDeleteFriend={() => handleDeleteFriend(item)}
+              />
             </View>
           )}
         />
@@ -710,9 +984,9 @@ export function FriendsList() {
 
       {/* Toast qui disparaît automatiquement */}
       {toastMessage && (
-        <Animated.View style={[styles.toast, { opacity: toastOpacity }]}>
+        <RNAnimated.View style={[styles.toast, { opacity: toastOpacity }]}>
           <Text style={styles.toastText}>{toastMessage}</Text>
-        </Animated.View>
+        </RNAnimated.View>
       )}
     </View>
   );
@@ -730,7 +1004,50 @@ const styles = StyleSheet.create({
   emptyCard: { backgroundColor: 'rgba(255,255,255,0.7)', padding: 20, borderRadius: 15, alignItems: 'center' },
   emptyText: { color: '#666', fontSize: 16, fontWeight: 'bold' },
   subText: { color: '#888', fontSize: 14, marginTop: 5 },
-  userRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, borderRadius: 15, marginBottom: 8 },
+  swipeableRow: {
+    position: 'relative',
+    borderRadius: 15,
+    overflow: 'hidden', // Garder hidden pour le design
+    height: 60, // Hauteur fixe pour aligner l'image
+    zIndex: 1, // S'assurer que le conteneur reste dans son espace
+  },
+  swipeBackground: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: '100%',
+    justifyContent: 'center', // Centrer verticalement
+    alignItems: 'flex-start', // Positionner à gauche
+    paddingLeft: 20, // Espacement depuis la gauche
+    height: 60, // Même hauteur que la ligne
+    backgroundColor: 'rgba(255, 255, 255, 0.4)', // Fond clair pour différencier les couches
+    overflow: 'hidden', // CRITIQUE : Masquer impérativement ce qui dépasse lors du zoom agressif
+  },
+  animImage: {
+    width: 60,
+    height: 60,
+    // Le transform origin est center par défaut en React Native
+    // L'image va zoomer depuis son centre
+  },
+  finalImageContainer: {
+    // Conteneur pour l'image finale pour éviter qu'elle affecte le layout parent
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    overflow: 'hidden',
+    zIndex: 1,
+  },
+  swipeForeground: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    height: '100%',
+    width: '100%',
+  },
   toast: {
     position: 'absolute',
     top: 100,
@@ -753,11 +1070,23 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
   },
-  userInfo: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 10 },
+  userInfo: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   pseudo: { fontSize: 18, fontWeight: '600', color: '#333', marginLeft: 10 },
-  sliderContainer: { position: 'relative' },
-  sliderTrack: { width: 180, height: 44, backgroundColor: 'rgba(255,255,255,0.5)', borderRadius: 22, justifyContent: 'center', padding: 2 },
-  sliderThumb: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'white', justifyContent: 'center', alignItems: 'center', shadowColor: "#000", shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.2, shadowRadius: 2, elevation: 3 },
-  sliderText: { position: 'absolute', width: '100%', textAlign: 'center', fontSize: 12, color: '#666', fontWeight: 'bold', zIndex: -1 },
-  flyingCloud: { position: 'absolute', right: 0, top: -20, fontSize: 30, zIndex: 999, elevation: 10 }
+  deleteBackground: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: '100%',
+    backgroundColor: '#F44336', // Rouge
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+    paddingRight: 20,
+    borderRadius: 15,
+  },
+  deleteText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
 });

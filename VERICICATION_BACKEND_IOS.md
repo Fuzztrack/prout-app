@@ -125,3 +125,6 @@ Ensuite, vérifiez sur Render que le déploiement démarre automatiquement.
 2. **Copiez-moi les logs** pour que je puisse voir l'erreur exacte
 3. **Vérifiez que le token est bien au format** `ExponentPushToken[...]`
 
+
+
+

@@ -107,3 +107,6 @@ Après le clean build et le rebuild dans Xcode :
 - ✅ Plus d'icône par défaut d'Apple
 - ✅ L'icône apparaîtra correctement sur l'iPhone
 
+
+
+

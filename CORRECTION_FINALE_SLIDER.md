@@ -95,3 +95,6 @@ Une fois le backend corrigé :
 2. Rechargez l'app (`Cmd + R` dans Metro ou shake gesture sur iPhone)
 3. Vérifiez les logs pour voir si l'erreur `GestureHandlerRootView` persiste
 
+
+
+

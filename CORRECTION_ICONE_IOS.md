@@ -114,3 +114,6 @@ Après le prebuild et le rebuild :
    npx expo prebuild --platform ios
    ```
 
+
+
+

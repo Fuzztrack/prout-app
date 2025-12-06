@@ -100,3 +100,6 @@ const maxSwipe = SCREEN_WIDTH * 0.7; // Maximum 70% de l'écran
 3. Vérifier les dépendances npm
 4. Tester sur iOS et corriger le problème de blocage
 
+
+
+

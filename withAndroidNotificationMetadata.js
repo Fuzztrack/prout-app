@@ -23,11 +23,11 @@ const withAndroidNotificationMetadata = (config) => {
         item.$['android:name'] !== 'com.google.firebase.messaging.default_notification_color'
     );
 
-    // On injecte notre canal par défaut (V14) avec tools:replace pour éviter les conflits
+    // On injecte notre canal par défaut avec tools:replace pour éviter les conflits
     mainApplication['meta-data'].push({
       $: {
         'android:name': 'com.google.firebase.messaging.default_notification_channel_id',
-        'android:value': 'prout1-v14', // Doit matcher le code JS
+        'android:value': 'prout1', // Doit correspondre au canal créé dans lib/notifications.ts
         'tools:replace': 'android:value', // Résout les conflits avec react-native-firebase
       },
     });

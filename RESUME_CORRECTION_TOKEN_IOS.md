@@ -82,3 +82,6 @@ eas build --platform android --profile preview
 - **`FIX_BACKEND_TOKEN_IOS.md`** : Instructions détaillées pour corriger le backend
 - **`CORRECTION_ANDROID_IOS_TOKEN.md`** : Explication du problème complet
 
+
+
+

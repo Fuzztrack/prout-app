@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity } from 'react-native';
 import { CustomButton } from '../components/CustomButton';
 import { normalizePhone } from '../lib/normalizePhone';
+import { safePush, safeReplace } from '../lib/navigation';
 import { supabase } from '../lib/supabase';
 
 export default function CompleteProfileScreen() {
@@ -13,8 +14,13 @@ export default function CompleteProfileScreen() {
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
+
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
+
+      if (!isMounted) return;
+
       if (user) {
         setUserId(user.id);
         
@@ -33,10 +39,15 @@ export default function CompleteProfileScreen() {
         // Le pseudo est pré-rempli dans le champ, l'utilisateur doit valider manuellement
         // Pas de mise à jour automatique ni de redirection automatique
       } else {
-        router.replace('/AuthChoiceScreen');
+        safeReplace(router, '/AuthChoiceScreen', { skipInitialCheck: false });
       }
     };
+
     getUser();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const handleSave = async () => {
@@ -63,7 +74,18 @@ export default function CompleteProfileScreen() {
 
       if (error) throw error;
 
-      router.replace('/(tabs)');
+      try {
+        await supabase.auth.updateUser({
+          data: {
+            pseudo: pseudo.trim(),
+            pseudo_validated: true,
+          },
+        });
+      } catch (metaError) {
+        console.warn('⚠️ Impossible de mettre à jour les métadonnées pseudo:', metaError);
+      }
+
+      safeReplace(router, '/(tabs)', { skipInitialCheck: false });
 
     } catch (e: any) {
       Alert.alert("Erreur", e.message);
@@ -79,7 +101,7 @@ export default function CompleteProfileScreen() {
     } catch (e) {
         console.log("Erreur déconnexion:", e);
     }
-    router.replace('/AuthChoiceScreen');
+    safeReplace(router, '/AuthChoiceScreen', { skipInitialCheck: false });
   };
 
   return (
@@ -88,7 +110,7 @@ export default function CompleteProfileScreen() {
       style={styles.container}
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <TouchableOpacity onPress={() => router.push('/(tabs)')} activeOpacity={0.7}>
+        <TouchableOpacity onPress={() => safePush(router, '/(tabs)', { skipInitialCheck: false })} activeOpacity={0.7}>
           <Image source={require('../assets/images/prout-meme.png')} style={styles.image} resizeMode="contain" />
         </TouchableOpacity>
         

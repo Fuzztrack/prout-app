@@ -85,3 +85,6 @@ Les modifications dans `app/_layout.tsx` prendront effet :
 - [ ] Backend redéployé sur Render
 - [ ] Test Android → iOS après redéploiement
 
+
+
+

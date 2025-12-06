@@ -5,6 +5,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { CustomButton } from '../components/CustomButton';
+import { safePush, safeReplace } from '../lib/navigation';
 import { getRedirectUrl, supabase } from '../lib/supabase';
 
 // Sécurité pour OAuth
@@ -15,48 +16,49 @@ export default function AuthChoiceScreen() {
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
 
-  // 1. VÉRIFICATION ROBUSTE AU DÉMARRAGE
+  const replaceWithSkip = (path: string) => {
+    safeReplace(router, path, { skipInitialCheck: false });
+  };
+
+  const closeAuthSessionIfNeeded = async () => {
+    try {
+      await WebBrowser.dismissBrowser();
+    } catch {
+      // Aucun navigateur à fermer
+    }
+  };
+
+  const openAuthSessionSafe = async (
+    url: string,
+    redirectUrl: string,
+    options?: WebBrowser.WebBrowserOpenOptions,
+  ) => {
+    await closeAuthSessionIfNeeded();
+    return WebBrowser.openAuthSessionAsync(url, redirectUrl, options);
+  };
+
+  // 1. Vérification simple pour éviter les sessions fantômes
   useEffect(() => {
+    let isMounted = true;
     const checkUser = async () => {
       try {
-        // ⚠️ CHANGEMENT ICI : On utilise getUser() au lieu de getSession()
-        // getUser vérifie que l'utilisateur existe vraiment dans la base de données.
         const { data: { user }, error } = await supabase.auth.getUser();
-
         if (error || !user) {
-          // Le token est invalide ou l'user supprimé -> On nettoie tout
-          console.log("🧹 Nettoyage session fantôme...");
           await supabase.auth.signOut();
-          setChecking(false); // On affiche les boutons
-          return;
-        }
-
-        // Si l'user existe vraiment, on vérifie son profil
-        const { data: profile } = await supabase
-          .from('user_profiles')
-          .select('pseudo')
-          .eq('id', user.id)
-          .maybeSingle();
-
-        // Vérifier si le pseudo est valide (pas "Nouveau Membre" et pas le nom complet Google)
-        const googleName = user.user_metadata?.full_name || user.user_metadata?.name || '';
-        const isPseudoValid = profile && 
-                              profile.pseudo && 
-                              profile.pseudo !== 'Nouveau Membre' &&
-                              profile.pseudo !== googleName;
-
-        if (isPseudoValid) {
-          router.replace('/(tabs)');
-        } else {
-          router.replace('/CompleteProfileScreen');
         }
       } catch (e) {
         console.log("Erreur AuthChoice:", e);
-        setChecking(false);
+      } finally {
+        if (isMounted) {
+          setChecking(false);
+        }
       }
     };
-    
+
     checkUser();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Helper pour gérer le résultat OAuth
@@ -124,7 +126,7 @@ export default function AuthChoiceScreen() {
                     
                     // Stocker le prénom dans les métadonnées pour les prochaines connexions
                     const { error: updateMetaError } = await supabase.auth.updateUser({
-                      data: { pseudo: firstName }
+                      data: { pseudo: firstName, pseudo_validated: false }
                     });
                     if (updateMetaError) {
                       console.error('❌ Erreur mise à jour métadonnées:', updateMetaError);
@@ -230,16 +232,12 @@ export default function AuthChoiceScreen() {
                 return randomPattern.test(pseudo) && !pseudo.includes(' ') || uuidPattern.test(pseudo);
               };
               
-              // Toujours rediriger vers CompleteProfileScreen pour que l'utilisateur valide/modifie le pseudo
-              // Le pseudo extrait depuis Apple sera pré-rempli dans CompleteProfileScreen
-              console.log('➡️ Navigation vers /CompleteProfileScreen pour validation du pseudo');
+              // Laisser l'auto-routeur global décider de la navigation finale vers CompleteProfileScreen
+              console.log('➡️ Profil à valider : on laisse RootLayout/index rediriger vers CompleteProfileScreen');
               
-              // Réinitialiser le flag OAuth après la navigation
               if (typeof (global as any).__isOAuthFlow === 'function') {
                 (global as any).__isOAuthFlow(false);
               }
-              
-              router.replace('/CompleteProfileScreen');
               
               return true;
             }
@@ -312,7 +310,7 @@ export default function AuthChoiceScreen() {
           (global as any).__isOAuthFlow(true);
         }
         
-        const result = await WebBrowser.openAuthSessionAsync(
+        const result = await openAuthSessionSafe(
           data.url, 
           redirectUrl,
           {
@@ -384,7 +382,7 @@ export default function AuthChoiceScreen() {
               (global as any).__isOAuthFlow(true);
             }
             
-            const result = await WebBrowser.openAuthSessionAsync(
+            const result = await openAuthSessionSafe(
               data.url, 
               redirectUrl,
               {
@@ -433,7 +431,7 @@ export default function AuthChoiceScreen() {
               (global as any).__isOAuthFlow(true);
             }
             
-            const result = await WebBrowser.openAuthSessionAsync(
+            const result = await openAuthSessionSafe(
               data.url, 
               redirectUrl,
               {
@@ -469,6 +467,10 @@ export default function AuthChoiceScreen() {
           const { data, error } = await supabase.auth.signInWithIdToken({
             provider: 'apple',
             token: credential.identityToken,
+            nonce: credential.nonce ?? undefined,
+            options: {
+              clientId: 'com.fuzztrack.proutapp',
+            },
           });
 
           if (error) {
@@ -493,7 +495,7 @@ export default function AuthChoiceScreen() {
               pseudoToUse = fullName.split(' ')[0].trim();
               if (pseudoToUse && pseudoToUse.length > 0) {
                 await supabase.auth.updateUser({
-                  data: { pseudo: pseudoToUse, pseudo_from_apple: true }
+                  data: { pseudo: pseudoToUse, pseudo_from_apple: true, pseudo_validated: false }
                 });
                 console.log('✅ Prénom Apple stocké dans les métadonnées:', pseudoToUse);
               }
@@ -504,7 +506,7 @@ export default function AuthChoiceScreen() {
               (global as any).__isOAuthFlow(false);
             }
             
-            router.replace('/CompleteProfileScreen'); // Toujours rediriger vers CompleteProfileScreen pour validation
+            replaceWithSkip('/CompleteProfileScreen'); // Toujours rediriger vers CompleteProfileScreen pour validation
           }
         } catch (nativeError: any) {
           // Si l'authentification native échoue (simulateur), fallback sur OAuth Web
@@ -539,7 +541,7 @@ export default function AuthChoiceScreen() {
               (global as any).__isOAuthFlow(true);
             }
             
-            const result = await WebBrowser.openAuthSessionAsync(
+            const result = await openAuthSessionSafe(
               data.url, 
               redirectUrl,
               {
@@ -581,7 +583,7 @@ export default function AuthChoiceScreen() {
             (global as any).__isOAuthFlow(true);
           }
           
-          const result = await WebBrowser.openAuthSessionAsync(
+          const result = await openAuthSessionSafe(
             data.url, 
             redirectUrl,
             {
@@ -682,14 +684,14 @@ export default function AuthChoiceScreen() {
 
         <CustomButton 
           title="S'inscrire avec un Email" 
-          onPress={() => router.push('/RegisterEmailScreen')} 
+          onPress={() => safePush(router, '/RegisterEmailScreen', { skipInitialCheck: false })} 
           color="#604a3e"
           textColor="#ebb89b"
         />
 
         <CustomButton
           title="J'ai déjà un compte (Email)"
-          onPress={() => router.push('/LoginScreen')}
+          onPress={() => safePush(router, '/LoginScreen', { skipInitialCheck: false })}
           color="transparent"
           textColor="#604a3e"
           small

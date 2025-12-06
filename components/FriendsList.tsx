@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAudioPlayer } from 'expo-audio';
+import { Audio } from 'expo-av';
 import * as Contacts from 'expo-contacts';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, FlatList, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -9,6 +10,7 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
+  withDelay,
   runOnJS,
   interpolate,
   Extrapolation,
@@ -31,26 +33,26 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 const SWIPE_THRESHOLD = 150; // Seuil pour déclencher l'action
 
 const PROUT_SOUNDS: { [key: string]: any } = {
-  prout1: require('../assets/sounds/prout1.ogg'),
-  prout2: require('../assets/sounds/prout2.ogg'),
-  prout3: require('../assets/sounds/prout3.ogg'),
-  prout4: require('../assets/sounds/prout4.ogg'),
-  prout5: require('../assets/sounds/prout5.ogg'),
-  prout6: require('../assets/sounds/prout6.ogg'),
-  prout7: require('../assets/sounds/prout7.ogg'),
-  prout8: require('../assets/sounds/prout8.ogg'),
-  prout9: require('../assets/sounds/prout9.ogg'),
-  prout10: require('../assets/sounds/prout10.ogg'),
-  prout11: require('../assets/sounds/prout11.ogg'),
-  prout12: require('../assets/sounds/prout12.ogg'),
-  prout13: require('../assets/sounds/prout13.ogg'),
-  prout14: require('../assets/sounds/prout14.ogg'),
-  prout15: require('../assets/sounds/prout15.ogg'),
-  prout16: require('../assets/sounds/prout16.ogg'),
-  prout17: require('../assets/sounds/prout17.ogg'),
-  prout18: require('../assets/sounds/prout18.ogg'),
-  prout19: require('../assets/sounds/prout19.ogg'),
-  prout20: require('../assets/sounds/prout20.ogg'),
+  prout1: require('../assets/sounds/prout1.wav'),
+  prout2: require('../assets/sounds/prout2.wav'),
+  prout3: require('../assets/sounds/prout3.wav'),
+  prout4: require('../assets/sounds/prout4.wav'),
+  prout5: require('../assets/sounds/prout5.wav'),
+  prout6: require('../assets/sounds/prout6.wav'),
+  prout7: require('../assets/sounds/prout7.wav'),
+  prout8: require('../assets/sounds/prout8.wav'),
+  prout9: require('../assets/sounds/prout9.wav'),
+  prout10: require('../assets/sounds/prout10.wav'),
+  prout11: require('../assets/sounds/prout11.wav'),
+  prout12: require('../assets/sounds/prout12.wav'),
+  prout13: require('../assets/sounds/prout13.wav'),
+  prout14: require('../assets/sounds/prout14.wav'),
+  prout15: require('../assets/sounds/prout15.wav'),
+  prout16: require('../assets/sounds/prout16.wav'),
+  prout17: require('../assets/sounds/prout17.wav'),
+  prout18: require('../assets/sounds/prout18.wav'),
+  prout19: require('../assets/sounds/prout19.wav'),
+  prout20: require('../assets/sounds/prout20.wav'),
 };
 
 // Mapping des noms de prouts (doit correspondre au backend)
@@ -60,7 +62,7 @@ const PROUT_NAMES: Record<string, string> = {
   prout3: "Le Rebond du Tonnerre",
   prout4: "Le Faux Départ",
   prout5: "Le Frelon Trébuchant",
-  prout6: "Le Kraken Douillet",
+  prout6: "Le Kraken",
   prout7: "La Farandole",
   prout8: "Le Question Réponse",
   prout9: "Le Oulala… Problème",
@@ -68,13 +70,13 @@ const PROUT_NAMES: Record<string, string> = {
   prout11: "La Mitraille Molle",
   prout12: "La Rafale Infernale",
   prout13: "Le Lâché Prise",
-  prout14: "Le Basson Dubitatif",
+  prout14: "Le Basson",
   prout15: "La Fantaisie de Minuit",
   prout16: "Le Marmiton Furieux",
   prout17: "L'Éclair Fromager",
   prout18: "L'Impromptu",
-  prout19: "Le Tuba Chaotique",
-  prout20: "L'Eternel",
+  prout19: "La Grosse Bertha",
+  prout20: "L'Éternel",
 };
 
 const SOUND_KEYS = Object.keys(PROUT_SOUNDS);
@@ -130,19 +132,31 @@ const SwipeableFriendRow = ({
   backgroundColor, 
   onSendProut, 
   onLongPressName,
-  onDeleteFriend
+  onDeleteFriend,
+  introDelay = 0,
 }: { 
   friend: any; 
   backgroundColor: string; 
   onSendProut: () => void; 
   onLongPressName: () => void;
   onDeleteFriend: () => void;
+  introDelay?: number;
 }) => {
   const translationX = useSharedValue(0);
   const maxSwipeRight = SCREEN_WIDTH * 0.7; // Maximum 70% de l'écran vers la droite
   const maxSwipeLeft = SCREEN_WIDTH * 0.7; // Maximum 70% de l'écran vers la gauche
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showFinalImage, setShowFinalImage] = useState(false);
+  const introOffset = useSharedValue(0);
+  const introDirectionRef = useRef(Math.random() > 0.5 ? 1 : -1);
+
+  useEffect(() => {
+    introOffset.value = introDirectionRef.current * 24;
+    introOffset.value = withDelay(
+      introDelay,
+      withSpring(0, { damping: 12, stiffness: 140 })
+    );
+  }, [introDelay, introOffset]);
   
   // Calculer l'index de l'image en fonction de la distance du swipe (seulement pour swipe droite)
   const getImageIndex = (dx: number) => {
@@ -185,6 +199,8 @@ const SwipeableFriendRow = ({
 
   // Geste avec Reanimated (fluide sur iOS) - Supporte gauche et droite
   const gesture = Gesture.Pan()
+    .activeOffsetX([-15, 15]) // Exiger un mouvement horizontal franc
+    .failOffsetY([-10, 10])   // Laisser le scroll vertical passer
     .onStart(() => {
       // Reset si nécessaire
     })
@@ -228,7 +244,7 @@ const SwipeableFriendRow = ({
   // Style animé pour la ligne qui se déplace
   const animatedLineStyle = useAnimatedStyle(() => {
     return {
-      transform: [{ translateX: translationX.value }],
+      transform: [{ translateX: translationX.value + introOffset.value }],
     };
   });
 
@@ -331,6 +347,7 @@ export function FriendsList({ onProutSent }: { onProutSent?: () => void } = {}) 
   const [appUsers, setAppUsers] = useState<any[]>([]);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true); // Commencer à true pour éviter le flash
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentPseudo, setCurrentPseudo] = useState<string>("Un ami");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -339,12 +356,27 @@ export function FriendsList({ onProutSent }: { onProutSent?: () => void } = {}) 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const cacheLoadedRef = useRef(false); // Pour éviter de charger le cache plusieurs fois
   const contactsSyncedRef = useRef(false); // Pour éviter de synchroniser les contacts plusieurs fois
+  const phoneFriendIdsRef = useRef<string[]>([]);
   
   // Cooldown par utilisateur pour éviter le spam (Map<userId, timestamp>)
   const cooldownMapRef = useRef<Map<string, number>>(new Map());
   const COOLDOWN_DURATION = 2000; // 2 secondes de pause entre chaque envoi
 
   const player = useAudioPlayer(); // ⚡ Audio player sans son par défaut
+
+  useEffect(() => {
+    const mode: Audio.AudioMode = {
+      allowsRecordingIOS: false,
+      playsInSilentModeIOS: true,
+      staysActiveInBackground: false,
+      shouldDuckAndroid: false,
+      playThroughEarpieceAndroid: false,
+    };
+
+    Audio.setAudioModeAsync(mode).catch((error) => {
+      console.warn('⚠️ Impossible de configurer le mode audio:', error);
+    });
+  }, []);
 
   useEffect(() => {
     const initialize = async () => {
@@ -538,6 +570,7 @@ export function FriendsList({ onProutSent }: { onProutSent?: () => void } = {}) 
       const friendsWhereIAmFriendIds = friendsWhereIAmFriend?.map(f => f.user_id) || [];
       
       // Combiner tous les IDs d'amis (contacts + relations acceptées dans les deux sens)
+      phoneFriendIdsRef.current = phoneFriendsIds;
       const allFriendIds = [...new Set([...phoneFriendsIds, ...addedFriendsIds, ...friendsWhereIAmFriendIds])];
 
       if (allFriendIds.length > 0) {
@@ -545,10 +578,34 @@ export function FriendsList({ onProutSent }: { onProutSent?: () => void } = {}) 
           // IMPORTANT : Vérifier que le token est bien présent
           const { data: finalFriends } = await supabase
             .from('user_profiles')
-            .select('id, pseudo, phone, expo_push_token')
+            .select('id, pseudo, phone, expo_push_token, push_platform')
             .in('id', allFriendIds);
           
-          const friendsList = finalFriends || [];
+          let identityAliasMap: Record<string, { alias: string | null, status: string | null }> = {};
+          if (allFriendIds.length > 0) {
+            const { data: reveals } = await supabase
+              .from('identity_reveals')
+              .select('friend_id, alias, status')
+              .eq('requester_id', user.id)
+              .in('friend_id', allFriendIds);
+
+            if (reveals) {
+              identityAliasMap = reveals.reduce((acc, reveal) => {
+                acc[reveal.friend_id] = {
+                  alias: reveal.alias,
+                  status: reveal.status,
+                };
+                return acc;
+              }, {} as Record<string, { alias: string | null, status: string | null }>);
+            }
+          }
+
+          const friendsList = (finalFriends || []).map(friend => ({
+            ...friend,
+            isPhoneContact: phoneFriendsIds.includes(friend.id),
+            identityAlias: identityAliasMap[friend.id]?.alias || null,
+            identityStatus: identityAliasMap[friend.id]?.status || null,
+          }));
           
           // Vérifier les tokens (sans logs)
           friendsList.forEach(friend => {
@@ -697,6 +754,18 @@ export function FriendsList({ onProutSent }: { onProutSent?: () => void } = {}) 
   const handleDeleteFriend = async (friend: any) => {
     if (!currentUserId) return;
     
+    const isContactFriend =
+      friend?.isPhoneContact ||
+      phoneFriendIdsRef.current.includes(friend?.id);
+
+    if (isContactFriend) {
+      Alert.alert(
+        'Suppression impossible',
+        'Cet ami est un contact par téléphone, il ne peut pas être supprimé ici',
+      );
+      return;
+    }
+    
     // Afficher la confirmation avec Alert
     Alert.alert(
       'Confirmer la suppression',
@@ -765,49 +834,98 @@ export function FriendsList({ onProutSent }: { onProutSent?: () => void } = {}) 
   };
 
   const handleLongPressName = async (friend: any) => {
-    if (!friend.phone) {
-      // Pas de téléphone, ne rien afficher
+    if (friend.identityAlias) {
+      showToast(`✨ ${friend.identityAlias}`);
       return;
     }
 
+    if (friend.identityStatus === 'pending') {
+      Alert.alert('Demande en attente', `Tu as déjà demandé à ${friend.pseudo} de confirmer son identité. Patience 🤞`);
+      return;
+    }
+
+    let contactRevealed = false;
+
+    if (friend.phone) {
+      try {
+        const { status } = await Contacts.requestPermissionsAsync();
+        if (status === 'granted') {
+          const { data: contacts } = await Contacts.getContactsAsync({
+            fields: [Contacts.Fields.PhoneNumbers, Contacts.Fields.Name],
+          });
+
+          if (contacts && contacts.length > 0) {
+            const normalizedFriendPhone = normalizePhone(friend.phone);
+
+            const matchingContact = contacts.find(contact => {
+              if (!contact.phoneNumbers || contact.phoneNumbers.length === 0) return false;
+              return contact.phoneNumbers.some(phoneNumber => {
+                const normalizedContactPhone = normalizePhone(phoneNumber.number || '');
+                return normalizedContactPhone === normalizedFriendPhone;
+              });
+            });
+
+            if (matchingContact) {
+              const fullName = matchingContact.name || matchingContact.firstName || matchingContact.lastName || friend.pseudo;
+              showToast(fullName);
+              contactRevealed = true;
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Erreur lors de la recherche du contact:", error);
+      }
+    }
+
+    if (contactRevealed) {
+      return;
+    }
+
+    Alert.alert(
+      'Identité inconnue',
+      `Tu ne sais pas qui est "${friend.pseudo}". Lui demander de se dévoiler ?`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Demander',
+          onPress: () => requestIdentityReveal(friend),
+        },
+      ],
+    );
+  };
+
+  const requestIdentityReveal = async (friend: any) => {
+    if (!currentUserId) return;
+
     try {
-      const { status } = await Contacts.requestPermissionsAsync();
-      if (status !== 'granted') {
-        // Permission refusée, ne rien afficher
-        return;
-      }
-
-      // Charger tous les contacts avec les noms
-      const { data: contacts } = await Contacts.getContactsAsync({
-        fields: [Contacts.Fields.PhoneNumbers, Contacts.Fields.Name],
-      });
-
-      if (!contacts || contacts.length === 0) {
-        // Pas de contact trouvé, ne rien afficher
-        return;
-      }
-
-      // Normaliser le numéro de téléphone de l'ami
-      const normalizedFriendPhone = normalizePhone(friend.phone);
-
-      // Chercher le contact correspondant
-      const matchingContact = contacts.find(contact => {
-        if (!contact.phoneNumbers || contact.phoneNumbers.length === 0) return false;
-        return contact.phoneNumbers.some(phoneNumber => {
-          const normalizedContactPhone = normalizePhone(phoneNumber.number || '');
-          return normalizedContactPhone === normalizedFriendPhone;
+      await supabase
+        .from('identity_reveals')
+        .upsert({
+          requester_id: currentUserId,
+          friend_id: friend.id,
+          status: 'pending',
+        }, {
+          onConflict: 'requester_id,friend_id',
         });
-      });
 
-      // Afficher seulement si le contact est trouvé dans les contacts
-      if (matchingContact) {
-        const fullName = matchingContact.name || matchingContact.firstName || matchingContact.lastName || friend.pseudo;
-        showToast(fullName);
+      if (friend.expo_push_token) {
+        await sendProutViaBackend(
+          friend.expo_push_token,
+          currentPseudo || 'Un ami',
+          'identity-request',
+          friend.push_platform as 'ios' | 'android' | undefined,
+          {
+            requesterId: currentUserId,
+            requesterPseudo: currentPseudo || 'Un ami',
+          },
+        );
       }
-      // Si le contact n'est pas trouvé, ne rien afficher
+
+      Alert.alert('Demande envoyée', `${friend.pseudo} a été sollicité.`);
+      loadData(false, false, false);
     } catch (error) {
-      console.error("Erreur lors de la recherche du contact:", error);
-      // Ne pas afficher d'erreur à l'utilisateur si le contact n'est pas trouvé
+      console.error('❌ Impossible de demander l’identité:', error);
+      Alert.alert('Erreur', 'Impossible d’envoyer la demande.');
     }
   };
 
@@ -864,12 +982,13 @@ export function FriendsList({ onProutSent }: { onProutSent?: () => void } = {}) 
 
       // Le token FCM est stocké dans expo_push_token (réutilisation du champ existant)
       let fcmToken = recipient.expo_push_token;
+      let targetPlatform = recipient.push_platform;
       
       // Si le token n'est pas présent, essayer de le récupérer depuis la base
       if (!fcmToken || fcmToken.trim() === '') {
         const { data: profile, error: profileError } = await supabase
           .from('user_profiles')
-          .select('expo_push_token, pseudo')
+          .select('expo_push_token, pseudo, push_platform')
           .eq('id', recipient.id)
           .single();
         
@@ -879,10 +998,11 @@ export function FriendsList({ onProutSent }: { onProutSent?: () => void } = {}) 
         
         if (profile?.expo_push_token && profile.expo_push_token.trim() !== '') {
           fcmToken = profile.expo_push_token;
+          targetPlatform = profile.push_platform || targetPlatform;
           
           // Mettre à jour l'objet dans la liste pour éviter de refaire la requête
           const updatedUsers = appUsers.map(u => 
-            u.id === recipient.id ? { ...u, expo_push_token: fcmToken } : u
+            u.id === recipient.id ? { ...u, expo_push_token: fcmToken, push_platform: profile.push_platform || u.push_platform } : u
           );
           setAppUsers(updatedUsers);
         } else {
@@ -908,7 +1028,7 @@ export function FriendsList({ onProutSent }: { onProutSent?: () => void } = {}) 
       player.play();
 
       // Envoyer le push via backend avec le token FCM et le bon pseudo
-      await sendProutViaBackend(fcmToken, senderPseudo, randomKey);
+      await sendProutViaBackend(fcmToken, senderPseudo, randomKey, targetPlatform || 'ios');
       
       // Afficher le nom du prout dans un toast
       const proutName = PROUT_NAMES[randomKey] || randomKey;
@@ -939,48 +1059,72 @@ export function FriendsList({ onProutSent }: { onProutSent?: () => void } = {}) 
     }
   };
 
+  const renderRequestsHeader = () => {
+    if (pendingRequests.length === 0) return null;
+    return (
+      <View style={styles.requestsContainer}>
+        <Text style={styles.sectionTitle}>🔔 Demandes d'amis</Text>
+        {pendingRequests.map((req) => (
+          <View key={req.requestId} style={styles.requestRow}>
+            <Text style={styles.requestName}>{req.pseudo}</Text>
+            <View style={styles.requestActions}>
+              <TouchableOpacity onPress={() => handleReject(req.requestId)} style={styles.rejectBtn}>
+                <Ionicons name="close" size={20} color="white" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleAccept(req)} style={styles.acceptBtn}>
+                <Ionicons name="checkmark" size={20} color="white" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        ))}
+      </View>
+    );
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await loadData(false, false, true);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   if (loading && appUsers.length === 0 && pendingRequests.length === 0) return <ActivityIndicator color="#007AFF" style={{margin: 20}} />;
 
   return (
     <View style={styles.container}>
-      {pendingRequests.length > 0 && (
-        <View style={styles.requestsContainer}>
-            <Text style={styles.sectionTitle}>🔔 Demandes d'amis</Text>
-            {pendingRequests.map((req) => (
-                <View key={req.requestId} style={styles.requestRow}>
-                    <Text style={styles.requestName}>{req.pseudo}</Text>
-                    <View style={styles.requestActions}>
-                        <TouchableOpacity onPress={() => handleReject(req.requestId)} style={styles.rejectBtn}><Ionicons name="close" size={20} color="white" /></TouchableOpacity>
-                        <TouchableOpacity onPress={() => handleAccept(req)} style={styles.acceptBtn}><Ionicons name="checkmark" size={20} color="white" /></TouchableOpacity>
-                    </View>
-                </View>
-            ))}
-        </View>
-      )}
-
-      {appUsers.length === 0 ? (
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyText}>Aucun ami confirmé 😢</Text>
-          <Text style={styles.subText}>Invitez vos contacts.</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={appUsers}
-          keyExtractor={(item) => item.id}
-          scrollEnabled={false}
-          renderItem={({ item, index }) => (
-            <View style={{ position: 'relative', marginBottom: 8 }}>
-              <SwipeableFriendRow
-                friend={item}
-                backgroundColor={index % 2 === 0 ? '#d2f1ef' : '#baded7'}
-                onSendProut={() => handleSendProut(item)}
-                onLongPressName={() => handleLongPressName(item)}
-                onDeleteFriend={() => handleDeleteFriend(item)}
-              />
-            </View>
-          )}
-        />
-      )}
+      <FlatList
+        data={appUsers}
+        keyExtractor={(item) => item.id}
+        style={styles.list}
+        contentContainerStyle={[
+          styles.listContent,
+          appUsers.length === 0 && pendingRequests.length === 0 ? styles.emptyContentPadding : null,
+        ]}
+        ListHeaderComponent={renderRequestsHeader}
+        ListEmptyComponent={
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyText}>Aucun ami confirmé 😢</Text>
+            <Text style={styles.subText}>Invitez vos contacts.</Text>
+          </View>
+        }
+        renderItem={({ item, index }) => (
+          <View style={{ position: 'relative', marginBottom: 8 }}>
+            <SwipeableFriendRow
+              friend={item}
+              backgroundColor={index % 2 === 0 ? '#d2f1ef' : '#baded7'}
+              onSendProut={() => handleSendProut(item)}
+              onLongPressName={() => handleLongPressName(item)}
+              onDeleteFriend={() => handleDeleteFriend(item)}
+                introDelay={index * 40}
+            />
+          </View>
+        )}
+        refreshing={isRefreshing}
+        onRefresh={handleRefresh}
+        showsVerticalScrollIndicator={false}
+      />
 
       {/* Toast qui disparaît automatiquement */}
       {toastMessage && (
@@ -993,7 +1137,10 @@ export function FriendsList({ onProutSent }: { onProutSent?: () => void } = {}) 
 }
 
 const styles = StyleSheet.create({
-  container: { marginTop: 0 },
+  container: { flex: 1, marginTop: 0 },
+  list: { flex: 1 },
+  listContent: { paddingBottom: 80 },
+  emptyContentPadding: { flexGrow: 1, justifyContent: 'center' },
   sectionTitle: { fontWeight: 'bold', color: '#604a3e', marginBottom: 10, fontSize: 16, marginLeft: 5 },
   requestsContainer: { marginBottom: 20 },
   requestRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.9)', padding: 12, borderRadius: 10, marginBottom: 8 },

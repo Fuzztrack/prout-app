@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Share, ActivityIndicator, ScrollView, Image } from 'react-native';
-import { useRouter } from 'expo-router';
-import { supabase } from '../../lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Image, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { safePush } from '../../lib/navigation';
+import { supabase } from '../../lib/supabase';
 
 export default function InvitationScreen() {
   const router = useRouter();
@@ -57,7 +58,7 @@ export default function InvitationScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.push('/(tabs)')} activeOpacity={0.7}>
+          <TouchableOpacity onPress={() => safePush(router, '/(tabs)', { skipInitialCheck: false })} activeOpacity={0.7}>
             <Image 
               source={require('../../assets/images/prout-meme.png')} 
               style={styles.headerImage} 
@@ -67,8 +68,6 @@ export default function InvitationScreen() {
         </View>
 
         <View style={styles.infoContainer}>
-          <Ionicons name="paper-plane" size={50} color="#604a3e" style={{marginBottom: 15}} />
-          
           <Text style={styles.description}>
             Plus on est de fous, plus on rit ! Partage ton pseudo pour retrouver tes amis facilement. Tu peux aussi les chercher avec leurs pseudos.
           </Text>
@@ -81,7 +80,7 @@ export default function InvitationScreen() {
 
         <TouchableOpacity 
           style={styles.searchButton} 
-          onPress={() => router.push('/SearchUserScreen')}
+          onPress={() => safePush(router, '/SearchUserScreen', { skipInitialCheck: false })}
         >
           <Ionicons name="search" size={24} color="#604a3e" />
           <Text style={styles.searchText}>Chercher par pseudo</Text>

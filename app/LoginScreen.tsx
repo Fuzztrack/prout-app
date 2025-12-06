@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { CustomButton } from '../components/CustomButton';
+import { safeReplace } from '../lib/navigation';
 import { supabase } from '../lib/supabase';
 
 export default function LoginScreen() {
@@ -43,10 +44,13 @@ export default function LoginScreen() {
       }
 
       console.log('✅ Connexion réussie, vérification du profil...');
+      const sessionUser = data.session.user;
+      const pseudoValidated = sessionUser.user_metadata?.pseudo_validated === true;
+
       const { data: profile } = await supabase
         .from('user_profiles')
         .select('pseudo')
-        .eq('id', data.session.user.id)
+        .eq('id', sessionUser.id)
         .maybeSingle();
 
       clearTimeout(timeoutId);
@@ -54,12 +58,13 @@ export default function LoginScreen() {
 
       // Ne pas remettre loading à false ici car on navigue
       // La navigation va démonter le composant
-      if (profile && profile.pseudo && profile.pseudo !== 'Nouveau Membre') {
+      const hasValidProfile = !!(profile && profile.pseudo && profile.pseudo !== 'Nouveau Membre');
+      if (hasValidProfile || pseudoValidated) {
         console.log('➡️ Navigation vers /(tabs)');
-        router.replace('/(tabs)');
+        safeReplace(router, '/(tabs)');
       } else {
         console.log('➡️ Navigation vers /CompleteProfileScreen');
-        router.replace('/CompleteProfileScreen');
+        safeReplace(router, '/CompleteProfileScreen');
       }
     } catch (e: any) {
       clearTimeout(timeoutId);
@@ -197,7 +202,7 @@ export default function LoginScreen() {
 
         <CustomButton
           title="Pas de compte ? S'inscrire"
-          onPress={() => router.replace('/RegisterEmailScreen')}
+          onPress={() => safeReplace(router, '/RegisterEmailScreen', { skipInitialCheck: false })}
           color="transparent"
           textColor="#604a3e"
         />

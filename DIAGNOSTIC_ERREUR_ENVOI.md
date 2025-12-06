@@ -78,3 +78,6 @@ npx expo start
 npx expo start 2>&1 | grep -i "erreur\|error\|backend\|token"
 ```
 
+
+
+

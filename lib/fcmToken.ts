@@ -24,6 +24,14 @@ export async function getFCMToken(): Promise<string | null> {
       return null;
     }
     
+    if (Platform.OS === 'android') {
+      // Sur Android on récupère le token FCM natif (pour Firebase directement)
+      const deviceToken = await Notifications.getDevicePushTokenAsync();
+      const token = (deviceToken as any)?.data ?? (deviceToken as any)?.token ?? null;
+      return token;
+    }
+
+    // iOS : on continue d'utiliser le token Expo (géré par APNs via Expo)
     const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
     const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
     return tokenData.data;

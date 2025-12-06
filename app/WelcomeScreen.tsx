@@ -5,6 +5,7 @@ import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CustomButton } from '../components/CustomButton';
+import { safeReplace } from '../lib/navigation';
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -13,7 +14,7 @@ export default function WelcomeScreen() {
     await Notifications.requestPermissionsAsync();
     await Contacts.requestPermissionsAsync();
     await AsyncStorage.setItem('hasSeenWelcome', 'true');
-    router.replace('/AuthChoiceScreen');
+    safeReplace(router, '/AuthChoiceScreen');
   };
 
   return (

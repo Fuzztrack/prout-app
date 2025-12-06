@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { safePush, safeReplace } from '../../lib/navigation';
 import { supabase } from '../../lib/supabase';
 
 export default function ProfileScreen() {
@@ -16,7 +17,7 @@ export default function ProfileScreen() {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
-        router.replace('/AuthChoiceScreen');
+        safeReplace(router, '/AuthChoiceScreen', { skipInitialCheck: false });
         return;
       }
 
@@ -71,12 +72,12 @@ export default function ProfileScreen() {
               Alert.alert(
                 "Déconnexion réussie",
                 "Vous ne recevrez plus de prout !",
-                [{ text: "OK", onPress: () => router.replace('/AuthChoiceScreen') }]
+                [{ text: "OK", onPress: () => safeReplace(router, '/AuthChoiceScreen') }]
               );
             } catch (error) {
               console.error('Erreur lors de la déconnexion:', error);
               await supabase.auth.signOut();
-              router.replace('/AuthChoiceScreen');
+              safeReplace(router, '/AuthChoiceScreen');
             }
           } 
         }
@@ -85,7 +86,7 @@ export default function ProfileScreen() {
   };
 
   const handleContactSupport = () => {
-    const email = 'mathieu@supercarburant.net';
+    const email = 'hello@theproutapp.com';
     const subject = 'Support ProutApp';
     const mailtoUrl = `mailto:${email}?subject=${encodeURIComponent(subject)}`;
     
@@ -106,7 +107,7 @@ export default function ProfileScreen() {
     <View style={styles.wrapper}>
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.push('/(tabs)')} activeOpacity={0.7}>
+          <TouchableOpacity onPress={() => safePush(router, '/(tabs)', { skipInitialCheck: false })} activeOpacity={0.7}>
             <Image 
               source={require('../../assets/images/prout-meme.png')} 
               style={styles.headerImage} 
@@ -130,7 +131,7 @@ export default function ProfileScreen() {
         </Text>
       </View>
 
-      <TouchableOpacity style={styles.editButton} onPress={() => router.push('/EditProfil')}>
+      <TouchableOpacity style={styles.editButton} onPress={() => safePush(router, '/EditProfil', { skipInitialCheck: false })}>
         <Ionicons name="create-outline" size={24} color="#604a3e" />
         <Text style={styles.editText}>Modifier son profil</Text>
       </TouchableOpacity>

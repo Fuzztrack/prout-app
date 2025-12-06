@@ -7,6 +7,7 @@ import { FriendsList } from '@/components/FriendsList';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
+import { safeReplace } from '@/lib/navigation';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -75,7 +76,7 @@ export default function HomeScreen() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        router.replace('/AuthChoiceScreen');
+        safeReplace(router, '/AuthChoiceScreen', { skipInitialCheck: false });
         return;
       }
 
@@ -123,7 +124,7 @@ export default function HomeScreen() {
             <Text style={styles.welcomeText}>
             Bonjour, <Text style={styles.pseudo}>{pseudo || '...'}</Text>
             </Text>
-            <TouchableOpacity onPress={() => router.replace('/AuthChoiceScreen')}>
+            <TouchableOpacity onPress={() => safeReplace(router, '/AuthChoiceScreen')}>
                 <Ionicons name="log-out-outline" size={28} color="#604a3e" style={{opacity: 0.6}} />
             </TouchableOpacity>
         </View>

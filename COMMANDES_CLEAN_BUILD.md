@@ -108,3 +108,6 @@ eas build --platform ios --profile production --local
 
 Le build EAS réinstallera automatiquement les pods si nécessaire.
 
+
+
+

@@ -124,3 +124,6 @@ Si vous voulez revenir à l'ancien slider :
 1. **Slider iOS** : Fluide à 60fps, plus de freeze
 2. **Tokens iOS** : Notifications fonctionnelles sur iOS via Expo Push API
 
+
+
+

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, FlatList, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { CustomButton } from '../components/CustomButton';
 import { normalizePhone } from '../lib/normalizePhone';
+import { safePush, safeReplace } from '../lib/navigation';
 // Import supprimé : on utilise maintenant sync_contacts (fonction SQL Supabase)
 import { supabase } from '../lib/supabase';
 
@@ -313,7 +314,7 @@ export default function InvitationScreen() {
       await new Promise(resolve => setTimeout(resolve, 500));
       
       // Naviguer vers la page d'accueil pour que la liste d'amis se recharge
-      router.replace('/(tabs)');
+      safeReplace(router, '/(tabs)', { skipInitialCheck: false });
     } catch (error) {
       console.error('Erreur lors de l\'acceptation de l\'invitation:', error);
       Alert.alert('Erreur', 'Une erreur est survenue');
@@ -785,7 +786,7 @@ export default function InvitationScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.push('/(tabs)')} activeOpacity={0.7}>
+        <TouchableOpacity onPress={() => safePush(router, '/(tabs)', { skipInitialCheck: false })} activeOpacity={0.7}>
           <Image 
             source={require('../assets/images/prout-meme.png')} 
             style={styles.headerImage}
@@ -896,7 +897,7 @@ export default function InvitationScreen() {
           
           <CustomButton
             title="Retour"
-            onPress={() => router.replace('/(tabs)')}
+            onPress={() => safeReplace(router, '/(tabs)', { skipInitialCheck: false })}
             textColor="#604a3e"
           />
         </ScrollView>
