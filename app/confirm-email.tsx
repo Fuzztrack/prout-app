@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { safeReplace } from '../lib/navigation';
 import { supabase } from '../lib/supabase';
 
 export default function ConfirmEmailScreen() {
@@ -22,6 +23,7 @@ export default function ConfirmEmailScreen() {
         const { data: { user } } = await supabase.auth.getUser();
         const pseudoFromMetadata = user?.user_metadata?.pseudo;
         const phoneFromMetadata = user?.user_metadata?.phone;
+        const pseudoValidated = user?.user_metadata?.pseudo_validated === true;
         
         const { data: profile } = await supabase
           .from('user_profiles')
@@ -97,7 +99,7 @@ export default function ConfirmEmailScreen() {
                   .maybeSingle();
                 
                 if (verifyProfile && verifyProfile.pseudo && verifyProfile.pseudo !== 'Nouveau Membre') {
-                  router.replace('/(tabs)');
+                  safeReplace(router, '/(tabs)');
                   return;
                 }
               }
@@ -109,7 +111,7 @@ export default function ConfirmEmailScreen() {
                 .maybeSingle();
               
               if (verifyProfile && verifyProfile.pseudo && verifyProfile.pseudo !== 'Nouveau Membre') {
-                router.replace('/(tabs)');
+                safeReplace(router, '/(tabs)');
                 return;
               }
             }
@@ -118,13 +120,15 @@ export default function ConfirmEmailScreen() {
 
         // Si le profil existe et a un vrai pseudo (pas le placeholder) -> Home
         if (profile && profile.pseudo && profile.pseudo !== 'Nouveau Membre') {
-          router.replace('/(tabs)');
+          safeReplace(router, '/(tabs)');
+        } else if (!pseudoValidated) {
+          safeReplace(router, '/CompleteProfileScreen');
         } else {
-          router.replace('/CompleteProfileScreen');
+          safeReplace(router, '/(tabs)');
         }
       } catch (e) {
         console.error("❌ Erreur lors de la vérification du profil:", e);
-        router.replace('/CompleteProfileScreen');
+        safeReplace(router, pseudoValidated ? '/(tabs)' : '/CompleteProfileScreen');
       }
     };
 
@@ -145,7 +149,7 @@ export default function ConfirmEmailScreen() {
     // 3. Sécurité : Si au bout de 5 secondes on est toujours là, c'est qu'il y a un souci
     const timeout = setTimeout(() => {
       if (isMounted) {
-        router.replace('/AuthChoiceScreen');
+        safeReplace(router, '/AuthChoiceScreen');
       }
     }, 5000);
 

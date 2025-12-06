@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { CustomButton } from '../components/CustomButton';
+import { safeReplace } from '../lib/navigation';
 import { getRedirectUrl, supabase } from '../lib/supabase';
 
 export default function RegisterEmailScreen() {
@@ -32,7 +33,8 @@ export default function RegisterEmailScreen() {
           emailRedirectTo: getRedirectUrl(),
           data: { 
             pseudo: pseudo.trim(),
-            phone: cleanPhone 
+            phone: cleanPhone,
+            pseudo_validated: true
           } 
         }
       });
@@ -98,14 +100,14 @@ export default function RegisterEmailScreen() {
             });
         }
         
-        router.replace('/(tabs)');
+        safeReplace(router, '/(tabs)');
       } else {
         // Pas de session (email de confirmation requis)
         // Le pseudo sera mis à jour lors de la confirmation de l'email
         Alert.alert(
           "Compte créé ! 📬", 
           "Un email de confirmation vient d'être envoyé.\nCliquez sur le lien reçu pour activer votre compte.",
-          [{ text: "J'ai compris", onPress: () => router.replace('/LoginScreen') }]
+          [{ text: "J'ai compris", onPress: () => safeReplace(router, '/LoginScreen', { skipInitialCheck: false }) }]
         );
       }
 

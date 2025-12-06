@@ -82,3 +82,6 @@ git push
 
 Le code est déjà là. Il faut juste que Render/Heroku récupère la dernière version du code.
 
+
+
+

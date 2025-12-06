@@ -2,8 +2,9 @@
 import { useEffect, useRef } from 'react';
 import { View, ActivityIndicator, Image, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { supabase } from '../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { safeReplace } from '../lib/navigation';
+import { supabase } from '../lib/supabase';
 
 export default function SplashScreen() {
   const router = useRouter();
@@ -18,7 +19,7 @@ export default function SplashScreen() {
       const seen = await AsyncStorage.getItem('@welcome_screen_seen');
       if (!seen) {
         hasNavigatedRef.current = true;
-        router.replace('/WelcomeScreen');
+        safeReplace(router, '/WelcomeScreen', { skipInitialCheck: false });
         return;
       }
 
@@ -40,14 +41,14 @@ export default function SplashScreen() {
 
         hasNavigatedRef.current = true;
         if (hasValidPseudo) {
-          router.replace('/home');
+          safeReplace(router, '/home', { skipInitialCheck: false });
         } else {
-          router.replace('/CompleteProfileScreen');
+          safeReplace(router, '/CompleteProfileScreen', { skipInitialCheck: false });
         }
       } else {
         // Pas de session -> Écran de choix
         hasNavigatedRef.current = true;
-        router.replace('/SignupScreen');
+        safeReplace(router, '/SignupScreen', { skipInitialCheck: false });
       }
     };
 

@@ -92,3 +92,6 @@ Plusieurs possibilités :
 
 La solution actuelle est plus robuste car elle évite les faux négatifs de la méthode `Expo.isExpoPushToken()`.
 
+
+
+

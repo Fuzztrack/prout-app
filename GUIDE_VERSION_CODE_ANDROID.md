@@ -106,3 +106,6 @@ Il est recommandé de noter quelque part les versions uploadées :
 
 **Note** : Le `versionCode` est différent du `version` (qui est `1.0.0`). Le `version` est ce que l'utilisateur voit dans le Store, le `versionCode` est un numéro interne qui doit toujours augmenter.
 
+
+
+

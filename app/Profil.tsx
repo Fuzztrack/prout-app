@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { safePush, safeReplace } from '../lib/navigation';
 import { supabase } from '../lib/supabase';
 
 export default function ProfilScreen() {
@@ -104,7 +105,7 @@ export default function ProfilScreen() {
               Alert.alert(
                 "Déconnexion réussie",
                 "Vous ne recevrez plus de prout !",
-                [{ text: "OK", onPress: () => router.replace('/LoginScreen') }]
+                [{ text: "OK", onPress: () => safeReplace(router, '/LoginScreen', { skipInitialCheck: false }) }]
               );
             } catch (err) {
               console.error('Erreur lors de la déconnexion:', err);
@@ -141,7 +142,7 @@ export default function ProfilScreen() {
     <ScrollView contentContainerStyle={styles.scrollContent} style={styles.scrollContainer}>
       <View style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.push('/(tabs)')} activeOpacity={0.7}>
+          <TouchableOpacity onPress={() => safePush(router, '/(tabs)', { skipInitialCheck: false })} activeOpacity={0.7}>
             <Image
               source={require('../assets/images/prout-meme.png')}
               style={styles.headerImage}
@@ -174,7 +175,7 @@ export default function ProfilScreen() {
         <View style={styles.bottomSection}>
           <TouchableOpacity 
             style={styles.editButton} 
-            onPress={() => router.push('/EditProfil')} 
+            onPress={() => safePush(router, '/EditProfil', { skipInitialCheck: false })} 
             disabled={loading}
           >
             <Ionicons name="create-outline" size={24} color="#604a3e" />

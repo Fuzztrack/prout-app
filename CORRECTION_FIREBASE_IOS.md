@@ -70,3 +70,6 @@ Le plugin `expo-build-properties` permet de configurer les propriétés natives 
 
 La configuration `"useFrameworks": "static"` active les frameworks statiques, ce qui permet à Firebase (qui utilise du code Objective-C) de fonctionner correctement avec Swift.
 
+
+
+

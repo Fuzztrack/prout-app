@@ -2,8 +2,9 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../lib/supabase';
 import { CustomButton } from '../components/CustomButton';
+import { safeReplace } from '../lib/navigation';
+import { supabase } from '../lib/supabase';
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
@@ -23,7 +24,7 @@ export default function ResetPasswordScreen() {
           Alert.alert(
             'Lien invalide',
             'Ce lien de réinitialisation est invalide ou a expiré. Veuillez demander un nouveau lien.',
-            [{ text: 'OK', onPress: () => router.replace('/LoginScreen') }]
+            [{ text: 'OK', onPress: () => safeReplace(router, '/LoginScreen', { skipInitialCheck: false }) }]
           );
           return;
         }
@@ -33,7 +34,7 @@ export default function ResetPasswordScreen() {
         Alert.alert(
           'Erreur',
           'Impossible de vérifier votre session. Veuillez réessayer.',
-          [{ text: 'OK', onPress: () => router.replace('/LoginScreen') }]
+          [{ text: 'OK', onPress: () => safeReplace(router, '/LoginScreen', { skipInitialCheck: false }) }]
         );
       }
     };
@@ -70,7 +71,7 @@ export default function ResetPasswordScreen() {
           {
             text: 'OK',
             onPress: () => {
-              router.replace('/LoginScreen');
+              safeReplace(router, '/LoginScreen', { skipInitialCheck: false });
             },
           },
         ]
@@ -168,7 +169,7 @@ export default function ResetPasswordScreen() {
         />
 
         <TouchableOpacity
-          onPress={() => router.replace('/LoginScreen')}
+          onPress={() => safeReplace(router, '/LoginScreen', { skipInitialCheck: false })}
           style={styles.backLink}
         >
           <Text style={styles.backLinkText}>Retour à la connexion</Text>

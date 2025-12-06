@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, ScrollView, Image } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { safePush } from '../lib/navigation';
 
 export default function SearchUserScreen() {
   const router = useRouter();
@@ -10,29 +11,50 @@ export default function SearchUserScreen() {
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const latestQueryRef = useRef<string>('');
+  const MIN_QUERY_LENGTH = 2;
 
   // On charge notre ID au démarrage pour ne pas s'auto-ajouter
-  React.useEffect(() => {
+  useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       if (data?.user) setCurrentUserId(data.user.id);
     });
   }, []);
 
-  const handleSearch = async () => {
-    if (!query.trim()) return;
+  const performSearch = useCallback(async (text: string) => {
+    const trimmed = text.trim();
+    latestQueryRef.current = trimmed;
+
+    if (trimmed.length < MIN_QUERY_LENGTH) {
+      setResults([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
-    setResults([]);
 
     try {
       // 1. Recherche dans les profils (Insensible à la casse)
-      const { data: profiles, error } = await supabase
+      let profilesQuery = supabase
         .from('user_profiles')
         .select('id, pseudo')
-        .ilike('pseudo', `%${query.trim()}%`) // Recherche partielle
-        .neq('id', currentUserId) // Exclure soi-même
+        .ilike('pseudo', `${trimmed}%`) // Commence par
+        .order('pseudo', { ascending: true })
         .limit(10);
 
+      if (currentUserId) {
+        profilesQuery = profilesQuery.neq('id', currentUserId); // Exclure soi-même
+      }
+
+      const { data: profiles, error } = await profilesQuery;
+
       if (error) throw error;
+
+      // Vérifier que la requête est toujours d'actualité
+      if (latestQueryRef.current !== trimmed) {
+        return;
+      }
 
       if (profiles && profiles.length > 0) {
         // 2. Vérifier les statuts d'amitié pour ces résultats
@@ -60,8 +82,30 @@ export default function SearchUserScreen() {
     } catch (e: any) {
       Alert.alert("Erreur", e.message);
     } finally {
-      setLoading(false);
+      if (latestQueryRef.current === trimmed) {
+        setLoading(false);
+      }
     }
+  }, [currentUserId]);
+
+  useEffect(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+
+    debounceRef.current = setTimeout(() => {
+      performSearch(query);
+    }, 250);
+
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, [query, performSearch]);
+
+  const handleSearch = async () => {
+    await performSearch(query);
   };
 
   const handleAddFriend = async (friendId: string) => {
@@ -100,7 +144,7 @@ export default function SearchUserScreen() {
     <View style={styles.wrapper}>
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.push('/(tabs)')} activeOpacity={0.7}>
+          <TouchableOpacity onPress={() => safePush(router, '/(tabs)', { skipInitialCheck: false })} activeOpacity={0.7}>
             <Image 
               source={require('../assets/images/prout-meme.png')} 
               style={styles.headerImage} 

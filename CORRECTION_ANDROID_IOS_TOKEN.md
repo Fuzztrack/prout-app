@@ -71,3 +71,6 @@ Voir `FIX_BACKEND_TOKEN_IOS.md` pour les instructions complètes.
 - ✅ Le backend saura traiter les tokens iOS (via Expo Push API)
 - ✅ iOS pourra continuer d'envoyer vers Android (déjà fonctionnel)
 
+
+
+

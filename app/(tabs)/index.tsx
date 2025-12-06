@@ -1,15 +1,16 @@
 import { FriendsList } from '@/components/FriendsList';
 import { getFCMToken } from '@/lib/fcmToken';
+import { safePush, safeReplace } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Image, Platform, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useCallback, useEffect, useRef } from 'react';
+import { Animated, Image, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function HomeScreen() {
   const router = useRouter();
   
-  const [refreshing, setRefreshing] = useState(false);
   const isLoadedRef = useRef(false);
   
   // Animation de secousse pour le header - seulement X et Y (pas de rotation)
@@ -30,7 +31,7 @@ export default function HomeScreen() {
           console.log('✅ Token généré:', Platform.OS === 'ios' ? 'Expo Push Token' : 'FCM Token', fcmToken.substring(0, 30) + '...');
           // Stocker le token FCM dans expo_push_token (on réutilise le champ existant)
           // Ou créer un nouveau champ fcm_token dans Supabase si préféré
-          const { error } = await supabase.from('user_profiles').update({ expo_push_token: fcmToken }).eq('id', userId);
+          const { error } = await supabase.from('user_profiles').update({ expo_push_token: fcmToken, push_platform: Platform.OS }).eq('id', userId);
           if (error) {
             console.error('❌ Erreur mise à jour token dans Supabase:', error);
           } else {
@@ -45,12 +46,12 @@ export default function HomeScreen() {
 
   // --- CHARGEMENT ---
   const loadData = async () => {
-    if (isLoadedRef.current && !refreshing) return;
+    if (isLoadedRef.current) return;
     
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        router.replace('/AuthChoiceScreen');
+        safeReplace(router, '/AuthChoiceScreen', { skipInitialCheck: false });
         return;
       }
       // Mise à jour token FCM en arrière-plan (fonctionne aussi dans le simulateur)
@@ -60,7 +61,7 @@ export default function HomeScreen() {
                   getFCMToken().then(fcmToken => {
                       if (fcmToken) {
                           console.log('✅ Token généré au chargement:', Platform.OS === 'ios' ? 'Expo Push Token' : 'FCM Token', fcmToken.substring(0, 30) + '...');
-                          supabase.from('user_profiles').update({ expo_push_token: fcmToken }).eq('id', user.id).then(({ error }) => {
+                          supabase.from('user_profiles').update({ expo_push_token: fcmToken, push_platform: Platform.OS }).eq('id', user.id).then(({ error }) => {
                               if (error) {
                                   console.error('❌ Erreur mise à jour token dans Supabase:', error);
                               } else {
@@ -81,12 +82,6 @@ export default function HomeScreen() {
   };
 
   useEffect(() => { loadData(); }, []);
-
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    isLoadedRef.current = false;
-    loadData().then(() => setRefreshing(false));
-  }, []);
 
   // Fonction pour vibrer le header quand un prout est envoyé - mouvement subtil (haut-bas, gauche-droite)
   const shakeHeader = useCallback(() => {
@@ -153,10 +148,7 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#604a3e" />}
-      >
+      <View style={styles.headerSection}>
         {/* 1. LE LOGO (Tout en haut, centré) */}
         <Animated.View 
           style={[
@@ -179,16 +171,12 @@ export default function HomeScreen() {
         {/* 2. LA BARRE DE NAVIGATION (Juste en dessous) */}
         <View style={styles.navBar}>
              {/* Bouton Invitation (Gauche) */}
-            <TouchableOpacity onPress={() => router.push('/invitation')} style={styles.iconButton}>
-                <Image 
-                    source={require('../../assets/images/icon_invitation.png')} 
-                    style={styles.navIcon} 
-                    resizeMode="contain"
-                />
+            <TouchableOpacity onPress={() => safePush(router, '/invitation', { skipInitialCheck: false })} style={styles.iconButton}>
+                <Ionicons name="paper-plane" size={32} color="#ffffff" />
             </TouchableOpacity>
 
              {/* Bouton Profil (Droite) */}
-            <TouchableOpacity onPress={() => router.push('/profile')} style={styles.iconButton}>
+            <TouchableOpacity onPress={() => safePush(router, '/profile', { skipInitialCheck: false })} style={styles.iconButton}>
                 <Image 
                     source={require('../../assets/images/icon_compte.png')} 
                     style={styles.navIcon} 
@@ -196,11 +184,12 @@ export default function HomeScreen() {
                 />
             </TouchableOpacity>
         </View>
+      </View>
 
-        {/* 3. LA LISTE */}
+      {/* 3. LA LISTE */}
+      <View style={styles.listSection}>
         <FriendsList onProutSent={shakeHeader} />
-
-      </ScrollView>
+      </View>
     </View>
   );
 }
@@ -210,10 +199,15 @@ const styles = StyleSheet.create({
     flex: 1, 
     backgroundColor: '#ebb89b' 
   },
-  scrollContent: { 
-    padding: 20, 
-    paddingTop: 40, 
-    paddingBottom: 100 
+  headerSection: {
+    paddingTop: 40,
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+  },
+  listSection: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
   },
   
   // Conteneur du Logo

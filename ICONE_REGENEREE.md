@@ -89,3 +89,6 @@ Après le rebuild dans Xcode :
 - ✅ Plus d'icône par défaut d'Apple
 - ✅ L'icône apparaîtra correctement sur l'iPhone et dans TestFlight
 
+
+
+

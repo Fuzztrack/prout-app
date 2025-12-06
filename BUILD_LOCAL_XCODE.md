@@ -269,3 +269,6 @@ open ios/Prout.xcworkspace
 npx expo start
 ```
 
+
+
+

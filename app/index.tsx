@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useSegments } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, StyleSheet, View } from 'react-native';
+import { clearSkipInitialNavigationFlag, safeReplace, shouldSkipInitialNavigation } from '../lib/navigation';
 import { supabase } from '../lib/supabase';
 
 export default function Index() {
@@ -19,6 +20,11 @@ export default function Index() {
       console.log('🧭 Routeur: Analyse de la destination...');
 
       try {
+        if (shouldSkipInitialNavigation()) {
+          console.log('⏭️ Navigation initiale déjà gérée, on ignore cette passe');
+          clearSkipInitialNavigationFlag();
+          return;
+        }
         // 0. Vérifier si on est déjà sur la page reset-password (ne pas rediriger)
         const currentPath = segments.join('/');
         if (currentPath.includes('reset-password')) {
@@ -35,7 +41,7 @@ export default function Index() {
           console.log('➡️ Direction: Welcome');
           if (!hasNavigated.current) {
             hasNavigated.current = true;
-            router.replace('/WelcomeScreen');
+            safeReplace(router, '/WelcomeScreen', { skipInitialCheck: false });
           }
           return;
         }
@@ -45,9 +51,10 @@ export default function Index() {
         const { data: { user } } = await supabase.auth.getUser();
 
         if (user) {
-          // Récupérer les métadonnées utilisateur pour obtenir le pseudo
-          const pseudoFromMetadata = user.user_metadata?.pseudo;
-          const phoneFromMetadata = user.user_metadata?.phone;
+        // Récupérer les métadonnées utilisateur pour obtenir le pseudo
+        const pseudoFromMetadata = user.user_metadata?.pseudo;
+        const phoneFromMetadata = user.user_metadata?.phone;
+        const pseudoValidated = user.user_metadata?.pseudo_validated === true;
           
           // 3. Vérifier le profil
           const { data: profile } = await supabase
@@ -128,18 +135,20 @@ export default function Index() {
                 const fullNameCheck = user.user_metadata?.full_name || user.user_metadata?.name || null;
                 const extractedFirstNameCheck = fullNameCheck ? fullNameCheck.split(' ')[0].trim() : null;
                 const isPseudoFromAppleCheck = extractedFirstNameCheck && verifyProfile?.pseudo === extractedFirstNameCheck;
+                const googleNameCheck = user.user_metadata?.full_name || user.user_metadata?.name || null;
+                const isPseudoFromGoogleCheck = googleNameCheck && verifyProfile?.pseudo === googleNameCheck;
                 
                 if (verifyProfile && verifyProfile.pseudo && verifyProfile.pseudo !== 'Nouveau Membre') {
-                  if (isPseudoFromAppleCheck) {
-                    // Pseudo vient d'Apple, rediriger vers CompleteProfileScreen
+                  const needsCompletion = !pseudoValidated && (isPseudoFromAppleCheck || isPseudoFromGoogleCheck);
+                  if (needsCompletion) {
                     if (!hasNavigated.current) {
                       hasNavigated.current = true;
-                      router.replace('/CompleteProfileScreen');
+                      safeReplace(router, '/CompleteProfileScreen', { skipInitialCheck: false });
                     }
                   } else {
                     if (!hasNavigated.current) {
                       hasNavigated.current = true;
-                      router.replace('/(tabs)');
+                      safeReplace(router, '/(tabs)', { skipInitialCheck: false });
                     }
                   }
                   return;
@@ -157,18 +166,20 @@ export default function Index() {
               const fullNameCheck2 = user.user_metadata?.full_name || user.user_metadata?.name || null;
               const extractedFirstNameCheck2 = fullNameCheck2 ? fullNameCheck2.split(' ')[0].trim() : null;
               const isPseudoFromAppleCheck2 = extractedFirstNameCheck2 && verifyProfile?.pseudo === extractedFirstNameCheck2;
+              const googleNameCheck2 = user.user_metadata?.full_name || user.user_metadata?.name || null;
+              const isPseudoFromGoogleCheck2 = googleNameCheck2 && verifyProfile?.pseudo === googleNameCheck2;
               
               if (verifyProfile && verifyProfile.pseudo && verifyProfile.pseudo !== 'Nouveau Membre') {
-                if (isPseudoFromAppleCheck2) {
-                  // Pseudo vient d'Apple, rediriger vers CompleteProfileScreen
+                const needsCompletion = !pseudoValidated && (isPseudoFromAppleCheck2 || isPseudoFromGoogleCheck2);
+                if (needsCompletion) {
                   if (!hasNavigated.current) {
                     hasNavigated.current = true;
-                    router.replace('/CompleteProfileScreen');
+                    safeReplace(router, '/CompleteProfileScreen', { skipInitialCheck: false });
                   }
                 } else {
                   if (!hasNavigated.current) {
                     hasNavigated.current = true;
-                    router.replace('/(tabs)');
+                    safeReplace(router, '/(tabs)', { skipInitialCheck: false });
                   }
                 }
                 return;
@@ -183,19 +194,21 @@ export default function Index() {
             .eq('id', user.id)
             .maybeSingle();
 
-          // Vérifier si le pseudo vient d'être extrait depuis Apple (correspond au prénom)
+          // Vérifier si le pseudo vient d'être extrait depuis Apple ou correspond au nom Google
           const fullName = user.user_metadata?.full_name || user.user_metadata?.name || null;
           const extractedFirstName = fullName ? fullName.split(' ')[0].trim() : null;
           const isPseudoFromApple = extractedFirstName && 
                                     finalProfile?.pseudo === extractedFirstName &&
                                     (!user.user_metadata?.pseudo || user.user_metadata?.pseudo === extractedFirstName);
+          const googleName = user.user_metadata?.full_name || user.user_metadata?.name || null;
+          const isPseudoFromGoogle = googleName && finalProfile?.pseudo === googleName;
 
-          // Si le pseudo vient d'Apple, toujours rediriger vers CompleteProfileScreen pour validation
-          if (isPseudoFromApple) {
-            console.log('➡️ Direction: Complétion (pseudo extrait depuis Apple, validation requise)');
+          // Si le pseudo vient d'une source auto (Apple/Google), rediriger vers la complétion
+          if (!pseudoValidated && (isPseudoFromApple || isPseudoFromGoogle)) {
+            console.log('➡️ Direction: Complétion (pseudo auto détecté, validation requise)');
             if (!hasNavigated.current) {
               hasNavigated.current = true;
-              router.replace('/CompleteProfileScreen');
+              safeReplace(router, '/CompleteProfileScreen', { skipInitialCheck: false });
             }
             return;
           }
@@ -205,14 +218,18 @@ export default function Index() {
             console.log('➡️ Direction: Home');
             if (!hasNavigated.current) {
               hasNavigated.current = true;
-              router.replace('/(tabs)'); 
+              safeReplace(router, '/(tabs)', { skipInitialCheck: false }); 
             }
-          } else {
-            // Sinon (pas de profil ou "Nouveau Membre"), on va compléter
+          } else if (!pseudoValidated) {
             console.log('➡️ Direction: Complétion');
             if (!hasNavigated.current) {
               hasNavigated.current = true;
-              router.replace('/CompleteProfileScreen');
+              safeReplace(router, '/CompleteProfileScreen', { skipInitialCheck: false });
+            }
+          } else {
+            if (!hasNavigated.current) {
+              hasNavigated.current = true;
+              safeReplace(router, '/(tabs)', { skipInitialCheck: false });
             }
           }
         } else {
@@ -220,7 +237,7 @@ export default function Index() {
           console.log('➡️ Direction: Auth Choice');
           if (!hasNavigated.current) {
             hasNavigated.current = true;
-            router.replace('/AuthChoiceScreen');
+            safeReplace(router, '/AuthChoiceScreen', { skipInitialCheck: false });
           }
         }
       } catch (e) {
@@ -228,7 +245,7 @@ export default function Index() {
         // En cas de doute, retour à l'auth
         if (!hasNavigated.current && isMounted) {
           hasNavigated.current = true;
-          router.replace('/AuthChoiceScreen');
+          safeReplace(router, '/AuthChoiceScreen', { skipInitialCheck: false });
         }
       }
     };

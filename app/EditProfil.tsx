@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { normalizePhone } from '../lib/normalizePhone';
+import { safePush, safeReplace } from '../lib/navigation';
 import { supabase } from '../lib/supabase';
 
 export default function EditProfilScreen() {
@@ -224,7 +225,7 @@ export default function EditProfilScreen() {
       Alert.alert('Succès', successMessage, [
         {
           text: 'OK',
-          onPress: () => router.replace('/Profil'),
+          onPress: () => safeReplace(router, '/Profil', { skipInitialCheck: false }),
         },
       ]);
     } catch (err) {
@@ -318,9 +319,16 @@ export default function EditProfilScreen() {
                 } else {
                   setCurrentPseudo(trimmedPseudo);
                   setPseudo(trimmedPseudo);
+                  try {
+                    await supabase.auth.updateUser({
+                      data: { pseudo: trimmedPseudo, pseudo_validated: true },
+                    });
+                  } catch (metaError) {
+                    console.warn('⚠️ Impossible de mettre à jour les métadonnées pseudo:', metaError);
+                  }
                   Alert.alert('Succès', 'Pseudo mis à jour avec succès !');
                   // Recharger les données après la mise à jour
-                  router.replace('/Profil');
+                  safeReplace(router, '/Profil', { skipInitialCheck: false });
                 }
               } catch (err) {
                 console.error('Erreur inattendue:', err);
@@ -419,7 +427,7 @@ export default function EditProfilScreen() {
                     : 'Email mis à jour avec succès ! Un email de confirmation a été envoyé.'
                 );
                 // Recharger les données après la mise à jour
-                router.replace('/Profil');
+                safeReplace(router, '/Profil', { skipInitialCheck: false });
               }
             } catch (err) {
               console.error('Erreur inattendue:', err);
@@ -494,7 +502,7 @@ export default function EditProfilScreen() {
                 setPhone(normalizedPhone);
                 Alert.alert('Succès', 'Numéro de téléphone mis à jour avec succès !');
                 // Recharger les données après la mise à jour
-                router.replace('/Profil');
+                safeReplace(router, '/Profil', { skipInitialCheck: false });
               }
             } catch (err) {
               console.error('Erreur inattendue:', err);
@@ -550,7 +558,7 @@ export default function EditProfilScreen() {
                 {
                   text: 'OK',
                   onPress: () => {
-                    router.replace('/AuthChoiceScreen');
+                    safeReplace(router, '/AuthChoiceScreen');
                   },
                 },
               ]);
@@ -598,7 +606,7 @@ export default function EditProfilScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent} style={styles.scrollContainer}>
         <View style={styles.container}>
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => router.push('/(tabs)')} activeOpacity={0.7}>
+            <TouchableOpacity onPress={() => safePush(router, '/(tabs)', { skipInitialCheck: false })} activeOpacity={0.7}>
               <Image
                 source={require('../assets/images/prout-meme.png')}
                 style={styles.headerImage}

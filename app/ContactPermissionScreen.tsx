@@ -1,9 +1,10 @@
 // app/ContactPermissionScreen.tsx
 import * as Contacts from 'expo-contacts';
 import { useRouter } from 'expo-router';
-import { Image, Platform, StyleSheet, Text, View } from 'react-native';
 import { Alert } from 'react-native';
+import { Image, Platform, StyleSheet, Text, View } from 'react-native';
 import { CustomButton } from '../components/CustomButton';
+import { safeReplace } from '../lib/navigation';
 
 export default function ContactPermissionScreen() {
   const router = useRouter();
@@ -30,7 +31,7 @@ export default function ContactPermissionScreen() {
     }
     
     // Rediriger vers la page d'inscription
-    router.replace('/AuthChoiceScreen');
+    safeReplace(router, '/AuthChoiceScreen');
   };
 
   return (

@@ -4,7 +4,9 @@ import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import { Platform, Alert, Image, StyleSheet, Text, View } from 'react-native';
 import { CustomButton } from '../components/CustomButton';
+import { safePush } from '../lib/navigation';
 import { ensureAndroidNotificationChannel } from '../lib/notifications';
+import { getFCMToken } from '../lib/fcmToken';
 
 export default function NotificationPermissionScreen() {
   const router = useRouter();
@@ -13,7 +15,7 @@ export default function NotificationPermissionScreen() {
     // Demander la permission de notifications
     if (Platform.OS === 'web') {
       Alert.alert('Information', 'Les notifications push ne sont pas disponibles sur le web.');
-      router.push('/ContactPermissionScreen');
+      safePush(router, '/ContactPermissionScreen', { skipInitialCheck: false });
       return;
     }
 
@@ -22,7 +24,7 @@ export default function NotificationPermissionScreen() {
         'Information',
         'Les notifications push nécessitent un appareil réel. Les simulateurs ne peuvent pas obtenir de token.'
       );
-      router.push('/ContactPermissionScreen');
+      safePush(router, '/ContactPermissionScreen', { skipInitialCheck: false });
       return;
     }
 
@@ -31,7 +33,7 @@ export default function NotificationPermissionScreen() {
         'Development Build requis',
         'Les notifications push nécessitent un development build. Expo Go ne les supporte pas.'
       );
-      router.push('/ContactPermissionScreen');
+      safePush(router, '/ContactPermissionScreen', { skipInitialCheck: false });
       return;
     }
 
@@ -60,9 +62,7 @@ export default function NotificationPermissionScreen() {
           // Essayer d'obtenir le token pour s'assurer que tout fonctionne
           try {
             await ensureAndroidNotificationChannel();
-            await Notifications.getExpoPushTokenAsync({
-              projectId: 'f2545544-14d4-4739-96a1-1fb75515e1e9',
-            });
+            await getFCMToken();
           } catch (tokenError) {
             console.warn('⚠️ Erreur lors de l\'obtention du token:', tokenError);
           }
@@ -75,7 +75,7 @@ export default function NotificationPermissionScreen() {
     }
     
     // Rediriger vers la page de permission contacts, puis vers l'inscription
-    router.push('/ContactPermissionScreen');
+    safePush(router, '/ContactPermissionScreen', { skipInitialCheck: false });
   };
 
   return (

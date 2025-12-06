@@ -90,3 +90,6 @@ Si vous avez activé "Auto-Deploy" sur Render :
 
 Une fois le déploiement terminé, testez immédiatement un envoi Android → iOS !
 
+
+
+

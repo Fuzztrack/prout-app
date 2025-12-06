@@ -36,3 +36,6 @@ echo ""
 echo "Vous pouvez maintenant lancer :"
 echo "  eas build --platform ios --profile production --local"
 
+
+
+

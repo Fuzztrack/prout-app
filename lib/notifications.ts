@@ -9,13 +9,11 @@ const PROUT_SOUNDS = [
   'prout16','prout17','prout18','prout19','prout20'
 ];
 
-const CHANNEL_SUFFIX = '-v14';
-
 // Canal par défaut pour Android (FCM)
-export const DEFAULT_CHANNEL_ID = `prout1${CHANNEL_SUFFIX}`;
+export const DEFAULT_CHANNEL_ID = 'prout1';
 
 export function getChannelIdForSound(soundName: string) {
-  return `${soundName}${CHANNEL_SUFFIX}`;
+  return soundName; // Pas de suffixe, juste le nom du prout (ex: "prout1")
 }
 
 // Crée tous les canaux Android pour chaque son
@@ -23,7 +21,10 @@ async function configureAndroidNotificationChannels() {
   if (Platform.OS !== 'android') return;
 
   try {
-    const oldSuffixes = ['-v13','-v12','-v11','-v10'];
+    console.log('🔧 [ANDROID] Début création des canaux de notification...');
+    
+    // Supprimer les anciens canaux avec suffixe
+    const oldSuffixes = ['-v14','-v13','-v12','-v11','-v10'];
     for (const soundName of PROUT_SOUNDS) {
       for (const suffix of oldSuffixes) {
         try { 
@@ -32,32 +33,60 @@ async function configureAndroidNotificationChannels() {
       }
     }
 
+    let createdCount = 0;
     for (const soundName of PROUT_SOUNDS) {
-      const channelId = getChannelIdForSound(soundName);
-      const soundResourceName = soundName; // ⚡ PAS D'EXTENSION
+      const channelId = getChannelIdForSound(soundName); // ex: "prout1" (sans suffixe)
+      // ⚡ Pour Android : Le nom de la ressource est SANS extension
+      // Si le fichier est "prout1.wav" dans app.json, Android l'identifie comme "prout1"
+      const soundResourceName = soundName; // "prout1" (sans extension)
 
+      // Supprimer l'ancien canal s'il existe
       try { await Notifications.deleteNotificationChannelAsync(channelId); } catch {}
 
-      await Notifications.setNotificationChannelAsync(channelId, {
-        name: `Prout ${soundName}`,
-        importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 250, 250, 250],
-        sound: soundResourceName,
-        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-        enableVibrate: true,
-        bypassDnd: true,
-        audioAttributes: {
-          usage: Notifications.AndroidAudioUsage.NOTIFICATION,
-          contentType: Notifications.AndroidAudioContentType.SONIFICATION,
-        }
-      });
+      try {
+        const channelConfig = {
+          name: `Prout ${soundName}`,
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          sound: soundResourceName,
+          lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+          enableVibrate: true,
+          bypassDnd: true,
+          audioAttributes: {
+            usage: Notifications.AndroidAudioUsage.NOTIFICATION,
+            contentType: Notifications.AndroidAudioContentType.SONIFICATION,
+          }
+        };
+        
+        await Notifications.setNotificationChannelAsync(channelId, channelConfig);
+        
+        createdCount++;
+        console.log(`✅ [ANDROID] Canal créé: ${channelId} avec son: ${soundResourceName}`);
+        console.log(`   📋 Config: ${JSON.stringify(channelConfig, null, 2)}`);
+      } catch (channelError: any) {
+        console.error(`❌ [ANDROID] Erreur création canal ${channelId}:`, channelError?.message || channelError);
+      }
     }
+
+    console.log(`🎯 [ANDROID] ${createdCount}/${PROUT_SOUNDS.length} canaux créés avec succès`);
 
     // Attendre propagation
     await new Promise(resolve => setTimeout(resolve, 1000));
 
+    // Vérifier que les canaux sont bien créés
+    try {
+      const allChannels = await Notifications.getNotificationChannelsAsync();
+      const proutChannels = allChannels?.filter(c => c.id.startsWith('prout')) || [];
+      console.log(`📋 [ANDROID] Canaux prout trouvés: ${proutChannels.length}`);
+      proutChannels.forEach(channel => {
+        console.log(`   - ${channel.id}: ${channel.name} (son: ${(channel as any).sound || 'non défini'})`);
+      });
+    } catch (checkError) {
+      console.error('❌ [ANDROID] Erreur vérification canaux:', checkError);
+    }
+
   } catch (error) {
-    console.error('Erreur configuration canaux:', error);
+    console.error('❌ [ANDROID] Erreur configuration canaux:', error);
   }
 }
 

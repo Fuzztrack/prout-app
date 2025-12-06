@@ -1,5 +1,11 @@
 // Envoi du prout via ton backend Nest.js
-export async function sendProutViaBackend(recipientToken: string, sender: string, proutKey: string) {
+export async function sendProutViaBackend(
+  recipientToken: string,
+  sender: string,
+  proutKey: string,
+  platform?: 'ios' | 'android',
+  extraData?: Record<string, any>
+) {
   const API_URL = 'https://prout-backend.onrender.com/prout';
   const API_KEY = '82d6d94d97ad501a596bf866c2831623';     // doit matcher backend .env
 
@@ -13,6 +19,8 @@ export async function sendProutViaBackend(recipientToken: string, sender: string
       token: recipientToken,
       sender,
       proutKey,
+      platform,
+      extraData,
     }),
   });
 

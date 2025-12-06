@@ -130,3 +130,6 @@ Si vous voulez revenir à l'ancien slider :
 2. ⏳ Corriger le backend (voir FIX_BACKEND_TOKEN_IOS.md)
 3. ⏳ Tester les notifications iOS end-to-end
 
+
+
+
