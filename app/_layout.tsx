@@ -4,6 +4,7 @@ import * as Notifications from 'expo-notifications';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Animated, Platform, StyleSheet, Text, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ensureAndroidNotificationChannel } from '../lib/notifications';
 import { supabase } from '../lib/supabase';
 
@@ -37,38 +38,21 @@ const PROUT_SOUNDS: { [key: string]: any } = {
 // 👇 Configuration simple des notifications
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
-    console.log(`📱 [FOREGROUND HANDLER] Notification reçue (app ouverte):`, {
-      title: notification.request.content.title,
-      body: notification.request.content.body,
-      data: notification.request.content.data,
-      sound: notification.request.content.sound,
-    });
-
     // Jouer le son si l'app est ouverte
     const data = notification.request.content.data as { proutKey?: string; key?: string; type?: string } | undefined;
-    // Le backend envoie 'proutKey' dans data, mais on garde 'key' pour compatibilité
     const proutKey = data?.proutKey || data?.key;
-    
-    console.log(`📱 [FOREGROUND HANDLER] proutKey:`, proutKey);
-    console.log(`📱 [FOREGROUND HANDLER] data complet:`, data);
     
     if (proutKey && PROUT_SOUNDS[proutKey] && notificationAudioPlayer) {
       notificationAudioPlayer.replace(PROUT_SOUNDS[proutKey]);
       notificationAudioPlayer.play();
-      console.log(`🔊 [FOREGROUND HANDLER] Son ${proutKey} joué localement`);
-    } else {
-      console.warn(`⚠️ [FOREGROUND HANDLER] Impossible de jouer le son:`, {
-        proutKey,
-        hasProutKey: !!proutKey,
-        hasSound: proutKey ? !!PROUT_SOUNDS[proutKey] : false,
-        hasPlayer: !!notificationAudioPlayer
-      });
     }
 
     return {
-      shouldShowAlert: true,   // Affiche la notification
-      shouldPlaySound: true,   // Joue le son (Android utilisera le canal)
+      shouldShowAlert: true,
+      shouldPlaySound: false, // ⚠️ Désactiver le son système iOS - l'app joue le son personnalisé via notificationAudioPlayer
       shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
     };
   },
 });
@@ -79,7 +63,7 @@ export default function RootLayout() {
   const audioPlayer = useAudioPlayer();
   const [toastMessage, setToastMessage] = useState<{ title: string; body: string } | null>(null);
   const toastOpacity = useState(new Animated.Value(0))[0];
-
+  
   // Initialiser le player audio global pour les notifications
   useEffect(() => {
     notificationAudioPlayer = audioPlayer;
@@ -96,131 +80,77 @@ export default function RootLayout() {
       });
     }
 
-    // 👇 INTERCEPTER LES MESSAGES FCM EN FOREGROUND (quand l'app est ouverte)
-    // Les notifications FCM ne passent pas par expo-notifications en foreground
-    let unsubscribeForeground: (() => void) | null = null;
-    if (Platform.OS !== 'web') {
-      try {
-        const messaging = require('@react-native-firebase/messaging').default;
-        
-        // Handler pour les messages en foreground
-        unsubscribeForeground = messaging().onMessage(async (remoteMessage: any) => {
-          console.log('🔥 [FCM FOREGROUND] Message reçu (app ouverte):', {
-            title: remoteMessage.notification?.title,
-            body: remoteMessage.notification?.body,
-            data: remoteMessage.data,
-          });
-
-          const proutKey = remoteMessage.data?.proutKey;
-          const sender = remoteMessage.data?.sender;
-          const proutName = remoteMessage.data?.proutName; // 🎨 Nom stylé depuis le backend
-
-          if (proutKey && PROUT_SOUNDS[proutKey] && notificationAudioPlayer) {
-            // Jouer le son
-            notificationAudioPlayer.replace(PROUT_SOUNDS[proutKey]);
-            notificationAudioPlayer.play();
-            console.log(`🔊 [FCM FOREGROUND] Son ${proutKey} joué`);
-
-            // Afficher un toast qui disparaît automatiquement après 1.5s
-            if (sender) {
-              // 🎨 Construire le titre avec le nom stylé depuis les data (pas depuis notification.title qui est générique)
-              const displayTitle = proutName 
-                ? `${sender} t'a envoyé ${proutName} ! 💨`
-                : `${sender} t'a envoyé un prout 💨`;
-              
-              // 🎨 Pas de body dans le toast, juste le titre avec le nom stylé
-              setToastMessage({
-                title: displayTitle,
-                body: '', // Body vide pour éviter d'afficher proutKey ou autre chose
-              });
-              
-              // Animation d'apparition
-              Animated.sequence([
-                Animated.timing(toastOpacity, {
-                  toValue: 1,
-                  duration: 200,
-                  useNativeDriver: true,
-                }),
-                Animated.delay(1300), // Afficher pendant 1.3s
-                Animated.timing(toastOpacity, {
-                  toValue: 0,
-                  duration: 200,
-                  useNativeDriver: true,
-                }),
-              ]).start(() => {
-                setToastMessage(null);
-              });
-            }
-          }
-        });
-
-        // Handler pour les messages en background (optionnel, pour éviter le warning)
-        messaging().setBackgroundMessageHandler(async (remoteMessage: any) => {
-          console.log('🔥 [FCM BACKGROUND] Message reçu (app fermée):', remoteMessage);
-        });
-      } catch (error: any) {
-        console.warn('⚠️ @react-native-firebase/messaging non disponible:', error.message);
-      }
-    }
+    // Les notifications sont gérées par expo-notifications (foreground et background)
+    // Le listener Notifications.addNotificationReceivedListener ci-dessous s'occupe de tout
 
     // Vérifier la dernière notification reçue (au cas où l'app était fermée)
     Notifications.getLastNotificationResponseAsync().then((response) => {
       if (response) {
-        console.log(`📥 [LAST NOTIFICATION] Dernière notification reçue:`, {
-          title: response.notification.request.content.title,
-          body: response.notification.request.content.body,
-          data: response.notification.request.content.data,
-        });
+        // Dernière notification reçue
       }
     });
 
     // 👇 LISTENER pour les notifications reçues (foreground ET background)
     // Ce listener est appelé pour TOUTES les notifications, même en foreground
     const notificationSubscription = Notifications.addNotificationReceivedListener((notification) => {
-      console.log(`📥 [NOTIFICATION RECEIVED] Notification complète:`, {
-        title: notification.request.content.title,
-        body: notification.request.content.body,
-        data: notification.request.content.data,
-        sound: notification.request.content.sound,
-        android: notification.request.trigger && 'android' in notification.request.trigger ? notification.request.trigger.android : null,
-      });
-
-      const data = notification.request.content.data as { proutKey?: string; key?: string; type?: string } | undefined;
-      // Le backend envoie 'proutKey' dans data, mais on garde 'key' pour compatibilité
+      const data = notification.request.content.data as { 
+        proutKey?: string; 
+        key?: string; 
+        type?: string;
+        sender?: string;
+        proutName?: string;
+      } | undefined;
       const proutKey = data?.proutKey || data?.key;
+      const sender = data?.sender;
+      const proutName = data?.proutName;
       
-      console.log(`📥 [NOTIFICATION RECEIVED] proutKey extrait:`, proutKey);
-      console.log(`📥 [NOTIFICATION RECEIVED] data complet:`, data);
-      console.log(`📥 [NOTIFICATION RECEIVED] PROUT_SOUNDS disponible:`, Object.keys(PROUT_SOUNDS));
-      console.log(`📥 [NOTIFICATION RECEIVED] notificationAudioPlayer disponible:`, !!notificationAudioPlayer);
-      
-      // Jouer le son si disponible (en foreground, on joue manuellement car shouldPlaySound peut ne pas fonctionner)
       if (proutKey && PROUT_SOUNDS[proutKey] && notificationAudioPlayer) {
         notificationAudioPlayer.replace(PROUT_SOUNDS[proutKey]);
         notificationAudioPlayer.play();
-        console.log(`🔊 [NOTIFICATION RECEIVED] Son ${proutKey} joué (foreground ou background)`);
-      } else {
-        console.warn(`⚠️ [NOTIFICATION RECEIVED] Impossible de jouer le son:`, {
-          proutKey,
-          hasProutKey: !!proutKey,
-          hasSound: proutKey ? !!PROUT_SOUNDS[proutKey] : false,
-          hasPlayer: !!notificationAudioPlayer
-        });
+        
+        // Afficher un toast en foreground
+        if (sender) {
+          const displayTitle = proutName 
+            ? `${sender} t'a envoyé ${proutName} ! 💨`
+            : `${sender} t'a envoyé un prout 💨`;
+          
+          setToastMessage({
+            title: displayTitle,
+            body: '',
+          });
+          
+          // Animation d'apparition/disparition
+          Animated.sequence([
+            Animated.timing(toastOpacity, {
+              toValue: 1,
+              duration: 200,
+              useNativeDriver: true,
+            }),
+            Animated.delay(1300),
+            Animated.timing(toastOpacity, {
+              toValue: 0,
+              duration: 200,
+              useNativeDriver: true,
+            }),
+          ]).start(() => {
+            setToastMessage(null);
+          });
+        }
       }
     });
 
     // 👇 LISTENER pour les notifications cliquées (quand l'utilisateur clique sur la notification)
     const responseSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
-      console.log(`👆 [NOTIFICATION CLICKED] Notification cliquée:`, {
-        title: response.notification.request.content.title,
-        data: response.notification.request.content.data,
-      });
+      // Notification cliquée (pas de log nécessaire)
     });
 
     // GESTION DES LIENS
     const handleAuthUrl = async (url: string) => {
       // Gérer les liens de réinitialisation de mot de passe
       if (url.includes('reset-password') || url.includes('type=recovery')) {
+        // Marquer qu'on est dans un flux de réinitialisation pour éviter les redirections automatiques
+        isResetPasswordFlow = true;
+        
         try {
           // Extraire les tokens de l'URL
           const accessTokenMatch = url.match(/access_token=([^&]+)/);
@@ -266,14 +196,45 @@ export default function RootLayout() {
     const subscription = Linking.addEventListener('url', ({ url }) => handleAuthUrl(url));
     Linking.getInitialURL().then((url) => { if (url) handleAuthUrl(url); });
 
+    // 👇 ÉCOUTEUR pour les changements d'état d'authentification (notamment SIGNED_IN après confirmation email)
+    // ⚠️ On ignore les événements SIGNED_IN pendant le flux OAuth pour éviter les conflits de navigation
+    // ⚠️ On ignore aussi les événements SIGNED_IN si on est sur la page reset-password
+    let isOAuthFlow = false;
+    let isResetPasswordFlow = false;
+    const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // Ne pas rediriger si on est dans un flux de réinitialisation de mot de passe
+      if (isResetPasswordFlow) {
+        return;
+      }
+      
+      if (event === 'SIGNED_IN' && session?.user && !isOAuthFlow) {
+        // Vérifier si c'est un flux de réinitialisation (type=recovery dans les métadonnées)
+        const isRecoveryFlow = session.user.app_metadata?.provider === 'email' && 
+                               (session.user.app_metadata?.recovery || 
+                                session.user.user_metadata?.recovery);
+        
+        if (isRecoveryFlow) {
+          isResetPasswordFlow = true;
+          return; // Ne pas rediriger, laisser l'utilisateur sur reset-password
+        }
+        
+        // Appeler checkProfileAndNavigate pour mettre à jour le pseudo
+        // Seulement si on n'est pas dans un flux OAuth (géré par AuthChoiceScreen)
+        checkProfileAndNavigate(session.user.id);
+      }
+    });
+    
+    // Exposer le flag pour que AuthChoiceScreen puisse le contrôler
+    (global as any).__isOAuthFlow = (value: boolean) => {
+      isOAuthFlow = value;
+    };
+
     setTimeout(() => setIsReady(true), 100);
     return () => {
       subscription.remove();
       notificationSubscription.remove();
       responseSubscription.remove();
-      if (unsubscribeForeground) {
-        unsubscribeForeground();
-      }
+      authSubscription.unsubscribe();
     };
   }, []);
 
@@ -283,6 +244,100 @@ export default function RootLayout() {
     // Récupérer le profil et les métadonnées utilisateur
     const { data: profile } = await supabase.from('user_profiles').select('pseudo').eq('id', userId).maybeSingle();
     const { data: { user } } = await supabase.auth.getUser();
+    
+    // 1. D'abord, chercher le pseudo d'inscription explicite
+    let pseudoFromMetadata = user?.user_metadata?.pseudo || null;
+    let pseudoExtractedFromApple = false;
+    
+    // 2. Si pas de pseudo d'inscription, extraire le prénom depuis Apple/Google (full_name ou name)
+    if (!pseudoFromMetadata || pseudoFromMetadata === 'Nouveau Membre') {
+      const fullName = user?.user_metadata?.full_name || user?.user_metadata?.name || null;
+      if (fullName) {
+        // Extraire le prénom (première partie avant l'espace)
+        const firstName = fullName.split(' ')[0].trim();
+        if (firstName && firstName.length > 0) {
+          pseudoFromMetadata = firstName;
+          pseudoExtractedFromApple = true; // Marquer que le pseudo vient d'être extrait
+          // Stocker le prénom dans les métadonnées pour les prochaines connexions
+          await supabase.auth.updateUser({
+            data: { pseudo: firstName }
+          });
+        }
+      }
+    }
+    
+    const phoneFromMetadata = user?.user_metadata?.phone;
+    
+    if (pseudoFromMetadata && (!profile || profile.pseudo === 'Nouveau Membre' || !profile.pseudo)) {
+      // Attendre un peu pour laisser le trigger créer le profil si nécessaire
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Vérifier si le profil existe avant de faire update ou upsert
+      const { data: checkProfile } = await supabase
+        .from('user_profiles')
+        .select('id')
+        .eq('id', userId)
+        .maybeSingle();
+      
+      const updateData = {
+        pseudo: pseudoFromMetadata,
+        phone: phoneFromMetadata || null,
+        updated_at: new Date().toISOString()
+      };
+      
+      let updateError, updateResult;
+      if (checkProfile) {
+        updateResult = await supabase
+          .from('user_profiles')
+          .update(updateData)
+          .eq('id', userId)
+          .select();
+        updateError = updateResult.error;
+      } else {
+        updateResult = await supabase
+          .from('user_profiles')
+          .upsert({ 
+            id: userId,
+            ...updateData
+          }, {
+            onConflict: 'id'
+          })
+          .select();
+        updateError = updateResult.error;
+      }
+      
+      if (updateError) {
+        console.error('❌ Erreur mise à jour pseudo:', updateError);
+        // Retry après un délai avec upsert pour être sûr
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        await supabase
+          .from('user_profiles')
+          .upsert({ 
+            id: userId,
+            pseudo: pseudoFromMetadata,
+            phone: phoneFromMetadata || null,
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'id'
+          });
+      }
+      
+      // Recharger le profil après mise à jour
+      const { data: updatedProfile } = await supabase.from('user_profiles').select('pseudo').eq('id', userId).maybeSingle();
+      
+      // Si le pseudo vient d'être extrait depuis Apple, toujours rediriger vers CompleteProfileScreen
+      // pour que l'utilisateur valide/modifie le pseudo
+      if (pseudoExtractedFromApple) {
+        // Pseudo extrait depuis Apple, redirection vers CompleteProfileScreen
+        router.replace('/CompleteProfileScreen');
+        return;
+      }
+      
+      if (updatedProfile && updatedProfile.pseudo && updatedProfile.pseudo !== 'Nouveau Membre') {
+        router.replace('/(tabs)');
+        return;
+      }
+    }
     
     // Vérifier si le pseudo est valide (pas "Nouveau Membre" et pas le nom complet Google)
     const isPseudoValid = profile && 
@@ -307,7 +362,7 @@ export default function RootLayout() {
   }
 
   return (
-    <>
+    <GestureHandlerRootView style={{ flex: 1 }}>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="WelcomeScreen" />
@@ -327,7 +382,7 @@ export default function RootLayout() {
           <Text style={styles.toastBody}>{toastMessage.body}</Text>
         </Animated.View>
       )}
-    </>
+    </GestureHandlerRootView>
   );
 }
 

@@ -1,98 +1,249 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import { FriendsList } from '@/components/FriendsList';
+import { getFCMToken } from '@/lib/fcmToken';
+import { supabase } from '@/lib/supabase';
+import * as Notifications from 'expo-notifications';
+import { useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Animated, Image, Platform, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const router = useRouter();
+  
+  const [refreshing, setRefreshing] = useState(false);
+  const isLoadedRef = useRef(false);
+  
+  // Animation de secousse pour le header - seulement X et Y (pas de rotation)
+  const shakeX = useRef(new Animated.Value(0)).current;
+  const shakeY = useRef(new Animated.Value(0)).current;
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+  // --- MISE À JOUR TOKEN FCM ---
+  const updatePushToken = async (userId: string) => {
+    // Permettre le simulateur pour le développement (Device.isDevice retourne false dans le simulateur)
+    if (Platform.OS === 'web') return;
+    try {
+      // Demander la permission de notifications (nécessaire pour les canaux Android)
+      const { status } = await Notifications.getPermissionsAsync();
+      if (status === 'granted') {
+        // Obtenir le token FCM natif (ou Expo Push Token sur iOS)
+        const fcmToken = await getFCMToken();
+        if (fcmToken) {
+          console.log('✅ Token généré:', Platform.OS === 'ios' ? 'Expo Push Token' : 'FCM Token', fcmToken.substring(0, 30) + '...');
+          // Stocker le token FCM dans expo_push_token (on réutilise le champ existant)
+          // Ou créer un nouveau champ fcm_token dans Supabase si préféré
+          const { error } = await supabase.from('user_profiles').update({ expo_push_token: fcmToken }).eq('id', userId);
+          if (error) {
+            console.error('❌ Erreur mise à jour token dans Supabase:', error);
+          } else {
+            console.log('✅ Token mis à jour dans Supabase');
+          }
+        }
+      }
+    } catch (e) { 
+      console.error('Erreur mise à jour token FCM:', e);
+    }
+  };
+
+  // --- CHARGEMENT ---
+  const loadData = async () => {
+    if (isLoadedRef.current && !refreshing) return;
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.replace('/AuthChoiceScreen');
+        return;
+      }
+      // Mise à jour token FCM en arrière-plan (fonctionne aussi dans le simulateur)
+      if (Platform.OS !== 'web') {
+          Notifications.getPermissionsAsync().then(({ status }) => {
+              if (status === 'granted') {
+                  getFCMToken().then(fcmToken => {
+                      if (fcmToken) {
+                          console.log('✅ Token généré au chargement:', Platform.OS === 'ios' ? 'Expo Push Token' : 'FCM Token', fcmToken.substring(0, 30) + '...');
+                          supabase.from('user_profiles').update({ expo_push_token: fcmToken }).eq('id', user.id).then(({ error }) => {
+                              if (error) {
+                                  console.error('❌ Erreur mise à jour token dans Supabase:', error);
+                              } else {
+                                  console.log('✅ Token mis à jour dans Supabase');
+                              }
+                          });
+                      }
+                  });
+              } else {
+                  console.warn('⚠️ Permission de notifications non accordée');
+              }
+          });
+      }
+      isLoadedRef.current = true;
+    } catch (e) {
+      console.log("Erreur Home:", e);
+    }
+  };
+
+  useEffect(() => { loadData(); }, []);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    isLoadedRef.current = false;
+    loadData().then(() => setRefreshing(false));
+  }, []);
+
+  // Fonction pour vibrer le header quand un prout est envoyé - mouvement subtil (haut-bas, gauche-droite)
+  const shakeHeader = useCallback(() => {
+    // Réinitialiser toutes les valeurs
+    shakeX.setValue(0);
+    shakeY.setValue(0);
+    
+    // Animation de vibration subtile avec mouvements réduits
+    const steps = 8; // Moins d'étapes pour un mouvement plus simple
+    const baseDuration = 40; // Durée légèrement plus longue pour plus de fluidité
+    const amplitude = 4; // Amplitude réduite pour un mouvement subtil (au lieu de 12-15)
+    
+    // Générer des valeurs simples pour une vibration subtile
+    const generateVibrationValues = (count: number, amp: number) => {
+      const values = [];
+      // Alternance simple : droite, gauche, droite, gauche... (ou haut, bas, haut, bas...)
+      for (let i = 0; i < count; i++) {
+        // Alternance simple avec amplitude réduite
+        values.push((i % 2 === 0 ? 1 : -1) * amp);
+      }
+      return values;
+    };
+    
+    // Valeurs simples pour X (gauche-droite) - amplitude réduite
+    const xValues = generateVibrationValues(steps, amplitude);
+    // Valeurs simples pour Y (haut-bas) - amplitude réduite
+    const yValues = generateVibrationValues(steps, amplitude);
+    
+    // Durées constantes pour un mouvement plus fluide
+    const durations = Array(steps).fill(baseDuration);
+    
+    const createVibrationSequence = (
+      value: Animated.Value, 
+      values: number[], 
+      durations: number[]
+    ) => {
+      const animations: Animated.CompositeAnimation[] = [];
+      for (let i = 0; i < values.length; i++) {
+        animations.push(
+          Animated.timing(value, {
+            toValue: values[i],
+            duration: durations[i],
+            useNativeDriver: true,
+          })
+        );
+      }
+      // Retour à zéro
+      animations.push(
+        Animated.timing(value, {
+          toValue: 0,
+          duration: baseDuration,
+          useNativeDriver: true,
+        })
+      );
+      return animations;
+    };
+    
+    // Animer X et Y en parallèle pour créer une vibration subtile
+    Animated.parallel([
+      Animated.sequence(createVibrationSequence(shakeX, xValues, durations)),
+      Animated.sequence(createVibrationSequence(shakeY, yValues, durations)),
+    ]).start();
+  }, [shakeX, shakeY]);
+
+  return (
+    <View style={styles.container}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#604a3e" />}
+      >
+        {/* 1. LE LOGO (Tout en haut, centré) */}
+        <Animated.View 
+          style={[
+            styles.logoContainer,
+            {
+              transform: [
+                { translateX: shakeX },
+                { translateY: shakeY },
+              ],
+            }
+          ]}
+        >
+          <Image 
+              source={require('../../assets/images/prout-meme.png')} 
+              style={styles.headerImage} 
+              resizeMode="contain" 
+          />
+        </Animated.View>
+
+        {/* 2. LA BARRE DE NAVIGATION (Juste en dessous) */}
+        <View style={styles.navBar}>
+             {/* Bouton Invitation (Gauche) */}
+            <TouchableOpacity onPress={() => router.push('/invitation')} style={styles.iconButton}>
+                <Image 
+                    source={require('../../assets/images/icon_invitation.png')} 
+                    style={styles.navIcon} 
+                    resizeMode="contain"
+                />
+            </TouchableOpacity>
+
+             {/* Bouton Profil (Droite) */}
+            <TouchableOpacity onPress={() => router.push('/profile')} style={styles.iconButton}>
+                <Image 
+                    source={require('../../assets/images/icon_compte.png')} 
+                    style={styles.navIcon} 
+                    resizeMode="contain"
+                />
+            </TouchableOpacity>
+        </View>
+
+        {/* 3. LA LISTE */}
+        <FriendsList onProutSent={shakeHeader} />
+
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
+  container: { 
+    flex: 1, 
+    backgroundColor: '#ebb89b' 
+  },
+  scrollContent: { 
+    padding: 20, 
+    paddingTop: 40, 
+    paddingBottom: 100 
+  },
+  
+  // Conteneur du Logo
+  logoContainer: {
     alignItems: 'center',
-    gap: 8,
+    marginBottom: 10, // Espace entre le logo et les boutons
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  headerImage: { 
+    width: 220, 
+    height: 160, 
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+
+  // Barre de boutons
+  navBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between', // Écarte les boutons aux extrémités
+    alignItems: 'center',
+    marginBottom: 20, // Espace entre les boutons et la liste
+    paddingHorizontal: 10, // Marges sur les côtés
   },
+  
+  iconButton: {
+    padding: 5,
+    // backgroundColor: 'rgba(255,255,255,0.2)', // Décommentez pour voir la zone de touche
+    borderRadius: 10,
+  },
+  
+  navIcon: {
+    width: 32, // Taille contrôlée
+    height: 32,
+    tintColor: 'white' // Icônes en blanc
+  }
 });
