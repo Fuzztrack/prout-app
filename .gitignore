@@ -48,3 +48,7 @@ app-example
 build-*.apk
 build-*.aab
 build-*/
+
+build-*.apk
+build-*.aab
+build-*/
