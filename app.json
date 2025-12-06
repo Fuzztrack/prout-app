@@ -15,13 +15,15 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.prout.app",
+      "bundleIdentifier": "com.fuzztrack.proutapp",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "UIBackgroundModes": [
+          "remote-notification",
           "remote-notification"
         ],
-        "NSUserTrackingUsageDescription": "Used for notifications"
+        "NSUserTrackingUsageDescription": "Used for notifications",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -30,6 +32,7 @@
         "backgroundColor": "#ebb89b"
       },
       "package": "com.fuzztrack.proutapp",
+      "versionCode": 1,
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.RECORD_AUDIO",
@@ -45,6 +48,7 @@
       "expo-router",
       "expo-audio",
       "expo-secure-store",
+      "expo-apple-authentication",
       [
         "expo-splash-screen",
         {
@@ -80,6 +84,14 @@
             "./assets/sounds/prout19.ogg",
             "./assets/sounds/prout20.ogg"
           ]
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          }
         }
       ]
     ],

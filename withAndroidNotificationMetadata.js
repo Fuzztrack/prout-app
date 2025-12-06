@@ -36,7 +36,7 @@ const withAndroidNotificationMetadata = (config) => {
     mainApplication['meta-data'].push({
       $: {
         'android:name': 'com.google.firebase.messaging.default_notification_color',
-        'android:resource': '@color/white', // Couleur blanche pour les notifications
+        'android:resource': '@android:color/white', // Couleur blanche système Android
         'tools:replace': 'android:resource', // Résout les conflits avec react-native-firebase
       },
     });
