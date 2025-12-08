@@ -4,6 +4,8 @@ import { Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, Tou
 import { sendProutViaBackend } from '../lib/sendProutBackend';
 import { supabase } from '../lib/supabase';
 
+import i18n from '../lib/i18n';
+
 export default function IdentityRevealScreen() {
   const router = useRouter();
   const { requesterId, requesterPseudo } = useLocalSearchParams<{ requesterId?: string; requesterPseudo?: string }>();
@@ -12,12 +14,12 @@ export default function IdentityRevealScreen() {
 
   const handleSubmit = async () => {
     if (!requesterId) {
-      Alert.alert('Erreur', 'Identifiant du demandeur manquant.');
+      Alert.alert(i18n.t('error'), i18n.t('reveal_missing_id'));
       return;
     }
 
     if (!alias.trim()) {
-      Alert.alert('Nom incomplet', 'Merci d’indiquer votre nom ou un alias.');
+      Alert.alert(i18n.t('info'), i18n.t('reveal_missing_name'));
       return;
     }
 
@@ -25,21 +27,33 @@ export default function IdentityRevealScreen() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        Alert.alert('Erreur', 'Vous devez être connecté.');
+        Alert.alert(i18n.t('error'), i18n.t('not_connected'));
         setLoading(false);
         return;
       }
 
-      await supabase
+      // 1. Mettre à jour l'entrée dans identity_reveals (UPDATE uniquement, la ligne doit exister)
+      const { data: updateData, error: updateError } = await supabase
         .from('identity_reveals')
-        .upsert({
-          requester_id: requesterId,
-          friend_id: user.id,
+        .update({
           alias: alias.trim(),
           status: 'revealed',
-        }, {
-          onConflict: 'requester_id,friend_id',
-        });
+        })
+        .eq('requester_id', requesterId)
+        .eq('friend_id', user.id)
+        .select();
+
+      if (updateError) {
+        console.error('❌ Erreur update identity:', updateError);
+        throw updateError;
+      }
+      
+      console.log('✅ Identité mise à jour:', updateData);
+      
+      // Si aucune ligne n'est retournée, c'est que RLS a bloqué l'update/insert malgré le succès apparent
+      if (!updateData || updateData.length === 0) {
+         console.warn('⚠️ Attention: Aucune ligne retournée après update. Vérifier RLS.');
+      }
 
       const { data: requesterProfile } = await supabase
         .from('user_profiles')
@@ -57,11 +71,11 @@ export default function IdentityRevealScreen() {
         );
       }
 
-      Alert.alert('Merci !', 'Ton identité a été partagée avec ton ami.');
+      Alert.alert(i18n.t('reveal_success_title'), i18n.t('reveal_success_body'));
       router.back();
     } catch (error: any) {
       console.error('❌ Impossible d’enregistrer l’identité:', error);
-      Alert.alert('Erreur', error.message || 'Impossible de partager ton identité.');
+      Alert.alert(i18n.t('error'), error.message || i18n.t('reveal_error'));
     } finally {
       setLoading(false);
     }
@@ -73,14 +87,14 @@ export default function IdentityRevealScreen() {
       style={styles.container}
     >
       <View style={styles.card}>
-        <Text style={styles.title}>Qui es-tu ? 👀</Text>
+        <Text style={styles.title}>{i18n.t('who_are_you')}</Text>
         <Text style={styles.subtitle}>
-          {requesterPseudo ? `${requesterPseudo}` : 'Un ami'} souhaite connaître ton identité.
+          {i18n.t('who_are_you_subtitle', { requester: requesterPseudo || 'Un ami' })}
         </Text>
 
         <TextInput
           style={styles.input}
-          placeholder="Ex: Michel Dupont"
+          placeholder={i18n.t('reveal_placeholder')}
           value={alias}
           onChangeText={setAlias}
           editable={!loading}
@@ -91,11 +105,11 @@ export default function IdentityRevealScreen() {
           onPress={handleSubmit}
           disabled={loading}
         >
-          <Text style={styles.buttonText}>{loading ? 'Envoi…' : 'Envoyer'}</Text>
+          <Text style={styles.buttonText}>{loading ? i18n.t('loading') : i18n.t('send')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => router.back()} style={styles.secondary}>
-          <Text style={styles.secondaryText}>Plus tard</Text>
+          <Text style={styles.secondaryText}>{i18n.t('later')}</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>

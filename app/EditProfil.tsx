@@ -3,8 +3,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { normalizePhone } from '../lib/normalizePhone';
 import { safePush, safeReplace } from '../lib/navigation';
+import { normalizePhone } from '../lib/normalizePhone';
 import { supabase } from '../lib/supabase';
 
 export default function EditProfilScreen() {
@@ -669,6 +669,8 @@ export default function EditProfilScreen() {
           <View style={styles.spacer} />
 
           <View style={styles.bottomSection}>
+            {/* Ajout d'un espace pour éviter la superposition */}
+            <View style={{ height: 20 }} />
             <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
               <Ionicons name="arrow-back" size={24} color="#604a3e" />
               <Text style={styles.backText}>Retour</Text>

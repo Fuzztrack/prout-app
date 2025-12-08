@@ -5,19 +5,23 @@ import * as Linking from 'expo-linking';
 import * as Notifications from 'expo-notifications';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Animated, Platform, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Platform, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Onboarding from '../components/Onboarding';
 import { safePush, safeReplace } from '../lib/navigation';
 import { ensureAndroidNotificationChannel } from '../lib/notifications';
 import { supabase } from '../lib/supabase';
 
+import i18n from '../lib/i18n';
+
 // 🔔 CONFIGURATION GLOBALE
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    shouldShowAlert: true, // Pour rétrocompatibilité si nécessaire
     shouldPlaySound: true,
     shouldSetBadge: false,
+    shouldShowBanner: true, // Remplaçant moderne
+    shouldShowList: true,   // Remplaçant moderne
   }),
 });
 
@@ -53,6 +57,21 @@ export default function RootLayout() {
       setLoading(false);
     });
 
+    // Timeout de 5s pour éviter le chargement infini
+    const timeout = setTimeout(() => {
+      setLoading((currentLoading) => {
+        if (currentLoading) {
+          Alert.alert(
+            i18n.t('connection_error_title'),
+            i18n.t('connection_error_body'),
+            [{ text: i18n.t('ok') }]
+          );
+          return false; // Arrêter le chargement
+        }
+        return currentLoading;
+      });
+    }, 5000);
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });
@@ -68,9 +87,7 @@ export default function RootLayout() {
 
     const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
       const { data } = response.notification.request.content;
-      if (data?.type === 'prout') {
-        safePush(router, '/(tabs)/home', { skipInitialCheck: false });
-      } else if (data?.type === 'identity_request') {
+      if (data?.type === 'identity_request') {
         safePush(router, {
           pathname: '/IdentityRevealScreen',
           params: {
@@ -78,13 +95,15 @@ export default function RootLayout() {
             requesterPseudo: data.requesterPseudo,
           }
         }, { skipInitialCheck: false });
-      }
-      else if (data?.type === 'identity_response') {
+      } else if (data?.type === 'identity_response') {
+        safePush(router, '/(tabs)/home', { skipInitialCheck: false });
+      } else if (data?.type === 'prout') {
         safePush(router, '/(tabs)/home', { skipInitialCheck: false });
       }
     });
 
     return () => {
+      clearTimeout(timeout);
       subscription.unsubscribe();
       notificationListener.remove();
       responseListener.remove();
@@ -182,6 +201,7 @@ export default function RootLayout() {
             <Stack.Screen name="RegisterEmailScreen" />
             <Stack.Screen name="CompleteProfileScreen" />
             <Stack.Screen name="IdentityRevealScreen" options={{ presentation: 'modal' }} />
+            {/* SearchUserScreen est maintenant intégré dans index.tsx, plus besoin de route dédiée */}
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="confirm-email" options={{ presentation: 'modal' }} />
             <Stack.Screen name="reset-password" options={{ presentation: 'modal' }} />
