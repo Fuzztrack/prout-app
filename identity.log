@@ -1,0 +1,4 @@
+--------- beginning of crash
+--------- beginning of main
+12-07 00:00:35.868  9342  9370 W FirebaseMessaging: Unable to log event: analytics library is missing
+12-07 00:00:42.202  9342  9342 W FirebaseMessaging: Unable to log event: analytics library is missing

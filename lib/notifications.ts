@@ -13,7 +13,7 @@ const PROUT_SOUNDS = [
 export const DEFAULT_CHANNEL_ID = 'prout1';
 
 export function getChannelIdForSound(soundName: string) {
-  return soundName; // Pas de suffixe, juste le nom du prout (ex: "prout1")
+  return `prout-${soundName}-v3`; // Harmonisation avec ProutMessagingService.kt
 }
 
 // Crée tous les canaux Android pour chaque son
@@ -24,11 +24,14 @@ async function configureAndroidNotificationChannels() {
     console.log('🔧 [ANDROID] Début création des canaux de notification...');
     
     // Supprimer les anciens canaux avec suffixe
-    const oldSuffixes = ['-v14','-v13','-v12','-v11','-v10'];
+    const oldSuffixes = ['-v14','-v13','-v12','-v11','-v10','-v2']; // Ajout de -v2 à supprimer
     for (const soundName of PROUT_SOUNDS) {
+      // Supprimer aussi les versions brutes "prout1", etc.
+      try { await Notifications.deleteNotificationChannelAsync(soundName); } catch {}
+      
       for (const suffix of oldSuffixes) {
         try { 
-          await Notifications.deleteNotificationChannelAsync(`${soundName}${suffix}`); 
+          await Notifications.deleteNotificationChannelAsync(`prout-${soundName}${suffix}`); 
         } catch {}
       }
     }

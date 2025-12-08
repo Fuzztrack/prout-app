@@ -1,19 +1,27 @@
+import { EditProfil } from '@/components/EditProfil';
 import { FriendsList } from '@/components/FriendsList';
+import { SearchUser } from '@/components/SearchUser';
+import { TutorialSwiper } from '@/components/TutorialSwiper';
+import i18n from '@/lib/i18n';
 import { getFCMToken } from '@/lib/fcmToken';
 import { safePush, safeReplace } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
+import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef } from 'react';
-import { Animated, Image, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, Animated, Image, Platform, Share, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 export default function HomeScreen() {
   const router = useRouter();
   
   const isLoadedRef = useRef(false);
+  const [activeView, setActiveView] = useState<'list' | 'tutorial' | 'search' | 'profile'>('list');
+  const [isZenMode, setIsZenMode] = useState(false);
+  const [currentPseudo, setCurrentPseudo] = useState<string>('');
+  const [userId, setUserId] = useState<string | null>(null);
   
-  // Animation de secousse pour le header - seulement X et Y (pas de rotation)
+  // Animation de secousse pour le header
   const shakeX = useRef(new Animated.Value(0)).current;
   const shakeY = useRef(new Animated.Value(0)).current;
 
@@ -54,6 +62,20 @@ export default function HomeScreen() {
         safeReplace(router, '/AuthChoiceScreen', { skipInitialCheck: false });
         return;
       }
+      setUserId(user.id);
+
+      // Charger l'état Zen et le pseudo
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('is_zen_mode, pseudo')
+        .eq('id', user.id)
+        .single();
+      
+      if (profile) {
+        setIsZenMode(profile.is_zen_mode || false);
+        setCurrentPseudo(profile.pseudo || '');
+      }
+
       // Mise à jour token FCM en arrière-plan (fonctionne aussi dans le simulateur)
       if (Platform.OS !== 'web') {
           Notifications.getPermissionsAsync().then(({ status }) => {
@@ -146,6 +168,70 @@ export default function HomeScreen() {
     ]).start();
   }, [shakeX, shakeY]);
 
+  // --- MODE ZEN ---
+  const toggleZenMode = async () => {
+    if (!userId) return;
+    
+    // Si on active le mode Zen, on demande confirmation
+    if (!isZenMode) {
+      Alert.alert(
+        i18n.t('zen_confirm_title'),
+        i18n.t('zen_confirm_body'),
+        [
+          { text: i18n.t('cancel'), style: "cancel" },
+          { 
+            text: i18n.t('activate'), 
+            onPress: async () => {
+              await applyZenMode(true);
+            }
+          }
+        ]
+      );
+    } else {
+      // Si on désactive, on le fait direct
+      await applyZenMode(false);
+    }
+  };
+
+  const applyZenMode = async (newMode: boolean) => {
+    setIsZenMode(newMode); // Optimistic update
+
+    try {
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({ is_zen_mode: newMode })
+        .eq('id', userId);
+
+      if (error) {
+        console.error('Erreur mise à jour mode Zen:', error);
+        setIsZenMode(!newMode); // Rollback
+      }
+    } catch (e) {
+      console.error('Erreur mode Zen:', e);
+      setIsZenMode(!newMode);
+    }
+  };
+
+  // --- PARTAGE ---
+  const handleShare = async () => {
+    try {
+      const result = await Share.share({
+        message: i18n.t('share_message', { pseudo: currentPseudo }),
+      });
+      if (result.action === Share.sharedAction) {
+        if (result.activityType) {
+          // shared with activity type of result.activityType
+        } else {
+          // shared
+        }
+      } else if (result.action === Share.dismissedAction) {
+        // dismissed
+      }
+    } catch (error: any) {
+      console.error(error.message);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.headerSection}>
@@ -168,27 +254,66 @@ export default function HomeScreen() {
           />
         </Animated.View>
 
-        {/* 2. LA BARRE DE NAVIGATION (Juste en dessous) */}
+        {/* 2. LA BARRE DE NAVIGATION (5 Boutons) */}
         <View style={styles.navBar}>
-             {/* Bouton Invitation (Gauche) */}
-            <TouchableOpacity onPress={() => safePush(router, '/invitation', { skipInitialCheck: false })} style={styles.iconButton}>
-                <Ionicons name="paper-plane" size={32} color="#ffffff" />
+             {/* 1. Profil */}
+            <TouchableOpacity 
+              onPress={() => setActiveView(activeView === 'profile' ? 'list' : 'profile')} 
+              style={[styles.iconButton, activeView === 'profile' && { opacity: 0.7 }]}
+            >
+                {activeView === 'profile' ? (
+                  <Ionicons name="close-circle-outline" size={32} color="#ffffff" />
+                ) : (
+                  <Image 
+                      source={require('../../assets/images/icon_compte.png')} 
+                      style={styles.navIcon} 
+                      resizeMode="contain"
+                  />
+                )}
             </TouchableOpacity>
 
-             {/* Bouton Profil (Droite) */}
-            <TouchableOpacity onPress={() => safePush(router, '/profile', { skipInitialCheck: false })} style={styles.iconButton}>
-                <Image 
-                    source={require('../../assets/images/icon_compte.png')} 
-                    style={styles.navIcon} 
-                    resizeMode="contain"
-                />
+             {/* 2. Partage Direct (Invitation) */}
+            <TouchableOpacity onPress={handleShare} style={styles.iconButton}>
+                <Ionicons name="share-social-outline" size={30} color="#ffffff" />
+            </TouchableOpacity>
+
+             {/* 3. Recherche (Loupe -> Ajout ami) */}
+            <TouchableOpacity 
+              onPress={() => setActiveView(activeView === 'search' ? 'list' : 'search')} 
+              style={[styles.iconButton, activeView === 'search' && { opacity: 0.7 }]}
+            >
+                <Ionicons name={activeView === 'search' ? "close-circle-outline" : "person-add-outline"} size={30} color="#ffffff" />
+            </TouchableOpacity>
+
+             {/* 4. Mode Zen (Lune) */}
+            <TouchableOpacity 
+              onPress={toggleZenMode} 
+              style={[styles.iconButton, isZenMode && { opacity: 0.7 }]}
+            >
+                <Ionicons name={isZenMode ? "moon" : "moon-outline"} size={30} color={isZenMode ? "#ffd700" : "#ffffff"} />
+            </TouchableOpacity>
+
+             {/* 5. Tutoriel (?) */}
+            <TouchableOpacity 
+              onPress={() => setActiveView(activeView === 'tutorial' ? 'list' : 'tutorial')} 
+              style={[styles.iconButton, activeView === 'tutorial' && { opacity: 0.7 }]}
+            >
+                <Ionicons name={activeView === 'tutorial' ? "close-circle-outline" : "help-circle-outline"} size={32} color="#ffffff" />
             </TouchableOpacity>
         </View>
       </View>
 
-      {/* 3. LA LISTE */}
+      {/* 3. CONTENU PRINCIPAL (Liste, Tuto, Recherche ou Profil) */}
       <View style={styles.listSection}>
-        <FriendsList onProutSent={shakeHeader} />
+        {activeView === 'tutorial' ? (
+          <TutorialSwiper onClose={() => setActiveView('list')} />
+        ) : activeView === 'search' ? (
+          <SearchUser onClose={() => setActiveView('list')} />
+        ) : activeView === 'profile' ? (
+          <EditProfil onClose={() => setActiveView('list')} />
+        ) : (
+          <FriendsList onProutSent={shakeHeader} isZenMode={isZenMode} />
+        )}
       </View>
     </View>
   );
@@ -202,7 +327,7 @@ const styles = StyleSheet.create({
   headerSection: {
     paddingTop: 40,
     paddingHorizontal: 20,
-    paddingBottom: 10,
+    paddingBottom: 5, // Réduit de 10 à 5
   },
   listSection: {
     flex: 1,
@@ -213,7 +338,7 @@ const styles = StyleSheet.create({
   // Conteneur du Logo
   logoContainer: {
     alignItems: 'center',
-    marginBottom: 10, // Espace entre le logo et les boutons
+    marginBottom: 5, // Réduit de 10 à 5
   },
   headerImage: { 
     width: 220, 
@@ -225,7 +350,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between', // Écarte les boutons aux extrémités
     alignItems: 'center',
-    marginBottom: 20, // Espace entre les boutons et la liste
+    marginBottom: 10, // Réduit de 20 à 10
     paddingHorizontal: 10, // Marges sur les côtés
   },
   

@@ -3,7 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAudioPlayer } from 'expo-audio';
 import { Audio } from 'expo-av';
 import * as Contacts from 'expo-contacts';
-import { useEffect, useRef, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, FlatList, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, {
@@ -20,8 +21,7 @@ import { normalizePhone } from '../lib/normalizePhone';
 import { sendProutViaBackend } from '../lib/sendProutBackend';
 // Import supprimé : on utilise maintenant sync_contacts (fonction SQL Supabase)
 import { supabase } from '../lib/supabase';
-
-// Import des images d'animation
+import i18n from '../lib/i18n';
 const ANIM_IMAGES = [
   require('../assets/images/animprout1.png'),
   require('../assets/images/animprout2.png'),
@@ -84,6 +84,7 @@ const SOUND_KEYS = Object.keys(PROUT_SOUNDS);
 // Clés de cache pour AsyncStorage
 const CACHE_KEY_FRIENDS = 'cached_friends_list';
 const CACHE_KEY_PENDING_REQUESTS = 'cached_pending_requests';
+const CACHE_KEY_INTERACTIONS = 'cached_interactions_timestamp'; // Nouvelle clé pour le tri
 const CACHE_MAX_AGE = 24 * 60 * 60 * 1000; // 24 heures
 
 // Fonction utilitaire pour charger le cache de manière sécurisée
@@ -333,8 +334,9 @@ const SwipeableFriendRow = ({
           ]}
         >
           <View style={styles.userInfo}>
-            <TouchableOpacity onLongPress={onLongPressName} activeOpacity={0.7}>
+            <TouchableOpacity onLongPress={onLongPressName} activeOpacity={0.7} style={{flexDirection: 'row', alignItems: 'center'}}>
               <Text style={styles.pseudo} numberOfLines={1}>{friend.pseudo}</Text>
+              {friend.isZenMode && <Text style={{marginLeft: 5, fontSize: 16}}>🌙</Text>}
             </TouchableOpacity>
           </View>
         </Animated.View>
@@ -343,9 +345,10 @@ const SwipeableFriendRow = ({
   );
 };
 
-export function FriendsList({ onProutSent }: { onProutSent?: () => void } = {}) {
+export function FriendsList({ onProutSent, isZenMode }: { onProutSent?: () => void; isZenMode?: boolean } = {}) {
   const [appUsers, setAppUsers] = useState<any[]>([]);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+  const [identityRequests, setIdentityRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true); // Commencer à true pour éviter le flash
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentPseudo, setCurrentPseudo] = useState<string>("Un ami");
@@ -358,11 +361,67 @@ export function FriendsList({ onProutSent }: { onProutSent?: () => void } = {}) 
   const contactsSyncedRef = useRef(false); // Pour éviter de synchroniser les contacts plusieurs fois
   const phoneFriendIdsRef = useRef<string[]>([]);
   
+  // Ref pour stocker les timestamps d'interaction (chargé depuis AsyncStorage)
+  const interactionsMapRef = useRef<Record<string, number>>({});
+
+  // Fonction pour charger les interactions
+  const loadInteractions = async () => {
+    try {
+      const cached = await AsyncStorage.getItem(CACHE_KEY_INTERACTIONS);
+      if (cached) {
+        interactionsMapRef.current = JSON.parse(cached);
+      }
+    } catch (e) {
+      console.warn('Erreur chargement interactions:', e);
+    }
+  };
+
+  // Fonction pour mettre à jour une interaction
+  const updateInteraction = async (friendId: string) => {
+    const now = Date.now();
+    interactionsMapRef.current = {
+      ...interactionsMapRef.current,
+      [friendId]: now
+    };
+    
+    // Mettre à jour l'ordre de la liste immédiatement
+    setAppUsers(prevUsers => {
+      const newUsers = [...prevUsers];
+      return sortFriends(newUsers);
+    });
+
+    // Sauvegarder en background
+    try {
+      await AsyncStorage.setItem(CACHE_KEY_INTERACTIONS, JSON.stringify(interactionsMapRef.current));
+    } catch (e) {
+      console.warn('Erreur sauvegarde interaction:', e);
+    }
+  };
+
+  // Fonction de tri
+  const sortFriends = (friends: any[]) => {
+    return friends.sort((a, b) => {
+      const timeA = interactionsMapRef.current[a.id] || 0;
+      const timeB = interactionsMapRef.current[b.id] || 0;
+      // Tri décroissant (plus récent en premier)
+      if (timeA !== timeB) return timeB - timeA;
+      // Fallback: ordre alphabétique
+      return (a.pseudo || '').localeCompare(b.pseudo || '');
+    });
+  };
+  
   // Cooldown par utilisateur pour éviter le spam (Map<userId, timestamp>)
   const cooldownMapRef = useRef<Map<string, number>>(new Map());
   const COOLDOWN_DURATION = 2000; // 2 secondes de pause entre chaque envoi
 
   const player = useAudioPlayer(); // ⚡ Audio player sans son par défaut
+
+  useFocusEffect(
+    useCallback(() => {
+      // Recharger les données à chaque fois que l'écran gagne le focus
+      loadData(false, false, false);
+    }, [])
+  );
 
   useEffect(() => {
     const mode: Audio.AudioMode = {
@@ -388,6 +447,9 @@ export function FriendsList({ onProutSent }: { onProutSent?: () => void } = {}) 
       if (!cacheLoadedRef.current) {
         cacheLoadedRef.current = true;
         try {
+          // Charger les timestamps d'abord
+          await loadInteractions();
+
           const cachedFriends = await loadCacheSafely(CACHE_KEY_FRIENDS);
           const cachedRequests = await loadCacheSafely(CACHE_KEY_PENDING_REQUESTS);
           
@@ -396,7 +458,9 @@ export function FriendsList({ onProutSent }: { onProutSent?: () => void } = {}) 
             cachedFriends.every(f => f.expo_push_token && f.expo_push_token.trim() !== '');
           
           if (cacheHasTokens) {
-            setAppUsers(cachedFriends);
+            // Appliquer le tri sur le cache
+            const sortedCache = sortFriends(cachedFriends);
+            setAppUsers(sortedCache);
             setLoading(false); // Cache trouvé, pas de spinner
             hasCache = true;
           } else if (cachedFriends && cachedFriends.length > 0) {
@@ -441,12 +505,25 @@ export function FriendsList({ onProutSent }: { onProutSent?: () => void } = {}) 
     };
   }, []);
 
+  const router = useRouter();
+
   const loadData = async (hasCacheFromInit: boolean = false, forceLoading: boolean = false, syncContacts: boolean = true) => {
     // Ne mettre loading à true que si :
     // 1. On n'a pas de cache à l'init ET pas de données affichées
     // 2. OU si forceLoading est true (premier chargement)
     if (forceLoading || (!hasCacheFromInit && appUsers.length === 0)) {
       setLoading(true);
+      
+      // Timeout de sécurité pour le chargement
+      setTimeout(() => {
+        setLoading((currentLoading) => {
+          if (currentLoading) {
+            Alert.alert("Connexion lente", "Impossible de charger la liste d'amis. Vérifiez votre réseau.");
+            return false;
+          }
+          return currentLoading;
+        });
+      }, 8000); // 8 secondes pour être large
     }
 
     try {
@@ -458,7 +535,9 @@ export function FriendsList({ onProutSent }: { onProutSent?: () => void } = {}) 
       
       setCurrentUserId(user.id);
       const { data: profile } = await supabase.from('user_profiles').select('pseudo').eq('id', user.id).single();
-      if (profile) setCurrentPseudo(profile.pseudo);
+      if (profile) {
+        setCurrentPseudo(profile.pseudo);
+      }
 
       // Charger les demandes en attente
       const { data: rawRequests } = await supabase
@@ -509,6 +588,35 @@ export function FriendsList({ onProutSent }: { onProutSent?: () => void } = {}) 
         setPendingRequests([]);
         await saveCacheSafely(CACHE_KEY_PENDING_REQUESTS, []);
       }
+
+      // Tentative de récupération des pseudos séparément pour contourner le problème de relation
+      const { data: identityRows, error: identityError } = await supabase
+        .from('identity_reveals')
+        .select(`
+          requester_id,
+          status
+        `)
+        .eq('friend_id', user.id)
+        .eq('status', 'pending');
+
+      if (identityError) {
+        console.error('❌ Erreur chargement demandes identité:', identityError);
+      }
+
+      let identityList: any[] = [];
+      if (identityRows && identityRows.length > 0) {
+        const requesterIds = identityRows.map(r => r.requester_id);
+        const { data: requesters } = await supabase
+          .from('user_profiles')
+          .select('id, pseudo')
+          .in('id', requesterIds);
+        
+        identityList = identityRows.map(row => ({
+          requesterId: row.requester_id,
+          requesterPseudo: requesters?.find(u => u.id === row.requester_id)?.pseudo || 'Inconnu',
+        }));
+      }
+      setIdentityRequests(identityList);
 
       let phoneFriendsIds: string[] = [];
       const { status } = await Contacts.requestPermissionsAsync();
@@ -578,16 +686,21 @@ export function FriendsList({ onProutSent }: { onProutSent?: () => void } = {}) 
           // IMPORTANT : Vérifier que le token est bien présent
           const { data: finalFriends } = await supabase
             .from('user_profiles')
-            .select('id, pseudo, phone, expo_push_token, push_platform')
+            .select('id, pseudo, phone, expo_push_token, push_platform, is_zen_mode')
             .in('id', allFriendIds);
           
           let identityAliasMap: Record<string, { alias: string | null, status: string | null }> = {};
           if (allFriendIds.length > 0) {
-            const { data: reveals } = await supabase
+            // Utiliser une requête simple sans jointure pour être sûr
+            const { data: reveals, error: revealError } = await supabase
               .from('identity_reveals')
               .select('friend_id, alias, status')
               .eq('requester_id', user.id)
               .in('friend_id', allFriendIds);
+
+            if (revealError) {
+              console.error('❌ Erreur chargement identités:', revealError);
+            }
 
             if (reveals) {
               identityAliasMap = reveals.reduce((acc, reveal) => {
@@ -605,6 +718,7 @@ export function FriendsList({ onProutSent }: { onProutSent?: () => void } = {}) 
             isPhoneContact: phoneFriendsIds.includes(friend.id),
             identityAlias: identityAliasMap[friend.id]?.alias || null,
             identityStatus: identityAliasMap[friend.id]?.status || null,
+            isZenMode: friend.is_zen_mode || false,
           }));
           
           // Vérifier les tokens (sans logs)
@@ -614,10 +728,12 @@ export function FriendsList({ onProutSent }: { onProutSent?: () => void } = {}) 
             }
           });
           
-          setAppUsers(friendsList);
+          // Trier la liste avant de la setter
+          const sortedList = sortFriends(friendsList);
+          setAppUsers(sortedList);
           
           // Sauvegarder dans le cache (sans bloquer si ça échoue)
-          await saveCacheSafely(CACHE_KEY_FRIENDS, friendsList);
+          await saveCacheSafely(CACHE_KEY_FRIENDS, sortedList);
       } else {
           setAppUsers([]);
           await saveCacheSafely(CACHE_KEY_FRIENDS, []);
@@ -641,28 +757,25 @@ export function FriendsList({ onProutSent }: { onProutSent?: () => void } = {}) 
         .on(
           'postgres_changes',
           {
-            event: 'UPDATE',
+            event: '*',
             schema: 'public',
             table: 'friends',
           },
           (payload) => {
-            // Relation friend mise à jour via Realtime
             // Recharger les données si le statut change (sans remettre loading si données déjà affichées)
-            if (payload.new.status !== payload.old.status) {
-              loadData(false, false);
-            }
+            loadData(false, false);
           }
         )
         .on(
           'postgres_changes',
           {
-            event: 'INSERT',
+            event: '*',
             schema: 'public',
-            table: 'friends',
+            table: 'identity_reveals',
           },
           (payload) => {
-            // Nouvelle relation friend créée via Realtime
-            // Recharger les données (sans remettre loading si données déjà affichées)
+            // Recharger les données si une demande d'identité change
+            console.log('🔄 Changement identity_reveals détecté, rechargement...');
             loadData(false, false);
           }
         )
@@ -760,26 +873,26 @@ export function FriendsList({ onProutSent }: { onProutSent?: () => void } = {}) 
 
     if (isContactFriend) {
       Alert.alert(
-        'Suppression impossible',
-        'Cet ami est un contact par téléphone, il ne peut pas être supprimé ici',
+        i18n.t('delete_impossible_title'),
+        i18n.t('delete_impossible_contact'),
       );
       return;
     }
     
     // Afficher la confirmation avec Alert
     Alert.alert(
-      'Confirmer la suppression',
-      `Voulez-vous supprimer "${friend.pseudo}" de votre liste ?`,
+      i18n.t('confirm_delete_title'),
+      i18n.t('confirm_delete_body', { pseudo: friend.pseudo }),
       [
         {
-          text: 'Non',
+          text: i18n.t('cancel'),
           style: 'cancel',
           onPress: () => {
             // Rien à faire, le slider reviendra automatiquement
           },
         },
         {
-          text: 'Confirmer',
+          text: i18n.t('confirm'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -802,10 +915,10 @@ export function FriendsList({ onProutSent }: { onProutSent?: () => void } = {}) 
               loadData();
               
               // Afficher un toast de confirmation
-              showToast(`${friend.pseudo} a été supprimé de votre liste`);
+              showToast(i18n.t('friend_deleted_toast', { pseudo: friend.pseudo }));
             } catch (error) {
               console.error('Erreur lors de la suppression:', error);
-              Alert.alert('Erreur', 'Impossible de supprimer cet ami');
+              Alert.alert(i18n.t('error'), 'Impossible de supprimer cet ami');
             }
           },
         },
@@ -840,7 +953,14 @@ export function FriendsList({ onProutSent }: { onProutSent?: () => void } = {}) 
     }
 
     if (friend.identityStatus === 'pending') {
-      Alert.alert('Demande en attente', `Tu as déjà demandé à ${friend.pseudo} de confirmer son identité. Patience 🤞`);
+      Alert.alert(
+        i18n.t('already_asked_identity_title'),
+        i18n.t('already_asked_identity_body', { pseudo: friend.pseudo }),
+        [
+          { text: i18n.t('cancel'), style: 'cancel' },
+          { text: i18n.t('relaunch_btn'), onPress: () => requestIdentityReveal(friend, { force: true }) },
+        ],
+      );
       return;
     }
 
@@ -882,19 +1002,19 @@ export function FriendsList({ onProutSent }: { onProutSent?: () => void } = {}) 
     }
 
     Alert.alert(
-      'Identité inconnue',
-      `Tu ne sais pas qui est "${friend.pseudo}". Lui demander de se dévoiler ?`,
+      i18n.t('ask_identity_title'),
+      i18n.t('ask_identity_body', { pseudo: friend.pseudo }),
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: i18n.t('cancel'), style: 'cancel' },
         {
-          text: 'Demander',
+          text: i18n.t('ask_btn'),
           onPress: () => requestIdentityReveal(friend),
         },
       ],
     );
   };
 
-  const requestIdentityReveal = async (friend: any) => {
+  const requestIdentityReveal = async (friend: any, options: { force?: boolean } = {}) => {
     if (!currentUserId) return;
 
     try {
@@ -906,6 +1026,7 @@ export function FriendsList({ onProutSent }: { onProutSent?: () => void } = {}) 
           status: 'pending',
         }, {
           onConflict: 'requester_id,friend_id',
+          updated_at: new Date().toISOString(),
         });
 
       if (friend.expo_push_token) {
@@ -921,15 +1042,31 @@ export function FriendsList({ onProutSent }: { onProutSent?: () => void } = {}) 
         );
       }
 
-      Alert.alert('Demande envoyée', `${friend.pseudo} a été sollicité.`);
+      if (options.force) {
+        showToast(i18n.t('request_sent')); // Réutilisation du message générique ou création d'un spécifique si besoin
+      } else {
+        Alert.alert(i18n.t('success'), i18n.t('request_sent'));
+      }
       loadData(false, false, false);
     } catch (error) {
       console.error('❌ Impossible de demander l’identité:', error);
-      Alert.alert('Erreur', 'Impossible d’envoyer la demande.');
+      Alert.alert(i18n.t('error'), 'Impossible d’envoyer la demande.');
     }
   };
 
   const handleSendProut = async (recipient: any) => {
+    // 1. Vérification Mode Zen (Moi) - utilise la prop isZenMode
+    if (isZenMode) {
+      Alert.alert(i18n.t('zen_mode_active_me_title'), i18n.t('zen_mode_active_me_body'));
+      return;
+    }
+
+    // 2. Vérification Mode Zen (Destinataire)
+    if (recipient.isZenMode) {
+      Alert.alert(i18n.t('zen_mode_active_friend_title'), i18n.t('zen_mode_active_friend_body', { pseudo: recipient.pseudo }));
+      return;
+    }
+
     // Vérifier le cooldown pour cet utilisateur
     const now = Date.now();
     const lastSent = cooldownMapRef.current.get(recipient.id);
@@ -948,7 +1085,7 @@ export function FriendsList({ onProutSent }: { onProutSent?: () => void } = {}) 
       // TOUJOURS recharger le pseudo depuis la base pour être sûr d'avoir la valeur à jour
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        Alert.alert("Erreur", "Vous n'êtes pas connecté.");
+        Alert.alert(i18n.t('error'), i18n.t('not_connected'));
         // Retirer le cooldown en cas d'erreur
         cooldownMapRef.current.delete(recipient.id);
         return;
@@ -963,7 +1100,7 @@ export function FriendsList({ onProutSent }: { onProutSent?: () => void } = {}) 
 
       if (senderProfileError || !senderProfile?.pseudo) {
         console.error('❌ Erreur lors de la récupération du pseudo de l\'expéditeur:', senderProfileError);
-        Alert.alert("Erreur", "Impossible de récupérer votre pseudo. Veuillez réessayer.");
+        Alert.alert(i18n.t('error'), "Impossible de récupérer votre pseudo. Veuillez réessayer."); // Pas traduit pour l'instant (erreur technique)
         cooldownMapRef.current.delete(recipient.id);
         return;
       }
@@ -1030,6 +1167,9 @@ export function FriendsList({ onProutSent }: { onProutSent?: () => void } = {}) 
       // Envoyer le push via backend avec le token FCM et le bon pseudo
       await sendProutViaBackend(fcmToken, senderPseudo, randomKey, targetPlatform || 'ios');
       
+      // Mettre à jour le timestamp d'interaction pour le tri
+      await updateInteraction(recipient.id);
+
       // Afficher le nom du prout dans un toast
       const proutName = PROUT_NAMES[randomKey] || randomKey;
       showToast(`${proutName} !`);
@@ -1044,14 +1184,14 @@ export function FriendsList({ onProutSent }: { onProutSent?: () => void } = {}) 
       
       // Si c'est une erreur 429 (Too Many Requests), informer l'utilisateur
       if (error?.message?.includes('429') || error?.message?.includes('Too Many Requests')) {
-        Alert.alert("Trop rapide !", "Attendez un peu avant d'envoyer un autre prout.");
+        Alert.alert(i18n.t('cooldown_alert'), i18n.t('cooldown_message'));
       } else {
         // Message plus détaillé selon le type d'erreur
         let errorMessage = "Impossible d'envoyer le prout.";
         if (error?.message?.includes('Backend error')) {
           errorMessage = "Erreur serveur. Le backend ne peut pas traiter ce type de token.\n\nVérifiez que le backend est configuré pour iOS (Expo Push).";
         }
-        Alert.alert("Erreur", errorMessage);
+        Alert.alert(i18n.t('error'), errorMessage);
       }
       
       // En cas d'erreur, on retire le cooldown pour permettre une nouvelle tentative
@@ -1060,23 +1200,51 @@ export function FriendsList({ onProutSent }: { onProutSent?: () => void } = {}) 
   };
 
   const renderRequestsHeader = () => {
-    if (pendingRequests.length === 0) return null;
+    if (pendingRequests.length === 0 && identityRequests.length === 0) return null;
     return (
       <View style={styles.requestsContainer}>
-        <Text style={styles.sectionTitle}>🔔 Demandes d'amis</Text>
-        {pendingRequests.map((req) => (
-          <View key={req.requestId} style={styles.requestRow}>
-            <Text style={styles.requestName}>{req.pseudo}</Text>
-            <View style={styles.requestActions}>
-              <TouchableOpacity onPress={() => handleReject(req.requestId)} style={styles.rejectBtn}>
-                <Ionicons name="close" size={20} color="white" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleAccept(req)} style={styles.acceptBtn}>
-                <Ionicons name="checkmark" size={20} color="white" />
-              </TouchableOpacity>
-            </View>
-          </View>
-        ))}
+        {pendingRequests.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>{i18n.t('friends_requests')}</Text>
+            {pendingRequests.map((req) => (
+              <View key={req.requestId} style={styles.requestRow}>
+                <Text style={styles.requestName}>{req.pseudo}</Text>
+                <View style={styles.requestActions}>
+                  <TouchableOpacity onPress={() => handleReject(req.requestId)} style={styles.rejectBtn}>
+                    <Ionicons name="close" size={20} color="white" />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => handleAccept(req)} style={styles.acceptBtn}>
+                    <Ionicons name="checkmark" size={20} color="white" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+          </>
+        )}
+
+        {identityRequests.length > 0 && (
+          <>
+            <Text style={[styles.sectionTitle, { marginTop: pendingRequests.length ? 20 : 0 }]}>{i18n.t('identity_requests')}</Text>
+            {identityRequests.map((req) => (
+              <View key={req.requesterId} style={styles.identityRow}>
+                <Text style={styles.requestName}>{req.requesterPseudo}</Text>
+                <TouchableOpacity
+                  style={styles.identityButton}
+                  onPress={() => router.push({
+                    pathname: '/IdentityRevealScreen',
+                    params: {
+                      requesterId: req.requesterId,
+                      requesterPseudo: req.requesterPseudo,
+                    },
+                  })}
+                >
+                  <Ionicons name="person-circle" size={18} color="white" />
+                  <Text style={styles.identityButtonText}>{i18n.t('respond_btn')}</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </>
+        )}
       </View>
     );
   };
@@ -1102,11 +1270,11 @@ export function FriendsList({ onProutSent }: { onProutSent?: () => void } = {}) 
           styles.listContent,
           appUsers.length === 0 && pendingRequests.length === 0 ? styles.emptyContentPadding : null,
         ]}
-        ListHeaderComponent={renderRequestsHeader}
+        ListHeaderComponent={renderRequestsHeader()}
         ListEmptyComponent={
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyText}>Aucun ami confirmé 😢</Text>
-            <Text style={styles.subText}>Invitez vos contacts.</Text>
+            <Text style={styles.emptyText}>{i18n.t('no_friends')}</Text>
+            <Text style={styles.subText}>{i18n.t('invite_contacts')}</Text>
           </View>
         }
         renderItem={({ item, index }) => (
@@ -1148,6 +1316,9 @@ const styles = StyleSheet.create({
   requestActions: { flexDirection: 'row', gap: 15 },
   acceptBtn: { backgroundColor: '#4CAF50', padding: 8, borderRadius: 20 },
   rejectBtn: { backgroundColor: '#F44336', padding: 8, borderRadius: 20 },
+  identityRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.9)', padding: 12, borderRadius: 10, marginBottom: 8 },
+  identityButton: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#604a3e', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20 },
+  identityButtonText: { color: 'white', fontWeight: 'bold' },
   emptyCard: { backgroundColor: 'rgba(255,255,255,0.7)', padding: 20, borderRadius: 15, alignItems: 'center' },
   emptyText: { color: '#666', fontSize: 16, fontWeight: 'bold' },
   subText: { color: '#888', fontSize: 14, marginTop: 5 },

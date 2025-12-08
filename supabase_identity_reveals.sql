@@ -33,6 +33,12 @@ ON public.identity_reveals
 FOR SELECT
 USING (requester_id = auth.uid());
 
+DROP POLICY IF EXISTS "Identity friend can view" ON public.identity_reveals;
+CREATE POLICY "Identity friend can view"
+ON public.identity_reveals
+FOR SELECT
+USING (friend_id = auth.uid());
+
 DROP POLICY IF EXISTS "Identity requester can insert" ON public.identity_reveals;
 CREATE POLICY "Identity requester can insert"
 ON public.identity_reveals

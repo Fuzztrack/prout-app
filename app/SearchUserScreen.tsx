@@ -143,15 +143,14 @@ export default function SearchUserScreen() {
   return (
     <View style={styles.wrapper}>
       <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => safePush(router, '/(tabs)', { skipInitialCheck: false })} activeOpacity={0.7}>
-            <Image 
-              source={require('../assets/images/prout-meme.png')} 
-              style={styles.headerImage} 
-              resizeMode="contain" 
-            />
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>Rechercher un ami</Text>
+          <TouchableOpacity onPress={() => router.back()} style={styles.closeButton}>
+            <Ionicons name="close" size={28} color="#604a3e" />
           </TouchableOpacity>
         </View>
+
+        <Text style={styles.subtitle}>Recherchez votre ami avec son pseudo</Text>
 
         <View style={styles.searchBox}>
           <TextInput
@@ -232,11 +231,6 @@ export default function SearchUserScreen() {
             )}
           />
         )}
-
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#604a3e" />
-          <Text style={styles.backText}>Retour</Text>
-        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -245,8 +239,29 @@ export default function SearchUserScreen() {
 const styles = StyleSheet.create({
   wrapper: { flex: 1, backgroundColor: '#ebb89b' },
   container: { flexGrow: 1, backgroundColor: '#ebb89b', padding: 20, paddingTop: 20, paddingBottom: 100 },
-  header: { alignItems: 'center', marginBottom: 20 },
+  modalHeader: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    marginBottom: 20,
+    marginTop: 10 
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#604a3e',
+  },
+  closeButton: {
+    padding: 5,
+  },
   headerImage: { width: 180, height: 140, marginBottom: 10 },
+  subtitle: {
+    color: '#604a3e',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 15,
+  },
   
   searchBox: { 
     marginBottom: 15,

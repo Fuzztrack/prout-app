@@ -20,7 +20,6 @@
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "UIBackgroundModes": [
-          "remote-notification",
           "remote-notification"
         ],
         "NSUserTrackingUsageDescription": "Used for notifications",
@@ -36,7 +35,6 @@
       "versionCode": 6,
       "googleServicesFile": "./google-services.json",
       "permissions": [
-        "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS"
       ]
     },
@@ -94,7 +92,8 @@
             "useFrameworks": "static"
           }
         }
-      ]
+      ],
+      "expo-localization"
     ],
     "assetBundlePatterns": [
       "assets/**/*"
