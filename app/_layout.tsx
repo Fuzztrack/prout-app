@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useAudioPlayer } from 'expo-audio';
 import * as Contacts from 'expo-contacts';
 import * as Linking from 'expo-linking';
 import * as Notifications from 'expo-notifications';

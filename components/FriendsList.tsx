@@ -1,27 +1,26 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useAudioPlayer } from 'expo-audio';
+// import { useAudioPlayer } from 'expo-audio'; // Supprimé
 import { Audio } from 'expo-av';
 import * as Contacts from 'expo-contacts';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, FlatList, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+import { ActivityIndicator, Alert, Dimensions, FlatList, Animated as RNAnimated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withDelay,
-  runOnJS,
-  interpolate,
   Extrapolation,
+  interpolate,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withSpring,
 } from 'react-native-reanimated';
-import { Animated as RNAnimated } from 'react-native'; // Pour le toast qui utilise encore l'ancien système
 import { normalizePhone } from '../lib/normalizePhone';
 import { sendProutViaBackend } from '../lib/sendProutBackend';
 // Import supprimé : on utilise maintenant sync_contacts (fonction SQL Supabase)
-import { supabase } from '../lib/supabase';
 import i18n from '../lib/i18n';
+import { supabase } from '../lib/supabase';
 const ANIM_IMAGES = [
   require('../assets/images/animprout1.png'),
   require('../assets/images/animprout2.png'),
@@ -414,7 +413,7 @@ export function FriendsList({ onProutSent, isZenMode }: { onProutSent?: () => vo
   const cooldownMapRef = useRef<Map<string, number>>(new Map());
   const COOLDOWN_DURATION = 2000; // 2 secondes de pause entre chaque envoi
 
-  const player = useAudioPlayer(); // ⚡ Audio player sans son par défaut
+  // const player = useAudioPlayer(); // Supprimé
 
   useFocusEffect(
     useCallback(() => {
@@ -1159,10 +1158,22 @@ export function FriendsList({ onProutSent, isZenMode }: { onProutSent?: () => vo
       // ⚡ Choisir un prout aléatoire AVANT de l'utiliser
       const randomKey = SOUND_KEYS[Math.floor(Math.random() * SOUND_KEYS.length)];
 
-      // Jouer localement
+      // Jouer localement avec expo-av
       const soundFile = PROUT_SOUNDS[randomKey];
-      player.replace(soundFile);
-      player.play();
+      try {
+        const { sound } = await Audio.Sound.createAsync(soundFile);
+        await sound.playAsync();
+        // Libérer la ressource après lecture
+        sound.setOnPlaybackStatusUpdate(async (status) => {
+          if (status.isLoaded && status.didJustFinish) {
+            await sound.unloadAsync();
+          }
+        });
+      } catch (error) {
+        console.warn("Impossible de jouer le son:", error);
+      }
+      // player.replace(soundFile); // Ancien code
+      // player.play(); // Ancien code
 
       // Envoyer le push via backend avec le token FCM et le bon pseudo
       await sendProutViaBackend(fcmToken, senderPseudo, randomKey, targetPlatform || 'ios');
