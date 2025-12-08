@@ -45,7 +45,6 @@
     "plugins": [
       "./withAndroidNotificationMetadata",
       "expo-router",
-      "expo-audio",
       "expo-secure-store",
       "expo-apple-authentication",
       [
