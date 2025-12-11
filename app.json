@@ -44,6 +44,7 @@
     },
     "plugins": [
       "./withAndroidNotificationMetadata",
+      "./withAndroidProutMessaging",
       "expo-router",
       "expo-secure-store",
       "expo-apple-authentication",
@@ -90,6 +91,12 @@
           "ios": {
             "useFrameworks": "static"
           }
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": false
         }
       ],
       "expo-localization"
