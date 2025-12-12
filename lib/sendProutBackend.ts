@@ -34,6 +34,17 @@ export async function sendProutViaBackend(
       // Si ce n'est pas du JSON, garder le texte tel quel
     }
     console.error(`Erreur backend (${res.status}):`, errorMessage);
+
+    // Cas spécifique : appli désinstallée => 400/410 avec message target_app_uninstalled
+    if (
+      (res.status === 400 || res.status === 410) &&
+      errorMessage?.includes('target_app_uninstalled')
+    ) {
+      const err: any = new Error('target_app_uninstalled');
+      err.code = 'target_app_uninstalled';
+      throw err;
+    }
+
     throw new Error(`Backend error: ${res.status} ${errorMessage}`);
   }
   const result = await res.json();
