@@ -65,7 +65,7 @@ const PROUT_NAMES: Record<string, string> = {
   prout7: "La Farandole",
   prout8: "Le Question Réponse",
   prout9: "Le Oulala… Problème",
-  prout10: "Le Ballon Dégonflé",
+  prout10: "Kebab Party !",
   prout11: "La Mitraille Molle",
   prout12: "La Rafale Infernale",
   prout13: "Le Lâché Prise",
@@ -332,12 +332,15 @@ const SwipeableFriendRow = ({
             animatedLineStyle,
           ]}
         >
-          <View style={styles.userInfo}>
-            <TouchableOpacity onLongPress={onLongPressName} activeOpacity={0.7} style={{flexDirection: 'row', alignItems: 'center'}}>
-              <Text style={styles.pseudo} numberOfLines={1}>{friend.pseudo}</Text>
-              {friend.isZenMode && <Text style={{marginLeft: 5, fontSize: 16}}>🌙</Text>}
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            onLongPress={onLongPressName}
+            delayLongPress={500}
+            activeOpacity={0.8}
+            style={[styles.userInfo, { flex: 1 }]}
+          >
+            <Text style={styles.pseudo} numberOfLines={1}>{friend.pseudo}</Text>
+            {friend.isZenMode && <Text style={{marginLeft: 5, fontSize: 16}}>🌙</Text>}
+          </TouchableOpacity>
         </Animated.View>
       </GestureDetector>
     </View>
@@ -517,7 +520,7 @@ export function FriendsList({ onProutSent, isZenMode }: { onProutSent?: () => vo
       setTimeout(() => {
         setLoading((currentLoading) => {
           if (currentLoading) {
-            Alert.alert("Connexion lente", "Impossible de charger la liste d'amis. Vérifiez votre réseau.");
+            // Alert.alert("Connexion lente", "Impossible de charger la liste d'amis. Vérifiez votre réseau."); // Désactivé car trop fréquent
             return false;
           }
           return currentLoading;
@@ -686,7 +689,9 @@ export function FriendsList({ onProutSent, isZenMode }: { onProutSent?: () => vo
           const { data: finalFriends } = await supabase
             .from('user_profiles')
             .select('id, pseudo, phone, expo_push_token, push_platform, is_zen_mode')
-            .in('id', allFriendIds);
+            .in('id', allFriendIds)
+            .not('expo_push_token', 'is', null)
+            .neq('expo_push_token', '');
           
           let identityAliasMap: Record<string, { alias: string | null, status: string | null }> = {};
           if (allFriendIds.length > 0) {
@@ -1033,7 +1038,7 @@ export function FriendsList({ onProutSent, isZenMode }: { onProutSent?: () => vo
           friend.expo_push_token,
           currentPseudo || 'Un ami',
           'identity-request',
-          friend.push_platform as 'ios' | 'android' | undefined,
+          (friend.push_platform as 'ios' | 'android' | undefined) || 'android', // par défaut android pour forcer data-only et ProutMessagingService
           {
             requesterId: currentUserId,
             requesterPseudo: currentPseudo || 'Un ami',
@@ -1176,7 +1181,12 @@ export function FriendsList({ onProutSent, isZenMode }: { onProutSent?: () => vo
       // player.play(); // Ancien code
 
       // Envoyer le push via backend avec le token FCM et le bon pseudo
-      await sendProutViaBackend(fcmToken, senderPseudo, randomKey, targetPlatform || 'ios');
+      await sendProutViaBackend(
+        fcmToken,
+        senderPseudo,
+        randomKey,
+        targetPlatform || 'android', // défaut android pour forcer data-only + canal custom
+      );
       
       // Mettre à jour le timestamp d'interaction pour le tri
       await updateInteraction(recipient.id);
@@ -1196,6 +1206,15 @@ export function FriendsList({ onProutSent, isZenMode }: { onProutSent?: () => vo
       // Si c'est une erreur 429 (Too Many Requests), informer l'utilisateur
       if (error?.message?.includes('429') || error?.message?.includes('Too Many Requests')) {
         Alert.alert(i18n.t('cooldown_alert'), i18n.t('cooldown_message'));
+      } else if (
+        error?.message?.includes('target_app_uninstalled') ||
+        error?.code === 'target_app_uninstalled'
+      ) {
+        Alert.alert(i18n.t('error'), `${recipient.pseudo} n'a plus l'application installée !`);
+        // Purger localement l'ami sans token
+        const filtered = appUsers.filter(u => u.id !== recipient.id);
+        setAppUsers(filtered);
+        await saveCacheSafely(CACHE_KEY_FRIENDS, filtered);
       } else {
         // Message plus détaillé selon le type d'erreur
         let errorMessage = "Impossible d'envoyer le prout.";
