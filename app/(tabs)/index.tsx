@@ -1,7 +1,9 @@
 import { EditProfil } from '@/components/EditProfil';
 import { FriendsList } from '@/components/FriendsList';
+import { IdentityList } from '@/components/IdentityList';
 import { SearchUser } from '@/components/SearchUser';
 import { TutorialSwiper } from '@/components/TutorialSwiper';
+import { PrivacyPolicyModal } from '@/components/PrivacyPolicyModal';
 import i18n from '@/lib/i18n';
 import { getFCMToken } from '@/lib/fcmToken';
 import { safePush, safeReplace } from '@/lib/navigation';
@@ -10,16 +12,17 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Image, Platform, Share, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, Animated, Image, Platform, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function HomeScreen() {
   const router = useRouter();
   
   const isLoadedRef = useRef(false);
-  const [activeView, setActiveView] = useState<'list' | 'tutorial' | 'search' | 'profile'>('list');
+  const [activeView, setActiveView] = useState<'list' | 'tutorial' | 'search' | 'profile' | 'profileMenu' | 'identity'>('list');
   const [isZenMode, setIsZenMode] = useState(false);
   const [currentPseudo, setCurrentPseudo] = useState<string>('');
   const [userId, setUserId] = useState<string | null>(null);
+  const [showPrivacy, setShowPrivacy] = useState(false);
   
   // Animation de secousse pour le header
   const shakeX = useRef(new Animated.Value(0)).current;
@@ -254,14 +257,14 @@ export default function HomeScreen() {
           />
         </Animated.View>
 
-        {/* 2. LA BARRE DE NAVIGATION (5 Boutons) */}
+        {/* 2. LA BARRE DE NAVIGATION */}
         <View style={styles.navBar}>
              {/* 1. Profil */}
             <TouchableOpacity 
-              onPress={() => setActiveView(activeView === 'profile' ? 'list' : 'profile')} 
-              style={[styles.iconButton, activeView === 'profile' && { opacity: 0.7 }]}
+              onPress={() => setActiveView(activeView === 'profileMenu' ? 'list' : 'profileMenu')} 
+              style={[styles.iconButton, (activeView === 'profileMenu' || activeView === 'profile') && { opacity: 0.7 }]}
             >
-                {activeView === 'profile' ? (
+                {(activeView === 'profileMenu' || activeView === 'profile') ? (
                   <Ionicons name="close-circle-outline" size={32} color="#ffffff" />
                 ) : (
                   <Image 
@@ -293,17 +296,17 @@ export default function HomeScreen() {
                 <Ionicons name={isZenMode ? "moon" : "moon-outline"} size={30} color={isZenMode ? "#ffd700" : "#ffffff"} />
             </TouchableOpacity>
 
-             {/* 5. Tutoriel (?) */}
+             {/* 5. Réglages (Tuto) */}
             <TouchableOpacity 
               onPress={() => setActiveView(activeView === 'tutorial' ? 'list' : 'tutorial')} 
               style={[styles.iconButton, activeView === 'tutorial' && { opacity: 0.7 }]}
             >
-                <Ionicons name={activeView === 'tutorial' ? "close-circle-outline" : "help-circle-outline"} size={32} color="#ffffff" />
+                <Ionicons name={activeView === 'tutorial' ? "close-circle-outline" : "settings-outline"} size={30} color="#ffffff" />
             </TouchableOpacity>
         </View>
       </View>
 
-      {/* 3. CONTENU PRINCIPAL (Liste, Tuto, Recherche ou Profil) */}
+      {/* 3. CONTENU PRINCIPAL */}
       <View style={styles.listSection}>
         {activeView === 'tutorial' ? (
           <TutorialSwiper onClose={() => setActiveView('list')} />
@@ -311,10 +314,33 @@ export default function HomeScreen() {
           <SearchUser onClose={() => setActiveView('list')} />
         ) : activeView === 'profile' ? (
           <EditProfil onClose={() => setActiveView('list')} />
+        ) : activeView === 'profileMenu' ? (
+          <View style={styles.menuCard}>
+            <Text style={styles.menuTitle}>Menu</Text>
+            <TouchableOpacity style={styles.menuItem} onPress={() => setActiveView('profile')}>
+              <Text style={styles.menuText}>Gérez votre profil</Text>
+              <Ionicons name="person-circle-outline" size={22} color="#604a3e" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem} onPress={() => setActiveView('tutorial')}>
+              <Text style={styles.menuText}>Revoir les fonctions de l’appli</Text>
+              <Ionicons name="settings-outline" size={22} color="#604a3e" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem} onPress={() => setActiveView('identity')}>
+              <Text style={styles.menuText}>Qui est qui ? Vérifiez les pseudos</Text>
+              <Ionicons name="help-circle-outline" size={22} color="#604a3e" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem} onPress={() => { setShowPrivacy(true); setActiveView('list'); }}>
+              <Text style={styles.menuText}>Politiques de confidentialité</Text>
+              <Ionicons name="document-text-outline" size={22} color="#604a3e" />
+            </TouchableOpacity>
+          </View>
+        ) : activeView === 'identity' ? (
+          <IdentityList />
         ) : (
           <FriendsList onProutSent={shakeHeader} isZenMode={isZenMode} />
         )}
       </View>
+      <PrivacyPolicyModal visible={showPrivacy} onClose={() => setShowPrivacy(false)} />
     </View>
   );
 }
@@ -364,5 +390,36 @@ const styles = StyleSheet.create({
     width: 32, // Taille contrôlée
     height: 32,
     tintColor: 'white' // Icônes en blanc
+  },
+  menuCard: {
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    padding: 16,
+    borderRadius: 14,
+    gap: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  menuTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#604a3e',
+    marginBottom: 4,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(96,74,62,0.08)',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+  },
+  menuText: {
+    fontSize: 15,
+    color: '#604a3e',
+    fontWeight: '600',
   }
 });

@@ -100,14 +100,18 @@ const i18n = new I18n({
     
     // Tuto
     tuto_header: "Comment ça marche ?",
+    tuto_notif_title: "Pas de notifications ?",
+    tuto_notif_desc: "Vérifiez que les notifications sont autorisées pour l'app dans les réglages de votre téléphone.",
+    tuto_sound_title: "Pas de son ?",
+    tuto_sound_desc: "Vérifiez le mode silencieux et le volume des notifications.",
     tuto_1_title: "Envoyer un Prout",
-    tuto_1_desc: "Pour envoyer un prout, swipez vers la droite sur le nom de votre ami !",
-    tuto_2_title: "Identité Secrète",
-    tuto_2_desc: "Si vous voulez vérifier l’identité de votre ami, appuyez 2 secondes sur son pseudo.",
-    tuto_3_title: "Supprimer un Ami",
-    tuto_3_desc: "Un ami un peu trop envahissant ? Vous pouvez le supprimer de la liste avec un swipe vers la gauche.",
-    tuto_4_title: "Mode Zen",
-    tuto_4_desc: "Besoin de calme ? Vous pouvez utiliser le mode Zen pour ne plus recevoir de prouts. Vous ne pourrez pas en envoyer non plus.",
+    tuto_1_desc: "Pour envoyer un prout, swipez vers la droite sur le nom de votre ami ! Comme dans la vie, on ne sait pas toujours ce qui vient. Ce sera une surprise à chaque envoi !",
+    tuto_2_title: "Ajouter un mot doux",
+    tuto_2_desc: "Tapez le nom de votre ami pour saisir un message, puis swipez pour envoyer.",
+    tuto_3_title: "Mode Zen",
+    tuto_3_desc: "Besoin de calme ? Activez le mode Zen pour ne plus recevoir (ni envoyer) de prouts.",
+    tuto_4_title: "Supprimer un Ami",
+    tuto_4_desc: "Un ami un peu trop envahissant ? Vous pouvez le supprimer de la liste avec un swipe vers la gauche.",
 
     // Network
     connection_error_title: "Impossible de se connecter",
@@ -213,14 +217,18 @@ const i18n = new I18n({
     
     // Tuto
     tuto_header: "How it works?",
+    tuto_notif_title: "No notifications?",
+    tuto_notif_desc: "Check that app notifications are allowed in system settings.",
+    tuto_sound_title: "No sound?",
+    tuto_sound_desc: "Check silent mode and notification volume.",
     tuto_1_title: "Send a Fart",
-    tuto_1_desc: "To send a fart, swipe right on your friend's name!",
-    tuto_2_title: "Secret Identity",
-    tuto_2_desc: "If you want to verify a friend's identity, long press on their username.",
-    tuto_3_title: "Delete a Friend",
-    tuto_3_desc: "A friend too annoying? You can remove them from the list with a left swipe.",
-    tuto_4_title: "Zen Mode",
-    tuto_4_desc: "Need some quiet? You can use Zen Mode to stop receiving farts. You won't be able to send any either.",
+    tuto_1_desc: "To send a fart, swipe right on your friend's name! Just like in real life, you never know what's going to happen! It will be a surprise every time!",
+    tuto_2_title: "Add a note",
+    tuto_2_desc: "Tap your friend's name to write a message, then swipe to send.",
+    tuto_3_title: "Zen Mode",
+    tuto_3_desc: "Need some quiet? Enable Zen Mode to stop receiving (and sending) farts.",
+    tuto_4_title: "Delete a Friend",
+    tuto_4_desc: "Annoying friend? Remove them with a left swipe.",
 
     // Network
     connection_error_title: "Connection Failed",

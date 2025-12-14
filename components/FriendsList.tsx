@@ -5,7 +5,7 @@ import { Audio } from 'expo-av';
 import * as Contacts from 'expo-contacts';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, FlatList, Animated as RNAnimated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, FlatList, Animated as RNAnimated, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Extrapolation,
@@ -132,14 +132,22 @@ const SwipeableFriendRow = ({
   backgroundColor, 
   onSendProut, 
   onLongPressName,
+  onPressName,
+  hasUnread = false,
+  unreadMessage,
   onDeleteFriend,
+  onMuteFriend,
   introDelay = 0,
 }: { 
   friend: any; 
   backgroundColor: string; 
   onSendProut: () => void; 
   onLongPressName: () => void;
+  onPressName?: () => void;
+  hasUnread?: boolean;
+  unreadMessage?: string | null;
   onDeleteFriend: () => void;
+  onMuteFriend: () => void;
   introDelay?: number;
 }) => {
   const translationX = useSharedValue(0);
@@ -187,10 +195,17 @@ const SwipeableFriendRow = ({
     }, 500);
   };
 
-  // Fonction pour déclencher la suppression (swipe gauche)
+  // Fonction pour déclencher la suppression (swipe gauche) - remplacée par actions
   const triggerDelete = () => {
     onDeleteFriend();
-    // Retour à la position initiale après confirmation
+    translationX.value = withSpring(0, {
+      damping: 15,
+      stiffness: 150,
+    });
+  };
+
+  const triggerMute = () => {
+    onMuteFriend();
     translationX.value = withSpring(0, {
       damping: 15,
       stiffness: 150,
@@ -225,9 +240,20 @@ const SwipeableFriendRow = ({
           stiffness: 150,
         });
       } 
-      // Swipe vers la gauche (suppression)
+      // Swipe vers la gauche (menu actions)
       else if (finalX <= -SWIPE_THRESHOLD) {
-        runOnJS(triggerDelete)();
+        // Ouvre une petite sélection via runOnJS -> on mute ou delete
+        runOnJS(() => {
+          Alert.alert(
+            i18n.t('delete_friend'),
+            i18n.t('delete_impossible_contact'), // placeholder, on remplacera les textes plus bas
+            [
+              { text: 'Annuler', style: 'cancel', onPress: () => {} },
+              { text: 'Sourdine', onPress: () => triggerMute() },
+              { text: 'Supprimer', style: 'destructive', onPress: () => triggerDelete() },
+            ]
+          );
+        })();
       } 
       // Seuil non atteint : retourner à la position initiale
       else {
@@ -333,13 +359,30 @@ const SwipeableFriendRow = ({
           ]}
         >
           <TouchableOpacity
+            onPress={onPressName}
             onLongPress={onLongPressName}
             delayLongPress={500}
             activeOpacity={0.8}
             style={[styles.userInfo, { flex: 1 }]}
           >
-            <Text style={styles.pseudo} numberOfLines={1}>{friend.pseudo}</Text>
-            {friend.isZenMode && <Text style={{marginLeft: 5, fontSize: 16}}>🌙</Text>}
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={styles.pseudo} numberOfLines={1}>{friend.pseudo}</Text>
+              {friend.isZenMode && <Text style={{marginLeft: 5, fontSize: 16}}>🌙</Text>}
+              {hasUnread && unreadMessage ? (
+                <View style={styles.unreadInline}>
+                  <View style={styles.redDot} />
+                  <Text
+                    style={styles.unreadMessage}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {unreadMessage}
+                  </Text>
+                </View>
+              ) : hasUnread ? (
+                <View style={styles.redDot} />
+              ) : null}
+            </View>
           </TouchableOpacity>
         </Animated.View>
       </GestureDetector>
@@ -356,6 +399,9 @@ export function FriendsList({ onProutSent, isZenMode }: { onProutSent?: () => vo
   const [currentPseudo, setCurrentPseudo] = useState<string>("Un ami");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [pendingMessages, setPendingMessages] = useState<any[]>([]);
+  const [expandedFriendId, setExpandedFriendId] = useState<string | null>(null);
+  const [messageDrafts, setMessageDrafts] = useState<Record<string, string>>({});
   const toastOpacity = useRef(new RNAnimated.Value(0)).current;
   const subscriptionRef = useRef<any>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -397,6 +443,28 @@ export function FriendsList({ onProutSent, isZenMode }: { onProutSent?: () => vo
       await AsyncStorage.setItem(CACHE_KEY_INTERACTIONS, JSON.stringify(interactionsMapRef.current));
     } catch (e) {
       console.warn('Erreur sauvegarde interaction:', e);
+    }
+  };
+
+  // Messages éphémères (pending_messages)
+  const fetchPendingMessages = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('pending_messages')
+      .select('id, from_user_id, sender_pseudo, message_content')
+      .eq('to_user_id', userId);
+    if (error) {
+      console.warn('⚠️ Erreur chargement pending_messages:', error);
+      return;
+    }
+    setPendingMessages(data || []);
+  };
+
+  const markMessageAsRead = async (messageId: string) => {
+    try {
+      await supabase.from('pending_messages').delete().eq('id', messageId);
+      setPendingMessages(prev => prev.filter(m => m.id !== messageId));
+    } catch (e) {
+      console.warn('⚠️ Impossible de supprimer le message éphémère:', e);
     }
   };
 
@@ -540,6 +608,9 @@ export function FriendsList({ onProutSent, isZenMode }: { onProutSent?: () => vo
       if (profile) {
         setCurrentPseudo(profile.pseudo);
       }
+
+      // Charger les messages éphémères
+      await fetchPendingMessages(user.id);
 
       // Charger les demandes en attente
       const { data: rawRequests } = await supabase
@@ -783,6 +854,25 @@ export function FriendsList({ onProutSent, isZenMode }: { onProutSent?: () => vo
             loadData(false, false);
           }
         )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'pending_messages',
+            filter: `to_user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            if (payload.eventType === 'INSERT') {
+              setPendingMessages((prev) => {
+                const filtered = prev.filter(m => m.id !== payload.new.id);
+                return [...filtered, payload.new as any];
+              });
+            } else if (payload.eventType === 'DELETE') {
+              setPendingMessages((prev) => prev.filter(m => m.id !== payload.old.id));
+            }
+          }
+        )
         .subscribe(() => {
           // Subscription active, pas besoin de log
         });
@@ -866,6 +956,28 @@ export function FriendsList({ onProutSent, isZenMode }: { onProutSent?: () => vo
 
   const handleReject = async (requestId: string) => {
     try { await supabase.from('friends').delete().eq('id', requestId); loadData(); } catch (e) {}
+  };
+
+  const handleMuteFriend = async (friend: any) => {
+    if (!currentUserId) return;
+    try {
+      const { error } = await supabase
+        .from('friends')
+        .update({ is_muted: true })
+        .eq('user_id', currentUserId)
+        .eq('friend_id', friend.id);
+      if (error) {
+        console.error('❌ Erreur mise en sourdine:', error);
+        Alert.alert(i18n.t('error'), "Impossible d'activer la sourdine.");
+        return;
+      }
+      setAppUsers(prev => prev.map(u => u.id === friend.id ? { ...u, is_muted: true } : u));
+      const updated = appUsers.map(u => u.id === friend.id ? { ...u, is_muted: true } : u);
+      await saveCacheSafely(CACHE_KEY_FRIENDS, updated);
+    } catch (e) {
+      console.error('❌ Erreur mise en sourdine:', e);
+      Alert.alert(i18n.t('error'), "Impossible d'activer la sourdine.");
+    }
   };
 
   const handleDeleteFriend = async (friend: any) => {
@@ -1058,6 +1170,26 @@ export function FriendsList({ onProutSent, isZenMode }: { onProutSent?: () => vo
     }
   };
 
+  const handlePressFriend = (friend: any) => {
+    const unread = pendingMessages.find(m => m.from_user_id === friend.id);
+    if (unread) {
+      Alert.alert(
+        `Message de ${unread.sender_pseudo}`,
+        unread.message_content,
+        [
+          {
+            text: 'OK',
+            onPress: () => markMessageAsRead(unread.id),
+          },
+        ],
+        { cancelable: true }
+      );
+      return;
+    }
+
+    setExpandedFriendId((prev) => (prev === friend.id ? null : friend.id));
+  };
+
   const handleSendProut = async (recipient: any) => {
     // 1. Vérification Mode Zen (Moi) - utilise la prop isZenMode
     if (isZenMode) {
@@ -1162,6 +1294,8 @@ export function FriendsList({ onProutSent, isZenMode }: { onProutSent?: () => vo
 
       // ⚡ Choisir un prout aléatoire AVANT de l'utiliser
       const randomKey = SOUND_KEYS[Math.floor(Math.random() * SOUND_KEYS.length)];
+      const customMessage = (messageDrafts[recipient.id] || '').trim().slice(0, 140);
+      console.log('📨 customMessage draft ->', customMessage);
 
       // Jouer localement avec expo-av
       const soundFile = PROUT_SOUNDS[randomKey];
@@ -1186,10 +1320,20 @@ export function FriendsList({ onProutSent, isZenMode }: { onProutSent?: () => vo
         senderPseudo,
         randomKey,
         targetPlatform || 'android', // défaut android pour forcer data-only + canal custom
+        {
+          ...(customMessage ? { customMessage } : {}),
+          senderId: user.id,
+          receiverId: recipient.id,
+        }
       );
+      console.log('✅ sendProutViaBackend called with customMessage?', customMessage ? 'YES' : 'NO', { recipientId: recipient.id });
       
       // Mettre à jour le timestamp d'interaction pour le tri
       await updateInteraction(recipient.id);
+
+      // Nettoyer le brouillon et refermer le champ
+      setMessageDrafts(prev => ({ ...prev, [recipient.id]: '' }));
+      setExpandedFriendId(null);
 
       // Afficher le nom du prout dans un toast
       const proutName = PROUT_NAMES[randomKey] || randomKey;
@@ -1307,18 +1451,43 @@ export function FriendsList({ onProutSent, isZenMode }: { onProutSent?: () => vo
             <Text style={styles.subText}>{i18n.t('invite_contacts')}</Text>
           </View>
         }
-        renderItem={({ item, index }) => (
-          <View style={{ position: 'relative', marginBottom: 8 }}>
-            <SwipeableFriendRow
-              friend={item}
-              backgroundColor={index % 2 === 0 ? '#d2f1ef' : '#baded7'}
-              onSendProut={() => handleSendProut(item)}
-              onLongPressName={() => handleLongPressName(item)}
-              onDeleteFriend={() => handleDeleteFriend(item)}
+        renderItem={({ item, index }) => {
+          const unread = pendingMessages.find(m => m.from_user_id === item.id);
+          const hasUnread = !!unread;
+          const isExpanded = expandedFriendId === item.id && !hasUnread;
+          const draftValue = messageDrafts[item.id] || '';
+          return (
+            <View style={{ position: 'relative', marginBottom: 12 }}>
+              <SwipeableFriendRow
+                friend={item}
+                backgroundColor={index % 2 === 0 ? '#d2f1ef' : '#baded7'}
+                onSendProut={() => handleSendProut(item)}
+                onLongPressName={() => handleLongPressName(item)}
+                onPressName={() => handlePressFriend(item)}
+                hasUnread={hasUnread}
+                unreadMessage={unread?.message_content}
+                onDeleteFriend={() => handleDeleteFriend(item)}
+                onMuteFriend={() => handleMuteFriend(item)}
                 introDelay={index * 40}
-            />
-          </View>
-        )}
+              />
+              {isExpanded && (
+                <View style={styles.messageInputContainer}>
+                  <Text style={styles.messageLabel}>Ajoutez un message ?</Text>
+                  <TextInput
+                    style={styles.messageInput}
+                    placeholder="Ajouter un petit mot doux..."
+                    placeholderTextColor="#777"
+                    value={draftValue}
+                    onChangeText={(text) => setMessageDrafts(prev => ({ ...prev, [item.id]: text }))}
+                    maxLength={140}
+                    multiline
+                  />
+                  <Text style={styles.messageHelper}>140 caractères max • Envoyez en swipant comme avant</Text>
+                </View>
+              )}
+            </View>
+          );
+        }}
         refreshing={isRefreshing}
         onRefresh={handleRefresh}
         showsVerticalScrollIndicator={false}
@@ -1352,6 +1521,10 @@ const styles = StyleSheet.create({
   emptyCard: { backgroundColor: 'rgba(255,255,255,0.7)', padding: 20, borderRadius: 15, alignItems: 'center' },
   emptyText: { color: '#666', fontSize: 16, fontWeight: 'bold' },
   subText: { color: '#888', fontSize: 14, marginTop: 5 },
+  messageInputContainer: { backgroundColor: 'rgba(255,255,255,0.9)', marginTop: 6, padding: 10, borderRadius: 12, borderWidth: 1, borderColor: '#d9e6e3' },
+  messageLabel: { color: '#604a3e', fontWeight: '600', marginBottom: 6 },
+  messageInput: { minHeight: 60, borderWidth: 1, borderColor: '#c5d7d3', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, color: '#333', backgroundColor: '#fff' },
+  messageHelper: { marginTop: 6, color: '#777', fontSize: 12 },
   swipeableRow: {
     position: 'relative',
     borderRadius: 15,
@@ -1419,7 +1592,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   userInfo: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  pseudo: { fontSize: 18, fontWeight: '600', color: '#333', marginLeft: 10 },
+  pseudo: { fontSize: 18, fontWeight: '600', color: '#333', marginLeft: 10, flex: 1 },
+  unreadInline: { flexDirection: 'row', alignItems: 'center', maxWidth: '55%', marginLeft: 8, gap: 6 },
+  unreadMessage: { fontSize: 13, fontStyle: 'italic', color: '#7a5547', flexShrink: 1 },
+  redDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#e53935' },
   deleteBackground: {
     position: 'absolute',
     left: 0,
