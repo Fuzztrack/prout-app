@@ -246,3 +246,6 @@ i18n.locale = deviceLanguage;
 
 export default i18n;
 
+
+
+

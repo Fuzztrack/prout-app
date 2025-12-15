@@ -5,7 +5,7 @@ import { Audio } from 'expo-av';
 import * as Contacts from 'expo-contacts';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, FlatList, Animated as RNAnimated, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, FlatList, KeyboardAvoidingView, Platform, Animated as RNAnimated, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Extrapolation,
@@ -137,6 +137,8 @@ const SwipeableFriendRow = ({
   unreadMessage,
   onDeleteFriend,
   onMuteFriend,
+  onUnmuteFriend,
+  isMuted = false,
   introDelay = 0,
 }: { 
   friend: any; 
@@ -148,6 +150,8 @@ const SwipeableFriendRow = ({
   unreadMessage?: string | null;
   onDeleteFriend: () => void;
   onMuteFriend: () => void;
+  onUnmuteFriend?: () => void;
+  isMuted?: boolean;
   introDelay?: number;
 }) => {
   const translationX = useSharedValue(0);
@@ -195,22 +199,47 @@ const SwipeableFriendRow = ({
     }, 500);
   };
 
-  // Fonction pour déclencher la suppression (swipe gauche) - remplacée par actions
-  const triggerDelete = () => {
-    onDeleteFriend();
+  // Fonction pour réinitialiser la position (doit être appelée depuis le thread UI)
+  const resetPosition = () => {
     translationX.value = withSpring(0, {
       damping: 15,
       stiffness: 150,
     });
   };
 
-  const triggerMute = () => {
-    onMuteFriend();
-    translationX.value = withSpring(0, {
-      damping: 15,
-      stiffness: 150,
-    });
-  };
+  // Fonction pour afficher l'alerte de sourdine/suppression (doit être définie en dehors du geste)
+  const showMuteDeleteAlert = useCallback(() => {
+    try {
+      if (isMuted) {
+        // Si déjà en sourdine, proposer de quitter le mode sourdine
+        Alert.alert(
+          'Quitter le mode sourdine ?',
+          `Voulez-vous quitter le mode sourdine pour ${friend.pseudo} ?`,
+          [
+            { text: 'Annuler', style: 'cancel', onPress: () => {} },
+            { text: 'Quitter le mode sourdine', onPress: () => {
+              if (onUnmuteFriend) {
+                onUnmuteFriend();
+              }
+            } },
+          ]
+        );
+      } else {
+        // Sinon, proposer de mettre en sourdine ou supprimer
+        Alert.alert(
+          i18n.t('delete_friend'),
+          i18n.t('delete_impossible_contact'),
+          [
+            { text: 'Annuler', style: 'cancel', onPress: () => {} },
+            { text: 'Sourdine', onPress: () => onMuteFriend() },
+            { text: 'Supprimer', style: 'destructive', onPress: () => onDeleteFriend() },
+          ]
+        );
+      }
+    } catch (error) {
+      console.error('Erreur lors de l\'affichage de l\'alerte:', error);
+    }
+  }, [isMuted, friend.pseudo, onUnmuteFriend, onMuteFriend, onDeleteFriend]);
 
   // Geste avec Reanimated (fluide sur iOS) - Supporte gauche et droite
   const gesture = Gesture.Pan()
@@ -242,18 +271,13 @@ const SwipeableFriendRow = ({
       } 
       // Swipe vers la gauche (menu actions)
       else if (finalX <= -SWIPE_THRESHOLD) {
-        // Ouvre une petite sélection via runOnJS -> on mute ou delete
-        runOnJS(() => {
-          Alert.alert(
-            i18n.t('delete_friend'),
-            i18n.t('delete_impossible_contact'), // placeholder, on remplacera les textes plus bas
-            [
-              { text: 'Annuler', style: 'cancel', onPress: () => {} },
-              { text: 'Sourdine', onPress: () => triggerMute() },
-              { text: 'Supprimer', style: 'destructive', onPress: () => triggerDelete() },
-            ]
-          );
-        })();
+        // Réinitialiser la position immédiatement
+        translationX.value = withSpring(0, {
+          damping: 15,
+          stiffness: 150,
+        });
+        // Appeler la fonction depuis le thread JS
+        runOnJS(showMuteDeleteAlert)();
       } 
       // Seuil non atteint : retourner à la position initiale
       else {
@@ -316,7 +340,7 @@ const SwipeableFriendRow = ({
         ]}
         collapsable={false}
       >
-        <Text style={styles.deleteText}>Supprimer</Text>
+        <Text style={styles.deleteText}>Supprimer / Sourdine</Text>
       </Animated.View>
 
       {/* Background droite : Image d'animation avec fond clair */}
@@ -368,6 +392,9 @@ const SwipeableFriendRow = ({
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Text style={styles.pseudo} numberOfLines={1}>{friend.pseudo}</Text>
               {friend.isZenMode && <Text style={{marginLeft: 5, fontSize: 16}}>🌙</Text>}
+              {friend.is_muted && (
+                <Ionicons name="volume-mute-outline" size={20} color="#666" style={{marginLeft: 5}} />
+              )}
               {hasUnread && unreadMessage ? (
                 <View style={styles.unreadInline}>
                   <View style={styles.redDot} />
@@ -390,7 +417,7 @@ const SwipeableFriendRow = ({
   );
 };
 
-export function FriendsList({ onProutSent, isZenMode }: { onProutSent?: () => void; isZenMode?: boolean } = {}) {
+export function FriendsList({ onProutSent, isZenMode, onComposeToggle }: { onProutSent?: () => void; isZenMode?: boolean; onComposeToggle?: (isComposing: boolean) => void } = {}) {
   const [appUsers, setAppUsers] = useState<any[]>([]);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
   const [identityRequests, setIdentityRequests] = useState<any[]>([]);
@@ -408,6 +435,7 @@ export function FriendsList({ onProutSent, isZenMode }: { onProutSent?: () => vo
   const cacheLoadedRef = useRef(false); // Pour éviter de charger le cache plusieurs fois
   const contactsSyncedRef = useRef(false); // Pour éviter de synchroniser les contacts plusieurs fois
   const phoneFriendIdsRef = useRef<string[]>([]);
+  const flatListRef = useRef<FlatList>(null);
   
   // Ref pour stocker les timestamps d'interaction (chargé depuis AsyncStorage)
   const interactionsMapRef = useRef<Record<string, number>>({});
@@ -765,6 +793,9 @@ export function FriendsList({ onProutSent, isZenMode }: { onProutSent?: () => vo
             .neq('expo_push_token', '');
           
           let identityAliasMap: Record<string, { alias: string | null, status: string | null }> = {};
+          let mutedMap: Record<string, boolean> = {};
+          let mutedByMap: Record<string, boolean> = {};
+          
           if (allFriendIds.length > 0) {
             // Utiliser une requête simple sans jointure pour être sûr
             const { data: reveals, error: revealError } = await supabase
@@ -786,15 +817,62 @@ export function FriendsList({ onProutSent, isZenMode }: { onProutSent?: () => vo
                 return acc;
               }, {} as Record<string, { alias: string | null, status: string | null }>);
             }
+
+            // Charger les statuts de sourdine depuis la table friends
+            // 1. Les contacts que j'ai mis en sourdine (user_id = moi, friend_id = eux)
+            const { data: mutedFriends, error: mutedError } = await supabase
+              .from('friends')
+              .select('friend_id, is_muted')
+              .eq('user_id', user.id)
+              .in('friend_id', allFriendIds);
+
+            if (mutedError) {
+              console.error('❌ Erreur chargement sourdine:', mutedError);
+            }
+
+            if (mutedFriends) {
+              mutedMap = mutedFriends.reduce((acc, f) => {
+                acc[f.friend_id] = f.is_muted || false;
+                return acc;
+              }, {} as Record<string, boolean>);
+            }
+
+            // 2. Les contacts qui m'ont mis en sourdine (user_id = eux, friend_id = moi)
+            // Si quelqu'un m'a mis en sourdine, je dois le voir en mode veille
+            const { data: mutedByFriends, error: mutedByError } = await supabase
+              .from('friends')
+              .select('user_id, is_muted')
+              .eq('friend_id', user.id)
+              .in('user_id', allFriendIds)
+              .eq('is_muted', true);
+
+            if (mutedByError) {
+              console.error('❌ Erreur chargement sourdine inverse:', mutedByError);
+            }
+
+            // Créer un map des amis qui m'ont mis en sourdine
+            if (mutedByFriends) {
+              mutedByFriends.forEach(f => {
+                mutedByMap[f.user_id] = true;
+              });
+            }
           }
 
-          const friendsList = (finalFriends || []).map(friend => ({
-            ...friend,
-            isPhoneContact: phoneFriendsIds.includes(friend.id),
-            identityAlias: identityAliasMap[friend.id]?.alias || null,
-            identityStatus: identityAliasMap[friend.id]?.status || null,
-            isZenMode: friend.is_zen_mode || false,
-          }));
+          const friendsList = (finalFriends || []).map(friend => {
+            // Si cet ami m'a mis en sourdine, je dois le voir en mode veille
+            const isMutedByMe = mutedMap[friend.id] || false;
+            const hasMutedMe = mutedByMap[friend.id] || false;
+            
+            return {
+              ...friend,
+              isPhoneContact: phoneFriendsIds.includes(friend.id),
+              identityAlias: identityAliasMap[friend.id]?.alias || null,
+              identityStatus: identityAliasMap[friend.id]?.status || null,
+              // Si l'ami m'a mis en sourdine, je le vois en mode veille
+              isZenMode: friend.is_zen_mode || hasMutedMe,
+              is_muted: isMutedByMe,
+            };
+          });
           
           // Vérifier les tokens (sans logs)
           friendsList.forEach(friend => {
@@ -977,6 +1055,28 @@ export function FriendsList({ onProutSent, isZenMode }: { onProutSent?: () => vo
     } catch (e) {
       console.error('❌ Erreur mise en sourdine:', e);
       Alert.alert(i18n.t('error'), "Impossible d'activer la sourdine.");
+    }
+  };
+
+  const handleUnmuteFriend = async (friend: any) => {
+    if (!currentUserId) return;
+    try {
+      const { error } = await supabase
+        .from('friends')
+        .update({ is_muted: false })
+        .eq('user_id', currentUserId)
+        .eq('friend_id', friend.id);
+      if (error) {
+        console.error('❌ Erreur désactivation sourdine:', error);
+        Alert.alert(i18n.t('error'), "Impossible de désactiver la sourdine.");
+        return;
+      }
+      setAppUsers(prev => prev.map(u => u.id === friend.id ? { ...u, is_muted: false } : u));
+      const updated = appUsers.map(u => u.id === friend.id ? { ...u, is_muted: false } : u);
+      await saveCacheSafely(CACHE_KEY_FRIENDS, updated);
+    } catch (e) {
+      console.error('❌ Erreur désactivation sourdine:', e);
+      Alert.alert(i18n.t('error'), "Impossible de désactiver la sourdine.");
     }
   };
 
@@ -1187,7 +1287,22 @@ export function FriendsList({ onProutSent, isZenMode }: { onProutSent?: () => vo
       return;
     }
 
-    setExpandedFriendId((prev) => (prev === friend.id ? null : friend.id));
+    const isExpanding = expandedFriendId !== friend.id;
+    const newExpandedId = expandedFriendId === friend.id ? null : friend.id;
+    setExpandedFriendId(newExpandedId);
+    
+    // Notifier le parent pour masquer/afficher le header
+    onComposeToggle?.(!!newExpandedId);
+    
+    // Scroller vers l'item quand on l'expand
+    if (isExpanding && flatListRef.current) {
+      const index = appUsers.findIndex(u => u.id === friend.id);
+      if (index >= 0) {
+        setTimeout(() => {
+          flatListRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.1 });
+        }, 100);
+      }
+    }
   };
 
   const handleSendProut = async (recipient: any) => {
@@ -1201,6 +1316,28 @@ export function FriendsList({ onProutSent, isZenMode }: { onProutSent?: () => vo
     if (recipient.isZenMode) {
       Alert.alert(i18n.t('zen_mode_active_friend_title'), i18n.t('zen_mode_active_friend_body', { pseudo: recipient.pseudo }));
       return;
+    }
+
+    // 3. Vérification Sourdine : si le destinataire a mis l'expéditeur en sourdine
+    if (!currentUserId) return;
+    try {
+      const { data: muteCheck } = await supabase
+        .from('friends')
+        .select('is_muted')
+        .eq('user_id', recipient.id)
+        .eq('friend_id', currentUserId)
+        .maybeSingle();
+      
+      if (muteCheck?.is_muted) {
+        Alert.alert(
+          'Mode sourdine actif',
+          `${recipient.pseudo} vous a mis en sourdine. Vous ne pouvez pas lui envoyer de message.`
+        );
+        return;
+      }
+    } catch (e) {
+      console.error('❌ Erreur vérification sourdine:', e);
+      // Continuer même en cas d'erreur pour ne pas bloquer l'envoi
     }
 
     // Vérifier le cooldown pour cet utilisateur
@@ -1334,6 +1471,8 @@ export function FriendsList({ onProutSent, isZenMode }: { onProutSent?: () => vo
       // Nettoyer le brouillon et refermer le champ
       setMessageDrafts(prev => ({ ...prev, [recipient.id]: '' }));
       setExpandedFriendId(null);
+      // Notifier le parent pour réafficher le header
+      onComposeToggle?.(false);
 
       // Afficher le nom du prout dans un toast
       const proutName = PROUT_NAMES[randomKey] || randomKey;
@@ -1436,28 +1575,34 @@ export function FriendsList({ onProutSent, isZenMode }: { onProutSent?: () => vo
 
   return (
     <View style={styles.container}>
-      <FlatList
-        data={appUsers}
-        keyExtractor={(item) => item.id}
-        style={styles.list}
-        contentContainerStyle={[
-          styles.listContent,
-          appUsers.length === 0 && pendingRequests.length === 0 ? styles.emptyContentPadding : null,
-        ]}
-        ListHeaderComponent={renderRequestsHeader()}
-        ListEmptyComponent={
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyText}>{i18n.t('no_friends')}</Text>
-            <Text style={styles.subText}>{i18n.t('invite_contacts')}</Text>
-          </View>
-        }
-        renderItem={({ item, index }) => {
-          const unread = pendingMessages.find(m => m.from_user_id === item.id);
-          const hasUnread = !!unread;
-          const isExpanded = expandedFriendId === item.id && !hasUnread;
-          const draftValue = messageDrafts[item.id] || '';
-          return (
-            <View style={{ position: 'relative', marginBottom: 12 }}>
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoidingView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <FlatList
+          ref={flatListRef}
+          data={appUsers}
+          keyExtractor={(item) => item.id}
+          style={styles.list}
+          contentContainerStyle={[
+            styles.listContent,
+            appUsers.length === 0 && pendingRequests.length === 0 ? styles.emptyContentPadding : null,
+          ]}
+          ListHeaderComponent={renderRequestsHeader()}
+          ListEmptyComponent={
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyText}>{i18n.t('no_friends')}</Text>
+              <Text style={styles.subText}>{i18n.t('invite_contacts')}</Text>
+            </View>
+          }
+          renderItem={({ item, index }) => {
+            const unread = pendingMessages.find(m => m.from_user_id === item.id);
+            const hasUnread = !!unread;
+            const isExpanded = expandedFriendId === item.id && !hasUnread;
+            const draftValue = messageDrafts[item.id] || '';
+            return (
+              <View style={{ position: 'relative', marginBottom: 12 }}>
               <SwipeableFriendRow
                 friend={item}
                 backgroundColor={index % 2 === 0 ? '#d2f1ef' : '#baded7'}
@@ -1468,30 +1613,48 @@ export function FriendsList({ onProutSent, isZenMode }: { onProutSent?: () => vo
                 unreadMessage={unread?.message_content}
                 onDeleteFriend={() => handleDeleteFriend(item)}
                 onMuteFriend={() => handleMuteFriend(item)}
+                onUnmuteFriend={() => handleUnmuteFriend(item)}
+                isMuted={item.is_muted || false}
                 introDelay={index * 40}
               />
-              {isExpanded && (
-                <View style={styles.messageInputContainer}>
-                  <Text style={styles.messageLabel}>Ajoutez un message ?</Text>
-                  <TextInput
-                    style={styles.messageInput}
-                    placeholder="Ajouter un petit mot doux..."
-                    placeholderTextColor="#777"
-                    value={draftValue}
-                    onChangeText={(text) => setMessageDrafts(prev => ({ ...prev, [item.id]: text }))}
-                    maxLength={140}
-                    multiline
-                  />
-                  <Text style={styles.messageHelper}>140 caractères max • Envoyez en swipant comme avant</Text>
-                </View>
-              )}
-            </View>
-          );
-        }}
-        refreshing={isRefreshing}
-        onRefresh={handleRefresh}
-        showsVerticalScrollIndicator={false}
-      />
+                {isExpanded && (
+                  <View style={styles.messageInputContainer}>
+                    <TextInput
+                      style={styles.messageInput}
+                      placeholder="Ajoutez un message ?"
+                      placeholderTextColor="#777"
+                      value={draftValue}
+                      onChangeText={(text) => setMessageDrafts(prev => ({ ...prev, [item.id]: text }))}
+                      maxLength={140}
+                      multiline
+                      onFocus={() => {
+                        // Scroller vers l'item quand le TextInput reçoit le focus
+                        const index = appUsers.findIndex(u => u.id === item.id);
+                        if (index >= 0 && flatListRef.current) {
+                          setTimeout(() => {
+                            flatListRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.1 });
+                          }, 300);
+                        }
+                      }}
+                    />
+                    <Text style={styles.messageHelper}>140 caractères max • Envoyez en swipant</Text>
+                  </View>
+                )}
+              </View>
+            );
+          }}
+          refreshing={isRefreshing}
+          onRefresh={handleRefresh}
+          showsVerticalScrollIndicator={false}
+          onScrollToIndexFailed={(info) => {
+            // Gérer l'erreur si l'index n'est pas encore rendu
+            const wait = new Promise(resolve => setTimeout(resolve, 500));
+            wait.then(() => {
+              flatListRef.current?.scrollToIndex({ index: info.index, animated: true });
+            });
+          }}
+        />
+      </KeyboardAvoidingView>
 
       {/* Toast qui disparaît automatiquement */}
       {toastMessage && (
@@ -1505,6 +1668,7 @@ export function FriendsList({ onProutSent, isZenMode }: { onProutSent?: () => vo
 
 const styles = StyleSheet.create({
   container: { flex: 1, marginTop: 0 },
+  keyboardAvoidingView: { flex: 1 },
   list: { flex: 1 },
   listContent: { paddingBottom: 80 },
   emptyContentPadding: { flexGrow: 1, justifyContent: 'center' },
