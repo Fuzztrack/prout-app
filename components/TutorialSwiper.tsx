@@ -42,6 +42,13 @@ const TUTORIAL_DATA = [
     icon: 'moon-outline',
     color: '#9C27B0',
   },
+  {
+    id: '6',
+    title: i18n.t('tuto_4_title'),
+    description: i18n.t('tuto_4_desc'),
+    icon: 'volume-mute-outline',
+    color: '#FF9800',
+  },
 ];
 
 export function TutorialSwiper({ onClose }: { onClose: () => void }) {

@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // import { useAudioPlayer } from 'expo-audio'; // Supprimé
 import { Audio } from 'expo-av';
 import * as Contacts from 'expo-contacts';
+import * as Notifications from 'expo-notifications';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, FlatList, KeyboardAvoidingView, Platform, Animated as RNAnimated, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -227,8 +228,8 @@ const SwipeableFriendRow = ({
       } else {
         // Sinon, proposer de mettre en sourdine ou supprimer
         Alert.alert(
-          i18n.t('delete_friend'),
-          i18n.t('delete_impossible_contact'),
+          'Que voulez vous faire avec ce contact ?',
+          'Le supprimer ou le mettre en sourdine ?',
           [
             { text: 'Annuler', style: 'cancel', onPress: () => {} },
             { text: 'Sourdine', onPress: () => onMuteFriend() },
@@ -439,6 +440,8 @@ export function FriendsList({ onProutSent, isZenMode, onComposeToggle }: { onPro
   
   // Ref pour stocker les timestamps d'interaction (chargé depuis AsyncStorage)
   const interactionsMapRef = useRef<Record<string, number>>({});
+  // Ref pour stocker la fonction updateInteraction pour le listener de notifications
+  const updateInteractionRef = useRef<((friendId: string) => Promise<void>) | null>(null);
 
   // Fonction pour charger les interactions
   const loadInteractions = async () => {
@@ -473,6 +476,9 @@ export function FriendsList({ onProutSent, isZenMode, onComposeToggle }: { onPro
       console.warn('Erreur sauvegarde interaction:', e);
     }
   };
+
+  // Mettre à jour la ref avec la fonction pour le listener
+  updateInteractionRef.current = updateInteraction;
 
   // Messages éphémères (pending_messages)
   const fetchPendingMessages = async (userId: string) => {
@@ -600,6 +606,25 @@ export function FriendsList({ onProutSent, isZenMode, onComposeToggle }: { onPro
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
       }
+    };
+  }, []);
+
+  // Écouter les notifications reçues pour mettre à jour l'interaction
+  useEffect(() => {
+    const notificationListener = Notifications.addNotificationReceivedListener(notification => {
+      const { data } = notification.request.content;
+      if (data?.type === 'prout' && data?.senderId) {
+        // Mettre à jour l'interaction pour que l'expéditeur passe en tête de liste
+        const senderId = data.senderId;
+        console.log('📨 Notification prout reçue de:', senderId);
+        if (updateInteractionRef.current) {
+          updateInteractionRef.current(senderId);
+        }
+      }
+    });
+
+    return () => {
+      notificationListener.remove();
     };
   }, []);
 
@@ -1254,6 +1279,7 @@ export function FriendsList({ onProutSent, isZenMode, onComposeToggle }: { onPro
           {
             requesterId: currentUserId,
             requesterPseudo: currentPseudo || 'Un ami',
+            locale: i18n.locale || 'fr',
           },
         );
       }
@@ -1461,6 +1487,7 @@ export function FriendsList({ onProutSent, isZenMode, onComposeToggle }: { onPro
           ...(customMessage ? { customMessage } : {}),
           senderId: user.id,
           receiverId: recipient.id,
+          locale: i18n.locale || 'fr',
         }
       );
       console.log('✅ sendProutViaBackend called with customMessage?', customMessage ? 'YES' : 'NO', { recipientId: recipient.id });
