@@ -23,6 +23,7 @@ export default function HomeScreen() {
   const [currentPseudo, setCurrentPseudo] = useState<string>('');
   const [userId, setUserId] = useState<string | null>(null);
   const [showPrivacy, setShowPrivacy] = useState(false);
+  const [hideHeader, setHideHeader] = useState(false);
   
   // Animation de secousse pour le header
   const shakeX = useRef(new Animated.Value(0)).current;
@@ -237,7 +238,8 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerSection}>
+      {!hideHeader && (
+        <View style={styles.headerSection}>
         {/* 1. LE LOGO (Tout en haut, centré) */}
         <Animated.View 
           style={[
@@ -305,9 +307,10 @@ export default function HomeScreen() {
             </TouchableOpacity>
         </View>
       </View>
+      )}
 
       {/* 3. CONTENU PRINCIPAL */}
-      <View style={styles.listSection}>
+      <View style={[styles.listSection, hideHeader && styles.listSectionWithMargin]}>
         {activeView === 'tutorial' ? (
           <TutorialSwiper onClose={() => setActiveView('list')} />
         ) : activeView === 'search' ? (
@@ -337,7 +340,11 @@ export default function HomeScreen() {
         ) : activeView === 'identity' ? (
           <IdentityList />
         ) : (
-          <FriendsList onProutSent={shakeHeader} isZenMode={isZenMode} />
+          <FriendsList 
+            onProutSent={shakeHeader} 
+            isZenMode={isZenMode}
+            onComposeToggle={(isComposing) => setHideHeader(isComposing)}
+          />
         )}
       </View>
       <PrivacyPolicyModal visible={showPrivacy} onClose={() => setShowPrivacy(false)} />
@@ -359,6 +366,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
     paddingBottom: 20,
+  },
+  listSectionWithMargin: {
+    paddingTop: 100,
   },
   
   // Conteneur du Logo
