@@ -110,8 +110,8 @@ const i18n = new I18n({
     tuto_2_desc: "Tapez le nom de votre ami pour saisir un message, puis swipez pour envoyer.",
     tuto_3_title: "Mode Zen",
     tuto_3_desc: "Besoin de calme ? Activez le mode Zen pour ne plus recevoir (ni envoyer) de prouts.",
-    tuto_4_title: "Supprimer un Ami",
-    tuto_4_desc: "Un ami un peu trop envahissant ? Vous pouvez le supprimer de la liste avec un swipe vers la gauche.",
+    tuto_4_title: "Sourdine",
+    tuto_4_desc: "En swipant à gauche le nom d'un contact, vous pouvez le mettre en sourdine.",
 
     // Network
     connection_error_title: "Impossible de se connecter",
@@ -227,14 +227,131 @@ const i18n = new I18n({
     tuto_2_desc: "Tap your friend's name to write a message, then swipe to send.",
     tuto_3_title: "Zen Mode",
     tuto_3_desc: "Need some quiet? Enable Zen Mode to stop receiving (and sending) farts.",
-    tuto_4_title: "Delete a Friend",
-    tuto_4_desc: "Annoying friend? Remove them with a left swipe.",
+    tuto_4_title: "Mute",
+    tuto_4_desc: "By swiping left on a contact's name, you can mute them.",
 
     // Network
     connection_error_title: "Connection Failed",
     connection_error_body: "Check your network.",
     connection_slow_title: "Slow Connection",
     connection_slow_body: "Unable to load friends list. Check your network.",
+  },
+  es: {
+    // General
+    ok: "OK",
+    cancel: "Cancelar",
+    error: "Error",
+    success: "Éxito",
+    loading: "Cargando...",
+    back: "Volver",
+    send: "Enviar",
+    later: "Más tarde",
+    confirm: "Confirmar",
+    info: "Información",
+    
+    // Auth & Onboarding
+    login: "Iniciar sesión",
+    register: "Registrarse",
+    
+    // Home & Navigation
+    share_message: "Únete a mí en la app \"Prout!\", mi nombre de usuario es %{pseudo}: http://theproutapp.com",
+    tab_list: "Amigos",
+    
+    // Friends List
+    friends_requests: "🔔 Solicitudes de amistad",
+    identity_requests: "🕵️ Solicitudes de identidad",
+    no_friends: "No hay amigos confirmados 😢",
+    invite_contacts: "Invita a tus contactos.",
+    delete_friend: "Eliminar",
+    confirm_delete_title: "Confirmar eliminación",
+    confirm_delete_body: "¿Quieres eliminar \"%{pseudo}\" de tu lista?",
+    delete_impossible_contact: "Este amigo es un contacto telefónico, no se puede eliminar aquí",
+    delete_impossible_title: "Eliminación imposible",
+    already_asked_identity_title: "Solicitud pendiente",
+    already_asked_identity_body: "Ya le preguntaste a %{pseudo}. ¿Volver a preguntar?",
+    ask_identity_title: "Identidad desconocida",
+    ask_identity_body: "No sabes quién es \"%{pseudo}\". ¿Pedirle que se revele?",
+    ask_btn: "Preguntar",
+    relaunch_btn: "Volver a preguntar",
+    respond_btn: "Responder",
+    friend_deleted_toast: "%{pseudo} ha sido eliminado de tu lista",
+    
+    // Actions Prout
+    zen_mode_active_me_title: "Modo Zen Activo 🧘‍♂️",
+    zen_mode_active_me_body: "No puedes hacer prout en modo Zen. Desactívalo en tu perfil para reanudar las hostilidades.",
+    zen_mode_active_friend_title: "¡Chis! 🤫",
+    zen_mode_active_friend_body: "%{pseudo} está en modo Zen. No se puede molestar.",
+    cooldown_alert: "¡Demasiado rápido!",
+    cooldown_message: "Espera un poco antes de enviar otro prout.",
+    not_connected: "No estás conectado.",
+    
+    // Search
+    search_title: "Buscar un nuevo amigo",
+    search_placeholder: "Ingresa un nombre de usuario...",
+    search_btn: "Buscar",
+    search_subtitle: "Busca a tu amigo por nombre de usuario",
+    add_btn: "Agregar",
+    pending_btn: "Pendiente",
+    already_friend: "Ya son amigos ✅",
+    no_results: "No se encontró ningún prouteador.",
+    request_sent: "¡Solicitud de amistad enviada!",
+    already_linked: "Ya estás vinculado con esta persona.",
+    
+    // Profil
+    edit_profile: "Editar perfil",
+    pseudo: "Nombre de usuario",
+    email: "Correo electrónico",
+    phone: "Teléfono",
+    update_btn: "Guardar",
+    logout: "Cerrar sesión",
+    logout_title: "Cerrar sesión",
+    logout_confirm: "¿Realmente quieres cerrar sesión?\n\n¡Ya no recibirás prouts!",
+    delete_account: "Eliminar cuenta",
+    delete_account_confirm_title: "Confirmar",
+    delete_account_confirm_body: "¿Estás seguro de que quieres eliminar tu cuenta? Esta acción es irreversible.",
+    contact_support: "Contactar soporte",
+    privacy_policy: "Política de privacidad",
+    no_change: "No se detectaron cambios",
+    update_success: "Éxito",
+    update_success_msg: "¡%{fields} actualizado con éxito!",
+    
+    // Zen Mode
+    zen_mode: "Modo Zen",
+    zen_description: "Activa el modo Zen para dejar de recibir notificaciones (y poder enviarlas). ¡Ideal para dormir! 😴",
+    zen_confirm_title: "Modo Zen 🌙",
+    zen_confirm_body: "Ya no recibirás prouts y no podrás enviar ninguno.",
+    activate: "Activar",
+    
+    // Identity Reveal
+    who_are_you: "¿Quién eres? 👀",
+    who_are_you_subtitle: "%{requester} quiere saber tu identidad.",
+    reveal_placeholder: "Ej: Juan Pérez",
+    reveal_success_title: "¡Gracias!",
+    reveal_success_body: "Tu identidad ha sido compartida con tu amigo.",
+    reveal_error: "No se pudo compartir tu identidad.",
+    reveal_missing_id: "Falta el ID del solicitante.",
+    reveal_missing_name: "Por favor indica tu nombre o un alias.",
+    
+    // Tuto
+    tuto_header: "¿Cómo funciona?",
+    tuto_notif_title: "¿No hay notificaciones?",
+    tuto_notif_desc: "Verifica que las notificaciones de la app estén permitidas en la configuración de tu teléfono.",
+    tuto_sound_title: "¿No hay sonido?",
+    tuto_sound_desc: "Verifica el modo silencioso y el volumen de las notificaciones.",
+    tuto_1_title: "Enviar un Prout",
+    tuto_1_desc: "¡Para enviar un prout, desliza hacia la derecha sobre el nombre de tu amigo! Como en la vida real, nunca sabes qué va a pasar. ¡Será una sorpresa cada vez!",
+    tuto_2_title: "Agregar un mensaje",
+    tuto_2_desc: "Toca el nombre de tu amigo para escribir un mensaje, luego desliza para enviar.",
+    tuto_3_title: "Modo Zen",
+    tuto_3_desc: "¿Necesitas tranquilidad? Activa el modo Zen para dejar de recibir (y enviar) prouts.",
+    tuto_4_title: "Silenciar",
+    tuto_4_desc: "Deslizando hacia la izquierda el nombre de un contacto, puedes silenciarlo.",
+    
+    // Network
+    connection_error_title: "No se pudo conectar",
+    connection_error_body: "Verifica tu red.",
+    connection_slow_title: "Conexión lenta",
+    connection_slow_body: "No se pudo cargar la lista de amigos. Verifica tu red.",
   }
 });
 

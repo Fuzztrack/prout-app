@@ -57,6 +57,13 @@ const slides: Slide[] = [
       "Dès que vous avez un ami, swipez simplement sur son nom vers la droite pour lui envoyer un prout. Surprise garantie !",
     emoji: '👉',
   },
+  {
+    key: 'mute',
+    title: 'Sourdine',
+    description:
+      "En swipant à gauche le nom d'un contact, vous pouvez le mettre en sourdine.",
+    emoji: '🔇',
+  },
 ];
 
 const { width } = Dimensions.get('window');
