@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Linking, Platform, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Linking, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { normalizePhone } from '../lib/normalizePhone';
@@ -18,8 +18,6 @@ export function EditProfil({ onClose }: { onClose: () => void }) {
   const [currentPseudo, setCurrentPseudo] = useState<string>('');
   const [currentEmail, setCurrentEmail] = useState<string>('');
   const [currentPhone, setCurrentPhone] = useState<string>('');
-  const [isZenMode, setIsZenMode] = useState(false);
-  const [currentZenMode, setCurrentZenMode] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
 
   // Fonction pour gérer les erreurs Supabase
@@ -73,8 +71,6 @@ export function EditProfil({ onClose }: { onClose: () => void }) {
         setCurrentEmail(normalizedEmail);
         setPhone(profile.phone || '');
         setCurrentPhone(profile.phone || '');
-        setIsZenMode(profile.is_zen_mode || false);
-        setCurrentZenMode(profile.is_zen_mode || false);
       } catch (err) {
         console.error('Erreur lors du chargement:', err);
         if (err instanceof Error && (err.message.includes('network') || err.message.includes('fetch'))) {
@@ -107,9 +103,8 @@ export function EditProfil({ onClose }: { onClose: () => void }) {
     const pseudoChanged = trimmedPseudo !== currentPseudo && trimmedPseudo !== '';
     const emailChanged = trimmedEmail !== currentEmail?.toLowerCase().trim() && trimmedEmail !== '';
     const phoneChanged = normalizedPhone !== normalizedCurrentPhone;
-    const zenModeChanged = isZenMode !== currentZenMode;
 
-    if (!pseudoChanged && !emailChanged && !phoneChanged && !zenModeChanged) {
+    if (!pseudoChanged && !emailChanged && !phoneChanged) {
       Alert.alert(i18n.t('info'), i18n.t('no_change'));
       return;
     }
@@ -176,12 +171,6 @@ export function EditProfil({ onClose }: { onClose: () => void }) {
         messages.push('téléphone');
       }
 
-      // Mettre à jour le mode Zen si modifié
-      if (zenModeChanged) {
-        updates.is_zen_mode = isZenMode;
-        messages.push('mode zen');
-      }
-
       // Mettre à jour le profil si nécessaire
       if (Object.keys(updates).length > 0) {
         const { error: profileError } = await supabase
@@ -206,9 +195,6 @@ export function EditProfil({ onClose }: { onClose: () => void }) {
         if (phoneChanged) {
           setCurrentPhone(normalizedPhone || '');
           setPhone(normalizedPhone || '');
-        }
-        if (zenModeChanged) {
-          setCurrentZenMode(isZenMode);
         }
       }
 
@@ -390,22 +376,6 @@ export function EditProfil({ onClose }: { onClose: () => void }) {
           />
         </View>
 
-        <View style={styles.zenSection}>
-          <View style={styles.zenHeader}>
-            <Ionicons name="moon" size={24} color="#604a3e" />
-            <Text style={styles.zenTitle}>{i18n.t('zen_mode')}</Text>
-            <Switch
-              value={isZenMode}
-              onValueChange={setIsZenMode}
-              trackColor={{ false: "#d9c0b2", true: "#604a3e" }}
-              thumbColor={isZenMode ? "#ebb89b" : "#f4f3f4"}
-            />
-          </View>
-          <Text style={styles.zenDescription}>
-            {i18n.t('zen_description')}
-          </Text>
-        </View>
-
         {/* Bouton de mise à jour */}
         <TouchableOpacity 
           style={styles.updateAllButton} 
@@ -505,32 +475,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     borderWidth: 1,
     borderColor: 'rgba(96, 74, 62, 0.2)'
-  },
-  zenSection: {
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(96, 74, 62, 0.2)',
-  },
-  zenHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  zenTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#604a3e',
-    flex: 1,
-    marginLeft: 10,
-  },
-  zenDescription: {
-    fontSize: 14,
-    color: '#604a3e',
-    opacity: 0.8,
-    lineHeight: 20,
   },
   updateAllButton: {
     flexDirection: 'row', 
