@@ -16,11 +16,10 @@ import i18n from '../lib/i18n';
 // 🔔 CONFIGURATION GLOBALE
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true, // Pour rétrocompatibilité si nécessaire
     shouldPlaySound: true,
     shouldSetBadge: false,
-    shouldShowBanner: true, // Remplaçant moderne
-    shouldShowList: true,   // Remplaçant moderne
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -86,19 +85,22 @@ export default function RootLayout() {
 
     const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
       const { data } = response.notification.request.content;
-      if (data?.type === 'identity_request') {
-        safePush(router, {
-          pathname: '/IdentityRevealScreen',
-          params: {
-            requesterId: data.requesterId,
-            requesterPseudo: data.requesterPseudo,
-          }
-        }, { skipInitialCheck: false });
-      } else if (data?.type === 'identity_response') {
-        safePush(router, '/(tabs)/home', { skipInitialCheck: false });
-      } else if (data?.type === 'prout') {
-        safePush(router, '/(tabs)/home', { skipInitialCheck: false });
-      }
+      // Attendre un peu pour que l'app soit prête avant de naviguer
+      setTimeout(() => {
+        if (data?.type === 'identity_request') {
+          safePush(router, {
+            pathname: '/IdentityRevealScreen',
+            params: {
+              requesterId: data.requesterId,
+              requesterPseudo: data.requesterPseudo,
+            }
+          }, { skipInitialCheck: false });
+        } else if (data?.type === 'identity_response') {
+          safeReplace(router, '/(tabs)', { skipInitialCheck: false });
+        } else if (data?.type === 'prout') {
+          safeReplace(router, '/(tabs)', { skipInitialCheck: false });
+        }
+      }, 500);
     });
 
     return () => {

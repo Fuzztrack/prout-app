@@ -5,17 +5,20 @@ import { Audio } from 'expo-av';
 import * as Contacts from 'expo-contacts';
 import * as Notifications from 'expo-notifications';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, FlatList, KeyboardAvoidingView, Platform, Animated as RNAnimated, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Dimensions, FlatList, Image, Animated as RNAnimated, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
+  cancelAnimation,
   Extrapolation,
   interpolate,
   runOnJS,
+  useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
   withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 import { normalizePhone } from '../lib/normalizePhone';
 import { sendProutViaBackend } from '../lib/sendProutBackend';
@@ -127,21 +130,12 @@ const saveCacheSafely = async (key: string, data: any[]) => {
   }
 };
 
-// Composant SwipeableFriendRow : Swipe to Action avec animation frame-by-frame (version Reanimated pour iOS fluide)
-const SwipeableFriendRow = ({ 
-  friend, 
-  backgroundColor, 
-  onSendProut, 
-  onLongPressName,
-  onPressName,
-  hasUnread = false,
-  unreadMessage,
-  onDeleteFriend,
-  onMuteFriend,
-  onUnmuteFriend,
-  isMuted = false,
-  introDelay = 0,
-}: { 
+type SwipeableFriendRowHandle = {
+  startHoldSend: () => void;
+  cancelHoldSend: () => void;
+};
+
+type SwipeableFriendRowProps = { 
   friend: any; 
   backgroundColor: string; 
   onSendProut: () => void; 
@@ -154,7 +148,23 @@ const SwipeableFriendRow = ({
   onUnmuteFriend?: () => void;
   isMuted?: boolean;
   introDelay?: number;
-}) => {
+};
+
+// Composant SwipeableFriendRow : Swipe to Action avec animation frame-by-frame (version Reanimated pour iOS fluide)
+const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendRowProps>(({
+  friend, 
+  backgroundColor, 
+  onSendProut, 
+  onLongPressName,
+  onPressName,
+  hasUnread = false,
+  unreadMessage,
+  onDeleteFriend,
+  onMuteFriend,
+  onUnmuteFriend,
+  isMuted = false,
+  introDelay = 0,
+}, ref) => {
   const translationX = useSharedValue(0);
   const maxSwipeRight = SCREEN_WIDTH * 0.7; // Maximum 70% de l'écran vers la droite
   const maxSwipeLeft = SCREEN_WIDTH * 0.7; // Maximum 70% de l'écran vers la gauche
@@ -199,6 +209,40 @@ const SwipeableFriendRow = ({
       setCurrentImageIndex(0);
     }, 500);
   };
+
+  useImperativeHandle(ref, () => ({
+    startHoldSend: () => {
+      cancelAnimation(translationX);
+      translationX.value = withTiming(maxSwipeRight, { duration: 800 }, (finished) => {
+        if (finished) {
+          runOnJS(triggerAction)();
+          translationX.value = withSpring(0, {
+            damping: 15,
+            stiffness: 150,
+          });
+          runOnJS(setCurrentImageIndex)(0);
+        }
+      });
+    },
+    cancelHoldSend: () => {
+      cancelAnimation(translationX);
+      translationX.value = withSpring(0, {
+        damping: 15,
+        stiffness: 150,
+      });
+      runOnJS(setCurrentImageIndex)(0);
+      runOnJS(setShowFinalImage)(false);
+    },
+  }));
+
+  useAnimatedReaction(
+    () => translationX.value,
+    (value) => {
+      if (value > 0) {
+        runOnJS(updateImageIndex)(value);
+      }
+    }
+  );
 
   // Fonction pour réinitialiser la position (doit être appelée depuis le thread UI)
   const resetPosition = () => {
@@ -398,14 +442,14 @@ const SwipeableFriendRow = ({
               )}
               {hasUnread && unreadMessage ? (
                 <View style={styles.unreadInline}>
-                  <View style={styles.redDot} />
                   <Text
                     style={styles.unreadMessage}
                     numberOfLines={1}
                     ellipsizeMode="tail"
                   >
-                    {unreadMessage}
+                    "{unreadMessage}"
                   </Text>
+                  <View style={styles.redDot} />
                 </View>
               ) : hasUnread ? (
                 <View style={styles.redDot} />
@@ -416,9 +460,9 @@ const SwipeableFriendRow = ({
       </GestureDetector>
     </View>
   );
-};
-
-export function FriendsList({ onProutSent, isZenMode, onComposeToggle }: { onProutSent?: () => void; isZenMode?: boolean; onComposeToggle?: (isComposing: boolean) => void } = {}) {
+});
+ 
+export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onProutSent?: () => void; isZenMode?: boolean; headerComponent?: React.ReactElement } = {}) {
   const [appUsers, setAppUsers] = useState<any[]>([]);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
   const [identityRequests, setIdentityRequests] = useState<any[]>([]);
@@ -429,6 +473,8 @@ export function FriendsList({ onProutSent, isZenMode, onComposeToggle }: { onPro
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [pendingMessages, setPendingMessages] = useState<any[]>([]);
   const [expandedFriendId, setExpandedFriendId] = useState<string | null>(null);
+  const [expandedUnreadId, setExpandedUnreadId] = useState<string | null>(null);
+  const [unreadCache, setUnreadCache] = useState<Record<string, { id: string; message_content: string }[]>>({});
   const [messageDrafts, setMessageDrafts] = useState<Record<string, string>>({});
   const toastOpacity = useRef(new RNAnimated.Value(0)).current;
   const subscriptionRef = useRef<any>(null);
@@ -437,6 +483,7 @@ export function FriendsList({ onProutSent, isZenMode, onComposeToggle }: { onPro
   const contactsSyncedRef = useRef(false); // Pour éviter de synchroniser les contacts plusieurs fois
   const phoneFriendIdsRef = useRef<string[]>([]);
   const flatListRef = useRef<FlatList>(null);
+  const rowRefs = useRef<Record<string, SwipeableFriendRowHandle | null>>({});
   
   // Ref pour stocker les timestamps d'interaction (chargé depuis AsyncStorage)
   const interactionsMapRef = useRef<Record<string, number>>({});
@@ -1296,39 +1343,50 @@ export function FriendsList({ onProutSent, isZenMode, onComposeToggle }: { onPro
     }
   };
 
+  const scrollToFriend = (_friendId: string) => {
+    // Désactivé : on laisse le KeyboardAvoidingView gérer le décalage du clavier, pas de scroll manuel supplémentaire.
+    return;
+  };
+
   const handlePressFriend = (friend: any) => {
-    const unread = pendingMessages.find(m => m.from_user_id === friend.id);
-    if (unread) {
-      Alert.alert(
-        `Message de ${unread.sender_pseudo}`,
-        unread.message_content,
-        [
-          {
-            text: 'OK',
-            onPress: () => markMessageAsRead(unread.id),
-          },
-        ],
-        { cancelable: true }
-      );
+    const unreadMessages = pendingMessages.filter(m => m.from_user_id === friend.id);
+    const alreadyUnreadOpen = expandedUnreadId === friend.id;
+    const isInputOpen = expandedFriendId === friend.id;
+    const hasCachedMessages = unreadCache[friend.id] && unreadCache[friend.id].length > 0;
+    
+    // Si on a des messages non lus OU des messages en cache (déjà ouverts)
+    if (unreadMessages.length > 0 || hasCachedMessages) {
+      if (!alreadyUnreadOpen && unreadMessages.length > 0) {
+        // Première ouverture : afficher les messages
+        setExpandedUnreadId(friend.id);
+        setUnreadCache((prev) => ({ ...prev, [friend.id]: unreadMessages }));
+        unreadMessages.forEach(msg => markMessageAsRead(msg.id));
+        setExpandedFriendId(null);
+        return;
+      }
+      
+      // Messages déjà ouverts (soit dans unreadMessages, soit dans le cache)
+      if (!isInputOpen) {
+        // Si l'input n'est pas ouvert, ouvrir l'input en gardant les messages visibles
+        setExpandedFriendId(friend.id);
+        return;
+      }
+      
+      // Si l'input est ouvert, fermer tout
+      setExpandedFriendId(null);
+      setExpandedUnreadId(null);
+      // Nettoyer le cache pour ce contact
+      setUnreadCache((prev) => {
+        const newCache = { ...prev };
+        delete newCache[friend.id];
+        return newCache;
+      });
       return;
     }
 
-    const isExpanding = expandedFriendId !== friend.id;
     const newExpandedId = expandedFriendId === friend.id ? null : friend.id;
     setExpandedFriendId(newExpandedId);
-    
-    // Notifier le parent pour masquer/afficher le header
-    onComposeToggle?.(!!newExpandedId);
-    
-    // Scroller vers l'item quand on l'expand
-    if (isExpanding && flatListRef.current) {
-      const index = appUsers.findIndex(u => u.id === friend.id);
-      if (index >= 0) {
-        setTimeout(() => {
-          flatListRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.1 });
-        }, 100);
-      }
-    }
+    // Ne pas fermer les messages d'un autre contact quand on clique sur un contact sans messages
   };
 
   const handleSendProut = async (recipient: any) => {
@@ -1472,7 +1530,11 @@ export function FriendsList({ onProutSent, isZenMode, onComposeToggle }: { onPro
           }
         });
       } catch (error) {
-        console.warn("Impossible de jouer le son:", error);
+        // Ignorer l'erreur si l'app est en arrière-plan (comportement normal d'Android)
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (!errorMessage.includes('AudioFocusNotAcquiredException')) {
+          console.warn("Impossible de jouer le son:", error);
+        }
       }
       // player.replace(soundFile); // Ancien code
       // player.play(); // Ancien code
@@ -1498,8 +1560,13 @@ export function FriendsList({ onProutSent, isZenMode, onComposeToggle }: { onPro
       // Nettoyer le brouillon et refermer le champ
       setMessageDrafts(prev => ({ ...prev, [recipient.id]: '' }));
       setExpandedFriendId(null);
-      // Notifier le parent pour réafficher le header
-      onComposeToggle?.(false);
+      setExpandedUnreadId(null);
+      // Nettoyer le cache pour ce contact
+      setUnreadCache((prev) => {
+        const newCache = { ...prev };
+        delete newCache[recipient.id];
+        return newCache;
+      });
 
       // Afficher le nom du prout dans un toast
       const proutName = PROUT_NAMES[randomKey] || randomKey;
@@ -1602,21 +1669,22 @@ export function FriendsList({ onProutSent, isZenMode, onComposeToggle }: { onPro
 
   return (
     <View style={styles.container}>
-      <KeyboardAvoidingView
-        style={styles.keyboardAvoidingView}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-      >
         <FlatList
           ref={flatListRef}
           data={appUsers}
           keyExtractor={(item) => item.id}
           style={styles.list}
+          keyboardShouldPersistTaps="always"
           contentContainerStyle={[
             styles.listContent,
             appUsers.length === 0 && pendingRequests.length === 0 ? styles.emptyContentPadding : null,
           ]}
-          ListHeaderComponent={renderRequestsHeader()}
+          ListHeaderComponent={
+            <>
+              {headerComponent}
+              {renderRequestsHeader()}
+            </>
+          }
           ListEmptyComponent={
             <View style={styles.emptyCard}>
               <Text style={styles.emptyText}>{i18n.t('no_friends')}</Text>
@@ -1624,47 +1692,65 @@ export function FriendsList({ onProutSent, isZenMode, onComposeToggle }: { onPro
             </View>
           }
           renderItem={({ item, index }) => {
-            const unread = pendingMessages.find(m => m.from_user_id === item.id);
-            const hasUnread = !!unread;
-            const isExpanded = expandedFriendId === item.id && !hasUnread;
+            const unreadMessages = pendingMessages.filter(m => m.from_user_id === item.id);
+            const hasUnread = unreadMessages.length > 0;
+            // Afficher le dernier message (le plus récent) dans l'aperçu
+            const lastUnread = unreadMessages.length > 0 ? unreadMessages[unreadMessages.length - 1] : null;
+            const isUnreadExpanded = expandedUnreadId === item.id;
+            const isExpanded = expandedFriendId === item.id;
             const draftValue = messageDrafts[item.id] || '';
+            const unreadListToShow = unreadMessages.length > 0 ? unreadMessages : (unreadCache[item.id] || []);
             return (
-              <View style={{ position: 'relative', marginBottom: 12 }}>
+              <View style={{ position: 'relative', marginBottom: 5 }}>
               <SwipeableFriendRow
+                ref={(ref) => { rowRefs.current[item.id] = ref; }}
                 friend={item}
                 backgroundColor={index % 2 === 0 ? '#d2f1ef' : '#baded7'}
                 onSendProut={() => handleSendProut(item)}
                 onLongPressName={() => handleLongPressName(item)}
                 onPressName={() => handlePressFriend(item)}
                 hasUnread={hasUnread}
-                unreadMessage={unread?.message_content}
+                unreadMessage={lastUnread?.message_content || (hasUnread && unreadMessages.length > 1 ? `${unreadMessages.length} messages` : null)}
                 onDeleteFriend={() => handleDeleteFriend(item)}
                 onMuteFriend={() => handleMuteFriend(item)}
                 onUnmuteFriend={() => handleUnmuteFriend(item)}
                 isMuted={item.is_muted || false}
                 introDelay={index * 40}
               />
+                {isUnreadExpanded && unreadListToShow.length > 0 && (
+                  <View style={styles.unreadContainer}>
+                    {unreadListToShow.map((msg) => (
+                      <Text key={msg.id} style={styles.unreadItemText}>- "{msg.message_content}"</Text>
+                    ))}
+                  </View>
+                )}
                 {isExpanded && (
                   <View style={styles.messageInputContainer}>
-                    <TextInput
-                      style={styles.messageInput}
-                      placeholder="Ajoutez un message ?"
-                      placeholderTextColor="#777"
-                      value={draftValue}
-                      onChangeText={(text) => setMessageDrafts(prev => ({ ...prev, [item.id]: text }))}
-                      maxLength={140}
-                      multiline
-                      onFocus={() => {
-                        // Scroller vers l'item quand le TextInput reçoit le focus
-                        const index = appUsers.findIndex(u => u.id === item.id);
-                        if (index >= 0 && flatListRef.current) {
-                          setTimeout(() => {
-                            flatListRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.1 });
-                          }, 300);
-                        }
-                      }}
-                    />
-                    <Text style={styles.messageHelper}>140 caractères max • Envoyez en swipant</Text>
+                    <View style={styles.messageInputRow}>
+                      <TextInput
+                        style={styles.messageInput}
+                        placeholder="Ajoutez un message ?"
+                        placeholderTextColor="#777"
+                        value={draftValue}
+                        onChangeText={(text) => setMessageDrafts(prev => ({ ...prev, [item.id]: text }))}
+                        maxLength={140}
+                        multiline
+                        // Pas de scroll manuel : on laisse le KeyboardAvoidingView gérer le clavier
+                      />
+                      <TouchableOpacity 
+                        onPressIn={() => rowRefs.current[item.id]?.startHoldSend()}
+                        onPressOut={() => rowRefs.current[item.id]?.cancelHoldSend()}
+                        style={styles.sendButton}
+                        activeOpacity={0.7}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      >
+                        <Image 
+                          source={require('../assets/images/animprout3.png')} 
+                          style={styles.sendIcon}
+                          resizeMode="contain"
+                        />
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 )}
               </View>
@@ -1681,7 +1767,6 @@ export function FriendsList({ onProutSent, isZenMode, onComposeToggle }: { onPro
             });
           }}
         />
-      </KeyboardAvoidingView>
 
       {/* Toast qui disparaît automatiquement */}
       {toastMessage && (
@@ -1697,7 +1782,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, marginTop: 0 },
   keyboardAvoidingView: { flex: 1 },
   list: { flex: 1 },
-  listContent: { paddingBottom: 80 },
+  listContent: { paddingBottom: 0 },
   emptyContentPadding: { flexGrow: 1, justifyContent: 'center' },
   sectionTitle: { fontWeight: 'bold', color: '#604a3e', marginBottom: 10, fontSize: 16, marginLeft: 5 },
   requestsContainer: { marginBottom: 20 },
@@ -1712,10 +1797,15 @@ const styles = StyleSheet.create({
   emptyCard: { backgroundColor: 'rgba(255,255,255,0.7)', padding: 20, borderRadius: 15, alignItems: 'center' },
   emptyText: { color: '#666', fontSize: 16, fontWeight: 'bold' },
   subText: { color: '#888', fontSize: 14, marginTop: 5 },
-  messageInputContainer: { backgroundColor: 'rgba(255,255,255,0.9)', marginTop: 6, padding: 10, borderRadius: 12, borderWidth: 1, borderColor: '#d9e6e3' },
+  messageInputContainer: { backgroundColor: 'rgba(255,255,255,0.9)', marginTop: 0, marginBottom: 10, padding: 8, paddingBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#d9e6e3' },
   messageLabel: { color: '#604a3e', fontWeight: '600', marginBottom: 6 },
-  messageInput: { minHeight: 60, borderWidth: 1, borderColor: '#c5d7d3', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, color: '#333', backgroundColor: '#fff' },
-  messageHelper: { marginTop: 6, color: '#777', fontSize: 12 },
+  messageInputRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 0, gap: 8 },
+  messageInput: { flex: 1, minHeight: 40, maxHeight: 80, borderWidth: 1, borderColor: '#c5d7d3', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, color: '#333', backgroundColor: '#fff', fontSize: 14 },
+  sendButton: { padding: 16, width: 80, height: 80, justifyContent: 'center', alignItems: 'center', alignSelf: 'center' },
+  sendIcon: { width: 64, height: 64 },
+  messageHelper: { marginTop: 4, marginLeft: 4, color: '#777', fontSize: 11 },
+  unreadContainer: { backgroundColor: 'rgba(255,255,255,0.95)', marginTop: 0, marginBottom: 0, padding: 10, borderRadius: 12, borderWidth: 1, borderColor: '#d9e6e3' },
+  unreadItemText: { color: '#604a3e', fontSize: 14, marginBottom: 4 },
   swipeableRow: {
     position: 'relative',
     borderRadius: 15,
@@ -1784,9 +1874,9 @@ const styles = StyleSheet.create({
   },
   userInfo: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   pseudo: { fontSize: 18, fontWeight: '600', color: '#333', marginLeft: 10, flex: 1 },
-  unreadInline: { flexDirection: 'row', alignItems: 'center', maxWidth: '55%', marginLeft: 8, gap: 6 },
+  unreadInline: { flexDirection: 'row', alignItems: 'center', maxWidth: '55%', marginLeft: -60, gap: 6 },
   unreadMessage: { fontSize: 13, fontStyle: 'italic', color: '#7a5547', flexShrink: 1 },
-  redDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#e53935' },
+  redDot: { width: 16, height: 16, borderRadius: 8, backgroundColor: '#4caf50' },
   deleteBackground: {
     position: 'absolute',
     left: 0,

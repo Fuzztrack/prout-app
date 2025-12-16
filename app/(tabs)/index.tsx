@@ -12,10 +12,12 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Image, Platform, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Animated, Image, Keyboard, KeyboardAvoidingView, Platform, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   
   const isLoadedRef = useRef(false);
   const [activeView, setActiveView] = useState<'list' | 'tutorial' | 'search' | 'profile' | 'profileMenu' | 'identity'>('list');
@@ -23,7 +25,7 @@ export default function HomeScreen() {
   const [currentPseudo, setCurrentPseudo] = useState<string>('');
   const [userId, setUserId] = useState<string | null>(null);
   const [showPrivacy, setShowPrivacy] = useState(false);
-  const [hideHeader, setHideHeader] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   
   // Animation de secousse pour le header
   const shakeX = useRef(new Animated.Value(0)).current;
@@ -108,6 +110,26 @@ export default function HomeScreen() {
   };
 
   useEffect(() => { loadData(); }, []);
+
+  // Écouter les événements du clavier pour corriger le problème de marge sur Android
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+        setKeyboardVisible(true);
+      });
+      const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+        // Forcer une mise à jour du layout après la fermeture du clavier
+        setTimeout(() => {
+          setKeyboardVisible(false);
+        }, 100);
+      });
+
+      return () => {
+        keyboardDidShowListener.remove();
+        keyboardDidHideListener.remove();
+      };
+    }
+  }, []);
 
   // Fonction pour vibrer le header quand un prout est envoyé - mouvement subtil (haut-bas, gauche-droite)
   const shakeHeader = useCallback(() => {
@@ -238,79 +260,84 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      {!hideHeader && (
-        <View style={styles.headerSection}>
-        {/* 1. LE LOGO (Tout en haut, centré) */}
-        <Animated.View 
-          style={[
-            styles.logoContainer,
-            {
-              transform: [
-                { translateX: shakeX },
-                { translateY: shakeY },
-              ],
-            }
-          ]}
-        >
-          <Image 
-              source={require('../../assets/images/prout-meme.png')} 
-              style={styles.headerImage} 
-              resizeMode="contain" 
-          />
-        </Animated.View>
-
-        {/* 2. LA BARRE DE NAVIGATION */}
-        <View style={styles.navBar}>
-             {/* 1. Profil */}
-            <TouchableOpacity 
-              onPress={() => setActiveView(activeView === 'profileMenu' ? 'list' : 'profileMenu')} 
-              style={[styles.iconButton, (activeView === 'profileMenu' || activeView === 'profile') && { opacity: 0.7 }]}
+      <KeyboardAvoidingView 
+        behavior="padding"
+        style={styles.keyboardAvoid}
+        keyboardVerticalOffset={0}
+        enabled={Platform.OS === 'android' ? keyboardVisible : true}
+      >
+        {/* CONTENU PRINCIPAL */}
+        {activeView !== 'list' && (
+          <View style={styles.headerSection}>
+            {/* 1. LE LOGO (Tout en haut, centré) */}
+            <Animated.View 
+              style={[
+                styles.logoContainer,
+                {
+                  transform: [
+                    { translateX: shakeX },
+                    { translateY: shakeY },
+                  ],
+                }
+              ]}
             >
-                {(activeView === 'profileMenu' || activeView === 'profile') ? (
-                  <Ionicons name="close-circle-outline" size={32} color="#ffffff" />
-                ) : (
-                  <Image 
-                      source={require('../../assets/images/icon_compte.png')} 
-                      style={styles.navIcon} 
-                      resizeMode="contain"
-                  />
-                )}
-            </TouchableOpacity>
+              <Image 
+                  source={require('../../assets/images/prout-meme.png')} 
+                  style={styles.headerImage} 
+                  resizeMode="contain" 
+              />
+            </Animated.View>
 
-             {/* 2. Partage Direct (Invitation) */}
-            <TouchableOpacity onPress={handleShare} style={styles.iconButton}>
-                <Ionicons name="share-social-outline" size={30} color="#ffffff" />
-            </TouchableOpacity>
+            {/* 2. LA BARRE DE NAVIGATION */}
+            <View style={styles.navBar}>
+               {/* 1. Profil */}
+              <TouchableOpacity 
+                onPress={() => setActiveView(activeView === 'profileMenu' ? 'list' : 'profileMenu')} 
+                style={[styles.iconButton, (activeView === 'profileMenu' || activeView === 'profile') && { opacity: 0.7 }]}
+              >
+                  {(activeView === 'profileMenu' || activeView === 'profile') ? (
+                    <Ionicons name="close-circle-outline" size={28} color="#ffffff" />
+                  ) : (
+                    <Image 
+                        source={require('../../assets/images/icon_compte.png')} 
+                        style={styles.navIcon} 
+                        resizeMode="contain"
+                    />
+                  )}
+              </TouchableOpacity>
 
-             {/* 3. Recherche (Loupe -> Ajout ami) */}
-            <TouchableOpacity 
-              onPress={() => setActiveView(activeView === 'search' ? 'list' : 'search')} 
-              style={[styles.iconButton, activeView === 'search' && { opacity: 0.7 }]}
-            >
-                <Ionicons name={activeView === 'search' ? "close-circle-outline" : "person-add-outline"} size={30} color="#ffffff" />
-            </TouchableOpacity>
+               {/* 2. Partage Direct (Invitation) */}
+              <TouchableOpacity onPress={handleShare} style={styles.iconButton}>
+                  <Ionicons name="share-social-outline" size={26} color="#ffffff" />
+              </TouchableOpacity>
 
-             {/* 4. Mode Zen (Lune) */}
-            <TouchableOpacity 
-              onPress={toggleZenMode} 
-              style={[styles.iconButton, isZenMode && { opacity: 0.7 }]}
-            >
-                <Ionicons name={isZenMode ? "moon" : "moon-outline"} size={30} color={isZenMode ? "#ffd700" : "#ffffff"} />
-            </TouchableOpacity>
+               {/* 3. Recherche (Loupe -> Ajout ami) */}
+              <TouchableOpacity 
+                onPress={() => setActiveView(activeView === 'search' ? 'list' : 'search')} 
+                style={[styles.iconButton, activeView === 'search' && { opacity: 0.7 }]}
+              >
+                  <Ionicons name={activeView === 'search' ? "close-circle-outline" : "person-add-outline"} size={26} color="#ffffff" />
+              </TouchableOpacity>
 
-             {/* 5. Réglages (Tuto) */}
-            <TouchableOpacity 
-              onPress={() => setActiveView(activeView === 'tutorial' ? 'list' : 'tutorial')} 
-              style={[styles.iconButton, activeView === 'tutorial' && { opacity: 0.7 }]}
-            >
-                <Ionicons name={activeView === 'tutorial' ? "close-circle-outline" : "settings-outline"} size={30} color="#ffffff" />
-            </TouchableOpacity>
-        </View>
-      </View>
-      )}
+               {/* 4. Mode Zen (Lune) */}
+              <TouchableOpacity 
+                onPress={toggleZenMode} 
+                style={[styles.iconButton, isZenMode && { opacity: 0.7 }]}
+              >
+                  <Ionicons name={isZenMode ? "moon" : "moon-outline"} size={26} color={isZenMode ? "#ffd700" : "#ffffff"} />
+              </TouchableOpacity>
 
-      {/* 3. CONTENU PRINCIPAL */}
-      <View style={[styles.listSection, hideHeader && styles.listSectionWithMargin]}>
+               {/* 5. Réglages (Tuto) */}
+              <TouchableOpacity 
+                onPress={() => setActiveView(activeView === 'tutorial' ? 'list' : 'tutorial')} 
+                style={[styles.iconButton, activeView === 'tutorial' && { opacity: 0.7 }]}
+              >
+                  <Ionicons name={activeView === 'tutorial' ? "close-circle-outline" : "settings-outline"} size={26} color="#ffffff" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+        <View style={[styles.listSection, Platform.OS === 'android' && !keyboardVisible && { paddingBottom: 0, marginBottom: 0 }]}>
         {activeView === 'tutorial' ? (
           <TutorialSwiper onClose={() => setActiveView('list')} />
         ) : activeView === 'search' ? (
@@ -325,7 +352,7 @@ export default function HomeScreen() {
               <Ionicons name="person-circle-outline" size={22} color="#604a3e" />
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem} onPress={() => setActiveView('tutorial')}>
-              <Text style={styles.menuText}>Revoir les fonctions de l’appli</Text>
+              <Text style={styles.menuText}>Revoir les fonctions de l'appli</Text>
               <Ionicons name="settings-outline" size={22} color="#604a3e" />
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem} onPress={() => setActiveView('identity')}>
@@ -343,10 +370,80 @@ export default function HomeScreen() {
           <FriendsList 
             onProutSent={shakeHeader} 
             isZenMode={isZenMode}
-            onComposeToggle={(isComposing) => setHideHeader(isComposing)}
+            headerComponent={
+              <View style={styles.headerSection}>
+                {/* 1. LE LOGO (Tout en haut, centré) */}
+                <Animated.View 
+                  style={[
+                    styles.logoContainer,
+                    {
+                      transform: [
+                        { translateX: shakeX },
+                        { translateY: shakeY },
+                      ],
+                    }
+                  ]}
+                >
+                  <Image 
+                      source={require('../../assets/images/prout-meme.png')} 
+                      style={styles.headerImage} 
+                      resizeMode="contain" 
+                  />
+                </Animated.View>
+
+                {/* 2. LA BARRE DE NAVIGATION */}
+                <View style={styles.navBar}>
+                   {/* 1. Profil */}
+                  <TouchableOpacity 
+                    onPress={() => setActiveView(activeView === 'profileMenu' ? 'list' : 'profileMenu')} 
+                    style={[styles.iconButton, (activeView === 'profileMenu' || activeView === 'profile') && { opacity: 0.7 }]}
+                  >
+                      {(activeView === 'profileMenu' || activeView === 'profile') ? (
+                        <Ionicons name="close-circle-outline" size={28} color="#ffffff" />
+                      ) : (
+                        <Image 
+                            source={require('../../assets/images/icon_compte.png')} 
+                            style={styles.navIcon} 
+                            resizeMode="contain"
+                        />
+                      )}
+                  </TouchableOpacity>
+
+                   {/* 2. Partage Direct (Invitation) */}
+                  <TouchableOpacity onPress={handleShare} style={styles.iconButton}>
+                      <Ionicons name="share-social-outline" size={26} color="#ffffff" />
+                  </TouchableOpacity>
+
+                   {/* 3. Recherche (Loupe -> Ajout ami) */}
+                  <TouchableOpacity 
+                    onPress={() => setActiveView(activeView === 'search' ? 'list' : 'search')} 
+                    style={[styles.iconButton, activeView === 'search' && { opacity: 0.7 }]}
+                  >
+                      <Ionicons name={activeView === 'search' ? "close-circle-outline" : "person-add-outline"} size={26} color="#ffffff" />
+                  </TouchableOpacity>
+
+                   {/* 4. Mode Zen (Lune) */}
+                  <TouchableOpacity 
+                    onPress={toggleZenMode} 
+                    style={[styles.iconButton, isZenMode && { opacity: 0.7 }]}
+                  >
+                      <Ionicons name={isZenMode ? "moon" : "moon-outline"} size={26} color={isZenMode ? "#ffd700" : "#ffffff"} />
+                  </TouchableOpacity>
+
+                   {/* 5. Réglages (Tuto) */}
+                  <TouchableOpacity 
+                    onPress={() => setActiveView(activeView === 'tutorial' ? 'list' : 'tutorial')} 
+                    style={[styles.iconButton, activeView === 'tutorial' && { opacity: 0.7 }]}
+                  >
+                      <Ionicons name={activeView === 'tutorial' ? "close-circle-outline" : "settings-outline"} size={26} color="#ffffff" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            }
           />
         )}
-      </View>
+        </View>
+      </KeyboardAvoidingView>
       <PrivacyPolicyModal visible={showPrivacy} onClose={() => setShowPrivacy(false)} />
     </View>
   );
@@ -358,23 +455,26 @@ const styles = StyleSheet.create({
     backgroundColor: '#ebb89b' 
   },
   headerSection: {
-    paddingTop: 40,
+    paddingTop: 30, // Réduit de 40 à 30 (-10px)
     paddingHorizontal: 20,
     paddingBottom: 5, // Réduit de 10 à 5
   },
+  keyboardAvoid: {
+    flex: 1,
+  },
   listSection: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 0,
   },
   listSectionWithMargin: {
-    paddingTop: 100,
+    paddingTop: 50,
   },
   
   // Conteneur du Logo
   logoContainer: {
     alignItems: 'center',
-    marginBottom: 5, // Réduit de 10 à 5
+    marginTop: 0,
+    marginBottom: -10, // Réduit de 10px pour la marge en dessous
   },
   headerImage: { 
     width: 220, 
@@ -397,8 +497,8 @@ const styles = StyleSheet.create({
   },
   
   navIcon: {
-    width: 32, // Taille contrôlée
-    height: 32,
+    width: 28, // Réduit de 32 à 28
+    height: 28, // Réduit de 32 à 28
     tintColor: 'white' // Icônes en blanc
   },
   menuCard: {
