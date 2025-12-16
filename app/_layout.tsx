@@ -4,7 +4,7 @@ import * as Linking from 'expo-linking';
 import * as Notifications from 'expo-notifications';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Animated, Platform, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, AppState, Platform, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Onboarding from '../components/Onboarding';
 import { safePush, safeReplace } from '../lib/navigation';
@@ -47,6 +47,13 @@ export default function RootLayout() {
     if (Platform.OS === 'android') {
       ensureAndroidNotificationChannel().catch(err => {
         console.error('❌ Erreur configuration canaux Android:', err);
+      });
+    }
+
+    // 🔴 Réinitialiser le badge iOS au démarrage de l'app
+    if (Platform.OS === 'ios') {
+      Notifications.setBadgeCountAsync(0).catch(err => {
+        console.warn('⚠️ Impossible de réinitialiser le badge:', err);
       });
     }
 
@@ -147,6 +154,24 @@ export default function RootLayout() {
 
     return () => {
       isMounted = false;
+    };
+  }, []);
+
+  // 🔴 Réinitialiser le badge iOS quand l'app revient au premier plan
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        // L'app est revenue au premier plan, réinitialiser le badge
+        Notifications.setBadgeCountAsync(0).catch(err => {
+          console.warn('⚠️ Impossible de réinitialiser le badge:', err);
+        });
+      }
+    });
+
+    return () => {
+      subscription.remove();
     };
   }, []);
 
