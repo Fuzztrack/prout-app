@@ -1,4 +1,4 @@
-import { InteractionManager } from 'react-native';
+import { InteractionManager, Platform } from 'react-native';
 import type { Router } from 'expo-router';
 
 declare global {
@@ -43,6 +43,7 @@ function withNavigationLock(
   ensureGlobals();
 
   if (global.__navigationLock) {
+    console.log('⚠️ Navigation déjà en cours, ignorée');
     return false;
   }
 
@@ -51,14 +52,49 @@ function withNavigationLock(
     global.__skipInitialNavigation = true;
   }
 
-  InteractionManager.runAfterInteractions(() => {
-    requestAnimationFrame(() => {
+  let actionExecuted = false;
+  
+  const executeAction = () => {
+    if (actionExecuted) {
+      return;
+    }
+    actionExecuted = true;
+    
+    try {
       action();
-
+    } catch (error) {
+      console.error('❌ Erreur lors de la navigation:', error);
+    } finally {
       setTimeout(() => {
         global.__navigationLock = false;
       }, RELEASE_DELAY_MS);
-    });
+    }
+  };
+
+  // Timeout de sécurité pour éviter le blocage si InteractionManager ne se déclenche pas
+  const safetyTimeout = setTimeout(() => {
+    if (!actionExecuted) {
+      console.log('⚠️ Timeout sécurité navigation, exécution forcée');
+      // Sur Android, utiliser requestAnimationFrame pour garantir le thread UI
+      if (Platform.OS === 'android') {
+        requestAnimationFrame(() => {
+          executeAction();
+        });
+      } else {
+        executeAction();
+      }
+    }
+  }, 1500);
+
+  // Utiliser InteractionManager pour garantir que les interactions sont terminées
+  InteractionManager.runAfterInteractions(() => {
+    clearTimeout(safetyTimeout);
+    if (!actionExecuted) {
+      // Double sécurité avec requestAnimationFrame pour garantir le thread UI
+      requestAnimationFrame(() => {
+        executeAction();
+      });
+    }
   });
 
   return true;

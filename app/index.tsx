@@ -23,6 +23,9 @@ export default function Index() {
         if (shouldSkipInitialNavigation()) {
           console.log('⏭️ Navigation initiale déjà gérée, on ignore cette passe');
           clearSkipInitialNavigationFlag();
+          if (isMounted) {
+            setIsReady(true);
+          }
           return;
         }
         // 0. Vérifier si on est déjà sur la page reset-password (ne pas rediriger)
@@ -252,8 +255,21 @@ export default function Index() {
 
     // Petit délai pour laisser le temps au Splash Screen natif de partir proprement
     // et à l'interface de se charger
-    const timer = setTimeout(() => {
-      decideNavigation();
+    const timer = setTimeout(async () => {
+      try {
+        await decideNavigation();
+        // Marquer comme prêt après la navigation (avec un petit délai pour laisser la navigation se terminer)
+        setTimeout(() => {
+          if (isMounted) {
+            setIsReady(true);
+          }
+        }, 500);
+      } catch (error) {
+        console.error('❌ Erreur lors de la navigation:', error);
+        if (isMounted) {
+          setIsReady(true);
+        }
+      }
     }, 100);
 
     return () => {
@@ -261,6 +277,11 @@ export default function Index() {
       clearTimeout(timer);
     };
   }, []);
+
+  // Si la navigation est terminée, ne rien afficher (laisser l'écran suivant s'afficher)
+  if (isReady) {
+    return null;
+  }
 
   return (
     <View style={styles.container}>

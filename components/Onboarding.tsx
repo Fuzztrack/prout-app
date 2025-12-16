@@ -11,6 +11,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import i18n from '../lib/i18n';
 
 type OnboardingProps = {
   onFinish: () => Promise<void> | void;
@@ -20,7 +22,8 @@ type Slide = {
   key: string;
   title: string;
   description: string;
-  emoji?: string;
+  icon?: string;
+  color?: string;
 };
 
 const slides: Slide[] = [
@@ -34,35 +37,31 @@ const slides: Slide[] = [
     title: 'Le cœur du Prout',
     description:
       "Tout l'intérêt réside dans la surprise ! Acceptez les notifications pour recevoir les prouts de vos amis.",
-    emoji: '🔔',
+    icon: 'notifications-outline',
+    color: '#9C27B0',
   },
   {
     key: 'sound',
     title: 'Montez le volume',
     description:
       'Pensez à vérifier que vous avez le son activé (et pas en silencieux) pour profiter de la mélodie.',
-    emoji: '🔊',
-  },
-  {
-    key: 'friends',
-    title: 'Plus on est de fous...',
-    description:
-      "Trouvez vos amis facilement en autorisant l'accès à vos contacts. On ne spamme pas, promis !",
-    emoji: '👥',
+    icon: 'volume-high-outline',
+    color: '#F4A261',
   },
   {
     key: 'gesture',
     title: 'À vous de jouer',
     description:
       "Dès que vous avez un ami, swipez simplement sur son nom vers la droite pour lui envoyer un prout. Surprise garantie !",
-    emoji: '👉',
+    icon: 'paper-plane-outline',
+    color: '#4CAF50',
   },
   {
     key: 'mute',
-    title: 'Sourdine',
-    description:
-      "En swipant à gauche le nom d'un contact, vous pouvez le mettre en sourdine.",
-    emoji: '🔇',
+    title: i18n.t('tuto_4_title'),
+    description: i18n.t('tuto_4_desc'),
+    icon: 'volume-mute-outline',
+    color: '#FF9800',
   },
 ];
 
@@ -102,9 +101,11 @@ export default function Onboarding({ onFinish }: OnboardingProps) {
     <View style={[styles.slide, { width }]}>
       {item.key === 'welcome' ? (
         <Image source={require('../assets/images/adaptive_icon.png')} style={styles.image} />
-      ) : (
-        <Text style={styles.emoji}>{item.emoji}</Text>
-      )}
+      ) : item.icon && item.color ? (
+        <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
+          <Ionicons name={item.icon as any} size={64} color="white" />
+        </View>
+      ) : null}
       <Text style={styles.title}>{item.title}</Text>
       <Text style={styles.description}>{item.description}</Text>
     </View>
@@ -188,9 +189,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24,
   },
-  emoji: {
-    fontSize: 64,
+  iconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   image: {
     width: 150,

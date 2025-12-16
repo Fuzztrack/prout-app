@@ -57,8 +57,11 @@ export function TutorialSwiper({ onClose }: { onClose: () => void }) {
 
   const handleScroll = (event: any) => {
     const contentOffsetX = event.nativeEvent.contentOffset.x;
-    const index = Math.round(contentOffsetX / (SCREEN_WIDTH - 40)); // 40 = padding horizontal du container parent
-    setCurrentIndex(index);
+    const slideWidth = SCREEN_WIDTH - 80; // Correspond à la largeur définie dans styles.slide
+    const index = Math.round(contentOffsetX / slideWidth);
+    // S'assurer que l'index reste dans les limites du tableau
+    const clampedIndex = Math.max(0, Math.min(index, TUTORIAL_DATA.length - 1));
+    setCurrentIndex(clampedIndex);
   };
 
   return (
@@ -79,6 +82,11 @@ export function TutorialSwiper({ onClose }: { onClose: () => void }) {
         showsHorizontalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}
+        getItemLayout={(data, index) => ({
+          length: SCREEN_WIDTH - 80,
+          offset: (SCREEN_WIDTH - 80) * index,
+          index,
+        })}
         renderItem={({ item }) => (
           <View style={styles.slide}>
             <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
