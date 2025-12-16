@@ -9,45 +9,50 @@ export async function sendProutViaBackend(
   const API_URL = 'https://prout-backend.onrender.com/prout';
   const API_KEY = '82d6d94d97ad501a596bf866c2831623';     // doit matcher backend .env
 
-  const res = await fetch(API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': API_KEY,
-    },
-    body: JSON.stringify({
-      token: recipientToken,
-      sender,
-      proutKey,
-      platform,
-      extraData,
-    }),
-  });
+  try {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': API_KEY,
+      },
+      body: JSON.stringify({
+        token: recipientToken,
+        sender,
+        proutKey,
+        platform,
+        extraData,
+      }),
+    });
 
-  if (!res.ok) {
-    const text = await res.text();
-    let errorMessage = text;
-    try {
-      const errorJson = JSON.parse(text);
-      errorMessage = errorJson.message || errorJson.error || text;
-    } catch {
-      // Si ce n'est pas du JSON, garder le texte tel quel
+    if (!res.ok) {
+      const text = await res.text();
+      let errorMessage = text;
+      try {
+        const errorJson = JSON.parse(text);
+        errorMessage = errorJson.message || errorJson.error || text;
+      } catch {
+        // Si ce n'est pas du JSON, garder le texte tel quel
+      }
+      console.error(`Erreur backend (${res.status}):`, errorMessage);
+
+      // Cas spécifique : appli désinstallée => 400/410 avec message target_app_uninstalled
+      if (
+        (res.status === 400 || res.status === 410) &&
+        errorMessage?.includes('target_app_uninstalled')
+      ) {
+        const err: any = new Error('target_app_uninstalled');
+        err.code = 'target_app_uninstalled';
+        throw err;
+      }
+
+      throw new Error(`Backend error: ${res.status} ${errorMessage}`);
     }
-    console.error(`Erreur backend (${res.status}):`, errorMessage);
-
-    // Cas spécifique : appli désinstallée => 400/410 avec message target_app_uninstalled
-    if (
-      (res.status === 400 || res.status === 410) &&
-      errorMessage?.includes('target_app_uninstalled')
-    ) {
-      const err: any = new Error('target_app_uninstalled');
-      err.code = 'target_app_uninstalled';
-      throw err;
-    }
-
-    throw new Error(`Backend error: ${res.status} ${errorMessage}`);
+    const result = await res.json();
+    return result;
+  } catch (err: any) {
+    console.error('Erreur réseau/Backend:', err?.message || err);
+    throw err;
   }
-  const result = await res.json();
-  return result;
 }
 

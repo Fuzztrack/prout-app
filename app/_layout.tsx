@@ -3,7 +3,7 @@ import * as Contacts from 'expo-contacts';
 import * as Linking from 'expo-linking';
 import * as Notifications from 'expo-notifications';
 import { Stack, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Animated, AppState, Platform, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Onboarding from '../components/Onboarding';
@@ -22,6 +22,33 @@ Notifications.setNotificationHandler({
     shouldShowList: true,
   }),
 });
+
+class AppErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: any, info: any) {
+    console.error('App error boundary caught:', error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#ebb89b', padding: 24 }}>
+          <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#604a3e', marginBottom: 8 }}>Oups...</Text>
+          <Text style={{ fontSize: 16, color: '#604a3e', textAlign: 'center' }}>Une erreur est survenue. Relance l’app.</Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 export default function RootLayout() {
   const [session, setSession] = useState<any>(null);
@@ -42,25 +69,30 @@ export default function RootLayout() {
   };
 
   useEffect(() => {
-    // 📢 CONFIGURATION DES CANAUX ANDROID AU DÉMARRAGE
-    // Utilise la fonction centralisée de lib/notifications.ts
-    if (Platform.OS === 'android') {
-      ensureAndroidNotificationChannel().catch(err => {
-        console.error('❌ Erreur configuration canaux Android:', err);
-      });
-    }
+    let mounted = true;
+    const init = async () => {
+      try {
+        // 📢 CONFIGURATION DES CANAUX ANDROID AU DÉMARRAGE
+        if (Platform.OS === 'android') {
+          await ensureAndroidNotificationChannel();
+        }
 
-    // 🔴 Réinitialiser le badge iOS au démarrage de l'app
-    if (Platform.OS === 'ios') {
-      Notifications.setBadgeCountAsync(0).catch(err => {
-        console.warn('⚠️ Impossible de réinitialiser le badge:', err);
-      });
-    }
+        // 🔴 Réinitialiser le badge iOS au démarrage de l'app
+        if (Platform.OS === 'ios') {
+          await Notifications.setBadgeCountAsync(0);
+        }
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!mounted) return;
+        setSession(session);
+        setLoading(false);
+      } catch (err) {
+        console.warn('⚠️ Init app error:', err);
+        if (mounted) setLoading(false);
+      }
+    };
+
+    init();
 
     // Timeout de 5s pour éviter le chargement infini
     const timeout = setTimeout(() => {
@@ -91,7 +123,7 @@ export default function RootLayout() {
     });
 
     const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
-      const { data } = response.notification.request.content;
+      const data: any = response.notification.request.content.data;
       // Attendre un peu pour que l'app soit prête avant de naviguer
       setTimeout(() => {
         if (data?.type === 'identity_request') {
@@ -111,6 +143,7 @@ export default function RootLayout() {
     });
 
     return () => {
+      mounted = false;
       clearTimeout(timeout);
       subscription.unsubscribe();
       notificationListener.remove();
@@ -214,34 +247,36 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      {!checkingOnboarding && showOnboarding ? (
-        <Onboarding onFinish={handleOnboardingFinish} />
-      ) : (
-        <>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="index" />
-            <Stack.Screen name="WelcomeScreen" />
-            <Stack.Screen name="AuthChoiceScreen" />
-            <Stack.Screen name="LoginScreen" />
-            <Stack.Screen name="RegisterEmailScreen" />
-            <Stack.Screen name="CompleteProfileScreen" />
-            <Stack.Screen name="IdentityRevealScreen" options={{ presentation: 'modal' }} />
-            {/* SearchUserScreen est maintenant intégré dans index.tsx, plus besoin de route dédiée */}
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="confirm-email" options={{ presentation: 'modal' }} />
-            <Stack.Screen name="reset-password" options={{ presentation: 'modal' }} />
-          </Stack>
+    <AppErrorBoundary>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        {!checkingOnboarding && showOnboarding ? (
+          <Onboarding onFinish={handleOnboardingFinish} />
+        ) : (
+          <>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="index" />
+              <Stack.Screen name="WelcomeScreen" />
+              <Stack.Screen name="AuthChoiceScreen" />
+              <Stack.Screen name="LoginScreen" />
+              <Stack.Screen name="RegisterEmailScreen" />
+              <Stack.Screen name="CompleteProfileScreen" />
+              <Stack.Screen name="IdentityRevealScreen" options={{ presentation: 'modal' }} />
+              {/* SearchUserScreen est maintenant intégré dans index.tsx, plus besoin de route dédiée */}
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="confirm-email" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="reset-password" options={{ presentation: 'modal' }} />
+            </Stack>
 
-          {toastMessage && (
-            <Animated.View style={[styles.toast, { opacity: toastOpacity }]}>
-              <Text style={styles.toastTitle}>{toastMessage.title}</Text>
-              <Text style={styles.toastBody}>{toastMessage.body}</Text>
-            </Animated.View>
-          )}
-        </>
-      )}
-    </GestureHandlerRootView>
+            {toastMessage && (
+              <Animated.View style={[styles.toast, { opacity: toastOpacity }]}>
+                <Text style={styles.toastTitle}>{toastMessage.title}</Text>
+                <Text style={styles.toastBody}>{toastMessage.body}</Text>
+              </Animated.View>
+            )}
+          </>
+        )}
+      </GestureHandlerRootView>
+    </AppErrorBoundary>
   );
 }
 
