@@ -1,13 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Alert, ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import * as Contacts from 'expo-contacts';
+import { useIsFocused } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { sendProutViaBackend } from '../lib/sendProutBackend';
+import { normalizePhone } from '../lib/normalizePhone';
 import i18n from '../lib/i18n';
 
 type IdentityFriend = {
   id: string;
   pseudo: string;
+  phone: string | null;
   expo_push_token: string | null;
   push_platform: 'ios' | 'android' | null;
   alias: string | null;
@@ -19,9 +22,9 @@ export function IdentityList() {
   const [items, setItems] = useState<IdentityFriend[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentPseudo, setCurrentPseudo] = useState<string>('Un ami');
+  const isFocused = useIsFocused();
 
-  useEffect(() => {
-    const load = async () => {
+  const load = useCallback(async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
@@ -29,27 +32,107 @@ export function IdentityList() {
           return;
         }
         setCurrentUserId(user.id);
-        const { data: profile } = await supabase.from('user_profiles').select('pseudo').eq('id', user.id).single();
-        if (profile?.pseudo) {
-          setCurrentPseudo(profile.pseudo);
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('pseudo, phone, contacts')
+          .eq('id', user.id)
+          .single();
+        if (profile?.pseudo) setCurrentPseudo(profile.pseudo);
+        const myPhoneRaw = profile?.phone || '';
+        const myPhone = normalizePhone(myPhoneRaw || '');
+        const myContacts = (profile?.contacts || []) as string[];
+
+        // Matches téléphone (même logique que FriendList)
+        let phoneFriendsIds: string[] = [];
+        try {
+          const { status } = await Contacts.requestPermissionsAsync();
+          if (status === 'granted') {
+            const { data } = await Contacts.getContactsAsync({ fields: [Contacts.Fields.PhoneNumbers] });
+            if (data.length > 0) {
+              const phonesRaw = data.flatMap(c => c.phoneNumbers || []).map(p => p.number || '').filter(Boolean);
+              const phonesNormalized = phonesRaw.map(p => normalizePhone(p)).filter(Boolean) as string[];
+              const phones = Array.from(new Set([...phonesRaw, ...phonesNormalized]));
+
+              if (phones.length > 0) {
+                // RPC sync_contacts (crée aussi les relations contact en base)
+                const { data: matchedFriends, error: syncError } = await supabase.rpc('sync_contacts', { phones });
+                if (syncError) {
+                  console.error('❌ Erreur sync contacts (IdentityList):', syncError);
+                } else if (matchedFriends) {
+                  phoneFriendsIds = matchedFriends.map(u => u.id);
+                }
+
+                // fallback direct user_profiles
+                if (phoneFriendsIds.length === 0) {
+                  const { data: contactsFound } = await supabase
+                    .from('user_profiles')
+                    .select('id')
+                    .in('phone', phones)
+                    .neq('id', user.id);
+                  if (contactsFound) {
+                    phoneFriendsIds = contactsFound.map(u => u.id);
+                  }
+                }
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('⚠️ Permission contacts refusée ou erreur:', err);
+        }
+
+        // Fallback base: contacts stockés dans mon profil (trigger handle_phone_contacts)
+        if (phoneFriendsIds.length === 0 && myContacts && myContacts.length > 0) {
+          const contactsNormalized = myContacts.map(p => normalizePhone(p || '')).filter(Boolean) as string[];
+          const contactsAll = Array.from(new Set([...myContacts, ...contactsNormalized].filter(Boolean)));
+          if (contactsAll.length > 0) {
+            const { data: contactsFound } = await supabase
+              .from('user_profiles')
+              .select('id')
+              .in('phone', contactsAll)
+              .neq('id', user.id);
+            if (contactsFound) {
+              phoneFriendsIds = contactsFound.map(u => u.id);
+            }
+          }
+        }
+
+        // Reverse match: qui m'a dans ses contacts
+        if (myPhone || myPhoneRaw) {
+          const needles = Array.from(new Set([myPhoneRaw, myPhone].filter(Boolean)));
+          if (needles.length > 0) {
+            const { data: reverseMatches } = await supabase
+              .from('user_profiles')
+              .select('id')
+              .or(needles.map(n => `contacts.cs.{${n}}`).join(','))
+              .neq('id', user.id);
+            if (reverseMatches) {
+              phoneFriendsIds = [...new Set([...phoneFriendsIds, ...reverseMatches.map(u => u.id)])];
+            }
+          }
         }
 
         // Récupérer les amis acceptés (dans les deux sens)
-        const { data: addedFriends } = await supabase
+        // Récupérer toutes les relations friends (hors blocked) où je suis user ou friend
+        const { data: rel1 } = await supabase
           .from('friends')
           .select('friend_id')
           .eq('user_id', user.id)
-          .eq('status', 'accepted');
-        const addedFriendsIds = addedFriends?.map(f => f.friend_id) || [];
+          .neq('status', 'blocked');
+        const rel1Ids = rel1?.map(f => f.friend_id) || [];
 
-        const { data: friendsWhereIAmFriend } = await supabase
+        const { data: rel2 } = await supabase
           .from('friends')
           .select('user_id')
           .eq('friend_id', user.id)
-          .eq('status', 'accepted');
-        const friendsWhereIAmFriendIds = friendsWhereIAmFriend?.map(f => f.user_id) || [];
+          .neq('status', 'blocked');
+        const rel2Ids = rel2?.map(f => f.user_id) || [];
 
-        const allFriendIds = [...new Set([...addedFriendsIds, ...friendsWhereIAmFriendIds])];
+        // Combiner : matches téléphone + toutes relations friends (contact ou autres)
+        const allFriendIds = [...new Set([
+          ...phoneFriendsIds,
+          ...rel1Ids,
+          ...rel2Ids,
+        ].filter(Boolean))];
 
         if (allFriendIds.length === 0) {
           setItems([]);
@@ -69,27 +152,65 @@ export function IdentityList() {
 
         const { data: users } = await supabase
           .from('user_profiles')
-          .select('id, pseudo, expo_push_token, push_platform')
+          .select('id, pseudo, phone, expo_push_token, push_platform')
           .in('id', allFriendIds);
 
-        const list: IdentityFriend[] = (users || []).map(u => ({
-          id: u.id,
-          pseudo: u.pseudo,
-          expo_push_token: u.expo_push_token,
-          push_platform: (u.push_platform as 'ios' | 'android' | null) || null,
-          alias: aliasMap[u.id]?.alias || null,
-          status: aliasMap[u.id]?.status || null,
-        }));
+        // Charger les contacts du téléphone pour trouver les noms révélés
+        let contactsList: Contacts.Contact[] = [];
+        try {
+          const { status: contactsStatus } = await Contacts.requestPermissionsAsync();
+          if (contactsStatus === 'granted') {
+            const { data: contactsData } = await Contacts.getContactsAsync({ 
+              fields: [Contacts.Fields.PhoneNumbers, Contacts.Fields.Name] 
+            });
+            contactsList = contactsData || [];
+          }
+        } catch (e) {
+          console.warn('⚠️ Erreur chargement contacts pour identité:', e);
+        }
+
+        const list: IdentityFriend[] = (users || []).map(u => {
+          // Chercher le nom dans les contacts téléphone si pas d'alias révélé
+          let contactAlias: string | null = null;
+          if (!aliasMap[u.id]?.alias && u.phone) {
+            const normalizedFriendPhone = normalizePhone(u.phone);
+            const matchingContact = contactsList.find(contact => {
+              if (!contact.phoneNumbers || contact.phoneNumbers.length === 0) return false;
+              return contact.phoneNumbers.some(phoneNumber => {
+                const normalizedContactPhone = normalizePhone(phoneNumber.number || '');
+                return normalizedContactPhone === normalizedFriendPhone;
+              });
+            });
+            if (matchingContact) {
+              contactAlias = matchingContact.name || matchingContact.firstName || matchingContact.lastName || null;
+            }
+          }
+
+          return {
+            id: u.id,
+            pseudo: u.pseudo,
+            phone: u.phone,
+            expo_push_token: u.expo_push_token,
+            push_platform: (u.push_platform as 'ios' | 'android' | null) || null,
+            alias: aliasMap[u.id]?.alias || contactAlias,
+            status: aliasMap[u.id]?.status || null,
+          };
+        });
+        
         setItems(list);
       } catch (e) {
         console.error('❌ Erreur chargement identité:', e);
       } finally {
         setLoading(false);
       }
-    };
-
-    load();
   }, []);
+
+  useEffect(() => {
+    if (isFocused) {
+      setLoading(true);
+      load();
+    }
+  }, [isFocused, load]);
 
   const requestIdentity = async (friend: IdentityFriend) => {
     if (!currentUserId) return;
@@ -130,7 +251,7 @@ export function IdentityList() {
         );
       }
 
-      Alert.alert(i18n.t('success'), i18n.t('request_sent'));
+      Alert.alert(i18n.t('success'), i18n.t('identity_request_sent'));
       // Mettre à jour localement le statut
       setItems(prev => prev.map(i => i.id === friend.id ? { ...i, status: 'pending' } : i));
     } catch (error) {
@@ -154,7 +275,6 @@ export function IdentityList() {
             <Text style={styles.pending}>En attente…</Text>
           ) : (
             <TouchableOpacity style={styles.askButton} onPress={() => requestIdentity(item)}>
-              <Ionicons name="help-circle-outline" size={20} color="#fff" />
               <Text style={styles.askText}>Qui ?</Text>
             </TouchableOpacity>
           )}

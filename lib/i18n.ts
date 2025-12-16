@@ -40,6 +40,7 @@ const i18n = new I18n({
     ask_btn: "Demander",
     relaunch_btn: "Relancer",
     respond_btn: "Répondre",
+    identity_request_sent: "Demande d'identité envoyée",
     friend_deleted_toast: "%{pseudo} a été supprimé de votre liste",
     
     // Actions Prout
@@ -157,6 +158,7 @@ const i18n = new I18n({
     ask_btn: "Ask",
     relaunch_btn: "Ask again",
     respond_btn: "Reply",
+    identity_request_sent: "Identity request sent",
     friend_deleted_toast: "%{pseudo} has been removed from your list",
     
     // Actions Prout
@@ -274,6 +276,7 @@ const i18n = new I18n({
     ask_btn: "Preguntar",
     relaunch_btn: "Volver a preguntar",
     respond_btn: "Responder",
+    identity_request_sent: "Solicitud de identidad enviada",
     friend_deleted_toast: "%{pseudo} ha sido eliminado de tu lista",
     
     // Actions Prout
