@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Dimensions, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import i18n from '../lib/i18n';
@@ -55,9 +55,19 @@ export function TutorialSwiper({ onClose }: { onClose: () => void }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
 
+  // Largeur exacte d'une slide : largeur écran - padding container (20*2) = SCREEN_WIDTH - 40
+  const slideWidth = SCREEN_WIDTH - 40;
+
+  const handleMomentumScrollEnd = (event: any) => {
+    const contentOffsetX = event.nativeEvent.contentOffset.x;
+    const index = Math.round(contentOffsetX / slideWidth);
+    // S'assurer que l'index reste dans les limites du tableau
+    const clampedIndex = Math.max(0, Math.min(index, TUTORIAL_DATA.length - 1));
+    setCurrentIndex(clampedIndex);
+  };
+
   const handleScroll = (event: any) => {
     const contentOffsetX = event.nativeEvent.contentOffset.x;
-    const slideWidth = SCREEN_WIDTH - 80; // Correspond à la largeur définie dans styles.slide
     const index = Math.round(contentOffsetX / slideWidth);
     // S'assurer que l'index reste dans les limites du tableau
     const clampedIndex = Math.max(0, Math.min(index, TUTORIAL_DATA.length - 1));
@@ -73,41 +83,53 @@ export function TutorialSwiper({ onClose }: { onClose: () => void }) {
         </TouchableOpacity>
       </View>
 
-      <FlatList
-        ref={flatListRef}
-        data={TUTORIAL_DATA}
-        keyExtractor={(item) => item.id}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        getItemLayout={(data, index) => ({
-          length: SCREEN_WIDTH - 80,
-          offset: (SCREEN_WIDTH - 80) * index,
-          index,
-        })}
-        renderItem={({ item }) => (
-          <View style={styles.slide}>
-            <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
-              <Ionicons name={item.icon as any} size={48} color="white" />
-            </View>
-            <Text style={styles.title}>{item.title}</Text>
-            <Text style={styles.description}>{item.description}</Text>
-          </View>
-        )}
-      />
-
-      <View style={styles.pagination}>
-        {TUTORIAL_DATA.map((_, index) => (
-          <View
-            key={index}
-            style={[
-              styles.dot,
-              { backgroundColor: index === currentIndex ? '#604a3e' : '#d9c0b2' },
-            ]}
+      <View style={styles.contentWrapper}>
+        <View style={styles.listWrapper}>
+          <FlatList
+            ref={flatListRef}
+            data={TUTORIAL_DATA}
+            keyExtractor={(item) => item.id}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            onScroll={handleScroll}
+            onMomentumScrollEnd={handleMomentumScrollEnd}
+            scrollEventThrottle={16}
+            decelerationRate="fast"
+            snapToInterval={slideWidth}
+            snapToAlignment="start"
+            contentContainerStyle={styles.listContent}
+            removeClippedSubviews={true}
+            initialNumToRender={2}
+            maxToRenderPerBatch={2}
+            windowSize={3}
+            getItemLayout={(data, index) => ({
+              length: slideWidth,
+              offset: slideWidth * index,
+              index,
+            })}
+            renderItem={({ item }) => (
+              <View style={styles.slide}>
+                <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
+                  <Ionicons name={item.icon as any} size={48} color="white" />
+                </View>
+                <Text style={styles.title}>{item.title}</Text>
+                <Text style={styles.description}>{item.description}</Text>
+              </View>
+            )}
           />
-        ))}
+        </View>
+
+        <View style={styles.pagination}>
+          {TUTORIAL_DATA.map((_, index) => (
+            <View
+              key={index}
+              style={[
+                styles.dot,
+                { backgroundColor: index === currentIndex ? '#604a3e' : '#d9c0b2' },
+              ]}
+            />
+          ))}
+        </View>
       </View>
     </View>
   );
@@ -135,11 +157,23 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: 5,
   },
+  contentWrapper: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  listWrapper: {
+    flex: 1,
+    width: SCREEN_WIDTH - 40, // Largeur exacte : écran - padding container (20*2)
+    overflow: 'hidden',
+  },
+  listContent: {
+    paddingHorizontal: 0,
+  },
   slide: {
-    width: SCREEN_WIDTH - 80, // Largeur de la slide (container width - padding)
+    width: SCREEN_WIDTH - 40, // Largeur exacte : écran - padding container (20*2)
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 10,
+    paddingHorizontal: 15, // Padding interne inclus dans la largeur totale
   },
   iconContainer: {
     width: 100,
@@ -170,7 +204,9 @@ const styles = StyleSheet.create({
   pagination: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 20,
+    alignItems: 'center',
+    height: 30,
+    paddingVertical: 10,
   },
   dot: {
     width: 10,
