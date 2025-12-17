@@ -238,7 +238,7 @@ class ProutMessagingService : FirebaseMessagingService() {
 `;
 
 const withAndroidProutMessaging = (config) => {
-  // 1. Ajouter le service dans le manifest
+  // 1. Ajouter le service dans le manifest + métadonnées par défaut
   config = withAndroidManifest(config, async (config) => {
     const androidManifest = config.modResults;
     
@@ -291,6 +291,21 @@ const withAndroidProutMessaging = (config) => {
         }],
       }],
     });
+
+    // Définir le canal par défaut FCM sur le v3
+    if (!mainApplication['meta-data']) {
+      mainApplication['meta-data'] = [];
+    }
+    mainApplication['meta-data'] = mainApplication['meta-data'].filter(
+      (meta) => !(meta.$ && meta.$['android:name'] === 'com.google.firebase.messaging.default_notification_channel_id')
+    );
+    mainApplication['meta-data'].push({
+      $: {
+        'android:name': 'com.google.firebase.messaging.default_notification_channel_id',
+        'android:value': 'prout-prout1-v3',
+        'tools:replace': 'android:value',
+      },
+    });
     
     console.log('🔧 [withAndroidProutMessaging] Service ajouté au manifest');
     return config;
@@ -313,6 +328,20 @@ const withAndroidProutMessaging = (config) => {
       fs.writeFileSync(targetPath, PROUT_SERVICE_CONTENT, 'utf8');
       console.log(`✅ [withAndroidProutMessaging] ProutMessagingService.kt créé à ${targetPath}`);
       
+      // Ajouter un keep rule proguard pour éviter le strip du service en release
+      const proguardPath = path.join(config.modRequest.platformProjectRoot, 'app/proguard-rules.pro');
+      let proguardContent = '';
+      if (fs.existsSync(proguardPath)) {
+        proguardContent = fs.readFileSync(proguardPath, 'utf8');
+      } else {
+        fs.mkdirSync(path.dirname(proguardPath), { recursive: true });
+      }
+      if (!proguardContent.includes('com.fuzztrack.proutapp.ProutMessagingService')) {
+        proguardContent += `\n# Keep custom FCM service\n-keep class com.fuzztrack.proutapp.ProutMessagingService { *; }\n`;
+        fs.writeFileSync(proguardPath, proguardContent, 'utf8');
+        console.log('✅ [withAndroidProutMessaging] Règle proguard ajoutée pour ProutMessagingService');
+      }
+
       return config;
     },
   ]);
