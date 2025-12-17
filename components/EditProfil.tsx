@@ -5,7 +5,6 @@ import { supabase } from '../lib/supabase';
 import { normalizePhone } from '../lib/normalizePhone';
 import { useRouter } from 'expo-router';
 import { safeReplace } from '../lib/navigation';
-import { PrivacyPolicyModal } from './PrivacyPolicyModal';
 import i18n from '../lib/i18n';
 
 export function EditProfil({ onClose }: { onClose: () => void }) {
@@ -18,7 +17,6 @@ export function EditProfil({ onClose }: { onClose: () => void }) {
   const [currentPseudo, setCurrentPseudo] = useState<string>('');
   const [currentEmail, setCurrentEmail] = useState<string>('');
   const [currentPhone, setCurrentPhone] = useState<string>('');
-  const [showPrivacy, setShowPrivacy] = useState(false);
 
   // Fonction pour gérer les erreurs Supabase
   const handleSupabaseError = (error: any, defaultMessage: string) => {
@@ -410,11 +408,6 @@ export function EditProfil({ onClose }: { onClose: () => void }) {
             <Text style={styles.supportText}>{i18n.t('contact_support')}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.supportButton} onPress={() => setShowPrivacy(true)}>
-            <Ionicons name="document-text-outline" size={20} color="#604a3e" />
-            <Text style={styles.supportText}>{i18n.t('privacy_policy')}</Text>
-          </TouchableOpacity>
-
           <View style={styles.deleteButtonContainer}>
             <TouchableOpacity 
               style={styles.deleteButton} 
@@ -427,7 +420,6 @@ export function EditProfil({ onClose }: { onClose: () => void }) {
           </View>
         </View>
       </ScrollView>
-      <PrivacyPolicyModal visible={showPrivacy} onClose={() => setShowPrivacy(false)} />
     </View>
   );
 }

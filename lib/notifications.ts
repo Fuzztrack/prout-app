@@ -60,12 +60,9 @@ async function configureAndroidNotificationChannels() {
             contentType: Notifications.AndroidAudioContentType.SONIFICATION,
           }
         };
-        
+
         await Notifications.setNotificationChannelAsync(channelId, channelConfig);
-        
         createdCount++;
-        console.log(`✅ [ANDROID] Canal créé: ${channelId} avec son: ${soundResourceName}`);
-        console.log(`   📋 Config: ${JSON.stringify(channelConfig, null, 2)}`);
       } catch (channelError: any) {
         console.error(`❌ [ANDROID] Erreur création canal ${channelId}:`, channelError?.message || channelError);
       }
@@ -81,9 +78,6 @@ async function configureAndroidNotificationChannels() {
       const allChannels = await Notifications.getNotificationChannelsAsync();
       const proutChannels = allChannels?.filter(c => c.id.startsWith('prout')) || [];
       console.log(`📋 [ANDROID] Canaux prout trouvés: ${proutChannels.length}`);
-      proutChannels.forEach(channel => {
-        console.log(`   - ${channel.id}: ${channel.name} (son: ${(channel as any).sound || 'non défini'})`);
-      });
     } catch (checkError) {
       console.error('❌ [ANDROID] Erreur vérification canaux:', checkError);
     }
