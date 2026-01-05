@@ -6,13 +6,14 @@ import { useRouter } from 'expo-router';
 import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CustomButton } from '../components/CustomButton';
 import { safeReplace } from '../lib/navigation';
+import { ensureContactPermissionWithDisclosure } from '../lib/contactConsent';
 
 export default function WelcomeScreen() {
   const router = useRouter();
 
   const handleContinue = async () => {
     await Notifications.requestPermissionsAsync();
-    await Contacts.requestPermissionsAsync();
+    await ensureContactPermissionWithDisclosure();
     await AsyncStorage.setItem('hasSeenWelcome', 'true');
     safeReplace(router, '/AuthChoiceScreen');
   };
@@ -35,7 +36,7 @@ export default function WelcomeScreen() {
         </View>
         <Text style={styles.title}>Bienvenue sur ProutApp ! 💨</Text>
         <Text style={styles.text}>
-          Pour fonctionner, nous avons besoin de vos contacts et des notifications.
+          Pour fonctionner, nous avons besoin de vos contacts (noms et numéros) pour trouver vos amis. Ces données sont synchronisées sur nos serveurs Supabase (utfwujyymaikraaigvuv.supabase.co) et ne sont pas partagées en dehors de l’app.
         </Text>
         <CustomButton 
           title="C'est parti !" 

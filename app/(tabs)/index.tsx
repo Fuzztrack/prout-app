@@ -1,18 +1,19 @@
 import { EditProfil } from '@/components/EditProfil';
 import { FriendsList } from '@/components/FriendsList';
 import { IdentityList } from '@/components/IdentityList';
+import { PrivacyPolicyModal } from '@/components/PrivacyPolicyModal';
 import { SearchUser } from '@/components/SearchUser';
 import { TutorialSwiper } from '@/components/TutorialSwiper';
-import { PrivacyPolicyModal } from '@/components/PrivacyPolicyModal';
-import i18n from '@/lib/i18n';
 import { getFCMToken } from '@/lib/fcmToken';
-import { safePush, safeReplace } from '@/lib/navigation';
+import i18n from '@/lib/i18n';
+import { safeReplace } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Image, Keyboard, KeyboardAvoidingView, Platform, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ActionSheetIOS, Animated, Image, Keyboard, KeyboardAvoidingView, Platform, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
@@ -26,6 +27,12 @@ export default function HomeScreen() {
   const [userId, setUserId] = useState<string | null>(null);
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const zenTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const zenStartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const ZEN_END_KEY = 'zen_end_at';
+  const ZEN_REASON_KEY = 'zen_reason';
+  const ZEN_START_KEY = 'zen_start_at';
+  const [showZenOptions, setShowZenOptions] = useState(false);
   
   // Animation de secousse pour le header
   const shakeX = useRef(new Animated.Value(0)).current;
@@ -195,46 +202,250 @@ export default function HomeScreen() {
   }, [shakeX, shakeY]);
 
   // --- MODE ZEN ---
+  const clearZenAutoOff = useCallback(async () => {
+    if (zenTimeoutRef.current) {
+      clearTimeout(zenTimeoutRef.current);
+      zenTimeoutRef.current = null;
+    }
+    await AsyncStorage.multiRemove([ZEN_END_KEY, ZEN_REASON_KEY, ZEN_START_KEY]);
+  }, [ZEN_END_KEY, ZEN_REASON_KEY, ZEN_START_KEY]);
+
+  const clearZenAutoOn = useCallback(async () => {
+    if (zenStartTimeoutRef.current) {
+      clearTimeout(zenStartTimeoutRef.current);
+      zenStartTimeoutRef.current = null;
+    }
+    await AsyncStorage.removeItem(ZEN_START_KEY);
+  }, [ZEN_START_KEY]);
+
+  const applyZenMode = useCallback(
+    async (newMode: boolean, fromAuto = false) => {
+      if (!userId) return;
+
+      setIsZenMode(newMode); // Optimistic update
+
+      try {
+        const { error } = await supabase
+          .from('user_profiles')
+          .update({ is_zen_mode: newMode })
+          .eq('id', userId);
+
+        if (error) {
+          console.error('Erreur mise à jour mode Zen:', error);
+          setIsZenMode(!newMode); // Rollback
+        } else if (!newMode) {
+          await clearZenAutoOff();
+          await clearZenAutoOn();
+        }
+      } catch (e) {
+        console.error('Erreur mode Zen:', e);
+        setIsZenMode(!newMode);
+        if (!newMode) {
+          await clearZenAutoOff();
+          await clearZenAutoOn();
+        }
+      }
+    },
+    [clearZenAutoOff, clearZenAutoOn, supabase, userId]
+  );
+
+  const scheduleZenAutoOff = useCallback(
+    async (endAt: number, reason: string) => {
+      const delay = Math.max(0, endAt - Date.now());
+      await AsyncStorage.multiSet([
+        [ZEN_END_KEY, String(endAt)],
+        [ZEN_REASON_KEY, reason],
+      ]);
+      if (zenTimeoutRef.current) {
+        clearTimeout(zenTimeoutRef.current);
+      }
+      zenTimeoutRef.current = setTimeout(() => {
+        applyZenMode(false, true);
+      }, delay);
+    },
+    [ZEN_END_KEY, ZEN_REASON_KEY, applyZenMode]
+  );
+
+  const scheduleZenWindow = useCallback(
+    async (startAt: number, endAt: number, reason: string) => {
+      const now = Date.now();
+      // Nettoyer timers existants
+      if (zenStartTimeoutRef.current) {
+        clearTimeout(zenStartTimeoutRef.current);
+        zenStartTimeoutRef.current = null;
+      }
+      if (zenTimeoutRef.current) {
+        clearTimeout(zenTimeoutRef.current);
+        zenTimeoutRef.current = null;
+      }
+
+      // Enregistrer start/end
+      await AsyncStorage.multiSet([
+        [ZEN_START_KEY, String(startAt)],
+        [ZEN_END_KEY, String(endAt)],
+        [ZEN_REASON_KEY, reason],
+      ]);
+
+      if (now >= endAt) {
+        // Fenêtre passée
+        await applyZenMode(false, true);
+        await clearZenAutoOff();
+        await clearZenAutoOn();
+        return;
+      }
+
+      if (now >= startAt) {
+        // Démarrer maintenant, programmer la fin
+        await applyZenMode(true, true);
+        await scheduleZenAutoOff(endAt, reason);
+      } else {
+        // Programmer le début puis la fin
+        const delayStart = Math.max(0, startAt - now);
+        zenStartTimeoutRef.current = setTimeout(async () => {
+          await applyZenMode(true, true);
+          await scheduleZenAutoOff(endAt, reason);
+        }, delayStart);
+      }
+    },
+    [applyZenMode, clearZenAutoOff, clearZenAutoOn, scheduleZenAutoOff, ZEN_END_KEY, ZEN_REASON_KEY, ZEN_START_KEY]
+  );
+
+  const restoreZenAutoOff = useCallback(async () => {
+    try {
+      const [[, startRaw], [, endRaw], [, reason]] = await AsyncStorage.multiGet([ZEN_START_KEY, ZEN_END_KEY, ZEN_REASON_KEY]);
+      const startAt = startRaw ? Number(startRaw) : null;
+      const endAt = endRaw ? Number(endRaw) : null;
+      if (!endAt || !Number.isFinite(endAt)) {
+        await clearZenAutoOff();
+        await clearZenAutoOn();
+        return;
+      }
+      if (startAt && !Number.isFinite(startAt)) {
+        await clearZenAutoOn();
+      }
+      const now = Date.now();
+      if (now >= endAt) {
+        await applyZenMode(false, true);
+        await clearZenAutoOff();
+        await clearZenAutoOn();
+        return;
+      }
+      if (startAt && now < startAt) {
+        // pas encore commencé
+        await scheduleZenWindow(startAt, endAt, reason || '');
+        return;
+      }
+      // déjà dans la fenêtre
+      await applyZenMode(true, true);
+      await scheduleZenAutoOff(endAt, reason || '');
+    } catch (e) {
+      console.error('Erreur restauration timer Zen:', e);
+    }
+  }, [ZEN_START_KEY, ZEN_END_KEY, ZEN_REASON_KEY, applyZenMode, clearZenAutoOff, clearZenAutoOn, scheduleZenAutoOff, scheduleZenWindow]);
+
+  useEffect(() => {
+    restoreZenAutoOff();
+  }, [restoreZenAutoOff]);
+
+  const handleZenSelection = useCallback(
+    async (type: '1h' | '8h' | 'job' | 'night') => {
+      const now = new Date();
+      const handleDuration = async (hours: number, label: string) => {
+        const endAt = Date.now() + hours * 60 * 60 * 1000;
+        await scheduleZenWindow(Date.now(), endAt, label);
+      };
+
+      if (type === '1h') {
+        await handleDuration(1, '1h');
+        return;
+      }
+      if (type === '8h') {
+        await handleDuration(8, '8h');
+        return;
+      }
+      if (type === 'job') {
+        const day = now.getDay(); // 0 dimanche - 6 samedi
+        const hour = now.getHours();
+        const minute = now.getMinutes();
+        const isWeekday = day >= 1 && day <= 5;
+        const inWindow = isWeekday && (hour > 9 || (hour === 9 && minute >= 0)) && (hour < 19 || (hour === 19 && minute === 0));
+        let start = new Date(now);
+        let end = new Date(now);
+        if (!isWeekday) {
+          // Trouver le prochain jour ouvré
+          const daysToAdd = day === 5 ? 3 : day === 6 ? 2 : 1; // ven->lun, sam->lun, dim->lun
+          start.setDate(start.getDate() + daysToAdd);
+          end.setDate(end.getDate() + daysToAdd);
+          start.setHours(9, 0, 0, 0);
+          end.setHours(19, 0, 0, 0);
+        } else if (hour >= 19) {
+          // Prochain jour ouvré suivant
+          const daysToAdd = day === 5 ? 3 : 1; // ven->lun sinon lendemain
+          start.setDate(start.getDate() + daysToAdd);
+          end.setDate(end.getDate() + daysToAdd);
+          start.setHours(9, 0, 0, 0);
+          end.setHours(19, 0, 0, 0);
+        } else if (hour < 9) {
+          start.setHours(9, 0, 0, 0);
+          end.setHours(19, 0, 0, 0);
+        } else {
+          // Déjà dans la plage
+          start = now;
+          end.setHours(19, 0, 0, 0);
+        }
+        await scheduleZenWindow(start.getTime(), end.getTime(), 'job');
+        return;
+      }
+      if (type === 'night') {
+        const hour = now.getHours();
+        const start = new Date(now);
+        const end = new Date(now);
+        if (hour >= 22) {
+          start.setHours(hour, now.getMinutes(), 0, 0);
+          end.setDate(end.getDate() + 1);
+          end.setHours(8, 0, 0, 0);
+        } else if (hour < 8) {
+          // déjà dans la plage (après minuit)
+          end.setHours(8, 0, 0, 0);
+        } else {
+          // Prochaine nuit à 22h
+          start.setHours(22, 0, 0, 0);
+          end.setDate(end.getDate() + 1);
+          end.setHours(8, 0, 0, 0);
+        }
+        await scheduleZenWindow(start.getTime(), end.getTime(), 'night');
+        return;
+      }
+    },
+    [scheduleZenWindow]
+  );
+
   const toggleZenMode = async () => {
     if (!userId) return;
-    
-    // Si on active le mode Zen, on demande confirmation
+
+    // Si on active le mode Zen, proposer des durées
     if (!isZenMode) {
-      Alert.alert(
-        i18n.t('zen_confirm_title'),
-        i18n.t('zen_confirm_body'),
-        [
-          { text: i18n.t('cancel'), style: "cancel" },
-          { 
-            text: i18n.t('activate'), 
-            onPress: async () => {
-              await applyZenMode(true);
-            }
+      if (Platform.OS === 'ios') {
+        const options = ['1h', '8h', 'Save my job !', 'Save my night !', i18n.t('cancel')];
+        ActionSheetIOS.showActionSheetWithOptions(
+          {
+            options,
+            cancelButtonIndex: 4,
+            title: i18n.t('zen_confirm_title'),
+          },
+          (buttonIndex) => {
+            if (buttonIndex === 0) handleZenSelection('1h');
+            if (buttonIndex === 1) handleZenSelection('8h');
+            if (buttonIndex === 2) handleZenSelection('job');
+            if (buttonIndex === 3) handleZenSelection('night');
           }
-        ]
-      );
+        );
+      } else {
+        setShowZenOptions(true);
+      }
     } else {
       // Si on désactive, on le fait direct
       await applyZenMode(false);
-    }
-  };
-
-  const applyZenMode = async (newMode: boolean) => {
-    setIsZenMode(newMode); // Optimistic update
-
-    try {
-      const { error } = await supabase
-        .from('user_profiles')
-        .update({ is_zen_mode: newMode })
-        .eq('id', userId);
-
-      if (error) {
-        console.error('Erreur mise à jour mode Zen:', error);
-        setIsZenMode(!newMode); // Rollback
-      }
-    } catch (e) {
-      console.error('Erreur mode Zen:', e);
-      setIsZenMode(!newMode);
     }
   };
 
@@ -266,6 +477,36 @@ export default function HomeScreen() {
         keyboardVerticalOffset={0}
         enabled={Platform.OS === 'android' ? keyboardVisible : true}
       >
+        {/* Modal simple pour Android : choix du Mode Zen */}
+        {showZenOptions && (
+          <View style={styles.zenOverlay}>
+            <View style={styles.zenCard}>
+              <Text style={styles.zenTitle}>{i18n.t('zen_confirm_title')}</Text>
+              <Text style={styles.zenSubtitle}>Choisissez une durée</Text>
+              {[
+                { label: '1h', type: '1h' as const },
+                { label: '8h', type: '8h' as const },
+                { label: 'Save my job ! (9h-19h, lun-ven)', type: 'job' as const },
+                { label: 'Save my night ! (22h-8h)', type: 'night' as const },
+              ].map((opt) => (
+                <TouchableOpacity
+                  key={opt.type}
+                  style={styles.zenOption}
+                  onPress={async () => {
+                    setShowZenOptions(false);
+                    await handleZenSelection(opt.type);
+                  }}
+                >
+                  <Text style={styles.zenOptionText}>{opt.label}</Text>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity style={styles.zenCancel} onPress={() => setShowZenOptions(false)}>
+                <Text style={styles.zenCancelText}>{i18n.t('cancel')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         {/* CONTENU PRINCIPAL */}
         {activeView !== 'list' && (
           <View style={styles.headerSection}>
@@ -290,50 +531,38 @@ export default function HomeScreen() {
 
             {/* 2. LA BARRE DE NAVIGATION */}
             <View style={styles.navBar}>
-               {/* 1. Profil */}
-              <TouchableOpacity 
-                onPress={() => setActiveView(activeView === 'profileMenu' ? 'list' : 'profileMenu')} 
-                style={[styles.iconButton, (activeView === 'profileMenu' || activeView === 'profile') && { opacity: 0.7 }]}
-              >
-                  {(activeView === 'profileMenu' || activeView === 'profile') ? (
-                    <Ionicons name="close-circle-outline" size={28} color="#ffffff" />
-                  ) : (
-                    <Image 
-                        source={require('../../assets/images/icon_compte.png')} 
-                        style={styles.navIcon} 
-                        resizeMode="contain"
-                    />
-                  )}
-              </TouchableOpacity>
-
-               {/* 2. Partage Direct (Invitation) */}
-              <TouchableOpacity onPress={handleShare} style={styles.iconButton}>
-                  <Ionicons name="share-social-outline" size={26} color="#ffffff" />
-              </TouchableOpacity>
-
-               {/* 3. Recherche (Loupe -> Ajout ami) */}
-              <TouchableOpacity 
-                onPress={() => setActiveView(activeView === 'search' ? 'list' : 'search')} 
-                style={[styles.iconButton, activeView === 'search' && { opacity: 0.7 }]}
-              >
-                  <Ionicons name={activeView === 'search' ? "close-circle-outline" : "person-add-outline"} size={26} color="#ffffff" />
-              </TouchableOpacity>
-
-               {/* 4. Mode Zen (Lune) */}
-              <TouchableOpacity 
-                onPress={toggleZenMode} 
-                style={[styles.iconButton, isZenMode && { opacity: 0.7 }]}
-              >
-                  <Ionicons name={isZenMode ? "moon" : "moon-outline"} size={26} color={isZenMode ? "#ffd700" : "#ffffff"} />
-              </TouchableOpacity>
-
-               {/* 5. Réglages (Tuto) */}
-              <TouchableOpacity 
-                onPress={() => setActiveView(activeView === 'tutorial' ? 'list' : 'tutorial')} 
-                style={[styles.iconButton, activeView === 'tutorial' && { opacity: 0.7 }]}
-              >
-                  <Ionicons name={activeView === 'tutorial' ? "close-circle-outline" : "settings-outline"} size={26} color="#ffffff" />
-              </TouchableOpacity>
+              <View style={styles.navBarContent}>
+                <View style={styles.greetingContainer}>
+                  {currentPseudo ? (
+                    <View style={styles.greetingRow}>
+                      <Text style={styles.greetingText}>Bonjour {currentPseudo} !</Text>
+                      {isZenMode && (
+                        <Ionicons
+                          name="moon"
+                          size={18}
+                          color="#ffd700"
+                          style={styles.zenIcon}
+                        />
+                      )}
+                    </View>
+                  ) : null}
+                </View>
+                {/* 1. Profil */}
+                <TouchableOpacity 
+                  onPress={() => setActiveView(activeView === 'profileMenu' ? 'list' : 'profileMenu')} 
+                  style={[styles.iconButton, (activeView === 'profileMenu' || activeView === 'profile') && { opacity: 0.7 }]}
+                >
+                    {(activeView === 'profileMenu' || activeView === 'profile') ? (
+                      <Ionicons name="close-circle-outline" size={28} color="#ffffff" />
+                    ) : (
+                      <Image 
+                          source={require('../../assets/images/icon_compte.png')} 
+                          style={styles.navIcon} 
+                          resizeMode="contain"
+                      />
+                    )}
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         )}
@@ -346,26 +575,27 @@ export default function HomeScreen() {
           <EditProfil onClose={() => setActiveView('list')} />
         ) : activeView === 'profileMenu' ? (
           <View style={styles.menuCard}>
-            <Text style={styles.menuTitle}>Menu</Text>
-            <TouchableOpacity style={styles.menuItem} onPress={() => setActiveView('profile')}>
-              <Text style={styles.menuText}>Gérez votre profil</Text>
-              <Ionicons name="person-circle-outline" size={22} color="#604a3e" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={() => setActiveView('tutorial')}>
-              <Text style={styles.menuText}>Revoir les fonctions de l'appli</Text>
-              <Ionicons name="settings-outline" size={22} color="#604a3e" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={() => setActiveView('identity')}>
-              <Text style={styles.menuText}>Qui est qui ? Vérifiez les pseudos</Text>
-              <Ionicons name="help-circle-outline" size={22} color="#604a3e" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={() => { setShowPrivacy(true); setActiveView('list'); }}>
-              <Text style={styles.menuText}>Politiques de confidentialité</Text>
-              <Ionicons name="document-text-outline" size={22} color="#604a3e" />
-            </TouchableOpacity>
+            {[
+              { label: 'Rechercher un ami', icon: 'person-add-outline', onPress: () => setActiveView('search'), iconColor: '#604a3e' },
+              { label: 'Mode Zen', icon: isZenMode ? 'moon' : 'moon-outline', onPress: toggleZenMode, iconColor: isZenMode ? '#ffd700' : '#604a3e' },
+              { label: 'Gérez votre profil', icon: 'person-circle-outline', onPress: () => setActiveView('profile'), iconColor: '#604a3e' },
+              { label: 'Inviter un ami', icon: 'share-social-outline', onPress: handleShare, iconColor: '#604a3e' },
+              { label: 'Revoir les fonctions de l\'appli', icon: 'help-circle-outline', onPress: () => setActiveView('tutorial'), iconColor: '#604a3e' },
+              { label: 'Qui est qui ? Vérifiez les pseudos', icon: 'eye-outline', onPress: () => setActiveView('identity'), iconColor: '#604a3e' },
+              { label: 'Politiques de confidentialité', icon: 'document-text-outline', onPress: () => { setShowPrivacy(true); setActiveView('list'); }, iconColor: '#604a3e' },
+            ].map((item, index) => (
+              <TouchableOpacity 
+                key={index}
+                style={[styles.menuItem, { backgroundColor: index % 2 === 0 ? '#d2f1ef' : '#baded7' }]} 
+                onPress={item.onPress}
+              >
+                <Text style={styles.menuText}>{item.label}</Text>
+                <Ionicons name={item.icon as any} size={22} color={item.iconColor} />
+              </TouchableOpacity>
+            ))}
           </View>
         ) : activeView === 'identity' ? (
-          <IdentityList />
+          <IdentityList onClose={() => setActiveView('list')} />
         ) : (
           <FriendsList 
             onProutSent={shakeHeader} 
@@ -393,50 +623,28 @@ export default function HomeScreen() {
 
                 {/* 2. LA BARRE DE NAVIGATION */}
                 <View style={styles.navBar}>
-                   {/* 1. Profil */}
-                  <TouchableOpacity 
-                    onPress={() => setActiveView(activeView === 'profileMenu' ? 'list' : 'profileMenu')} 
-                    style={[styles.iconButton, (activeView === 'profileMenu' || activeView === 'profile') && { opacity: 0.7 }]}
-                  >
-                      {(activeView === 'profileMenu' || activeView === 'profile') ? (
-                        <Ionicons name="close-circle-outline" size={28} color="#ffffff" />
-                      ) : (
-                        <Image 
-                            source={require('../../assets/images/icon_compte.png')} 
-                            style={styles.navIcon} 
-                            resizeMode="contain"
-                        />
-                      )}
-                  </TouchableOpacity>
-
-                   {/* 2. Partage Direct (Invitation) */}
-                  <TouchableOpacity onPress={handleShare} style={styles.iconButton}>
-                      <Ionicons name="share-social-outline" size={26} color="#ffffff" />
-                  </TouchableOpacity>
-
-                   {/* 3. Recherche (Loupe -> Ajout ami) */}
-                  <TouchableOpacity 
-                    onPress={() => setActiveView(activeView === 'search' ? 'list' : 'search')} 
-                    style={[styles.iconButton, activeView === 'search' && { opacity: 0.7 }]}
-                  >
-                      <Ionicons name={activeView === 'search' ? "close-circle-outline" : "person-add-outline"} size={26} color="#ffffff" />
-                  </TouchableOpacity>
-
-                   {/* 4. Mode Zen (Lune) */}
-                  <TouchableOpacity 
-                    onPress={toggleZenMode} 
-                    style={[styles.iconButton, isZenMode && { opacity: 0.7 }]}
-                  >
-                      <Ionicons name={isZenMode ? "moon" : "moon-outline"} size={26} color={isZenMode ? "#ffd700" : "#ffffff"} />
-                  </TouchableOpacity>
-
-                   {/* 5. Réglages (Tuto) */}
-                  <TouchableOpacity 
-                    onPress={() => setActiveView(activeView === 'tutorial' ? 'list' : 'tutorial')} 
-                    style={[styles.iconButton, activeView === 'tutorial' && { opacity: 0.7 }]}
-                  >
-                      <Ionicons name={activeView === 'tutorial' ? "close-circle-outline" : "settings-outline"} size={26} color="#ffffff" />
-                  </TouchableOpacity>
+                  <View style={styles.navBarContent}>
+                    <View style={styles.greetingContainer}>
+                      {currentPseudo ? (
+                        <Text style={styles.greetingText}>Bonjour {currentPseudo} !</Text>
+                      ) : null}
+                    </View>
+                    {/* 1. Profil */}
+                    <TouchableOpacity 
+                      onPress={() => setActiveView(activeView === 'profileMenu' ? 'list' : 'profileMenu')} 
+                      style={[styles.iconButton, (activeView === 'profileMenu' || activeView === 'profile') && { opacity: 0.7 }]}
+                    >
+                        {(activeView === 'profileMenu' || activeView === 'profile') ? (
+                          <Ionicons name="close-circle-outline" size={28} color="#ffffff" />
+                        ) : (
+                          <Image 
+                              source={require('../../assets/images/icon_compte.png')} 
+                              style={styles.navIcon} 
+                              resizeMode="contain"
+                          />
+                        )}
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
             }
@@ -484,10 +692,33 @@ const styles = StyleSheet.create({
   // Barre de boutons
   navBar: {
     flexDirection: 'row',
-    justifyContent: 'space-between', // Écarte les boutons aux extrémités
     alignItems: 'center',
     marginBottom: 10, // Réduit de 20 à 10
     paddingHorizontal: 10, // Marges sur les côtés
+  },
+  navBarContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
+  },
+  greetingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  greetingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  greetingText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 12,
+  },
+  zenIcon: {
+    marginTop: 1,
   },
   
   iconButton: {
@@ -505,31 +736,82 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.95)',
     padding: 16,
     borderRadius: 14,
-    gap: 10,
+    gap: 6,
     shadowColor: '#000',
     shadowOpacity: 0.08,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
   },
-  menuTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#604a3e',
-    marginBottom: 4,
-  },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(96,74,62,0.08)',
-    paddingVertical: 10,
+    paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 10,
+    marginBottom: 6,
   },
   menuText: {
     fontSize: 15,
     color: '#604a3e',
     fontWeight: '600',
-  }
+  },
+  // Zen options overlay (Android)
+  zenOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 20,
+  },
+  zenCard: {
+    width: '86%',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    gap: 8,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  zenTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#604a3e',
+  },
+  zenSubtitle: {
+    fontSize: 14,
+    color: '#604a3e',
+    marginBottom: 4,
+  },
+  zenOption: {
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    backgroundColor: '#f3f6f6',
+  },
+  zenOptionText: {
+    fontSize: 15,
+    color: '#2d2d2d',
+    fontWeight: '600',
+  },
+  zenCancel: {
+    marginTop: 6,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: '#eee',
+    alignItems: 'center',
+  },
+  zenCancelText: {
+    fontSize: 15,
+    color: '#444',
+    fontWeight: '600',
+  },
 });

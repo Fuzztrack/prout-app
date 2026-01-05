@@ -1,11 +1,13 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Alert, ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import * as Contacts from 'expo-contacts';
 import { useIsFocused } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { sendProutViaBackend } from '../lib/sendProutBackend';
 import { normalizePhone } from '../lib/normalizePhone';
 import i18n from '../lib/i18n';
+import { ensureContactPermissionWithDisclosure } from '../lib/contactConsent';
 
 type IdentityFriend = {
   id: string;
@@ -17,7 +19,11 @@ type IdentityFriend = {
   status: string | null;
 };
 
-export function IdentityList() {
+type IdentityListProps = {
+  onClose?: () => void;
+};
+
+export function IdentityList({ onClose }: IdentityListProps) {
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<IdentityFriend[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -45,7 +51,7 @@ export function IdentityList() {
         // Matches téléphone (même logique que FriendList)
         let phoneFriendsIds: string[] = [];
         try {
-          const { status } = await Contacts.requestPermissionsAsync();
+            const status = await ensureContactPermissionWithDisclosure();
           if (status === 'granted') {
             const { data } = await Contacts.getContactsAsync({ fields: [Contacts.Fields.PhoneNumbers] });
             if (data.length > 0) {
@@ -158,7 +164,7 @@ export function IdentityList() {
         // Charger les contacts du téléphone pour trouver les noms révélés
         let contactsList: Contacts.Contact[] = [];
         try {
-          const { status: contactsStatus } = await Contacts.requestPermissionsAsync();
+          const contactsStatus = await ensureContactPermissionWithDisclosure();
           if (contactsStatus === 'granted') {
             const { data: contactsData } = await Contacts.getContactsAsync({ 
               fields: [Contacts.Fields.PhoneNumbers, Contacts.Fields.Name] 
@@ -289,25 +295,49 @@ export function IdentityList() {
 
   if (items.length === 0) {
     return (
-      <View style={styles.empty}>
-        <Text style={styles.emptyText}>Aucun ami encore. Ajoutez des amis pour demander leur identité.</Text>
+      <View style={styles.container}>
+        {onClose && (
+          <TouchableOpacity style={styles.closeButton} onPress={onClose} accessibilityLabel="Fermer">
+            <Ionicons name="close" size={22} color="#604a3e" />
+          </TouchableOpacity>
+        )}
+        <View style={styles.empty}>
+          <Text style={styles.emptyText}>Aucun ami encore. Ajoutez des amis pour demander leur identité.</Text>
+        </View>
       </View>
     );
   }
 
   return (
-    <FlatList
-      data={items}
-      keyExtractor={(item) => item.id}
-      renderItem={renderItem}
-      contentContainerStyle={{ paddingVertical: 10 }}
-      ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
-      showsVerticalScrollIndicator={false}
-    />
+    <View style={styles.container}>
+      {onClose && (
+        <TouchableOpacity style={styles.closeButton} onPress={onClose} accessibilityLabel="Fermer">
+          <Ionicons name="close" size={22} color="#604a3e" />
+        </TouchableOpacity>
+      )}
+      <FlatList
+        data={items}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        contentContainerStyle={{ paddingVertical: 10 }}
+        ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+        showsVerticalScrollIndicator={false}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  closeButton: {
+    alignSelf: 'flex-end',
+    padding: 6,
+    marginBottom: 8,
+    borderRadius: 999,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

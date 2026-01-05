@@ -108,7 +108,7 @@ const i18n = new I18n({
     tuto_1_title: "Envoyer un Prout",
     tuto_1_desc: "Pour envoyer un prout, swipez vers la droite sur le nom de votre ami ! Comme dans la vie, on ne sait pas toujours ce qui vient. Ce sera une surprise à chaque envoi !",
     tuto_2_title: "Ajouter un mot doux",
-    tuto_2_desc: "Cliquer sur le nom de votre ami pour ajouter un message, puis swiper le nom, ou appuyer sur le gaz !",
+    tuto_2_desc: "Cliquer sur le nom de votre ami pour ajouter un message, puis swiper le nom.",
     tuto_3_title: "Mode Zen",
     tuto_3_desc: "Besoin de calme ? Activez le mode Zen pour ne plus recevoir (ni envoyer) de prouts.",
     tuto_4_title: "Sourdine",
@@ -365,6 +365,16 @@ const deviceLanguage = getLocales()[0]?.languageCode ?? 'fr';
 i18n.locale = deviceLanguage;
 
 export default i18n;
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -2,9 +2,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from "@supabase/supabase-js";
 import { Platform } from 'react-native';
 
-// Vos clés (je les ai remises ici pour que le copier-coller soit direct)
-const supabaseUrl = 'https://utfwujyymaikraaigvuv.supabase.co';
-const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV0Znd1anl5bWFpa3JhYWlndnV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMxODkwNzAsImV4cCI6MjA3ODc2NTA3MH0.d6MLGOsvTlxJDARH64D1u4kJHxKAlfX1FLegrWVE-Is";
+// Utiliser les variables d'environnement avec fallback sur les valeurs par défaut
+// Cela permet de gérer différents environnements (dev, staging, prod) sans modifier le code
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://utfwujyymaikraaigvuv.supabase.co';
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || "";
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {

@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Contacts from 'expo-contacts';
 import * as Linking from 'expo-linking';
 import * as Notifications from 'expo-notifications';
 import { Stack, useRouter } from 'expo-router';
@@ -7,6 +6,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Animated, AppState, Platform, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Onboarding from '../components/Onboarding';
+import { ensureContactPermissionWithDisclosure } from '../lib/contactConsent';
 import { safePush, safeReplace } from '../lib/navigation';
 import { ensureAndroidNotificationChannel } from '../lib/notifications';
 import { supabase } from '../lib/supabase';
@@ -222,7 +222,7 @@ export default function RootLayout() {
     }
 
     try {
-      await Contacts.requestPermissionsAsync();
+      await ensureContactPermissionWithDisclosure();
     } catch (e) {
       console.warn('⚠️ Permission contacts refusée:', e);
     }

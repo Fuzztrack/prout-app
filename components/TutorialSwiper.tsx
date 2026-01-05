@@ -1,6 +1,6 @@
-import React, { useRef, useState } from 'react';
-import { Dimensions, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRef, useState } from 'react';
+import { Dimensions, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import i18n from '../lib/i18n';
 

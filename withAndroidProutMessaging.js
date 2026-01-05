@@ -6,7 +6,8 @@ const {
   withAppBuildGradle 
 } = require('@expo/config-plugins');
 
-const TARGET_SERVICE_PATH = 'android/app/src/main/java/com/fuzztrack/proutapp/ProutMessagingService.kt';
+// Attention : platformProjectRoot pointe déjà sur /android, ne pas le doubler
+const TARGET_SERVICE_PATH = 'app/src/main/java/com/fuzztrack/proutapp/ProutMessagingService.kt';
 
 // Contenu complet du fichier ProutMessagingService.kt
 const PROUT_SERVICE_CONTENT = `package com.fuzztrack.proutapp
