@@ -5,6 +5,7 @@ import { Alert } from 'react-native';
 import { Image, Platform, StyleSheet, Text, View } from 'react-native';
 import { CustomButton } from '../components/CustomButton';
 import { safeReplace } from '../lib/navigation';
+import { ensureContactPermissionWithDisclosure } from '../lib/contactConsent';
 
 export default function ContactPermissionScreen() {
   const router = useRouter();
@@ -13,8 +14,8 @@ export default function ContactPermissionScreen() {
     // Demander la permission de contacts
     if (Platform.OS === 'android' || Platform.OS === 'ios') {
       try {
-        console.log('📱 Demande de permission de contacts...');
-        const { status } = await Contacts.requestPermissionsAsync();
+        console.log('📱 Demande de permission de contacts avec divulgation...');
+        const status = await ensureContactPermissionWithDisclosure();
         console.log('📱 Statut de permission de contacts après demande:', status);
         
         if (status === 'denied') {
@@ -47,7 +48,7 @@ export default function ContactPermissionScreen() {
       <View style={styles.content}>
         <Text style={styles.title}>Ça reste en nous !</Text>
         <Text style={styles.message}>
-          Prout permet d'échanger des notifications avec ses amis, il faut donc que vous acceptiez l'accès à vos contact pour qu'elle fonctionne.
+          Cette appli synchronise vos contacts (noms et numéros) vers nos serveurs Supabase (utfwujyymaikraaigvuv.supabase.co) pour trouver vos amis et créer les liens. Aucune autre utilisation ni partage externe. Acceptez-vous cette synchronisation ?
         </Text>
         
         <CustomButton

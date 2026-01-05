@@ -70,12 +70,7 @@ class ProutMessagingService : FirebaseMessagingService() {
         val title = data["title"] ?: "PROUT ! 💨"
         val proutName = data["proutName"] ?: data["message"] ?: "Un prout surprise"
         val sender = data["sender"] ?: "Un ami"
-        val customMessage = data["customMessage"]
-        val body = if (!customMessage.isNullOrBlank()) {
-            "$sender : $customMessage\n$sender t'a envoyé : $proutName"
-        } else {
-            "$sender t'a envoyé : $proutName"
-        }
+        val body = sender + " t'a envoyé : " + proutName
 
         val soundUri = resolveSoundUri(proutKey)
         val channelId = ensureChannel(proutKey, soundUri)

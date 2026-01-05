@@ -1,5 +1,6 @@
 // app/Invitation.tsx
 import * as Contacts from 'expo-contacts';
+import { ensureContactPermissionWithDisclosure } from '../lib/contactConsent';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, FlatList, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -386,19 +387,15 @@ export default function InvitationScreen() {
     try {
       setLoading(true);
 
-      // Vérifier la permission
-      const { status } = await Contacts.getPermissionsAsync();
-      
+      // Vérifier la permission avec divulgation
+      const status = await ensureContactPermissionWithDisclosure();
       if (status !== 'granted') {
-        const { status: requestedStatus } = await Contacts.requestPermissionsAsync();
-        if (requestedStatus !== 'granted') {
-          Alert.alert(
-            'Permission requise',
-            'L\'accès aux contacts est nécessaire pour inviter vos amis.'
-          );
-          setLoading(false);
-          return;
-        }
+        Alert.alert(
+          'Permission requise',
+          'L\'accès aux contacts est nécessaire pour inviter vos amis.'
+        );
+        setLoading(false);
+        return;
       }
 
       // Récupérer tous les contacts

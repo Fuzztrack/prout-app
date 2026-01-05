@@ -6,7 +6,7 @@ import * as Contacts from 'expo-contacts';
 import * as Notifications from 'expo-notifications';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, FlatList, Image, Animated as RNAnimated, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, FlatList, Animated as RNAnimated, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
@@ -20,6 +20,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import { ensureContactPermissionWithDisclosure } from '../lib/contactConsent';
 import { normalizePhone } from '../lib/normalizePhone';
 import { sendProutViaBackend } from '../lib/sendProutBackend';
 // Import supprimé : on utilise maintenant sync_contacts (fonction SQL Supabase)
@@ -538,6 +539,16 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
       return;
     }
     setPendingMessages(data || []);
+    
+    // Mettre à jour les interactions pour tous les expéditeurs de messages
+    // Cela permet de mettre en tête de liste ceux qui ont envoyé des messages
+    if (data && data.length > 0 && updateInteractionRef.current) {
+      const uniqueSenderIds = [...new Set(data.map(m => m.from_user_id))];
+      // Mettre à jour toutes les interactions en parallèle
+      await Promise.all(
+        uniqueSenderIds.map(senderId => updateInteractionRef.current!(senderId))
+      );
+    }
   };
 
   const markMessageAsRead = async (messageId: string) => {
@@ -657,23 +668,61 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
   }, []);
 
   // Écouter les notifications reçues pour mettre à jour l'interaction
+  const extractSenderId = useCallback((payload: any): string | null => {
+    if (!payload) return null;
+    const direct =
+      payload.senderId ||
+      payload.sender_id ||
+      payload.sender ||
+      payload.from ||
+      payload.userId ||
+      payload.user_id;
+    if (direct) return String(direct);
+    const extra = payload.extraData || payload.data;
+    if (extra) {
+      const nested =
+        extra.senderId ||
+        extra.sender_id ||
+        extra.sender ||
+        extra.from ||
+        extra.userId ||
+        extra.user_id;
+      if (nested) return String(nested);
+    }
+    return null;
+  }, []);
+
+  const handleNotificationPayload = useCallback((payload: any) => {
+    const senderId = extractSenderId(payload);
+    if (senderId) {
+      console.log('📨 Notification prout reçue de:', senderId, 'type:', payload?.type);
+      updateInteractionRef.current?.(senderId);
+    }
+  }, [extractSenderId]);
+
   useEffect(() => {
     const notificationListener = Notifications.addNotificationReceivedListener(notification => {
-      const { data } = notification.request.content;
-      if (data?.type === 'prout' && data?.senderId) {
-        // Mettre à jour l'interaction pour que l'expéditeur passe en tête de liste
-        const senderId = data.senderId;
-        console.log('📨 Notification prout reçue de:', senderId);
-        if (updateInteractionRef.current) {
-          updateInteractionRef.current(senderId);
-        }
-      }
+      handleNotificationPayload(notification.request.content.data);
+    });
+
+    const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+      handleNotificationPayload(response.notification.request.content.data);
     });
 
     return () => {
       notificationListener.remove();
+      responseListener.remove();
     };
-  }, []);
+  }, [handleNotificationPayload]);
+
+  useEffect(() => {
+    // Si l'app est ouverte via une notif alors que les listeners ne tournaient pas encore
+    Notifications.getLastNotificationResponseAsync().then((resp) => {
+      if (resp?.notification?.request?.content?.data) {
+        handleNotificationPayload(resp.notification.request.content.data);
+      }
+    }).catch(() => {});
+  }, [handleNotificationPayload]);
 
   const router = useRouter();
 
@@ -792,7 +841,7 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
       setIdentityRequests(identityList);
 
       let phoneFriendsIds: string[] = [];
-      const { status } = await Contacts.requestPermissionsAsync();
+      const status = await ensureContactPermissionWithDisclosure();
       if (status === 'granted') {
         const { data } = await Contacts.getContactsAsync({ fields: [Contacts.Fields.PhoneNumbers] });
         if (data.length > 0) {
@@ -1256,7 +1305,7 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
 
     if (friend.phone) {
       try {
-        const { status } = await Contacts.requestPermissionsAsync();
+        const status = await ensureContactPermissionWithDisclosure();
         if (status === 'granted') {
           const { data: contacts } = await Contacts.getContactsAsync({
             fields: [Contacts.Fields.PhoneNumbers, Contacts.Fields.Name],
@@ -1718,11 +1767,15 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
                 introDelay={index * 40}
               />
                 {isUnreadExpanded && unreadListToShow.length > 0 && (
-                  <View style={styles.unreadContainer}>
+                  <TouchableOpacity 
+                    style={styles.unreadContainer}
+                    onPress={() => handlePressFriend(item)}
+                    activeOpacity={0.7}
+                  >
                     {unreadListToShow.map((msg) => (
                       <Text key={msg.id} style={styles.unreadItemText}>- "{msg.message_content}"</Text>
                     ))}
-                  </View>
+                  </TouchableOpacity>
                 )}
                 {isExpanded && (
                   <View style={styles.messageInputContainer}>
@@ -1737,18 +1790,17 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
                         multiline
                         // Pas de scroll manuel : on laisse le KeyboardAvoidingView gérer le clavier
                       />
-                      <TouchableOpacity 
-                        onPressIn={() => rowRefs.current[item.id]?.startHoldSend()}
-                        onPressOut={() => rowRefs.current[item.id]?.cancelHoldSend()}
-                        style={styles.sendButton}
-                        activeOpacity={0.7}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      <TouchableOpacity
+                        onPress={() => draftValue.trim() && handleSendProut(item)}
+                        style={[
+                          styles.messageSendButton,
+                          !draftValue.trim() && styles.messageSendButtonDisabled,
+                        ]}
+                        accessibilityLabel="Envoyer"
+                        activeOpacity={draftValue.trim() ? 0.8 : 1}
+                        disabled={!draftValue.trim()}
                       >
-                        <Image 
-                          source={require('../assets/images/animprout3.png')} 
-                          style={styles.sendIcon}
-                          resizeMode="contain"
-                        />
+                        <Ionicons name="send" size={18} color="#fff" />
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -1766,6 +1818,15 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
               flatListRef.current?.scrollToIndex({ index: info.index, animated: true });
             });
           }}
+          ListFooterComponent={
+            appUsers.length > 0 ? (
+              <View style={styles.footerHelp}>
+                <Text style={styles.footerHelpText}>
+                  Swipez vers la droite pour envoyer un prout, cliquez avant de swiper pour ajouter un message !
+                </Text>
+              </View>
+            ) : null
+          }
         />
 
       {/* Toast qui disparaît automatiquement */}
@@ -1801,6 +1862,8 @@ const styles = StyleSheet.create({
   messageLabel: { color: '#604a3e', fontWeight: '600', marginBottom: 6 },
   messageInputRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 0, gap: 8 },
   messageInput: { flex: 1, minHeight: 40, maxHeight: 80, borderWidth: 1, borderColor: '#c5d7d3', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, color: '#333', backgroundColor: '#fff', fontSize: 14 },
+  messageSendButton: { backgroundColor: '#ebb89b', padding: 10, borderRadius: 999, justifyContent: 'center', alignItems: 'center', minWidth: 40, minHeight: 40 },
+  messageSendButtonDisabled: { backgroundColor: '#d9d9d9' },
   sendButton: { padding: 16, width: 80, height: 80, justifyContent: 'center', alignItems: 'center', alignSelf: 'center' },
   sendIcon: { width: 64, height: 64 },
   messageHelper: { marginTop: 4, marginLeft: 4, color: '#777', fontSize: 11 },
@@ -1893,5 +1956,18 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  footerHelp: {
+    padding: 20,
+    paddingTop: 30,
+    paddingBottom: 40,
+    alignItems: 'center',
+  },
+  footerHelpText: {
+    color: '#604a3e',
+    fontSize: 14,
+    textAlign: 'center',
+    fontStyle: 'italic',
+    opacity: 0.7,
   },
 });
