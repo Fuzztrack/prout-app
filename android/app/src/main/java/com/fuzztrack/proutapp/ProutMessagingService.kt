@@ -75,6 +75,8 @@ class ProutMessagingService : FirebaseMessagingService() {
         val soundUri = resolveSoundUri(proutKey)
         val channelId = ensureChannel(proutKey, soundUri)
         Log.d(TAG, "Resolved Sound URI: " + soundUri + " for proutKey: " + proutKey)
+        
+        // Afficher uniquement la notification native ; le tri est géré via pending_messages côté backend
         showNotification(channelId, title, body, soundUri, proutKey, sender)
     }
 
@@ -131,7 +133,7 @@ class ProutMessagingService : FirebaseMessagingService() {
 
         val intent = Intent(this, MainActivity::class.java).apply {
             action = Intent.ACTION_VIEW
-            data = Uri.parse("proutapp://")
+            setData(Uri.parse("proutapp://"))
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra("proutKey", proutKey)
             putExtra("sender", sender)
