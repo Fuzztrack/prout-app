@@ -505,6 +505,7 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
 
   // Fonction pour mettre à jour une interaction
   const updateInteraction = async (friendId: string) => {
+    console.log('🔄 updateInteraction appelé pour friendId:', friendId);
     const now = Date.now();
     interactionsMapRef.current = {
       ...interactionsMapRef.current,
@@ -514,7 +515,9 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
     // Mettre à jour l'ordre de la liste immédiatement
     setAppUsers(prevUsers => {
       const newUsers = [...prevUsers];
-      return sortFriends(newUsers);
+      const sorted = sortFriends(newUsers);
+      console.log('✅ Liste triée, premier ami:', sorted[0]?.pseudo || 'aucun');
+      return sorted;
     });
 
     // Sauvegarder en background
@@ -578,11 +581,58 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
 
   // const player = useAudioPlayer(); // Supprimé
 
+  // Écouter les notifications reçues pour mettre à jour l'interaction
+  const extractSenderId = useCallback((payload: any): string | null => {
+    if (!payload) {
+      console.log('⚠️ extractSenderId: payload vide');
+      return null;
+    }
+    const direct =
+      payload.senderId ||
+      payload.sender_id ||
+      payload.sender ||
+      payload.from ||
+      payload.userId ||
+      payload.user_id;
+    if (direct) {
+      console.log('✅ extractSenderId trouvé (direct):', direct);
+      return String(direct);
+    }
+    const extra = payload.extraData || payload.data;
+    if (extra) {
+      const nested =
+        extra.senderId ||
+        extra.sender_id ||
+        extra.sender ||
+        extra.from ||
+        extra.userId ||
+        extra.user_id;
+      if (nested) {
+        console.log('✅ extractSenderId trouvé (nested):', nested);
+        return String(nested);
+      }
+    }
+    console.log('⚠️ extractSenderId: senderId non trouvé dans payload:', JSON.stringify(payload));
+    return null;
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       // Recharger les données à chaque fois que l'écran gagne le focus
       loadData(false, false, false);
-    }, [])
+      
+      // Vérifier la dernière notification reçue pour mettre à jour l'interaction
+      Notifications.getLastNotificationResponseAsync().then((resp) => {
+        if (resp?.notification?.request?.content?.data) {
+          const payload = resp.notification.request.content.data;
+          const senderId = extractSenderId(payload);
+          if (senderId && updateInteractionRef.current) {
+            console.log('📨 Notification détectée au retour au premier plan, senderId:', senderId);
+            updateInteractionRef.current(senderId);
+          }
+        }
+      }).catch(() => {});
+    }, [extractSenderId])
   );
 
   useEffect(() => {
@@ -670,35 +720,13 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
     };
   }, []);
 
-  // Écouter les notifications reçues pour mettre à jour l'interaction
-  const extractSenderId = useCallback((payload: any): string | null => {
-    if (!payload) return null;
-    const direct =
-      payload.senderId ||
-      payload.sender_id ||
-      payload.sender ||
-      payload.from ||
-      payload.userId ||
-      payload.user_id;
-    if (direct) return String(direct);
-    const extra = payload.extraData || payload.data;
-    if (extra) {
-      const nested =
-        extra.senderId ||
-        extra.sender_id ||
-        extra.sender ||
-        extra.from ||
-        extra.userId ||
-        extra.user_id;
-      if (nested) return String(nested);
-    }
-    return null;
-  }, []);
-
   const handleNotificationPayload = useCallback((payload: any) => {
     const senderId = extractSenderId(payload);
     if (senderId) {
+      console.log('📨 Notification reçue, mise à jour interaction pour:', senderId);
       updateInteractionRef.current?.(senderId);
+    } else {
+      console.log('⚠️ Notification reçue mais senderId non trouvé dans payload:', JSON.stringify(payload));
     }
   }, [extractSenderId]);
 
@@ -1415,11 +1443,11 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
     // Si on a des messages non lus OU des messages en cache (déjà ouverts)
     if (unreadMessages.length > 0 || hasCachedMessages) {
       if (!alreadyUnreadOpen && unreadMessages.length > 0) {
-        // Première ouverture : afficher les messages
+        // Première ouverture : afficher les messages ET ouvrir le champ de saisie automatiquement
         setExpandedUnreadId(friend.id);
         setUnreadCache((prev) => ({ ...prev, [friend.id]: unreadMessages }));
         unreadMessages.forEach(msg => markMessageAsRead(msg.id));
-        setExpandedFriendId(null);
+        setExpandedFriendId(friend.id); // Ouvrir le champ de saisie automatiquement
         return;
       }
       
