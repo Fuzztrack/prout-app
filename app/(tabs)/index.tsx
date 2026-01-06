@@ -33,6 +33,7 @@ export default function HomeScreen() {
   const ZEN_REASON_KEY = 'zen_reason';
   const ZEN_START_KEY = 'zen_start_at';
   const [showZenOptions, setShowZenOptions] = useState(false);
+const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
   
   // Animation de secousse pour le header
   const shakeX = useRef(new Animated.Value(0)).current;
@@ -86,7 +87,10 @@ export default function HomeScreen() {
       
       if (profile) {
         setIsZenMode(profile.is_zen_mode || false);
-        setCurrentPseudo(profile.pseudo || '');
+        const pseudo = profile.pseudo || '';
+        setCurrentPseudo(pseudo);
+        // Mémoriser pour affichage instantané au prochain lancement
+        AsyncStorage.setItem(CACHE_PSEUDO_KEY, pseudo).catch(() => {});
       }
 
       // Mise à jour token FCM en arrière-plan (fonctionne aussi dans le simulateur)
@@ -116,7 +120,13 @@ export default function HomeScreen() {
     }
   };
 
-  useEffect(() => { loadData(); }, []);
+  // Précharger le pseudo depuis le cache pour afficher le bonjour instantanément
+  useEffect(() => {
+    AsyncStorage.getItem(CACHE_PSEUDO_KEY).then((cached) => {
+      if (cached) setCurrentPseudo(cached);
+    }).catch(() => {});
+    loadData();
+  }, []);
 
   // Écouter les événements du clavier pour corriger le problème de marge sur Android
   useEffect(() => {
@@ -626,7 +636,17 @@ export default function HomeScreen() {
                   <View style={styles.navBarContent}>
                     <View style={styles.greetingContainer}>
                       {currentPseudo ? (
-                        <Text style={styles.greetingText}>Bonjour {currentPseudo} !</Text>
+                        <View style={styles.greetingRow}>
+                          <Text style={styles.greetingText}>Bonjour {currentPseudo} !</Text>
+                          {isZenMode && (
+                            <Ionicons
+                              name="moon"
+                              size={18}
+                              color="#ffd700"
+                              style={styles.zenIcon}
+                            />
+                          )}
+                        </View>
                       ) : null}
                     </View>
                     {/* 1. Profil */}
