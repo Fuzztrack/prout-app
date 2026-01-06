@@ -615,18 +615,15 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
           const cachedFriends = await loadCacheSafely(CACHE_KEY_FRIENDS);
           const cachedRequests = await loadCacheSafely(CACHE_KEY_PENDING_REQUESTS);
           
-          // Vérifier que le cache contient bien les tokens (sinon on ignore le cache)
-          const cacheHasTokens = cachedFriends && cachedFriends.length > 0 && 
-            cachedFriends.every(f => f.expo_push_token && f.expo_push_token.trim() !== '');
+          // Afficher immédiatement le cache s'il existe, même si certains tokens manquent
+          const cacheHasEntries = cachedFriends && cachedFriends.length > 0;
           
-          if (cacheHasTokens) {
+          if (cacheHasEntries) {
             // Appliquer le tri sur le cache
             const sortedCache = sortFriends(cachedFriends);
             setAppUsers(sortedCache);
             setLoading(false); // Cache trouvé, pas de spinner
             hasCache = true;
-          } else if (cachedFriends && cachedFriends.length > 0) {
-            // Cache ignoré, rechargement depuis la base
           }
           
           if (cachedRequests) {
@@ -640,7 +637,13 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
       // ÉTAPE 2 : Charger les données réseau (en arrière-plan)
       // Passer hasCache pour éviter de remettre loading à true si on a du cache
       // Si pas de cache, on force le loading (premier chargement)
-      loadData(hasCache, !hasCache);
+      // ⚡ On diffère la sync contacts pour éviter de bloquer le premier rendu
+      loadData(hasCache, !hasCache, false);
+      setTimeout(() => {
+        if (!contactsSyncedRef.current) {
+          loadData(true, false, true);
+        }
+      }, 300);
       
       // ÉTAPE 3 : Configurer Realtime et polling
       setupRealtimeSubscription();
@@ -695,7 +698,6 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
   const handleNotificationPayload = useCallback((payload: any) => {
     const senderId = extractSenderId(payload);
     if (senderId) {
-      console.log('📨 Notification prout reçue de:', senderId, 'type:', payload?.type);
       updateInteractionRef.current?.(senderId);
     }
   }, [extractSenderId]);
@@ -758,87 +760,89 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
         setCurrentPseudo(profile.pseudo);
       }
 
-      // Charger les messages éphémères
-      await fetchPendingMessages(user.id);
+      // Lancer en parallèle le chargement des messages éphémères et des demandes/identités
+      const pendingMessagesPromise = fetchPendingMessages(user.id);
 
-      // Charger les demandes en attente
-      const { data: rawRequests } = await supabase
-        .from('friends')
-        .select('id, user_id, method')
-        .eq('friend_id', user.id)
-        .eq('status', 'pending');
-      
-      if (rawRequests?.length) {
-        // Filtrer les demandes : si la réciproque est déjà acceptée, ne pas afficher la demande
-        const filteredRequests = [];
-        for (const req of rawRequests) {
-          // Vérifier si la réciproque existe déjà avec status='accepted'
-          const { data: reciprocal } = await supabase
-            .from('friends')
-            .select('id, status')
-            .eq('user_id', user.id)
-            .eq('friend_id', req.user_id)
-            .maybeSingle();
-          
-          // Si la réciproque n'existe pas ou est encore pending, afficher la demande
-          // Si elle est accepted, c'est que le trigger a déjà créé la réciproque, donc on ne montre pas la demande
-          if (!reciprocal || reciprocal.status === 'pending') {
-            filteredRequests.push(req);
-          }
-        }
+      const requestsAndIdentityPromise = (async () => {
+        // Charger les demandes en attente
+        const { data: rawRequests } = await supabase
+          .from('friends')
+          .select('id, user_id, method')
+          .eq('friend_id', user.id)
+          .eq('status', 'pending');
         
-        if (filteredRequests.length > 0) {
-          const senderIds = filteredRequests.map(r => r.user_id);
-          const { data: senders } = await supabase
-            .from('user_profiles')
-            .select('id, pseudo')
-            .in('id', senderIds);
-          const cleanRequests = filteredRequests.map(req => ({
-            requestId: req.id,
-            senderId: req.user_id,
-            pseudo: senders?.find(s => s.id === req.user_id)?.pseudo || 'Inconnu',
-            method: req.method
-          }));
-          setPendingRequests(cleanRequests);
-          // Sauvegarder dans le cache (sans bloquer si ça échoue)
-          await saveCacheSafely(CACHE_KEY_PENDING_REQUESTS, cleanRequests);
-        } else {
+        if (rawRequests?.length) {
+          // Filtrer les demandes : si la réciproque est déjà acceptée, ne pas afficher la demande
+          const filteredRequests = [];
+          for (const req of rawRequests) {
+            // Vérifier si la réciproque existe déjà avec status='accepted'
+            const { data: reciprocal } = await supabase
+              .from('friends')
+              .select('id, status')
+              .eq('user_id', user.id)
+              .eq('friend_id', req.user_id)
+              .maybeSingle();
+            
+            // Si la réciproque n'existe pas ou est encore pending, afficher la demande
+            // Si elle est accepted, c'est que le trigger a déjà créé la réciproque, donc on ne montre pas la demande
+            if (!reciprocal || reciprocal.status === 'pending') {
+              filteredRequests.push(req);
+            }
+          }
+          
+          if (filteredRequests.length > 0) {
+            const senderIds = filteredRequests.map(r => r.user_id);
+            const { data: senders } = await supabase
+              .from('user_profiles')
+              .select('id, pseudo')
+              .in('id', senderIds);
+            const cleanRequests = filteredRequests.map(req => ({
+              requestId: req.id,
+              senderId: req.user_id,
+              pseudo: senders?.find(s => s.id === req.user_id)?.pseudo || 'Inconnu',
+              method: req.method
+            }));
+            setPendingRequests(cleanRequests);
+            // Sauvegarder dans le cache (sans bloquer si ça échoue)
+            await saveCacheSafely(CACHE_KEY_PENDING_REQUESTS, cleanRequests);
+          } else {
+            setPendingRequests([]);
+            await saveCacheSafely(CACHE_KEY_PENDING_REQUESTS, []);
+          }
+        } else { 
           setPendingRequests([]);
           await saveCacheSafely(CACHE_KEY_PENDING_REQUESTS, []);
         }
-      } else { 
-        setPendingRequests([]);
-        await saveCacheSafely(CACHE_KEY_PENDING_REQUESTS, []);
-      }
 
-      // Tentative de récupération des pseudos séparément pour contourner le problème de relation
-      const { data: identityRows, error: identityError } = await supabase
-        .from('identity_reveals')
-        .select(`
-          requester_id,
-          status
-        `)
-        .eq('friend_id', user.id)
-        .eq('status', 'pending');
+        // Tentative de récupération des pseudos séparément pour contourner le problème de relation
+        const { data: identityRows, error: identityError } = await supabase
+          .from('identity_reveals')
+          .select(`
+            requester_id,
+            status
+          `)
+          .eq('friend_id', user.id)
+          .eq('status', 'pending');
 
-      if (identityError) {
-        console.error('❌ Erreur chargement demandes identité:', identityError);
-      }
+        if (identityError) {
+          console.error('❌ Erreur chargement demandes identité:', identityError);
+        }
 
-      let identityList: any[] = [];
-      if (identityRows && identityRows.length > 0) {
-        const requesterIds = identityRows.map(r => r.requester_id);
-        const { data: requesters } = await supabase
-          .from('user_profiles')
-          .select('id, pseudo')
-          .in('id', requesterIds);
-        
-        identityList = identityRows.map(row => ({
-          requesterId: row.requester_id,
-          requesterPseudo: requesters?.find(u => u.id === row.requester_id)?.pseudo || 'Inconnu',
-        }));
-      }
-      setIdentityRequests(identityList);
+        let identityList: any[] = [];
+        if (identityRows && identityRows.length > 0) {
+          const requesterIds = identityRows.map(r => r.requester_id);
+          const { data: requesters } = await supabase
+            .from('user_profiles')
+            .select('id, pseudo')
+            .in('id', requesterIds);
+          
+          identityList = identityRows.map(row => ({
+            requesterId: row.requester_id,
+            requesterPseudo: requesters?.find(u => u.id === row.requester_id)?.pseudo || 'Inconnu',
+          }));
+        }
+        setIdentityRequests(identityList);
+      })();
 
       let phoneFriendsIds: string[] = [];
       const status = await ensureContactPermissionWithDisclosure();
@@ -1012,6 +1016,8 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
           setAppUsers([]);
           await saveCacheSafely(CACHE_KEY_FRIENDS, []);
       }
+
+      await Promise.all([pendingMessagesPromise, requestsAndIdentityPromise]);
     } catch (e) { 
       console.log("Erreur:", e); 
     } finally { 
@@ -1024,7 +1030,6 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-
       // Créer un canal pour écouter les changements sur la table friends
       const channel = supabase
         .channel('friends-changes')
@@ -1049,7 +1054,6 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
           },
           (payload) => {
             // Recharger les données si une demande d'identité change
-            console.log('🔄 Changement identity_reveals détecté, rechargement...');
             loadData(false, false);
           }
         )
@@ -1067,6 +1071,11 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
                 const filtered = prev.filter(m => m.id !== payload.new.id);
                 return [...filtered, payload.new as any];
               });
+              // Mettre à jour l'ordre de la liste pour faire remonter l'expéditeur
+              const senderId = (payload.new as any)?.from_user_id;
+              if (senderId && updateInteractionRef.current) {
+                updateInteractionRef.current(senderId);
+              }
             } else if (payload.eventType === 'DELETE') {
               setPendingMessages((prev) => prev.filter(m => m.id !== payload.old.id));
             }

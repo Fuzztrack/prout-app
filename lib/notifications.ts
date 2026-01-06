@@ -88,6 +88,9 @@ async function configureAndroidNotificationChannels() {
 }
 
 export async function ensureAndroidNotificationChannel() {
+  // Sur Android, les canaux sont désormais créés nativement (MainApplication.onCreate).
+  // On évite de les recréer côté JS pour réduire le temps de démarrage et les logs.
+  if (Platform.OS === 'android') return;
   await configureAndroidNotificationChannels();
 }
 
