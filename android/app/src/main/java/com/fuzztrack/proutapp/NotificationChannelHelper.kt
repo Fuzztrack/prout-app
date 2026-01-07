@@ -13,10 +13,18 @@ object NotificationChannelHelper {
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         for (i in 1..20) {
-            val channelId = "prout$i"
-            val channelName = "Prout $channelId"
+            val proutKey = "prout$i"
+            val channelId = "prout-$proutKey-v3" // Format correct : prout-prout1-v3
+            
+            // Vérifier si le canal existe déjà
+            val existingChannel = notificationManager.getNotificationChannel(channelId)
+            if (existingChannel != null) {
+                // Le canal existe déjà, on passe au suivant
+                continue
+            }
 
-            val soundUri = android.net.Uri.parse("android.resource://${context.packageName}/raw/$channelId")
+            val channelName = "Prout $proutKey"
+            val soundUri = android.net.Uri.parse("android.resource://${context.packageName}/raw/$proutKey")
             val audioAttributes = AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_NOTIFICATION)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)

@@ -483,6 +483,11 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
   const cacheLoadedRef = useRef(false); // Pour éviter de charger le cache plusieurs fois
   const contactsSyncedRef = useRef(false); // Pour éviter de synchroniser les contacts plusieurs fois
   const phoneFriendIdsRef = useRef<string[]>([]);
+  
+  // Gestion du backoff exponentiel en cas d'erreur
+  const currentPollingIntervalRef = useRef<number>(60000); // Intervalle de base : 60 secondes
+  const MIN_POLLING_INTERVAL = 60000; // 60 secondes
+  const MAX_POLLING_INTERVAL = 300000; // 5 minutes max
   const flatListRef = useRef<FlatList>(null);
   const rowRefs = useRef<Record<string, SwipeableFriendRowHandle | null>>({});
   
@@ -687,10 +692,12 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
       // ÉTAPE 3 : Configurer Realtime et polling
       setupRealtimeSubscription();
       
-      // Polling toutes les 30 secondes (au lieu de 5) et sans synchroniser les contacts
+      // Polling avec intervalle adaptatif pour réduire la charge serveur
+      // Les changements importants sont gérés en temps réel via Realtime
+      currentPollingIntervalRef.current = MIN_POLLING_INTERVAL;
       pollingIntervalRef.current = setInterval(() => {
         loadData(false, false, false); // Pas de cache, pas de forceLoading, PAS de sync contacts
-      }, 30000); // 30 secondes au lieu de 5
+      }, currentPollingIntervalRef.current) as unknown as NodeJS.Timeout;
     };
     
     initialize();
@@ -900,22 +907,22 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
         }
       }
 
-      // Charger les amis acceptés (relations où user_id = user.id ET status = 'accepted')
-      const { data: addedFriends } = await supabase
-        .from('friends')
-        .select('friend_id')
-        .eq('user_id', user.id)
-        .eq('status', 'accepted');
-      const addedFriendsIds = addedFriends?.map(f => f.friend_id) || [];
+      // Charger les amis acceptés en parallèle (réduit le nombre de requêtes)
+      const [addedFriendsResult, friendsWhereIAmFriendResult] = await Promise.all([
+        supabase
+          .from('friends')
+          .select('friend_id')
+          .eq('user_id', user.id)
+          .eq('status', 'accepted'),
+        supabase
+          .from('friends')
+          .select('user_id')
+          .eq('friend_id', user.id)
+          .eq('status', 'accepted')
+      ]);
       
-      // Aussi charger les relations où friend_id = user.id ET status = 'accepted' (pour les cas où B→A existe)
-      // Cela garantit que si B→A est 'accepted', A verra B dans sa liste
-      const { data: friendsWhereIAmFriend } = await supabase
-        .from('friends')
-        .select('user_id')
-        .eq('friend_id', user.id)
-        .eq('status', 'accepted');
-      const friendsWhereIAmFriendIds = friendsWhereIAmFriend?.map(f => f.user_id) || [];
+      const addedFriendsIds = addedFriendsResult.data?.map(f => f.friend_id) || [];
+      const friendsWhereIAmFriendIds = friendsWhereIAmFriendResult.data?.map(f => f.user_id) || [];
       
       // Combiner tous les IDs d'amis (contacts + relations acceptées dans les deux sens)
       phoneFriendIdsRef.current = phoneFriendsIds;
@@ -936,19 +943,35 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
           let mutedByMap: Record<string, boolean> = {};
           
           if (allFriendIds.length > 0) {
-            // Utiliser une requête simple sans jointure pour être sûr
-            const { data: reveals, error: revealError } = await supabase
-              .from('identity_reveals')
-              .select('friend_id, alias, status')
-              .eq('requester_id', user.id)
-              .in('friend_id', allFriendIds);
+            // Charger toutes les données en parallèle pour réduire les requêtes séquentielles
+            const [revealsResult, mutedFriendsResult, mutedByFriendsResult, myFriendsRelationsResult] = await Promise.all([
+              supabase
+                .from('identity_reveals')
+                .select('friend_id, alias, status')
+                .eq('requester_id', user.id)
+                .in('friend_id', allFriendIds),
+              supabase
+                .from('friends')
+                .select('friend_id, is_muted')
+                .eq('user_id', user.id)
+                .in('friend_id', allFriendIds),
+              supabase
+                .from('friends')
+                .select('user_id, is_muted')
+                .eq('friend_id', user.id)
+                .in('user_id', allFriendIds)
+                .eq('is_muted', true),
+              supabase
+                .from('friends')
+                .select('friend_id, last_interaction_at')
+                .eq('user_id', user.id)
+                .in('friend_id', allFriendIds)
+                .not('last_interaction_at', 'is', null)
+            ]);
 
-            if (revealError) {
-              console.error('❌ Erreur chargement identités:', revealError);
-            }
-
-            if (reveals) {
-              identityAliasMap = reveals.reduce((acc, reveal) => {
+            // Traiter les résultats
+            if (revealsResult.data) {
+              identityAliasMap = revealsResult.data.reduce((acc, reveal) => {
                 acc[reveal.friend_id] = {
                   alias: reveal.alias,
                   status: reveal.status,
@@ -957,59 +980,22 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
               }, {} as Record<string, { alias: string | null, status: string | null }>);
             }
 
-            // Charger les statuts de sourdine depuis la table friends
-            // 1. Les contacts que j'ai mis en sourdine (user_id = moi, friend_id = eux)
-            const { data: mutedFriends, error: mutedError } = await supabase
-              .from('friends')
-              .select('friend_id, is_muted')
-              .eq('user_id', user.id)
-              .in('friend_id', allFriendIds);
-
-            if (mutedError) {
-              console.error('❌ Erreur chargement sourdine:', mutedError);
-            }
-
-            if (mutedFriends) {
-              mutedMap = mutedFriends.reduce((acc, f) => {
+            if (mutedFriendsResult.data) {
+              mutedMap = mutedFriendsResult.data.reduce((acc, f) => {
                 acc[f.friend_id] = f.is_muted || false;
                 return acc;
               }, {} as Record<string, boolean>);
             }
 
-            // 2. Les contacts qui m'ont mis en sourdine (user_id = eux, friend_id = moi)
-            // Si quelqu'un m'a mis en sourdine, je dois le voir en mode veille
-            const { data: mutedByFriends, error: mutedByError } = await supabase
-              .from('friends')
-              .select('user_id, is_muted')
-              .eq('friend_id', user.id)
-              .in('user_id', allFriendIds)
-              .eq('is_muted', true);
-
-            if (mutedByError) {
-              console.error('❌ Erreur chargement sourdine inverse:', mutedByError);
-            }
-
-            // Créer un map des amis qui m'ont mis en sourdine
-            if (mutedByFriends) {
-              mutedByFriends.forEach(f => {
+            if (mutedByFriendsResult.data) {
+              mutedByFriendsResult.data.forEach(f => {
                 mutedByMap[f.user_id] = true;
               });
             }
 
-            // Charger last_interaction_at depuis la table friends pour le tri
-            // Récupérer les relations où user_id = moi (je vois ces amis dans ma liste)
-            const { data: myFriendsRelations, error: interactionError } = await supabase
-              .from('friends')
-              .select('friend_id, last_interaction_at')
-              .eq('user_id', user.id)
-              .in('friend_id', allFriendIds)
-              .not('last_interaction_at', 'is', null);
-
-            // Ignorer les erreurs de chargement last_interaction_at silencieusement
-
             // Mettre à jour interactionsMapRef avec les valeurs de la base de données
-            if (myFriendsRelations) {
-              myFriendsRelations.forEach(rel => {
+            if (myFriendsRelationsResult.data) {
+              myFriendsRelationsResult.data.forEach(rel => {
                 if (rel.last_interaction_at) {
                   const timestamp = new Date(rel.last_interaction_at).getTime();
                   interactionsMapRef.current[rel.friend_id] = timestamp;
@@ -1059,8 +1045,33 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
       }
 
       await Promise.all([pendingMessagesPromise, requestsAndIdentityPromise]);
+      
+      // En cas de succès, réinitialiser l'intervalle de polling à la valeur de base
+      if (currentPollingIntervalRef.current > MIN_POLLING_INTERVAL) {
+        currentPollingIntervalRef.current = MIN_POLLING_INTERVAL;
+        // Recréer le polling avec le nouvel intervalle
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = setInterval(() => {
+            loadData(false, false, false);
+          }, currentPollingIntervalRef.current) as unknown as NodeJS.Timeout;
+        }
+      }
     } catch (e) {
-      // Ignorer les erreurs silencieusement
+      // En cas d'erreur, augmenter progressivement l'intervalle de polling (backoff exponentiel)
+      if (currentPollingIntervalRef.current < MAX_POLLING_INTERVAL) {
+        currentPollingIntervalRef.current = Math.min(
+          currentPollingIntervalRef.current * 1.5,
+          MAX_POLLING_INTERVAL
+        );
+        // Recréer le polling avec le nouvel intervalle
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = setInterval(() => {
+            loadData(false, false, false);
+          }, currentPollingIntervalRef.current) as unknown as NodeJS.Timeout;
+        }
+      }
     } finally { 
       setLoading(false); 
     }
