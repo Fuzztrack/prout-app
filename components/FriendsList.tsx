@@ -273,12 +273,12 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
       } else {
         // Sinon, proposer de mettre en sourdine ou supprimer
         Alert.alert(
-          'Que voulez vous faire avec ce contact ?',
-          'Le supprimer ou le mettre en sourdine ?',
+          i18n.t('delete_or_mute'),
+          '',
           [
-            { text: 'Annuler', style: 'cancel', onPress: () => {} },
-            { text: 'Sourdine', onPress: () => onMuteFriend() },
-            { text: 'Supprimer', style: 'destructive', onPress: () => onDeleteFriend() },
+            { text: i18n.t('cancel'), style: 'cancel', onPress: () => {} },
+            { text: i18n.t('tuto_4_title'), onPress: () => onMuteFriend() },
+            { text: i18n.t('delete_friend'), style: 'destructive', onPress: () => onDeleteFriend() },
           ]
         );
       }
@@ -386,7 +386,7 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
         ]}
         collapsable={false}
       >
-        <Text style={styles.deleteText}>Supprimer / Sourdine</Text>
+        <Text style={styles.deleteText}>{i18n.t('delete_or_mute')}</Text>
       </Animated.View>
 
       {/* Background droite : Image d'animation avec fond clair */}

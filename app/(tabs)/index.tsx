@@ -545,7 +545,7 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
                 <View style={styles.greetingContainer}>
                   {currentPseudo ? (
                     <View style={styles.greetingRow}>
-                      <Text style={styles.greetingText}>Bonjour {currentPseudo} !</Text>
+                      <Text style={styles.greetingText}>{i18n.t('greeting')} {currentPseudo} !</Text>
                       {isZenMode && (
                         <Ionicons
                           name="moon"
@@ -637,7 +637,7 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
                     <View style={styles.greetingContainer}>
                       {currentPseudo ? (
                         <View style={styles.greetingRow}>
-                          <Text style={styles.greetingText}>Bonjour {currentPseudo} !</Text>
+                          <Text style={styles.greetingText}>{i18n.t('greeting')} {currentPseudo} !</Text>
                           {isZenMode && (
                             <Ionicons
                               name="moon"

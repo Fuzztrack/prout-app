@@ -113,6 +113,27 @@ const i18n = new I18n({
     tuto_3_desc: "Besoin de calme ? Activez le mode Zen pour ne plus recevoir (ni envoyer) de prouts.",
     tuto_4_title: "Sourdine",
     tuto_4_desc: "En swipant à gauche le nom d'un contact, vous pouvez le mettre en sourdine.",
+    
+    // Onboarding
+    onboarding_welcome_title: "Bienvenue sur Prout !",
+    onboarding_welcome_subtitle: "",
+    onboarding_welcome_desc: "L'appli de notification de prout.",
+    onboarding_notifications_title: "Le cœur du Prout",
+    onboarding_notifications_desc: "Tout l'intérêt réside dans la surprise ! Acceptez les notifications pour recevoir les prouts de vos amis.",
+    onboarding_sound_title: "Montez le volume",
+    onboarding_sound_desc: "Pensez à vérifier que vous avez le son activé (et pas en silencieux) pour profiter de la mélodie.",
+    onboarding_gesture_title: "À vous de jouer",
+    onboarding_gesture_desc: "Dès que vous avez un ami, swipez simplement sur son nom vers la droite pour lui envoyer un prout. Surprise garantie !",
+    onboarding_message_title: "Message éphémère",
+    onboarding_message_desc: "Vous pouvez ajouter un message éphémère en cliquant sur le nom de votre ami avant d'envoyer le prout !",
+    onboarding_skip: "Passer",
+    onboarding_start: "C'est parti !",
+    
+    // Common UI
+    greeting: "Bonjour",
+    profile_title: "Profil",
+    not_defined: "Non défini",
+    delete_or_mute: "Supprimer / Sourdine",
 
     // Network
     connection_error_title: "Impossible de se connecter",
@@ -231,6 +252,27 @@ const i18n = new I18n({
     tuto_3_desc: "Need some quiet? Enable Zen Mode to stop receiving (and sending) farts.",
     tuto_4_title: "Mute",
     tuto_4_desc: "By swiping left on a contact's name, you can mute them.",
+    
+    // Onboarding
+    onboarding_welcome_title: "Welcome",
+    onboarding_welcome_subtitle: "Prout ! The Art of French Fart",
+    onboarding_welcome_desc: "The fart notification app.",
+    onboarding_notifications_title: "The Heart of Prout",
+    onboarding_notifications_desc: "The whole point is the surprise! Accept notifications to receive farts from your friends.",
+    onboarding_sound_title: "Turn up the volume",
+    onboarding_sound_desc: "Make sure you have sound enabled (and not on silent) to enjoy the melody.",
+    onboarding_gesture_title: "Your turn",
+    onboarding_gesture_desc: "Once you have a friend, simply swipe right on their name to send them a fart. Guaranteed surprise!",
+    onboarding_message_title: "Ephemeral message",
+    onboarding_message_desc: "You can add an ephemeral message by clicking on your friend's name before sending the fart!",
+    onboarding_skip: "Skip",
+    onboarding_start: "Let's go!",
+    
+    // Common UI
+    greeting: "Hello",
+    profile_title: "Profile",
+    not_defined: "Not defined",
+    delete_or_mute: "Delete / Mute",
 
     // Network
     connection_error_title: "Connection Failed",
@@ -349,6 +391,27 @@ const i18n = new I18n({
     tuto_3_desc: "¿Necesitas tranquilidad? Activa el modo Zen para dejar de recibir (y enviar) prouts.",
     tuto_4_title: "Silenciar",
     tuto_4_desc: "Deslizando hacia la izquierda el nombre de un contacto, puedes silenciarlo.",
+    
+    // Onboarding
+    onboarding_welcome_title: "Bienvenido",
+    onboarding_welcome_subtitle: "Prout ! El arte del pedo a la francesa",
+    onboarding_welcome_desc: "La app de notificaciones de prout.",
+    onboarding_notifications_title: "El corazón del Prout",
+    onboarding_notifications_desc: "¡Todo el interés está en la sorpresa! Acepta las notificaciones para recibir prouts de tus amigos.",
+    onboarding_sound_title: "Sube el volumen",
+    onboarding_sound_desc: "Asegúrate de tener el sonido activado (y no en silencioso) para disfrutar de la melodía.",
+    onboarding_gesture_title: "A ti te toca",
+    onboarding_gesture_desc: "Una vez que tengas un amigo, simplemente desliza hacia la derecha sobre su nombre para enviarle un prout. ¡Sorpresa garantizada!",
+    onboarding_message_title: "Mensaje efímero",
+    onboarding_message_desc: "¡Puedes agregar un mensaje efímero haciendo clic en el nombre de tu amigo antes de enviar el prout!",
+    onboarding_skip: "Omitir",
+    onboarding_start: "¡Vamos!",
+    
+    // Common UI
+    greeting: "Hola",
+    profile_title: "Perfil",
+    not_defined: "No definido",
+    delete_or_mute: "Eliminar / Silenciar",
     
     // Network
     connection_error_title: "No se pudo conectar",
