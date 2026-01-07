@@ -1009,6 +1009,35 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
                 mutedByMap[f.user_id] = true;
               });
             }
+
+            // Charger last_interaction_at depuis la table friends pour le tri
+            // Récupérer les relations où user_id = moi (je vois ces amis dans ma liste)
+            const { data: myFriendsRelations, error: interactionError } = await supabase
+              .from('friends')
+              .select('friend_id, last_interaction_at')
+              .eq('user_id', user.id)
+              .in('friend_id', allFriendIds)
+              .not('last_interaction_at', 'is', null);
+
+            if (interactionError) {
+              console.warn('⚠️ Erreur chargement last_interaction_at:', interactionError);
+            }
+
+            // Mettre à jour interactionsMapRef avec les valeurs de la base de données
+            if (myFriendsRelations) {
+              myFriendsRelations.forEach(rel => {
+                if (rel.last_interaction_at) {
+                  const timestamp = new Date(rel.last_interaction_at).getTime();
+                  interactionsMapRef.current[rel.friend_id] = timestamp;
+                }
+              });
+              // Sauvegarder dans AsyncStorage
+              try {
+                await AsyncStorage.setItem(CACHE_KEY_INTERACTIONS, JSON.stringify(interactionsMapRef.current));
+              } catch (e) {
+                console.warn('Erreur sauvegarde interactions depuis BDD:', e);
+              }
+            }
           }
 
           const friendsList = (finalFriends || []).map(friend => {
