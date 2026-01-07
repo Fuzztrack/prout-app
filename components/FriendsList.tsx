@@ -484,10 +484,7 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
   const contactsSyncedRef = useRef(false); // Pour éviter de synchroniser les contacts plusieurs fois
   const phoneFriendIdsRef = useRef<string[]>([]);
   
-  // Gestion du backoff exponentiel en cas d'erreur
-  const currentPollingIntervalRef = useRef<number>(60000); // Intervalle de base : 60 secondes
-  const MIN_POLLING_INTERVAL = 60000; // 60 secondes
-  const MAX_POLLING_INTERVAL = 300000; // 5 minutes max
+  // Polling simple (sans backoff exponentiel)
   const flatListRef = useRef<FlatList>(null);
   const rowRefs = useRef<Record<string, SwipeableFriendRowHandle | null>>({});
   
@@ -692,12 +689,11 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
       // ÉTAPE 3 : Configurer Realtime et polling
       setupRealtimeSubscription();
       
-      // Polling avec intervalle adaptatif pour réduire la charge serveur
+      // Polling simple (sans backoff exponentiel)
       // Les changements importants sont gérés en temps réel via Realtime
-      currentPollingIntervalRef.current = MIN_POLLING_INTERVAL;
       pollingIntervalRef.current = setInterval(() => {
         loadData(false, false, false); // Pas de cache, pas de forceLoading, PAS de sync contacts
-      }, currentPollingIntervalRef.current) as unknown as NodeJS.Timeout;
+      }, 30000) as unknown as NodeJS.Timeout; // 30 secondes
     };
     
     initialize();
@@ -1045,33 +1041,8 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
       }
 
       await Promise.all([pendingMessagesPromise, requestsAndIdentityPromise]);
-      
-      // En cas de succès, réinitialiser l'intervalle de polling à la valeur de base
-      if (currentPollingIntervalRef.current > MIN_POLLING_INTERVAL) {
-        currentPollingIntervalRef.current = MIN_POLLING_INTERVAL;
-        // Recréer le polling avec le nouvel intervalle
-        if (pollingIntervalRef.current) {
-          clearInterval(pollingIntervalRef.current);
-          pollingIntervalRef.current = setInterval(() => {
-            loadData(false, false, false);
-          }, currentPollingIntervalRef.current) as unknown as NodeJS.Timeout;
-        }
-      }
     } catch (e) {
-      // En cas d'erreur, augmenter progressivement l'intervalle de polling (backoff exponentiel)
-      if (currentPollingIntervalRef.current < MAX_POLLING_INTERVAL) {
-        currentPollingIntervalRef.current = Math.min(
-          currentPollingIntervalRef.current * 1.5,
-          MAX_POLLING_INTERVAL
-        );
-        // Recréer le polling avec le nouvel intervalle
-        if (pollingIntervalRef.current) {
-          clearInterval(pollingIntervalRef.current);
-          pollingIntervalRef.current = setInterval(() => {
-            loadData(false, false, false);
-          }, currentPollingIntervalRef.current) as unknown as NodeJS.Timeout;
-        }
-      }
+      // Erreur silencieuse (le polling réessayera plus tard)
     } finally { 
       setLoading(false); 
     }
