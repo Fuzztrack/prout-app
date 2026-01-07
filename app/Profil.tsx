@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import i18n from '../lib/i18n';
 import { safePush, safeReplace } from '../lib/navigation';
 import { supabase } from '../lib/supabase';
 
@@ -124,14 +125,14 @@ export default function ProfilScreen() {
     return (
       <ScrollView contentContainerStyle={styles.scrollContent} style={styles.scrollContainer}>
         <View style={styles.container}>
-          <Text style={styles.title}>Profil</Text>
+          <Text style={styles.title}>{i18n.t('profile_title')}</Text>
           <View style={styles.centerContainer}>
             <Text style={styles.loadingText}>Chargement...</Text>
           </View>
           <View style={styles.separator} />
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={24} color="#604a3e" />
-            <Text style={styles.backText}>Retour</Text>
+            <Text style={styles.backText}>{i18n.t('back')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -151,22 +152,22 @@ export default function ProfilScreen() {
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.title}>Profil</Text>
+        <Text style={styles.title}>{i18n.t('profile_title')}</Text>
 
         <View style={styles.infoSection}>
           <View style={[styles.infoRow, styles.infoRowFirst]}>
-            <Text style={styles.infoLabel}>Pseudo</Text>
-            <Text style={styles.infoValue}>{pseudo || 'Non défini'}</Text>
+            <Text style={styles.infoLabel}>{i18n.t('pseudo')}</Text>
+            <Text style={styles.infoValue}>{pseudo || i18n.t('not_defined')}</Text>
           </View>
 
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Email</Text>
-            <Text style={styles.infoValue}>{email || 'Non défini'}</Text>
+            <Text style={styles.infoLabel}>{i18n.t('email')}</Text>
+            <Text style={styles.infoValue}>{email || i18n.t('not_defined')}</Text>
           </View>
 
           <View style={[styles.infoRow, styles.infoRowLast]}>
-            <Text style={styles.infoLabel}>Téléphone</Text>
-            <Text style={styles.infoValue}>{phone || 'Non défini'}</Text>
+            <Text style={styles.infoLabel}>{i18n.t('phone')}</Text>
+            <Text style={styles.infoValue}>{phone || i18n.t('not_defined')}</Text>
           </View>
         </View>
 
@@ -179,7 +180,7 @@ export default function ProfilScreen() {
             disabled={loading}
           >
             <Ionicons name="create-outline" size={24} color="#604a3e" />
-            <Text style={styles.editText}>Modifier votre profil</Text>
+            <Text style={styles.editText}>{i18n.t('edit_profile')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
@@ -187,12 +188,12 @@ export default function ProfilScreen() {
             onPress={handleSignOut} 
             disabled={loading}
           >
-            <Text style={styles.logoutLinkText}>Se déconnecter</Text>
+            <Text style={styles.logoutLinkText}>{i18n.t('logout')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={24} color="#604a3e" />
-            <Text style={styles.backText}>Retour</Text>
+            <Text style={styles.backText}>{i18n.t('back')}</Text>
           </TouchableOpacity>
         </View>
       </View>

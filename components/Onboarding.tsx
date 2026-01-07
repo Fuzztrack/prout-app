@@ -26,35 +26,39 @@ type Slide = {
   color?: string;
 };
 
-const slides: Slide[] = [
+const getSlides = (): Slide[] => [
   {
     key: 'welcome',
-    title: 'Bienvenue sur Prout !',
-    description: "L'appli de notification de prout.",
+    title: i18n.t('onboarding_welcome_title'),
+    description: i18n.t('onboarding_welcome_desc'),
   },
   {
     key: 'notifications',
-    title: 'Le cœur du Prout',
-    description:
-      "Tout l'intérêt réside dans la surprise ! Acceptez les notifications pour recevoir les prouts de vos amis.",
+    title: i18n.t('onboarding_notifications_title'),
+    description: i18n.t('onboarding_notifications_desc'),
     icon: 'notifications-outline',
     color: '#9C27B0',
   },
   {
     key: 'sound',
-    title: 'Montez le volume',
-    description:
-      'Pensez à vérifier que vous avez le son activé (et pas en silencieux) pour profiter de la mélodie.',
+    title: i18n.t('onboarding_sound_title'),
+    description: i18n.t('onboarding_sound_desc'),
     icon: 'volume-high-outline',
     color: '#F4A261',
   },
   {
     key: 'gesture',
-    title: 'À vous de jouer',
-    description:
-      "Dès que vous avez un ami, swipez simplement sur son nom vers la droite pour lui envoyer un prout. Surprise garantie !",
+    title: i18n.t('onboarding_gesture_title'),
+    description: i18n.t('onboarding_gesture_desc'),
     icon: 'paper-plane-outline',
     color: '#4CAF50',
+  },
+  {
+    key: 'message',
+    title: i18n.t('onboarding_message_title'),
+    description: i18n.t('onboarding_message_desc'),
+    icon: 'chatbubble-outline',
+    color: '#2196F3',
   },
   {
     key: 'mute',
@@ -71,6 +75,7 @@ export default function Onboarding({ onFinish }: OnboardingProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFinishing, setIsFinishing] = useState(false);
   const flatListRef = useRef<FlatList<Slide>>(null);
+  const slides = getSlides();
 
   const handleViewableItemsChanged = useRef(({ viewableItems }: any) => {
     if (viewableItems?.length > 0 && typeof viewableItems[0].index === 'number') {
@@ -107,6 +112,9 @@ export default function Onboarding({ onFinish }: OnboardingProps) {
         </View>
       ) : null}
       <Text style={styles.title}>{item.title}</Text>
+      {item.key === 'welcome' && i18n.t('onboarding_welcome_subtitle') ? (
+        <Text style={styles.subtitle}>{i18n.t('onboarding_welcome_subtitle')}</Text>
+      ) : null}
       <Text style={styles.description}>{item.description}</Text>
     </View>
   );
@@ -115,7 +123,7 @@ export default function Onboarding({ onFinish }: OnboardingProps) {
     <View style={styles.overlay}>
       <SafeAreaView style={styles.safeArea}>
         <TouchableOpacity style={styles.skipButton} onPress={completeOnboarding}>
-          <Text style={styles.skipText}>Passer</Text>
+          <Text style={styles.skipText}>{i18n.t('onboarding_skip')}</Text>
         </TouchableOpacity>
 
         <Animated.FlatList
@@ -150,7 +158,7 @@ export default function Onboarding({ onFinish }: OnboardingProps) {
               onPress={completeOnboarding}
               disabled={isFinishing}
             >
-              <Text style={styles.startButtonText}>C'est parti !</Text>
+              <Text style={styles.startButtonText}>{i18n.t('onboarding_start')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -220,6 +228,15 @@ const styles = StyleSheet.create({
     color: '#4a3329',
     textAlign: 'center',
     lineHeight: 22,
+  },
+  subtitle: {
+    fontSize: 20,
+    fontStyle: 'italic',
+    color: '#604a3e',
+    textAlign: 'center',
+    marginTop: 8,
+    marginBottom: 12,
+    fontWeight: '600',
   },
   footer: {
     paddingBottom: 24,
