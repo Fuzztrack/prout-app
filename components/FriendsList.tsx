@@ -499,13 +499,12 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
         interactionsMapRef.current = JSON.parse(cached);
       }
     } catch (e) {
-      console.warn('Erreur chargement interactions:', e);
+      // Ignorer les erreurs de chargement silencieusement
     }
   };
 
   // Fonction pour mettre à jour une interaction
   const updateInteraction = async (friendId: string) => {
-    console.log('🔄 updateInteraction appelé pour friendId:', friendId);
     const now = Date.now();
     interactionsMapRef.current = {
       ...interactionsMapRef.current,
@@ -515,16 +514,14 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
     // Mettre à jour l'ordre de la liste immédiatement
     setAppUsers(prevUsers => {
       const newUsers = [...prevUsers];
-      const sorted = sortFriends(newUsers);
-      console.log('✅ Liste triée, premier ami:', sorted[0]?.pseudo || 'aucun');
-      return sorted;
+      return sortFriends(newUsers);
     });
 
     // Sauvegarder en background
     try {
       await AsyncStorage.setItem(CACHE_KEY_INTERACTIONS, JSON.stringify(interactionsMapRef.current));
     } catch (e) {
-      console.warn('Erreur sauvegarde interaction:', e);
+      // Ignorer les erreurs de sauvegarde silencieusement
     }
   };
 
@@ -538,7 +535,6 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
       .select('id, from_user_id, sender_pseudo, message_content')
       .eq('to_user_id', userId);
     if (error) {
-      console.warn('⚠️ Erreur chargement pending_messages:', error);
       return;
     }
     setPendingMessages(data || []);
@@ -559,7 +555,7 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
       await supabase.from('pending_messages').delete().eq('id', messageId);
       setPendingMessages(prev => prev.filter(m => m.id !== messageId));
     } catch (e) {
-      console.warn('⚠️ Impossible de supprimer le message éphémère:', e);
+      // Ignorer les erreurs de suppression silencieusement
     }
   };
 
@@ -583,10 +579,7 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
 
   // Écouter les notifications reçues pour mettre à jour l'interaction
   const extractSenderId = useCallback((payload: any): string | null => {
-    if (!payload) {
-      console.log('⚠️ extractSenderId: payload vide');
-      return null;
-    }
+    if (!payload) return null;
     const direct =
       payload.senderId ||
       payload.sender_id ||
@@ -595,7 +588,6 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
       payload.userId ||
       payload.user_id;
     if (direct) {
-      console.log('✅ extractSenderId trouvé (direct):', direct);
       return String(direct);
     }
     const extra = payload.extraData || payload.data;
@@ -608,11 +600,9 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
         extra.userId ||
         extra.user_id;
       if (nested) {
-        console.log('✅ extractSenderId trouvé (nested):', nested);
         return String(nested);
       }
     }
-    console.log('⚠️ extractSenderId: senderId non trouvé dans payload:', JSON.stringify(payload));
     return null;
   }, []);
 
@@ -627,7 +617,6 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
           const payload = resp.notification.request.content.data;
           const senderId = extractSenderId(payload);
           if (senderId && updateInteractionRef.current) {
-            console.log('📨 Notification détectée au retour au premier plan, senderId:', senderId);
             updateInteractionRef.current(senderId);
           }
         }
@@ -644,8 +633,8 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
       playThroughEarpieceAndroid: false,
     };
 
-    Audio.setAudioModeAsync(mode).catch((error) => {
-      console.warn('⚠️ Impossible de configurer le mode audio:', error);
+    Audio.setAudioModeAsync(mode).catch(() => {
+      // Ignorer les erreurs de configuration audio silencieusement
     });
   }, []);
 
@@ -723,10 +712,7 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
   const handleNotificationPayload = useCallback((payload: any) => {
     const senderId = extractSenderId(payload);
     if (senderId) {
-      console.log('📨 Notification reçue, mise à jour interaction pour:', senderId);
       updateInteractionRef.current?.(senderId);
-    } else {
-      console.log('⚠️ Notification reçue mais senderId non trouvé dans payload:', JSON.stringify(payload));
     }
   }, [extractSenderId]);
 
@@ -1019,9 +1005,7 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
               .in('friend_id', allFriendIds)
               .not('last_interaction_at', 'is', null);
 
-            if (interactionError) {
-              console.warn('⚠️ Erreur chargement last_interaction_at:', interactionError);
-            }
+            // Ignorer les erreurs de chargement last_interaction_at silencieusement
 
             // Mettre à jour interactionsMapRef avec les valeurs de la base de données
             if (myFriendsRelations) {
@@ -1035,7 +1019,7 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
               try {
                 await AsyncStorage.setItem(CACHE_KEY_INTERACTIONS, JSON.stringify(interactionsMapRef.current));
               } catch (e) {
-                console.warn('Erreur sauvegarde interactions depuis BDD:', e);
+                // Ignorer les erreurs de sauvegarde silencieusement
               }
             }
           }
@@ -1075,8 +1059,8 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
       }
 
       await Promise.all([pendingMessagesPromise, requestsAndIdentityPromise]);
-    } catch (e) { 
-      console.log("Erreur:", e); 
+    } catch (e) {
+      // Ignorer les erreurs silencieusement
     } finally { 
       setLoading(false); 
     }
@@ -1631,7 +1615,6 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
       // ⚡ Choisir un prout aléatoire AVANT de l'utiliser
       const randomKey = SOUND_KEYS[Math.floor(Math.random() * SOUND_KEYS.length)];
       const customMessage = (messageDrafts[recipient.id] || '').trim().slice(0, 140);
-      console.log('📨 customMessage draft ->', customMessage);
 
       // Jouer localement avec expo-av
       const soundFile = PROUT_SOUNDS[randomKey];
@@ -1646,13 +1629,8 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
         });
       } catch (error) {
         // Ignorer l'erreur si l'app est en arrière-plan (comportement normal d'Android)
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        if (!errorMessage.includes('AudioFocusNotAcquiredException')) {
-          console.warn("Impossible de jouer le son:", error);
-        }
+        // Ignorer les erreurs de lecture audio silencieusement (normal en arrière-plan)
       }
-      // player.replace(soundFile); // Ancien code
-      // player.play(); // Ancien code
 
       // Envoyer le push via backend avec le token FCM et le bon pseudo
       await sendProutViaBackend(
@@ -1667,8 +1645,6 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
           locale: i18n.locale || 'fr',
         }
       );
-      console.log('✅ sendProutViaBackend called with customMessage?', customMessage ? 'YES' : 'NO', { recipientId: recipient.id });
-      
       // Mettre à jour le timestamp d'interaction pour le tri
       await updateInteraction(recipient.id);
 
