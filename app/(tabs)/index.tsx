@@ -23,6 +23,7 @@ export default function HomeScreen() {
   const isLoadedRef = useRef(false);
   const [activeView, setActiveView] = useState<'list' | 'tutorial' | 'search' | 'profile' | 'profileMenu' | 'identity'>('list');
   const [isZenMode, setIsZenMode] = useState(false);
+  const [isSilentMode, setIsSilentMode] = useState(false);
   const [currentPseudo, setCurrentPseudo] = useState<string>('');
   const [userId, setUserId] = useState<string | null>(null);
   const [showPrivacy, setShowPrivacy] = useState(false);
@@ -32,6 +33,7 @@ export default function HomeScreen() {
   const ZEN_END_KEY = 'zen_end_at';
   const ZEN_REASON_KEY = 'zen_reason';
   const ZEN_START_KEY = 'zen_start_at';
+  const SILENT_MODE_KEY = 'silent_mode_enabled';
   const [showZenOptions, setShowZenOptions] = useState(false);
 const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
   
@@ -92,6 +94,10 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
         // Mémoriser pour affichage instantané au prochain lancement
         AsyncStorage.setItem(CACHE_PSEUDO_KEY, pseudo).catch(() => {});
       }
+
+      // Charger l'état Envois silencieux
+      const silentModeEnabled = await AsyncStorage.getItem(SILENT_MODE_KEY);
+      setIsSilentMode(silentModeEnabled === 'true');
 
       // Mise à jour token FCM en arrière-plan (fonctionne aussi dans le simulateur)
       if (Platform.OS !== 'web') {
@@ -459,6 +465,20 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
     }
   };
 
+  const toggleSilentMode = async () => {
+    const newValue = !isSilentMode;
+    setIsSilentMode(newValue);
+    await AsyncStorage.setItem(SILENT_MODE_KEY, newValue.toString());
+    
+    // Afficher le message explicatif quand activé
+    if (newValue) {
+      Alert.alert(
+        i18n.t('silent_mode_title'),
+        i18n.t('silent_mode_description')
+      );
+    }
+  };
+
   // --- PARTAGE ---
   const handleShare = async () => {
     try {
@@ -543,19 +563,27 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
             <View style={styles.navBar}>
               <View style={styles.navBarContent}>
                 <View style={styles.greetingContainer}>
-                  {currentPseudo ? (
-                    <View style={styles.greetingRow}>
-                      <Text style={styles.greetingText}>{i18n.t('greeting')} {currentPseudo} !</Text>
-                      {isZenMode && (
-                        <Ionicons
-                          name="moon"
-                          size={18}
-                          color="#ffd700"
-                          style={styles.zenIcon}
-                        />
-                      )}
-                    </View>
-                  ) : null}
+                      {currentPseudo ? (
+                        <View style={styles.greetingRow}>
+                          <Text style={styles.greetingText}>{i18n.t('greeting')} {currentPseudo} !</Text>
+                          {isZenMode && (
+                            <Ionicons
+                              name="moon"
+                              size={18}
+                              color="#ffd700"
+                              style={styles.zenIcon}
+                            />
+                          )}
+                          {isSilentMode && (
+                            <Ionicons
+                              name="volume-mute"
+                              size={18}
+                              color="#ff6b6b"
+                              style={styles.zenIcon}
+                            />
+                          )}
+                        </View>
+                      ) : null}
                 </View>
                 {/* 1. Profil */}
                 <TouchableOpacity 
@@ -588,6 +616,7 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
             {[
               { label: 'Rechercher un ami', icon: 'person-add-outline', onPress: () => setActiveView('search'), iconColor: '#604a3e' },
               { label: 'Mode Zen', icon: isZenMode ? 'moon' : 'moon-outline', onPress: toggleZenMode, iconColor: isZenMode ? '#ffd700' : '#604a3e' },
+              { label: i18n.t('silent_mode'), icon: isSilentMode ? 'volume-mute' : 'volume-mute-outline', onPress: toggleSilentMode, iconColor: isSilentMode ? '#ff6b6b' : '#604a3e' },
               { label: 'Gérez votre profil', icon: 'person-circle-outline', onPress: () => setActiveView('profile'), iconColor: '#604a3e' },
               { label: 'Inviter un ami', icon: 'share-social-outline', onPress: handleShare, iconColor: '#604a3e' },
               { label: 'Revoir les fonctions de l\'appli', icon: 'help-circle-outline', onPress: () => setActiveView('tutorial'), iconColor: '#604a3e' },
@@ -610,6 +639,7 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
           <FriendsList 
             onProutSent={shakeHeader} 
             isZenMode={isZenMode}
+            isSilentMode={isSilentMode}
             headerComponent={
               <View style={styles.headerSection}>
                 {/* 1. LE LOGO (Tout en haut, centré) */}
@@ -643,6 +673,14 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
                               name="moon"
                               size={18}
                               color="#ffd700"
+                              style={styles.zenIcon}
+                            />
+                          )}
+                          {isSilentMode && (
+                            <Ionicons
+                              name="volume-mute"
+                              size={18}
+                              color="#ff6b6b"
                               style={styles.zenIcon}
                             />
                           )}

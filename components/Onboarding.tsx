@@ -61,6 +61,13 @@ const getSlides = (): Slide[] => [
     color: '#2196F3',
   },
   {
+    key: 'silent',
+    title: i18n.t('tuto_silent_title'),
+    description: i18n.t('tuto_silent_desc'),
+    icon: 'notifications-off-outline',
+    color: '#6C757D',
+  },
+  {
     key: 'mute',
     title: i18n.t('tuto_4_title'),
     description: i18n.t('tuto_4_desc'),

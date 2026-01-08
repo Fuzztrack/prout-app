@@ -89,6 +89,11 @@ const i18n = new I18n({
     zen_confirm_body: "Vous ne recevrez plus de prouts, et ne pourrez plus en envoyer.",
     activate: "Activer",
     
+    // Silent Mode
+    silent_mode: "Envois silencieux",
+    silent_mode_title: "Envois silencieux 🤫",
+    silent_mode_description: "Pour envoyer vos prouts en toute discrétion !",
+    
     // Identity Reveal
     who_are_you: "Qui es-tu ? 👀",
     who_are_you_subtitle: "%{requester} souhaite connaître ton identité.",
@@ -111,6 +116,8 @@ const i18n = new I18n({
     tuto_2_desc: "Cliquer sur le nom de votre ami pour ajouter un message, puis swiper le nom.",
     tuto_3_title: "Mode Zen",
     tuto_3_desc: "Besoin de calme ? Activez le mode Zen pour ne plus recevoir (ni envoyer) de prouts.",
+    tuto_silent_title: "Envois silencieux",
+    tuto_silent_desc: "Vous pouvez activer ce mode pour envoyer vos prouts en toute discrétion !",
     tuto_4_title: "Sourdine",
     tuto_4_desc: "En swipant à gauche le nom d'un contact, vous pouvez le mettre en sourdine.",
     
@@ -228,6 +235,11 @@ const i18n = new I18n({
     zen_confirm_body: "You will no longer receive farts, and won't be able to send any.",
     activate: "Activate",
     
+    // Silent Mode
+    silent_mode: "Silent sends",
+    silent_mode_title: "Silent sends 🤫",
+    silent_mode_description: "To send your farts discreetly!",
+    
     // Identity Reveal
     who_are_you: "Who are you? 👀",
     who_are_you_subtitle: "%{requester} wants to know who you are.",
@@ -250,6 +262,8 @@ const i18n = new I18n({
     tuto_2_desc: "Tap your friend's name to add a message, then swipe the name, or long-press the gas!",
     tuto_3_title: "Zen Mode",
     tuto_3_desc: "Need some quiet? Enable Zen Mode to stop receiving (and sending) farts.",
+    tuto_silent_title: "Silent sends",
+    tuto_silent_desc: "You can enable this mode to send your farts discreetly!",
     tuto_4_title: "Mute",
     tuto_4_desc: "By swiping left on a contact's name, you can mute them.",
     
@@ -367,6 +381,11 @@ const i18n = new I18n({
     zen_confirm_body: "Ya no recibirás prouts y no podrás enviar ninguno.",
     activate: "Activar",
     
+    // Silent Mode
+    silent_mode: "Envíos silenciosos",
+    silent_mode_title: "Envíos silenciosos 🤫",
+    silent_mode_description: "¡Para enviar tus prouts con total discreción!",
+    
     // Identity Reveal
     who_are_you: "¿Quién eres? 👀",
     who_are_you_subtitle: "%{requester} quiere saber tu identidad.",
@@ -389,6 +408,8 @@ const i18n = new I18n({
     tuto_2_desc: "Toca el nombre de tu amigo para agregar un mensaje, luego desliza el nombre o mantén pulsado el gas.",
     tuto_3_title: "Modo Zen",
     tuto_3_desc: "¿Necesitas tranquilidad? Activa el modo Zen para dejar de recibir (y enviar) prouts.",
+    tuto_silent_title: "Envíos silenciosos",
+    tuto_silent_desc: "¡Puedes activar este modo para enviar tus prouts con total discreción!",
     tuto_4_title: "Silenciar",
     tuto_4_desc: "Deslizando hacia la izquierda el nombre de un contacto, puedes silenciarlo.",
     

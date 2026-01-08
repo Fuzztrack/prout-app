@@ -43,6 +43,13 @@ const TUTORIAL_DATA = [
     color: '#9C27B0',
   },
   {
+    id: '5b',
+    title: i18n.t('tuto_silent_title'),
+    description: i18n.t('tuto_silent_desc'),
+    icon: 'notifications-off-outline',
+    color: '#6C757D',
+  },
+  {
     id: '6',
     title: i18n.t('tuto_4_title'),
     description: i18n.t('tuto_4_desc'),

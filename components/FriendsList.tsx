@@ -463,7 +463,7 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
   );
 });
  
-export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onProutSent?: () => void; isZenMode?: boolean; headerComponent?: React.ReactElement } = {}) {
+export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerComponent }: { onProutSent?: () => void; isZenMode?: boolean; isSilentMode?: boolean; headerComponent?: React.ReactElement } = {}) {
   const [appUsers, setAppUsers] = useState<any[]>([]);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
   const [identityRequests, setIdentityRequests] = useState<any[]>([]);
@@ -1598,20 +1598,22 @@ export function FriendsList({ onProutSent, isZenMode, headerComponent }: { onPro
       const randomKey = SOUND_KEYS[Math.floor(Math.random() * SOUND_KEYS.length)];
       const customMessage = (messageDrafts[recipient.id] || '').trim().slice(0, 140);
 
-      // Jouer localement avec expo-av
-      const soundFile = PROUT_SOUNDS[randomKey];
-      try {
-        const { sound } = await Audio.Sound.createAsync(soundFile);
-        await sound.playAsync();
-        // Libérer la ressource après lecture
-        sound.setOnPlaybackStatusUpdate(async (status) => {
-          if (status.isLoaded && status.didJustFinish) {
-            await sound.unloadAsync();
-          }
-        });
-      } catch (error) {
-        // Ignorer l'erreur si l'app est en arrière-plan (comportement normal d'Android)
-        // Ignorer les erreurs de lecture audio silencieusement (normal en arrière-plan)
+      // Jouer localement avec expo-av (seulement si le mode silencieux n'est pas activé)
+      if (!isSilentMode) {
+        const soundFile = PROUT_SOUNDS[randomKey];
+        try {
+          const { sound } = await Audio.Sound.createAsync(soundFile);
+          await sound.playAsync();
+          // Libérer la ressource après lecture
+          sound.setOnPlaybackStatusUpdate(async (status) => {
+            if (status.isLoaded && status.didJustFinish) {
+              await sound.unloadAsync();
+            }
+          });
+        } catch (error) {
+          // Ignorer l'erreur si l'app est en arrière-plan (comportement normal d'Android)
+          // Ignorer les erreurs de lecture audio silencieusement (normal en arrière-plan)
+        }
       }
 
       // Envoyer le push via backend avec le token FCM et le bon pseudo
