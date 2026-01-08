@@ -7,6 +7,14 @@ import android.media.AudioAttributes
 import android.os.Build
 
 object NotificationChannelHelper {
+    // Référence explicite aux ressources pour éviter le shrink en AAB
+    private val PR0UT_RAW_RES = intArrayOf(
+        R.raw.prout1, R.raw.prout2, R.raw.prout3, R.raw.prout4, R.raw.prout5,
+        R.raw.prout6, R.raw.prout7, R.raw.prout8, R.raw.prout9, R.raw.prout10,
+        R.raw.prout11, R.raw.prout12, R.raw.prout13, R.raw.prout14, R.raw.prout15,
+        R.raw.prout16, R.raw.prout17, R.raw.prout18, R.raw.prout19, R.raw.prout20
+    )
+
     fun createChannels(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
 
@@ -24,7 +32,10 @@ object NotificationChannelHelper {
             }
 
             val channelName = "Prout $proutKey"
-            val soundUri = android.net.Uri.parse("android.resource://${context.packageName}/raw/$proutKey")
+            // Force la résolution via getIdentifier et référence directe pour empêcher le shrink de res/raw
+            val resId = if (i in 1..PR0UT_RAW_RES.size) PR0UT_RAW_RES[i - 1] else 0
+            val resolvedName = if (resId != 0) context.resources.getResourceEntryName(resId) else proutKey
+            val soundUri = android.net.Uri.parse("android.resource://${context.packageName}/raw/$resolvedName")
             val audioAttributes = AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_NOTIFICATION)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
