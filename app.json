@@ -99,7 +99,8 @@
           "microphonePermission": false
         }
       ],
-      "expo-localization"
+      "expo-localization",
+      "expo-asset"
     ],
     "assetBundlePatterns": [
       "assets/**/*"
