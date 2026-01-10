@@ -88,7 +88,6 @@ const SOUND_KEYS = Object.keys(PROUT_SOUNDS);
 // Clés de cache pour AsyncStorage
 const CACHE_KEY_FRIENDS = 'cached_friends_list';
 const CACHE_KEY_PENDING_REQUESTS = 'cached_pending_requests';
-const CACHE_KEY_INTERACTIONS = 'cached_interactions_timestamp'; // Nouvelle clé pour le tri
 const CACHE_MAX_AGE = 24 * 60 * 60 * 1000; // 24 heures
 
 // Fonction utilitaire pour charger le cache de manière sécurisée
@@ -487,48 +486,6 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
   // Polling simple (sans backoff exponentiel)
   const flatListRef = useRef<FlatList>(null);
   const rowRefs = useRef<Record<string, SwipeableFriendRowHandle | null>>({});
-  
-  // Ref pour stocker les timestamps d'interaction (chargé depuis AsyncStorage)
-  const interactionsMapRef = useRef<Record<string, number>>({});
-  // Ref pour stocker la fonction updateInteraction pour le listener de notifications
-  const updateInteractionRef = useRef<((friendId: string) => Promise<void>) | null>(null);
-
-  // Fonction pour charger les interactions
-  const loadInteractions = async () => {
-    try {
-      const cached = await AsyncStorage.getItem(CACHE_KEY_INTERACTIONS);
-      if (cached) {
-        interactionsMapRef.current = JSON.parse(cached);
-      }
-    } catch (e) {
-      // Ignorer les erreurs de chargement silencieusement
-    }
-  };
-
-  // Fonction pour mettre à jour une interaction
-  const updateInteraction = async (friendId: string) => {
-    const now = Date.now();
-    interactionsMapRef.current = {
-      ...interactionsMapRef.current,
-      [friendId]: now
-    };
-    
-    // Mettre à jour l'ordre de la liste immédiatement
-    setAppUsers(prevUsers => {
-      const newUsers = [...prevUsers];
-      return sortFriends(newUsers);
-    });
-
-    // Sauvegarder en background
-    try {
-      await AsyncStorage.setItem(CACHE_KEY_INTERACTIONS, JSON.stringify(interactionsMapRef.current));
-    } catch (e) {
-      // Ignorer les erreurs de sauvegarde silencieusement
-    }
-  };
-
-  // Mettre à jour la ref avec la fonction pour le listener
-  updateInteractionRef.current = updateInteraction;
 
   // Messages éphémères (pending_messages)
   const fetchPendingMessages = async (userId: string) => {
@@ -540,16 +497,21 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
       return;
     }
     setPendingMessages(data || []);
-    
-    // Mettre à jour les interactions pour tous les expéditeurs de messages
-    // Cela permet de mettre en tête de liste ceux qui ont envoyé des messages
-    if (data && data.length > 0 && updateInteractionRef.current) {
+
+    // Mise à jour optimiste locale pour remonter les expéditeurs (messages reçus)
+    if (data && data.length > 0) {
+      const now = new Date().toISOString();
       const uniqueSenderIds = [...new Set(data.map(m => m.from_user_id))];
-      // Mettre à jour toutes les interactions en parallèle
-      await Promise.all(
-        uniqueSenderIds.map(senderId => updateInteractionRef.current!(senderId))
-      );
+      setAppUsers(prev => {
+        const updated = prev.map(friend =>
+          uniqueSenderIds.includes(friend.id)
+            ? { ...friend, last_interaction_at: now }
+            : friend
+        );
+        return sortFriends(updated);
+      });
     }
+    // Le backend met à jour last_interaction_at, mais cette mise à jour optimiste rend l'affichage instantané
   };
 
   const markMessageAsRead = async (messageId: string) => {
@@ -561,11 +523,12 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
     }
   };
 
-  // Fonction de tri
+  // Fonction de tri basée sur last_interaction_at depuis Supabase
   const sortFriends = (friends: any[]) => {
     return friends.sort((a, b) => {
-      const timeA = interactionsMapRef.current[a.id] || 0;
-      const timeB = interactionsMapRef.current[b.id] || 0;
+      // Utiliser last_interaction_at directement depuis l'objet friend
+      const timeA = a.last_interaction_at ? new Date(a.last_interaction_at).getTime() : 0;
+      const timeB = b.last_interaction_at ? new Date(b.last_interaction_at).getTime() : 0;
       // Tri décroissant (plus récent en premier)
       if (timeA !== timeB) return timeB - timeA;
       // Fallback: ordre alphabétique
@@ -579,51 +542,12 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
 
   // const player = useAudioPlayer(); // Supprimé
 
-  // Écouter les notifications reçues pour mettre à jour l'interaction
-  const extractSenderId = useCallback((payload: any): string | null => {
-    if (!payload) return null;
-    const direct =
-      payload.senderId ||
-      payload.sender_id ||
-      payload.sender ||
-      payload.from ||
-      payload.userId ||
-      payload.user_id;
-    if (direct) {
-      return String(direct);
-    }
-    const extra = payload.extraData || payload.data;
-    if (extra) {
-      const nested =
-        extra.senderId ||
-        extra.sender_id ||
-        extra.sender ||
-        extra.from ||
-        extra.userId ||
-        extra.user_id;
-      if (nested) {
-        return String(nested);
-      }
-    }
-    return null;
-  }, []);
-
   useFocusEffect(
     useCallback(() => {
       // Recharger les données à chaque fois que l'écran gagne le focus
+      // Le tri se fait maintenant uniquement via last_interaction_at depuis Supabase
       loadData(false, false, false);
-      
-      // Vérifier la dernière notification reçue pour mettre à jour l'interaction
-      Notifications.getLastNotificationResponseAsync().then((resp) => {
-        if (resp?.notification?.request?.content?.data) {
-          const payload = resp.notification.request.content.data;
-          const senderId = extractSenderId(payload);
-          if (senderId && updateInteractionRef.current) {
-            updateInteractionRef.current(senderId);
-          }
-        }
-      }).catch(() => {});
-    }, [extractSenderId])
+    }, [])
   );
 
   useEffect(() => {
@@ -650,9 +574,6 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
       if (!cacheLoadedRef.current) {
         cacheLoadedRef.current = true;
         try {
-          // Charger les timestamps d'abord
-          await loadInteractions();
-
           const cachedFriends = await loadCacheSafely(CACHE_KEY_FRIENDS);
           const cachedRequests = await loadCacheSafely(CACHE_KEY_PENDING_REQUESTS);
           
@@ -660,7 +581,7 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
           const cacheHasEntries = cachedFriends && cachedFriends.length > 0;
           
           if (cacheHasEntries) {
-            // Appliquer le tri sur le cache
+            // Appliquer le tri sur le cache (basé sur last_interaction_at depuis Supabase)
             const sortedCache = sortFriends(cachedFriends);
             setAppUsers(sortedCache);
             setLoading(false); // Cache trouvé, pas de spinner
@@ -712,36 +633,8 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
     };
   }, []);
 
-  const handleNotificationPayload = useCallback((payload: any) => {
-    const senderId = extractSenderId(payload);
-    if (senderId) {
-      updateInteractionRef.current?.(senderId);
-    }
-  }, [extractSenderId]);
-
-  useEffect(() => {
-    const notificationListener = Notifications.addNotificationReceivedListener(notification => {
-      handleNotificationPayload(notification.request.content.data);
-    });
-
-    const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
-      handleNotificationPayload(response.notification.request.content.data);
-    });
-
-    return () => {
-      notificationListener.remove();
-      responseListener.remove();
-    };
-  }, [handleNotificationPayload]);
-
-  useEffect(() => {
-    // Si l'app est ouverte via une notif alors que les listeners ne tournaient pas encore
-    Notifications.getLastNotificationResponseAsync().then((resp) => {
-      if (resp?.notification?.request?.content?.data) {
-        handleNotificationPayload(resp.notification.request.content.data);
-      }
-    }).catch(() => {});
-  }, [handleNotificationPayload]);
+  // Note: Les notifications sont gérées par setupRealtimeSubscription et loadData
+  // qui rechargent last_interaction_at depuis Supabase pour mettre à jour le tri
 
   const router = useRouter();
 
@@ -937,73 +830,64 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
           let identityAliasMap: Record<string, { alias: string | null, status: string | null }> = {};
           let mutedMap: Record<string, boolean> = {};
           let mutedByMap: Record<string, boolean> = {};
+          let lastInteractionMap: Record<string, string> = {};
           
-          if (allFriendIds.length > 0) {
-            // Charger toutes les données en parallèle pour réduire les requêtes séquentielles
-            const [revealsResult, mutedFriendsResult, mutedByFriendsResult, myFriendsRelationsResult] = await Promise.all([
-              supabase
-                .from('identity_reveals')
-                .select('friend_id, alias, status')
-                .eq('requester_id', user.id)
-                .in('friend_id', allFriendIds),
-              supabase
-                .from('friends')
-                .select('friend_id, is_muted')
-                .eq('user_id', user.id)
-                .in('friend_id', allFriendIds),
-              supabase
-                .from('friends')
-                .select('user_id, is_muted')
-                .eq('friend_id', user.id)
-                .in('user_id', allFriendIds)
-                .eq('is_muted', true),
-              supabase
-                .from('friends')
-                .select('friend_id, last_interaction_at')
-                .eq('user_id', user.id)
-                .in('friend_id', allFriendIds)
-                .not('last_interaction_at', 'is', null)
-            ]);
+          // Charger toutes les données en parallèle pour réduire les requêtes séquentielles
+          const [revealsResult, mutedFriendsResult, mutedByFriendsResult, myFriendsRelationsResult] = await Promise.all([
+            supabase
+              .from('identity_reveals')
+              .select('friend_id, alias, status')
+              .eq('requester_id', user.id)
+              .in('friend_id', allFriendIds),
+            supabase
+              .from('friends')
+              .select('friend_id, is_muted')
+              .eq('user_id', user.id)
+              .in('friend_id', allFriendIds),
+            supabase
+              .from('friends')
+              .select('user_id, is_muted')
+              .eq('friend_id', user.id)
+              .in('user_id', allFriendIds)
+              .eq('is_muted', true),
+            supabase
+              .from('friends')
+              .select('friend_id, last_interaction_at')
+              .eq('user_id', user.id)
+              .in('friend_id', allFriendIds)
+          ]);
 
-            // Traiter les résultats
-            if (revealsResult.data) {
-              identityAliasMap = revealsResult.data.reduce((acc, reveal) => {
-                acc[reveal.friend_id] = {
-                  alias: reveal.alias,
-                  status: reveal.status,
-                };
-                return acc;
-              }, {} as Record<string, { alias: string | null, status: string | null }>);
-            }
+          // Traiter les résultats
+          if (revealsResult.data) {
+            identityAliasMap = revealsResult.data.reduce((acc, reveal) => {
+              acc[reveal.friend_id] = {
+                alias: reveal.alias,
+                status: reveal.status,
+              };
+              return acc;
+            }, {} as Record<string, { alias: string | null, status: string | null }>);
+          }
 
-            if (mutedFriendsResult.data) {
-              mutedMap = mutedFriendsResult.data.reduce((acc, f) => {
-                acc[f.friend_id] = f.is_muted || false;
-                return acc;
-              }, {} as Record<string, boolean>);
-            }
+          if (mutedFriendsResult.data) {
+            mutedMap = mutedFriendsResult.data.reduce((acc, f) => {
+              acc[f.friend_id] = f.is_muted || false;
+              return acc;
+            }, {} as Record<string, boolean>);
+          }
 
-            if (mutedByFriendsResult.data) {
-              mutedByFriendsResult.data.forEach(f => {
-                mutedByMap[f.user_id] = true;
-              });
-            }
+          if (mutedByFriendsResult.data) {
+            mutedByFriendsResult.data.forEach(f => {
+              mutedByMap[f.user_id] = true;
+            });
+          }
 
-            // Mettre à jour interactionsMapRef avec les valeurs de la base de données
-            if (myFriendsRelationsResult.data) {
-              myFriendsRelationsResult.data.forEach(rel => {
-                if (rel.last_interaction_at) {
-                  const timestamp = new Date(rel.last_interaction_at).getTime();
-                  interactionsMapRef.current[rel.friend_id] = timestamp;
-                }
-              });
-              // Sauvegarder dans AsyncStorage
-              try {
-                await AsyncStorage.setItem(CACHE_KEY_INTERACTIONS, JSON.stringify(interactionsMapRef.current));
-              } catch (e) {
-                // Ignorer les erreurs de sauvegarde silencieusement
+          // Créer un map de last_interaction_at pour l'associer directement aux friends
+          if (myFriendsRelationsResult.data) {
+            myFriendsRelationsResult.data.forEach(rel => {
+              if (rel.last_interaction_at) {
+                lastInteractionMap[rel.friend_id] = rel.last_interaction_at;
               }
-            }
+            });
           }
 
           const friendsList = (finalFriends || []).map(friend => {
@@ -1019,6 +903,8 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
               // Si l'ami m'a mis en sourdine, je le vois en mode veille
               isZenMode: friend.is_zen_mode || hasMutedMe,
               is_muted: isMutedByMe,
+              // Ajouter last_interaction_at directement sur l'objet friend pour le tri
+              last_interaction_at: lastInteractionMap[friend.id] || null,
             };
           });
           
@@ -1054,18 +940,57 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       // Créer un canal pour écouter les changements sur la table friends
+      // Filtrer pour écouter seulement les changements sur les relations où user_id = currentUserId
+      // Cela inclut les mises à jour de last_interaction_at qui déclenchent le tri
       const channel = supabase
         .channel('friends-changes')
         .on(
           'postgres_changes',
           {
-            event: '*',
+            event: 'UPDATE',
             schema: 'public',
             table: 'friends',
+            filter: `user_id=eq.${user.id}`,
           },
           (payload) => {
-            // Recharger les données si le statut change (sans remettre loading si données déjà affichées)
-            loadData(false, false);
+            // Mise à jour optimiste locale pour un tri instantané
+            const newValue = (payload.new as any)?.last_interaction_at;
+            const friendId = (payload.new as any)?.friend_id;
+            if (newValue && friendId) {
+              setAppUsers(prev => {
+                const updated = prev.map(f =>
+                  f.id === friendId ? { ...f, last_interaction_at: newValue } : f
+                );
+                return sortFriends(updated);
+              });
+            }
+            // Rechargement pour garantir la synchro avec Supabase
+            loadData(false, false, false);
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'friends',
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            loadData(false, false, false);
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'DELETE',
+            schema: 'public',
+            table: 'friends',
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            // Recharger les données si une relation est supprimée
+            loadData(false, false, false);
           }
         )
         .on(
@@ -1090,15 +1015,26 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
           },
           (payload) => {
             if (payload.eventType === 'INSERT') {
+              const senderId = (payload.new as any)?.from_user_id;
+              const now = new Date().toISOString();
+
               setPendingMessages((prev) => {
                 const filtered = prev.filter(m => m.id !== payload.new.id);
                 return [...filtered, payload.new as any];
               });
-              // Mettre à jour l'ordre de la liste pour faire remonter l'expéditeur
-              const senderId = (payload.new as any)?.from_user_id;
-              if (senderId && updateInteractionRef.current) {
-                updateInteractionRef.current(senderId);
+
+              // Mise à jour optimiste : remonter l'expéditeur immédiatement
+              if (senderId) {
+                setAppUsers(prev => {
+                  const updated = prev.map(f =>
+                    f.id === senderId ? { ...f, last_interaction_at: now } : f
+                  );
+                  return sortFriends(updated);
+                });
               }
+
+              // Rechargement pour synchroniser avec Supabase
+              loadData(false, false, false);
             } else if (payload.eventType === 'DELETE') {
               setPendingMessages((prev) => prev.filter(m => m.id !== payload.old.id));
             }
@@ -1629,8 +1565,22 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
           locale: i18n.locale || 'fr',
         }
       );
-      // Mettre à jour le timestamp d'interaction pour le tri
-      await updateInteraction(recipient.id);
+      
+      // Mise à jour optimiste locale immédiate : mettre à jour last_interaction_at localement
+      // pour que le tri soit instantané, puis recharger depuis Supabase pour la synchronisation
+      const now = new Date().toISOString();
+      setAppUsers(prevUsers => {
+        const updatedUsers = prevUsers.map(friend => 
+          friend.id === recipient.id 
+            ? { ...friend, last_interaction_at: now }
+            : friend
+        );
+        return sortFriends(updatedUsers);
+      });
+      
+      // Le backend met à jour last_interaction_at pour les deux relations (A→B et B→A)
+      // Recharger les données depuis Supabase pour synchroniser avec le backend
+      loadData(false, false, false);
 
       // Nettoyer le brouillon et refermer le champ
       setMessageDrafts(prev => ({ ...prev, [recipient.id]: '' }));
