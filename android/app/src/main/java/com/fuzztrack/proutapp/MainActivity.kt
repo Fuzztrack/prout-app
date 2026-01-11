@@ -21,26 +21,6 @@ class MainActivity : ReactActivity() {
     SplashScreenManager.registerOnActivity(this)
     // @generated end expo-splashscreen
     super.onCreate(null)
-    
-    // Fallback : vérifier et créer les canaux si nécessaire (pour AAB)
-    ensureNotificationChannels()
-  }
-  
-  private fun ensureNotificationChannels() {
-    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-      val notificationManager = getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-      var missingChannels = 0
-      for (i in 1..20) {
-        val channelId = "prout-prout$i-v3"
-        if (notificationManager.getNotificationChannel(channelId) == null) {
-          missingChannels++
-        }
-      }
-      if (missingChannels > 0) {
-        android.util.Log.d("MainActivity", "⚠️ $missingChannels canaux manquants, recréation...")
-        NotificationChannelHelper.createChannels(this)
-      }
-    }
   }
 
   /**

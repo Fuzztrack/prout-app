@@ -7,10 +7,9 @@ buildscript {
   }
   dependencies {
         classpath 'com.google.gms:google-services:4.4.1'
-    // Pin AGP/Kotlin to versions compatibles Expo SDK 54 / RN 0.81
-    classpath('com.android.tools.build:gradle:8.5.2')
+    classpath('com.android.tools.build:gradle')
     classpath('com.facebook.react:react-native-gradle-plugin')
-    classpath('org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.24')
+    classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')
   }
 }
 
@@ -24,23 +23,3 @@ allprojects {
 
 apply plugin: "expo-root-project"
 apply plugin: "com.facebook.react.rootproject"
-
-// Fix EAS build local: forcer la tâche CMake de reanimated (par ABI) à dépendre de la
-// tâche CMake correspondante de worklets, pour que libworklets.so soit généré avant le link.
-if (System.getenv('EAS_BUILD_LOCAL') == 'true' || System.getProperty('eas.build.local') == 'true') {
-  def workletsProject = rootProject.findProject(':react-native-worklets')
-  def reanimatedProject = rootProject.findProject(':react-native-reanimated')
-  if (workletsProject && reanimatedProject) {
-    reanimatedProject.tasks.whenTaskAdded { task ->
-      def m = (task.name =~ /buildCMake.*\\[([^\\]]+)\\]\\[reanimated\\]/)
-      if (m.matches()) {
-        def abi = m[0][1]
-        def workletsTaskName = task.name.replace("reanimated", "worklets")
-        def workletsTask = workletsProject.tasks.findByName(workletsTaskName)
-        if (workletsTask) {
-          task.dependsOn(workletsTask)
-        }
-      }
-    }
-  }
-}

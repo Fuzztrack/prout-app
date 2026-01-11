@@ -150,6 +150,7 @@ export default function ProfileScreen() {
       <TouchableOpacity onPress={handleContactSupport} style={styles.supportLink}>
         <Text style={styles.supportLinkText}>Contacter le support</Text>
       </TouchableOpacity>
+      <Text style={styles.versionText}>Prout version 1.0.1</Text>
       </ScrollView>
     </View>
   );
@@ -204,5 +205,12 @@ const styles = StyleSheet.create({
     fontSize: 14, 
     textDecorationLine: 'underline',
     opacity: 0.8
-  }
+  },
+  versionText: {
+    textAlign: 'center',
+    marginTop: 6,
+    color: '#604a3e',
+    fontSize: 12,
+    opacity: 0.75,
+  },
 });

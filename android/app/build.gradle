@@ -186,11 +186,3 @@ dependencies {
 }
 
 apply plugin: 'com.google.gms.google-services'
-
-// Désactiver la génération de l'APK en release pour ne générer que l'AAB
-// (utile pour les builds EAS local qui doivent produire uniquement un AAB)
-afterEvaluate {
-    tasks.matching { it.name == "assembleRelease" }.configureEach {
-        enabled = false
-    }
-}

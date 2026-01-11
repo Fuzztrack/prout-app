@@ -1,5 +1,4 @@
-# EAS ignore - permet d'inclure android même s'il est dans .gitignore
-# Ne pas exclure android pour EAS build local
-!/android
-!/ios
+# EAS ignore - exclure android/ pour forcer la génération via prebuild (CNG)
+/android
+/ios
 

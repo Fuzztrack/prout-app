@@ -6,7 +6,8 @@ import * as Contacts from 'expo-contacts';
 import * as Notifications from 'expo-notifications';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, FlatList, Animated as RNAnimated, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, FlatList, Animated as RNAnimated, StyleSheet, Text, TextInput, TouchableOpacity, View, Platform, Linking, NativeModules } from 'react-native';
+import { VolumeManager, RINGER_MODE } from 'react-native-volume-manager';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
@@ -35,6 +36,7 @@ const ANIM_IMAGES = [
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SWIPE_THRESHOLD = 150; // Seuil pour déclencher l'action
+const TAP_THRESHOLD = 12; // Distance max pour considérer un tap
 
 const PROUT_SOUNDS: { [key: string]: any } = {
   prout1: require('../assets/sounds/prout1.wav'),
@@ -88,7 +90,10 @@ const SOUND_KEYS = Object.keys(PROUT_SOUNDS);
 // Clés de cache pour AsyncStorage
 const CACHE_KEY_FRIENDS = 'cached_friends_list';
 const CACHE_KEY_PENDING_REQUESTS = 'cached_pending_requests';
+const CACHE_KEY_LAST_SENT_MESSAGES = 'cached_last_sent_messages';
 const CACHE_MAX_AGE = 24 * 60 * 60 * 1000; // 24 heures
+// Importance Android : on considère silencieux si LOW (2) ou moindre
+const ANDROID_SOUND_IMPORTANCE_THRESHOLD = 2; // DEFAULT = 3, HIGH = 4, LOW = 2
 
 // Fonction utilitaire pour charger le cache de manière sécurisée
 const loadCacheSafely = async (key: string) => {
@@ -114,6 +119,29 @@ const loadCacheSafely = async (key: string) => {
   } catch (e) {
     // Erreur lecture cache (non critique)
     return null; // En cas d'erreur, on ignore le cache et on continue normalement
+  }
+};
+
+// Cache pour les derniers messages envoyés (map userId -> {text, ts})
+const loadLastSentMessagesCache = async (): Promise<Record<string, { text: string; ts: string }>> => {
+  try {
+    const cached = await AsyncStorage.getItem(CACHE_KEY_LAST_SENT_MESSAGES);
+    if (!cached) return {};
+    const parsed = JSON.parse(cached);
+    if (parsed && typeof parsed === 'object') {
+      return parsed;
+    }
+    return {};
+  } catch {
+    return {};
+  }
+};
+
+const saveLastSentMessagesCache = async (map: Record<string, { text: string; ts: string }>) => {
+  try {
+    await AsyncStorage.setItem(CACHE_KEY_LAST_SENT_MESSAGES, JSON.stringify(map));
+  } catch {
+    // ignorer
   }
 };
 
@@ -288,7 +316,7 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
 
   // Geste avec Reanimated (fluide sur iOS) - Supporte gauche et droite
   const gesture = Gesture.Pan()
-    .activeOffsetX([-15, 15]) // Exiger un mouvement horizontal franc
+    .activeOffsetX([-TAP_THRESHOLD, TAP_THRESHOLD]) // Priorité au tap court
     .failOffsetY([-10, 10])   // Laisser le scroll vertical passer
     .onStart(() => {
       // Reset si nécessaire
@@ -305,6 +333,17 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
     })
     .onEnd((e) => {
       const finalX = e.translationX;
+      const finalY = e.translationY;
+
+      // Si mouvement très faible : considérer comme TAP prioritaire
+      if (Math.abs(finalX) < TAP_THRESHOLD && Math.abs(finalY || 0) < TAP_THRESHOLD) {
+        if (onPressName) {
+          runOnJS(onPressName)();
+        }
+        translationX.value = withSpring(0, { damping: 15, stiffness: 150 });
+        runOnJS(setCurrentImageIndex)(0);
+        return;
+      }
       
       // Swipe vers la droite (envoi de prout)
       if (finalX >= SWIPE_THRESHOLD) {
@@ -316,15 +355,13 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
       } 
       // Swipe vers la gauche (menu actions)
       else if (finalX <= -SWIPE_THRESHOLD) {
-        // Réinitialiser la position immédiatement
         translationX.value = withSpring(0, {
           damping: 15,
           stiffness: 150,
         });
-        // Appeler la fonction depuis le thread JS
         runOnJS(showMuteDeleteAlert)();
       } 
-      // Seuil non atteint : retourner à la position initiale
+      // Seuil non atteint : retour à la position initiale
       else {
         translationX.value = withSpring(0, {
           damping: 15,
@@ -472,16 +509,47 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [pendingMessages, setPendingMessages] = useState<any[]>([]);
+  const [lastSentMessages, setLastSentMessages] = useState<Record<string, { text: string; ts: string }>>({});
+  const [showSilentWarning, setShowSilentWarning] = useState(false);
   const [expandedFriendId, setExpandedFriendId] = useState<string | null>(null);
   const [expandedUnreadId, setExpandedUnreadId] = useState<string | null>(null);
   const [unreadCache, setUnreadCache] = useState<Record<string, { id: string; message_content: string }[]>>({});
   const [messageDrafts, setMessageDrafts] = useState<Record<string, string>>({});
   const toastOpacity = useRef(new RNAnimated.Value(0)).current;
+  
+  // État pour le mode silencieux
+  const [volume, setVolume] = useState<number | undefined>(undefined);
+  const [isSilentSwitchOn, setIsSilentSwitchOn] = useState<boolean | undefined>(undefined);
+  const [ringerMode, setRingerMode] = useState<number | undefined>(undefined);
+  const volumeListenerRef = useRef<any>(null);
+  const silentListenerRef = useRef<any>(null);
+  
+  const openNotificationSettings = useCallback(() => {
+    if (Platform.OS === 'android') {
+      // Android : ouvrir les paramètres système son via module natif
+      try {
+        const { SoundSettingsModule } = NativeModules;
+        if (SoundSettingsModule && SoundSettingsModule.openSoundSettings) {
+          SoundSettingsModule.openSoundSettings();
+        } else {
+          // Fallback : ouvrir les paramètres système généraux
+          Linking.openSettings().catch(() => {});
+        }
+      } catch (e) {
+        // Fallback : ouvrir les paramètres système généraux
+        Linking.openSettings().catch(() => {});
+      }
+    } else {
+      // iOS : Linking.openSettings() ouvre les paramètres système
+      Linking.openSettings().catch(() => {});
+    }
+  }, []);
   const subscriptionRef = useRef<any>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const cacheLoadedRef = useRef(false); // Pour éviter de charger le cache plusieurs fois
   const contactsSyncedRef = useRef(false); // Pour éviter de synchroniser les contacts plusieurs fois
   const phoneFriendIdsRef = useRef<string[]>([]);
+  const lastSentSetAtRef = useRef<number>(0); // timestamp du dernier setLastSentMessages local (pour éviter un clear trop tôt)
   
   // Polling simple (sans backoff exponentiel)
   const flatListRef = useRef<FlatList>(null);
@@ -521,6 +589,18 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
     } catch (e) {
       // Ignorer les erreurs de suppression silencieusement
     }
+  };
+
+  // Messages envoyés par moi et non lus (persistance du dernier message)
+  const fetchSentPendingMessages = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('pending_messages')
+      .select('to_user_id, message_content, created_at')
+      .eq('from_user_id', userId);
+    if (error) {
+      return [];
+    }
+    return data || [];
   };
 
   // Fonction de tri basée sur last_interaction_at depuis Supabase
@@ -633,6 +713,101 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
     };
   }, []);
 
+// Charger le cache des derniers messages envoyés
+useEffect(() => {
+  const loadCache = async () => {
+    const cached = await loadLastSentMessagesCache();
+    setLastSentMessages(cached);
+  };
+  loadCache();
+}, []);
+
+// Vérifier si les notifications sont silencieuses
+  // iOS : via VolumeManager.getVolume() + addSilentListener()
+  // Android : via expo-notifications (permissions + canaux)
+  useEffect(() => {
+    let mounted = true;
+
+    const setupSilentModeDetection = async () => {
+      try {
+        if (Platform.OS === 'ios') {
+          // iOS : vérifier le volume initial
+          const volumeResult = await VolumeManager.getVolume();
+          if (mounted) {
+            setVolume(volumeResult?.volume);
+          }
+
+          // iOS : écouter les changements du switch silencieux
+          const silentListener = VolumeManager.addSilentListener((status) => {
+            if (mounted) {
+              setIsSilentSwitchOn(status?.isMuted === true);
+            }
+          });
+          silentListenerRef.current = silentListener;
+
+          // iOS : écouter les changements de volume
+          const volListener = VolumeManager.addVolumeListener((result) => {
+            if (mounted) {
+              setVolume(result?.volume);
+            }
+          });
+          volumeListenerRef.current = volListener;
+        } else {
+          // Android : utiliser getRingerMode() pour détecter le mode sonnerie
+          try {
+            const ringerModeResult = await VolumeManager.getRingerMode();
+            if (mounted) {
+              setRingerMode(ringerModeResult);
+            }
+
+            // Écouter les changements de mode sonnerie (Android)
+            // Note: addRingerModeListener n'est peut-être pas disponible, on peut essayer
+            // Pour l'instant, on vérifie seulement au démarrage
+          } catch (e) {
+            // En cas d'erreur, ne pas afficher la bannière
+            if (mounted) {
+              setShowSilentWarning(false);
+            }
+          }
+        }
+      } catch (e) {
+        // Module non disponible ou erreur, désactiver la fonctionnalité
+        if (mounted) {
+          setShowSilentWarning(false);
+        }
+      }
+    };
+
+    setupSilentModeDetection();
+
+    return () => {
+      mounted = false;
+      // Nettoyer les listeners (iOS seulement)
+      if (volumeListenerRef.current) {
+        volumeListenerRef.current.remove();
+        volumeListenerRef.current = null;
+      }
+      if (silentListenerRef.current) {
+        silentListenerRef.current.remove();
+        silentListenerRef.current = null;
+      }
+    };
+  }, []);
+
+  // Détecter si le mode est silencieux basé sur les valeurs récupérées
+  useEffect(() => {
+    if (Platform.OS === 'ios') {
+      // iOS : vérifier le volume à 0 OU le switch silencieux activé
+      const isVolumeZero = volume !== undefined && volume === 0;
+      const isSilent = isVolumeZero || isSilentSwitchOn === true;
+      setShowSilentWarning(isSilent);
+    } else if (Platform.OS === 'android') {
+      // Android : vérifier le mode sonnerie (silent ou vibrate = silencieux)
+      const isSilent = ringerMode === RINGER_MODE.silent || ringerMode === RINGER_MODE.vibrate;
+      setShowSilentWarning(isSilent);
+    }
+  }, [volume, isSilentSwitchOn, ringerMode]);
+
   // Note: Les notifications sont gérées par setupRealtimeSubscription et loadData
   // qui rechargent last_interaction_at depuis Supabase pour mettre à jour le tri
 
@@ -671,7 +846,8 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
       }
 
       // Lancer en parallèle le chargement des messages éphémères et des demandes/identités
-      const pendingMessagesPromise = fetchPendingMessages(user.id);
+  const pendingMessagesPromise = fetchPendingMessages(user.id);
+  const sentPendingMessagesPromise = fetchSentPendingMessages(user.id);
 
       const requestsAndIdentityPromise = (async () => {
         // Charger les demandes en attente
@@ -927,6 +1103,27 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
       }
 
       await Promise.all([pendingMessagesPromise, requestsAndIdentityPromise]);
+      const sentPendingMessagesResult = await sentPendingMessagesPromise;
+      if (sentPendingMessagesResult && sentPendingMessagesResult.length > 0) {
+        const map: Record<string, { text: string; ts: string }> = {};
+        sentPendingMessagesResult.forEach((m: any) => {
+          map[m.to_user_id] = { text: m.message_content, ts: m.created_at };
+        });
+        setLastSentMessages(map);
+        saveLastSentMessagesCache(map);
+      } else {
+        // Aucun message envoyé en attente côté serveur : ne nettoyer que si aucun set récent (éviter la course après envoi)
+        setLastSentMessages((prev) => {
+          if (Object.keys(prev).length === 0) return prev;
+          const now = Date.now();
+          if (now - lastSentSetAtRef.current < 5000) {
+            // On vient de poser un message local, on attend le prochain cycle
+            return prev;
+          }
+          saveLastSentMessagesCache({});
+          return {};
+        });
+      }
     } catch (e) {
       // Erreur silencieuse (le polling réessayera plus tard)
     } finally { 
@@ -1031,12 +1228,57 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
                   );
                   return sortFriends(updated);
                 });
+
+                // Si on avait un dernier message envoyé à ce contact, le retirer dès qu'il répond / que son message arrive
+                setLastSentMessages((prev) => {
+                  if (!prev[senderId]) return prev;
+                  const next = { ...prev };
+                  delete next[senderId];
+                  saveLastSentMessagesCache(next);
+                  return next;
+                });
               }
 
               // Rechargement pour synchroniser avec Supabase
               loadData(false, false, false);
             } else if (payload.eventType === 'DELETE') {
               setPendingMessages((prev) => prev.filter(m => m.id !== payload.old.id));
+            }
+          }
+        )
+        // Écouter aussi les pending_messages envoyés par moi (pour savoir quand l'autre a lu/supprimé)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'pending_messages',
+            filter: `from_user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            if (payload.eventType === 'DELETE') {
+              const toUserId = (payload.old as any)?.to_user_id;
+              if (toUserId) {
+                setLastSentMessages((prev) => {
+                  const copy = { ...prev };
+                  delete copy[toUserId];
+                  saveLastSentMessagesCache(copy);
+                  return copy;
+                });
+                lastSentSetAtRef.current = 0;
+              }
+            } else if (payload.eventType === 'INSERT') {
+              const toUserId = (payload.new as any)?.to_user_id;
+              const text = (payload.new as any)?.message_content;
+              const ts = (payload.new as any)?.created_at || new Date().toISOString();
+              if (toUserId && text) {
+                setLastSentMessages((prev) => {
+                  const next = { ...prev, [toUserId]: { text, ts } };
+                  lastSentSetAtRef.current = Date.now();
+                  saveLastSentMessagesCache(next);
+                  return next;
+                });
+              }
             }
           }
         )
@@ -1577,6 +1819,14 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
         );
         return sortFriends(updatedUsers);
       });
+      if (customMessage) {
+        setLastSentMessages(prev => {
+          const next = { ...prev, [recipient.id]: { text: customMessage, ts: now } };
+          lastSentSetAtRef.current = Date.now();
+          saveLastSentMessagesCache(next);
+          return next;
+        });
+      }
       
       // Le backend met à jour last_interaction_at pour les deux relations (A→B et B→A)
       // Recharger les données depuis Supabase pour synchroniser avec le backend
@@ -1632,9 +1882,15 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
   };
 
   const renderRequestsHeader = () => {
-    if (pendingRequests.length === 0 && identityRequests.length === 0) return null;
+    const hasRequests = pendingRequests.length > 0 || identityRequests.length > 0;
+    if (!hasRequests && !showSilentWarning) return null;
     return (
       <View style={styles.requestsContainer}>
+        {showSilentWarning && (
+          <TouchableOpacity style={styles.silentWarning} onPress={openNotificationSettings}>
+            <Text style={styles.silentWarningText}>Vérifiez vos réglages son !</Text>
+          </TouchableOpacity>
+        )}
         {pendingRequests.length > 0 && (
           <>
             <Text style={styles.sectionTitle}>{i18n.t('friends_requests')}</Text>
@@ -1755,6 +2011,11 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
                 )}
                 {isExpanded && (
                   <View style={styles.messageInputContainer}>
+                  {lastSentMessages[item.id]?.text ? (
+                    <View style={styles.lastSentContainer}>
+                      <Text style={styles.lastSentText}>"{lastSentMessages[item.id].text}"</Text>
+                    </View>
+                  ) : null}
                     <View style={styles.messageInputRow}>
                       <TextInput
                         style={styles.messageInput}
@@ -1843,8 +2104,12 @@ const styles = StyleSheet.create({
   sendButton: { padding: 16, width: 80, height: 80, justifyContent: 'center', alignItems: 'center', alignSelf: 'center' },
   sendIcon: { width: 64, height: 64 },
   messageHelper: { marginTop: 4, marginLeft: 4, color: '#777', fontSize: 11 },
+  lastSentContainer: { backgroundColor: 'rgba(235, 184, 155, 0.25)', borderRadius: 10, padding: 8, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(96, 74, 62, 0.12)' },
+  lastSentText: { fontSize: 13, color: '#604a3e', opacity: 0.9 },
   unreadContainer: { backgroundColor: 'rgba(255,255,255,0.95)', marginTop: 0, marginBottom: 0, padding: 10, borderRadius: 12, borderWidth: 1, borderColor: '#d9e6e3' },
   unreadItemText: { color: '#604a3e', fontSize: 14, marginBottom: 4 },
+  silentWarning: { backgroundColor: 'rgba(255,255,255,0.9)', padding: 12, borderRadius: 10, marginBottom: 8 },
+  silentWarningText: { fontSize: 16, fontWeight: 'bold', color: '#333' },
   swipeableRow: {
     position: 'relative',
     borderRadius: 15,
