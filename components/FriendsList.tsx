@@ -3,11 +3,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // import { useAudioPlayer } from 'expo-audio'; // Supprimé
 import { Audio } from 'expo-av';
 import * as Contacts from 'expo-contacts';
-import * as Notifications from 'expo-notifications';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, FlatList, Animated as RNAnimated, StyleSheet, Text, TextInput, TouchableOpacity, View, Platform, Linking, NativeModules } from 'react-native';
-import { VolumeManager, RINGER_MODE } from 'react-native-volume-manager';
+import { ActivityIndicator, Alert, Dimensions, FlatList, Linking, NativeModules, Platform, Animated as RNAnimated, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
@@ -21,6 +19,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import { RINGER_MODE, VolumeManager } from 'react-native-volume-manager';
 import { ensureContactPermissionWithDisclosure } from '../lib/contactConsent';
 import { normalizePhone } from '../lib/normalizePhone';
 import { sendProutViaBackend } from '../lib/sendProutBackend';
@@ -91,7 +90,11 @@ const SOUND_KEYS = Object.keys(PROUT_SOUNDS);
 const CACHE_KEY_FRIENDS = 'cached_friends_list';
 const CACHE_KEY_PENDING_REQUESTS = 'cached_pending_requests';
 const CACHE_KEY_LAST_SENT_MESSAGES = 'cached_last_sent_messages';
+const CACHE_KEY_DISMISSED_SILENT_WARNING = 'cached_dismissed_silent_warning';
 const CACHE_MAX_AGE = 24 * 60 * 60 * 1000; // 24 heures
+
+// Mémoire de session (pas persistée) pour bloquer la bannière après clic OK
+let dismissedSilentWarningSession = false;
 // Importance Android : on considère silencieux si LOW (2) ou moindre
 const ANDROID_SOUND_IMPORTANCE_THRESHOLD = 2; // DEFAULT = 3, HIGH = 4, LOW = 2
 
@@ -511,6 +514,7 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
   const [pendingMessages, setPendingMessages] = useState<any[]>([]);
   const [lastSentMessages, setLastSentMessages] = useState<Record<string, { text: string; ts: string }>>({});
   const [showSilentWarning, setShowSilentWarning] = useState(false);
+  const [dismissedSilentWarning, setDismissedSilentWarning] = useState(dismissedSilentWarningSession); // reste à true pour toute la session après clic OK
   const [expandedFriendId, setExpandedFriendId] = useState<string | null>(null);
   const [expandedUnreadId, setExpandedUnreadId] = useState<string | null>(null);
   const [unreadCache, setUnreadCache] = useState<Record<string, { id: string; message_content: string }[]>>({});
@@ -519,10 +523,10 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
   
   // État pour le mode silencieux
   const [volume, setVolume] = useState<number | undefined>(undefined);
-  const [isSilentSwitchOn, setIsSilentSwitchOn] = useState<boolean | undefined>(undefined);
-  const [ringerMode, setRingerMode] = useState<number | undefined>(undefined);
+  const [ringerMode, setRingerMode] = useState<number | undefined>(undefined); // Android : mode sonore
+  const [notificationVolume, setNotificationVolume] = useState<number | undefined>(undefined); // Volume des notifications (Android)
   const volumeListenerRef = useRef<any>(null);
-  const silentListenerRef = useRef<any>(null);
+  const ringerListenerRef = useRef<any>(null);
   
   const openNotificationSettings = useCallback(() => {
     if (Platform.OS === 'android') {
@@ -631,7 +635,8 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
   );
 
   useEffect(() => {
-    const mode: Audio.AudioMode = {
+    // Pas d'annotation de type ici pour éviter le conflit de type AudioMode
+    const mode = {
       allowsRecordingIOS: false,
       playsInSilentModeIOS: true,
       staysActiveInBackground: false,
@@ -731,38 +736,103 @@ useEffect(() => {
     const setupSilentModeDetection = async () => {
       try {
         if (Platform.OS === 'ios') {
-          // iOS : vérifier le volume initial
+          // iOS : vérifier uniquement le volume initial (pas le switch silencieux)
           const volumeResult = await VolumeManager.getVolume();
           if (mounted) {
             setVolume(volumeResult?.volume);
+            if (volumeResult?.volume === 0 && !dismissedSilentWarning) {
+              setShowSilentWarning(true);
+            }
           }
 
-          // iOS : écouter les changements du switch silencieux
-          const silentListener = VolumeManager.addSilentListener((status) => {
-            if (mounted) {
-              setIsSilentSwitchOn(status?.isMuted === true);
-            }
-          });
-          silentListenerRef.current = silentListener;
-
-          // iOS : écouter les changements de volume
+          // iOS : écouter uniquement les changements de volume (pas le switch silencieux)
           const volListener = VolumeManager.addVolumeListener((result) => {
             if (mounted) {
               setVolume(result?.volume);
+              if (result?.volume === 0 && !dismissedSilentWarning) {
+                setShowSilentWarning(true);
+              } else if (result?.volume !== undefined && result.volume > 0) {
+                setShowSilentWarning(false);
+              }
             }
           });
           volumeListenerRef.current = volListener;
         } else {
-          // Android : utiliser getRingerMode() pour détecter le mode sonnerie
+          // Android : vérifier uniquement le volume des notifications (pas le mode sonnerie)
           try {
-            const ringerModeResult = await VolumeManager.getRingerMode();
-            if (mounted) {
-              setRingerMode(ringerModeResult);
+            const readNotificationVolume = async (): Promise<number | undefined> => {
+              // API officielle : getVolume() renvoie un map avec notification/ring/etc.
+              const res = await VolumeManager.getVolume();
+              if (res && typeof (res as any).notification === 'number') {
+                return (res as any).notification;
+              }
+              if (typeof res?.volume === 'number') {
+                return res.volume; // fallback musique
+              }
+              return undefined;
+            };
+
+            const mode = await VolumeManager.getRingerMode();
+            if (mounted && typeof mode === 'number') {
+              setRingerMode(mode);
             }
 
-            // Écouter les changements de mode sonnerie (Android)
-            // Note: addRingerModeListener n'est peut-être pas disponible, on peut essayer
-            // Pour l'instant, on vérifie seulement au démarrage
+            const vol = await readNotificationVolume();
+            if (mounted && vol !== undefined) {
+              setNotificationVolume(vol);
+              if (mode === RINGER_MODE.normal && vol === 0 && !dismissedSilentWarning) {
+                setShowSilentWarning(true);
+              } else {
+                setShowSilentWarning(false);
+              }
+            }
+
+            // Écouter les changements de volume des notifications uniquement
+            const volListener = VolumeManager.addVolumeListener((result) => {
+              if (!mounted) return;
+              const isNotif = result?.type === 'notification';
+              const vol = result?.volume;
+              if (isNotif && vol !== undefined) {
+                setNotificationVolume(vol);
+                if (ringerMode === RINGER_MODE.normal && vol === 0 && !dismissedSilentWarning) {
+                  setShowSilentWarning(true);
+                } else if (vol > 0) {
+                  setShowSilentWarning(false);
+                }
+              }
+            });
+            volumeListenerRef.current = volListener;
+
+            // Écouter les changements de ringer mode
+            const ringListener = VolumeManager.addRingerListener((event: any) => {
+              if (!mounted) return;
+              const modeStr = event?.mode;
+              const modeVal =
+                modeStr === 'NORMAL'
+                  ? RINGER_MODE.normal
+                  : modeStr === 'VIBRATE'
+                  ? RINGER_MODE.vibrate
+                  : RINGER_MODE.silent;
+              setRingerMode(modeVal);
+              // Re-évaluer avec le volume courant (relecture pour éviter la valeur stale)
+              VolumeManager.getVolume().then((res) => {
+                const notifVol =
+                  res && typeof (res as any).notification === 'number'
+                    ? (res as any).notification
+                    : typeof res?.volume === 'number'
+                    ? res.volume
+                    : undefined;
+                if (notifVol !== undefined) {
+                  setNotificationVolume(notifVol);
+                  if (modeVal === RINGER_MODE.normal && notifVol === 0 && !dismissedSilentWarning) {
+                    setShowSilentWarning(true);
+                  } else {
+                    setShowSilentWarning(false);
+                  }
+                }
+              });
+            });
+            ringerListenerRef.current = ringListener;
           } catch (e) {
             // En cas d'erreur, ne pas afficher la bannière
             if (mounted) {
@@ -782,31 +852,45 @@ useEffect(() => {
 
     return () => {
       mounted = false;
-      // Nettoyer les listeners (iOS seulement)
+      // Nettoyer les listeners
       if (volumeListenerRef.current) {
         volumeListenerRef.current.remove();
         volumeListenerRef.current = null;
       }
-      if (silentListenerRef.current) {
-        silentListenerRef.current.remove();
-        silentListenerRef.current = null;
+      if (ringerListenerRef.current) {
+        ringerListenerRef.current.remove();
+        ringerListenerRef.current = null;
       }
     };
   }, []);
 
-  // Détecter si le mode est silencieux basé sur les valeurs récupérées
+  // Détecter si le volume des notifications est à 0 (uniquement), logique simplifiée
   useEffect(() => {
+    let isSilent = false;
+
     if (Platform.OS === 'ios') {
-      // iOS : vérifier le volume à 0 OU le switch silencieux activé
-      const isVolumeZero = volume !== undefined && volume === 0;
-      const isSilent = isVolumeZero || isSilentSwitchOn === true;
-      setShowSilentWarning(isSilent);
-    } else if (Platform.OS === 'android') {
-      // Android : vérifier le mode sonnerie (silent ou vibrate = silencieux)
-      const isSilent = ringerMode === RINGER_MODE.silent || ringerMode === RINGER_MODE.vibrate;
-      setShowSilentWarning(isSilent);
+      if (volume !== undefined) {
+        isSilent = volume === 0;
+      } else {
+        return; // attendre la première valeur
+      }
+    } else {
+      if (notificationVolume !== undefined) {
+        isSilent = notificationVolume === 0;
+      } else {
+        return; // attendre la première valeur
+      }
     }
-  }, [volume, isSilentSwitchOn, ringerMode]);
+
+    // Android : ne pas afficher si le ringer n'est pas en mode normal
+    const androidCanShow =
+      Platform.OS === 'android'
+        ? ringerMode === RINGER_MODE.normal && isSilent
+        : isSilent;
+
+    // Afficher seulement si non dismissé dans la session courante
+    setShowSilentWarning(androidCanShow && !dismissedSilentWarning);
+  }, [volume, notificationVolume, dismissedSilentWarning, ringerMode]);
 
   // Note: Les notifications sont gérées par setupRealtimeSubscription et loadData
   // qui rechargent last_interaction_at depuis Supabase pour mettre à jour le tri
@@ -953,7 +1037,7 @@ useEffect(() => {
               if (error) {
                 console.error('❌ Erreur sync contacts:', error);
               } else if (matchedFriends) {
-                phoneFriendsIds = matchedFriends.map(u => u.id);
+                phoneFriendsIds = matchedFriends.map((u: { id: string }) => u.id);
                 contactsSyncedRef.current = true; // Marquer comme synchronisé
               }
             } else {
@@ -1571,9 +1655,9 @@ useEffect(() => {
           requester_id: currentUserId,
           friend_id: friend.id,
           status: 'pending',
+          updated_at: new Date().toISOString(),
         }, {
           onConflict: 'requester_id,friend_id',
-          updated_at: new Date().toISOString(),
         });
 
       if (friend.expo_push_token) {
@@ -1883,13 +1967,25 @@ useEffect(() => {
 
   const renderRequestsHeader = () => {
     const hasRequests = pendingRequests.length > 0 || identityRequests.length > 0;
-    if (!hasRequests && !showSilentWarning) return null;
+    const shouldShowSilentWarning = showSilentWarning && !dismissedSilentWarning;
+    if (!hasRequests && !shouldShowSilentWarning) return null;
     return (
       <View style={styles.requestsContainer}>
-        {showSilentWarning && (
-          <TouchableOpacity style={styles.silentWarning} onPress={openNotificationSettings}>
-            <Text style={styles.silentWarningText}>Vérifiez vos réglages son !</Text>
-          </TouchableOpacity>
+        {shouldShowSilentWarning && (
+          <View style={styles.silentWarning}>
+            <Text style={styles.silentWarningText}>Vos notifications sont silencieuses !</Text>
+            <View style={styles.silentWarningActions}>
+              <TouchableOpacity style={styles.silentWarningButton} onPress={openNotificationSettings}>
+                <Text style={styles.silentWarningButtonText}>Réglages</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.silentWarningButtonOk} onPress={() => {
+                dismissedSilentWarningSession = true; // bloquer pour toute la session
+                setDismissedSilentWarning(true);
+              }}>
+                <Text style={styles.silentWarningButtonText}>OK</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         )}
         {pendingRequests.length > 0 && (
           <>
@@ -2109,7 +2205,11 @@ const styles = StyleSheet.create({
   unreadContainer: { backgroundColor: 'rgba(255,255,255,0.95)', marginTop: 0, marginBottom: 0, padding: 10, borderRadius: 12, borderWidth: 1, borderColor: '#d9e6e3' },
   unreadItemText: { color: '#604a3e', fontSize: 14, marginBottom: 4 },
   silentWarning: { backgroundColor: 'rgba(255,255,255,0.9)', padding: 12, borderRadius: 10, marginBottom: 8 },
-  silentWarningText: { fontSize: 16, fontWeight: 'bold', color: '#333' },
+  silentWarningText: { fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 8 },
+  silentWarningActions: { flexDirection: 'row', gap: 10, justifyContent: 'flex-end' },
+  silentWarningButton: { backgroundColor: '#ebb89b', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
+  silentWarningButtonOk: { backgroundColor: '#4CAF50', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
+  silentWarningButtonText: { color: 'white', fontWeight: 'bold', fontSize: 14 },
   swipeableRow: {
     position: 'relative',
     borderRadius: 15,
