@@ -67,7 +67,7 @@ const PROUT_NAMES: Record<string, string> = {
   prout3: "Le Rebond du Tonnerre",
   prout4: "Le Faux Départ",
   prout5: "Le Frelon Trébuchant",
-  prout6: "Le Kraken",
+  prout6: "Le Kraken Douillet",
   prout7: "La Farandole",
   prout8: "Le Question Réponse",
   prout9: "Le Oulala… Problème",
@@ -75,13 +75,13 @@ const PROUT_NAMES: Record<string, string> = {
   prout11: "La Mitraille Molle",
   prout12: "La Rafale Infernale",
   prout13: "Le Lâché Prise",
-  prout14: "Le Basson",
+  prout14: "Le Basson Dubitatif",
   prout15: "La Fantaisie de Minuit",
   prout16: "Le Marmiton Furieux",
   prout17: "L'Éclair Fromager",
   prout18: "L'Impromptu",
-  prout19: "La Grosse Bertha",
-  prout20: "L'Éternel",
+  prout19: "Le Tuba Chaotique",
+  prout20: "L'Eternel",
 };
 
 const SOUND_KEYS = Object.keys(PROUT_SOUNDS);
