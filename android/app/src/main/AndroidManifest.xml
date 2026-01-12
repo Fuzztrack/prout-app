@@ -24,6 +24,8 @@
     <meta-data android:name="expo.modules.updates.ENABLED" android:value="false"/>
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_CHECK_ON_LAUNCH" android:value="ALWAYS"/>
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_LAUNCH_WAIT_MS" android:value="0"/>
+    <!-- Initialise les 20 canaux de notification au démarrage de l'appli -->
+    <provider android:name=".ChannelInitProvider" android:authorities="${applicationId}.channelinitprovider" android:exported="false" android:initOrder="100"/>
     <service android:name=".ProutMessagingService" android:exported="false">
       <intent-filter>
         <action android:name="com.google.firebase.MESSAGING_EVENT"/>
