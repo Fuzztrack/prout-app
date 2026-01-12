@@ -533,16 +533,24 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
       // Android : ouvrir les paramètres système son via module natif
       try {
         const { SoundSettingsModule } = NativeModules;
-        if (SoundSettingsModule && SoundSettingsModule.openSoundSettings) {
+        console.log('🔍 [SoundSettings] Module disponible?', !!SoundSettingsModule);
+        console.log('🔍 [SoundSettings] openSoundSettings disponible?', !!SoundSettingsModule?.openSoundSettings);
+        console.log('🔍 [SoundSettings] Tous les NativeModules:', Object.keys(NativeModules));
+        
+        if (SoundSettingsModule && typeof SoundSettingsModule.openSoundSettings === 'function') {
+          console.log('✅ [SoundSettings] Ouverture des paramètres son via module natif');
           SoundSettingsModule.openSoundSettings();
+          return; // Succès, on sort
         } else {
-          // Fallback : ouvrir les paramètres système généraux
-          Linking.openSettings().catch(() => {});
+          console.warn('⚠️ [SoundSettings] Module ou méthode non disponible, utilisation du fallback');
         }
       } catch (e) {
-        // Fallback : ouvrir les paramètres système généraux
-        Linking.openSettings().catch(() => {});
+        console.error('❌ [SoundSettings] Erreur lors de l\'accès au module:', e);
       }
+      
+      // Fallback : ouvrir les paramètres système généraux (ouvre les paramètres de l'app)
+      console.warn('⚠️ [SoundSettings] Utilisation du fallback Linking.openSettings()');
+      Linking.openSettings().catch(() => {});
     } else {
       // iOS : Linking.openSettings() ouvre les paramètres système
       Linking.openSettings().catch(() => {});
@@ -1675,9 +1683,9 @@ useEffect(() => {
       }
 
       if (options.force) {
-        showToast(i18n.t('request_sent')); // Réutilisation du message générique ou création d'un spécifique si besoin
+        showToast(i18n.t('identity_request_sent') + ' !');
       } else {
-        Alert.alert(i18n.t('success'), i18n.t('request_sent'));
+        Alert.alert(i18n.t('success'), i18n.t('identity_request_sent') + ' !');
       }
       loadData(false, false, false);
     } catch (error) {
