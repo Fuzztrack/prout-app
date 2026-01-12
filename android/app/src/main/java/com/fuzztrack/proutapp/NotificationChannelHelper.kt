@@ -22,7 +22,8 @@ object NotificationChannelHelper {
 
         for (i in 1..20) {
             val proutKey = "prout$i"
-            val channelId = "prout-$proutKey-v3" // Format correct : prout-prout1-v3
+            // v4 pour forcer la recréation des canaux avec le son correct
+            val channelId = "prout-$proutKey-v4"
             
             // Vérifier si le canal existe déjà
             val existingChannel = notificationManager.getNotificationChannel(channelId)

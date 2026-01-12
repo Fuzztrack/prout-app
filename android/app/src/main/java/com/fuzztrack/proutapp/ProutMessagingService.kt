@@ -19,7 +19,8 @@ class ProutMessagingService : FirebaseMessagingService() {
     companion object {
         private const val TAG = "ProutMessagingService"
         private const val CHANNEL_PREFIX = "prout-"
-        private const val CHANNEL_VERSION = "v3"
+        // Bump version to v4 to forcer la recréation des canaux avec son correct
+        private const val CHANNEL_VERSION = "v4"
         private const val DEFAULT_CHANNEL_ID = "prout-default"
     }
 
