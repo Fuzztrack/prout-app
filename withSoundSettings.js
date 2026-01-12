@@ -24,36 +24,57 @@ const withSoundSettings = (config) => {
         fs.mkdirSync(targetDir, { recursive: true });
       }
 
-      // Chemins des fichiers sources (dans le repo Git, à la racine du projet)
-      const sourceRoot = config.modRequest.projectRoot;
-      const sourceModulePath = path.join(
-        sourceRoot,
-        'android/app/src/main/java/com/fuzztrack/proutapp/SoundSettingsModule.kt'
-      );
-      const sourcePackagePath = path.join(
-        sourceRoot,
-        'android/app/src/main/java/com/fuzztrack/proutapp/SoundSettingsPackage.kt'
-      );
+      // Créer les fichiers directement dans le plugin (plus fiable que copier depuis le repo)
+      const soundSettingsModuleContent = `package com.fuzztrack.proutapp
 
-      // Copier SoundSettingsModule.kt
-      if (fs.existsSync(sourceModulePath)) {
-        const targetModulePath = path.join(targetDir, 'SoundSettingsModule.kt');
-        fs.copyFileSync(sourceModulePath, targetModulePath);
-        console.log('✅ SoundSettingsModule.kt copié dans le build');
-      } else {
-        console.warn('⚠️  SoundSettingsModule.kt source non trouvé:', sourceModulePath);
-        console.warn('   Vérifiez que le fichier existe dans le repo Git');
-      }
+import android.content.Intent
+import android.provider.Settings
+import com.facebook.react.bridge.ReactApplicationContext
+import com.facebook.react.bridge.ReactContextBaseJavaModule
+import com.facebook.react.bridge.ReactMethod
 
-      // Copier SoundSettingsPackage.kt
-      if (fs.existsSync(sourcePackagePath)) {
-        const targetPackagePath = path.join(targetDir, 'SoundSettingsPackage.kt');
-        fs.copyFileSync(sourcePackagePath, targetPackagePath);
-        console.log('✅ SoundSettingsPackage.kt copié dans le build');
-      } else {
-        console.warn('⚠️  SoundSettingsPackage.kt source non trouvé:', sourcePackagePath);
-        console.warn('   Vérifiez que le fichier existe dans le repo Git');
-      }
+class SoundSettingsModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
+
+    override fun getName(): String {
+        return "SoundSettingsModule"
+    }
+
+    @ReactMethod
+    fun openSoundSettings() {
+        val intent = Intent(Settings.ACTION_SOUND_SETTINGS)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        reactApplicationContext.startActivity(intent)
+    }
+}
+`;
+
+      const soundSettingsPackageContent = `package com.fuzztrack.proutapp
+
+import com.facebook.react.ReactPackage
+import com.facebook.react.bridge.NativeModule
+import com.facebook.react.bridge.ReactApplicationContext
+import com.facebook.react.uimanager.ViewManager
+
+class SoundSettingsPackage : ReactPackage {
+    override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> {
+        return listOf(SoundSettingsModule(reactContext))
+    }
+
+    override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> {
+        return emptyList()
+    }
+}
+`;
+
+      // Écrire SoundSettingsModule.kt
+      const targetModulePath = path.join(targetDir, 'SoundSettingsModule.kt');
+      fs.writeFileSync(targetModulePath, soundSettingsModuleContent, 'utf8');
+      console.log('✅ SoundSettingsModule.kt créé dans le build');
+
+      // Écrire SoundSettingsPackage.kt
+      const targetPackagePath = path.join(targetDir, 'SoundSettingsPackage.kt');
+      fs.writeFileSync(targetPackagePath, soundSettingsPackageContent, 'utf8');
+      console.log('✅ SoundSettingsPackage.kt créé dans le build');
 
       // Maintenant modifier MainApplication.kt APRÈS avoir copié les fichiers
       const mainApplicationPath = path.join(
