@@ -7,7 +7,8 @@ const path = require('path');
  * Ce plugin copie les fichiers Kotlin dans le dossier android généré par prebuild
  */
 const withSoundSettings = (config) => {
-  // Étape 1 : Copier les fichiers Kotlin dans le dossier android généré
+  // Étape 1 : Copier les fichiers Kotlin AVANT de modifier MainApplication
+  // Utiliser withDangerousMod pour copier les fichiers
   config = withDangerousMod(config, [
     'android',
     async (config) => {
@@ -22,7 +23,7 @@ const withSoundSettings = (config) => {
         fs.mkdirSync(targetDir, { recursive: true });
       }
 
-      // Chemins des fichiers sources (dans le repo Git)
+      // Chemins des fichiers sources (dans le repo Git, à la racine du projet)
       const sourceRoot = config.modRequest.projectRoot;
       const sourceModulePath = path.join(
         sourceRoot,
@@ -40,6 +41,7 @@ const withSoundSettings = (config) => {
         console.log('✅ SoundSettingsModule.kt copié dans le build');
       } else {
         console.warn('⚠️  SoundSettingsModule.kt source non trouvé:', sourceModulePath);
+        console.warn('   Vérifiez que le fichier existe dans le repo Git');
       }
 
       // Copier SoundSettingsPackage.kt
@@ -49,33 +51,35 @@ const withSoundSettings = (config) => {
         console.log('✅ SoundSettingsPackage.kt copié dans le build');
       } else {
         console.warn('⚠️  SoundSettingsPackage.kt source non trouvé:', sourcePackagePath);
+        console.warn('   Vérifiez que le fichier existe dans le repo Git');
       }
 
       return config;
     },
   ]);
 
-  // Étape 2 : S'assurer que MainApplication.kt enregistre le package
+  // Étape 2 : Modifier MainApplication.kt APRÈS avoir copié les fichiers
   config = withMainApplication(config, (config) => {
     const mainApplication = config.modResults.contents;
 
     // Vérifier si SoundSettingsPackage est déjà importé
     if (!mainApplication.includes('import com.fuzztrack.proutapp.SoundSettingsPackage')) {
-      // Ajouter l'import après les autres imports com.fuzztrack.proutapp
-      const importPattern = /(import com\.fuzztrack\.proutapp\.[^\n]+\n)/g;
-      const matches = [...mainApplication.matchAll(importPattern)];
-      if (matches.length > 0) {
-        const lastMatch = matches[matches.length - 1];
-        const insertPos = lastMatch.index + lastMatch[0].length;
+      // Chercher la dernière ligne d'import (généralement après expo.modules)
+      const lastImportMatch = mainApplication.match(/(import expo\.modules[^\n]+\n)/);
+      if (lastImportMatch) {
+        // Ajouter après le dernier import expo.modules
+        const insertPos = lastImportMatch.index + lastImportMatch[0].length;
         config.modResults.contents =
           mainApplication.slice(0, insertPos) +
           'import com.fuzztrack.proutapp.SoundSettingsPackage\n' +
           mainApplication.slice(insertPos);
       } else {
-        // Ajouter après les imports expo.modules
-        const expoImportIndex = mainApplication.indexOf('import expo.modules');
-        if (expoImportIndex !== -1) {
-          const insertPos = mainApplication.indexOf('\n', expoImportIndex) + 1;
+        // Si pas d'import expo.modules, chercher le dernier import en général
+        const allImports = mainApplication.match(/^import [^\n]+\n/gm);
+        if (allImports && allImports.length > 0) {
+          const lastImport = allImports[allImports.length - 1];
+          const lastImportIndex = mainApplication.lastIndexOf(lastImport);
+          const insertPos = lastImportIndex + lastImport.length;
           config.modResults.contents =
             mainApplication.slice(0, insertPos) +
             'import com.fuzztrack.proutapp.SoundSettingsPackage\n' +
