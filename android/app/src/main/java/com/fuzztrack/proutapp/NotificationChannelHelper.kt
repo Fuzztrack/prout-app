@@ -32,10 +32,9 @@ object NotificationChannelHelper {
             }
 
             val channelName = "Prout $proutKey"
-            // Force la résolution via getIdentifier et référence directe pour empêcher le shrink de res/raw
-            val resId = if (i in 1..PR0UT_RAW_RES.size) PR0UT_RAW_RES[i - 1] else 0
-            val resolvedName = if (resId != 0) context.resources.getResourceEntryName(resId) else proutKey
-            val soundUri = android.net.Uri.parse("android.resource://${context.packageName}/raw/$resolvedName")
+            // Utiliser directement l'ID de ressource pour construire l'URI
+            val resId = if (i in 1..PR0UT_RAW_RES.size) PR0UT_RAW_RES[i - 1] else PR0UT_RAW_RES[0]
+            val soundUri = android.net.Uri.parse("android.resource://${context.packageName}/${resId}")
             val audioAttributes = AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_NOTIFICATION)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
@@ -52,6 +51,7 @@ object NotificationChannelHelper {
                 lightColor = 0xFFEBB89B.toInt()
                 setBypassDnd(true)
                 setSound(soundUri, audioAttributes)
+                lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
             }
 
             notificationManager.createNotificationChannel(channel)
