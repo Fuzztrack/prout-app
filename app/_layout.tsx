@@ -165,6 +165,10 @@ export default function RootLayout() {
     });
 
     const notificationListener = Notifications.addNotificationReceivedListener(notification => {
+      // Log simple pour vérifier que le listener est appelé
+      console.log('NOTIFICATION RECEIVED IN JS');
+      console.log('NOTIFICATION DATA:', JSON.stringify(notification.request.content.data));
+      
       const { title, body, data } = notification.request.content;
       console.log('🔔 [FOREGROUND] Notification reçue:', { type: data?.type, proutKey: data?.proutKey, title, body });
       
