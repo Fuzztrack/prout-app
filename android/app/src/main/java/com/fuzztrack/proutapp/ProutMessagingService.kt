@@ -109,18 +109,17 @@ class ProutMessagingService : FirebaseMessagingService() {
 
         val soundUri = resolveSoundUri(proutKey)
         val channelId = ensureChannel(proutKey, soundUri)
+        val silentChannelId = ensureSilentChannel(proutKey) // canal sans son
         Log.d(TAG, "Resolved Sound URI: " + soundUri + " for proutKey: " + proutKey)
         
-        // Si l'app est en foreground, jouer le son directement ET afficher la notification
-        // (sur certains appareils anciens, le son du canal ne joue pas en foreground)
+        // Si l'app est en foreground : jouer son via MediaPlayer + notification silencieuse
         val isForeground = isAppInForeground()
         if (isForeground) {
-            Log.d(TAG, "📱 App en foreground, jouer son directement avec MediaPlayer")
+            Log.d(TAG, "📱 App en foreground, jouer son via MediaPlayer + canal silencieux")
             playSoundDirectly(soundUri)
-            // Afficher notification sans son (pour éviter double lecture)
-            showNotification(channelId, title, body, Uri.EMPTY, proutKey, sender)
+            showNotification(silentChannelId, title, body, Uri.EMPTY, proutKey, sender)
         } else {
-            // En background, laisser le canal jouer le son
+            // Background : canal normal avec son
             Log.d(TAG, "📱 App en background, utiliser son du canal")
             showNotification(channelId, title, body, soundUri, proutKey, sender)
         }
@@ -163,6 +162,36 @@ class ProutMessagingService : FirebaseMessagingService() {
 
         manager.createNotificationChannel(channel)
         Log.d(TAG, "✅ Canal créé: " + channelId + " avec son: " + soundUri)
+        return channelId
+    }
+
+    // Canal silencieux pour éviter double lecture en foreground (Pixel)
+    private fun ensureSilentChannel(proutKeyInput: String): String {
+        val proutKey = proutKeyInput.ifBlank { DEFAULT_CHANNEL_ID }
+        val channelId = CHANNEL_PREFIX + proutKey + "-" + CHANNEL_VERSION + "-silent"
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            return channelId
+        }
+
+        val manager = getSystemService(NotificationManager::class.java)
+        val existing = manager.getNotificationChannel(channelId)
+        if (existing != null) {
+            return channelId
+        }
+
+        val channel = NotificationChannel(
+            channelId,
+            "Prout (silencieux) " + proutKey,
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            description = "Notifications prout silencieuses pour éviter double son"
+            enableVibration(true)
+            vibrationPattern = longArrayOf(0, 250, 250, 250)
+            setSound(null, null) // pas de son
+            lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+        }
+        manager.createNotificationChannel(channel)
+        Log.d(TAG, "✅ Canal silencieux créé: " + channelId)
         return channelId
     }
 
