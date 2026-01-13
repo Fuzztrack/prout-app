@@ -167,14 +167,12 @@ export default function RootLayout() {
     const notificationListener = Notifications.addNotificationReceivedListener(notification => {
       const { title, body, data } = notification.request.content;
       
-      // Debug temporaire : afficher les données reçues
-      if (__DEV__ && data?.type === 'prout') {
-        Alert.alert(
-          'DEBUG Notification',
-          `Type: ${data?.type}\nProutKey: ${data?.proutKey || 'MANQUANT'}\nPlatform: ${Platform.OS}`,
-          [{ text: 'OK' }]
-        );
-      }
+      // Debug temporaire : afficher les données reçues (toujours, pas seulement en dev)
+      Alert.alert(
+        'DEBUG Notification Listener',
+        `Type: ${data?.type || 'UNDEFINED'}\nProutKey: ${data?.proutKey || 'MANQUANT'}\nPlatform: ${Platform.OS}\nTitle: ${title || 'UNDEFINED'}`,
+        [{ text: 'OK' }]
+      );
       
       console.log('🔔 [FOREGROUND] Notification reçue:', { type: data?.type, proutKey: data?.proutKey, title, body });
       
@@ -185,15 +183,11 @@ export default function RootLayout() {
           console.log('🔊 [FOREGROUND] Tentative de lecture son local pour:', data.proutKey);
           playProutSoundLocally(data.proutKey).catch(err => {
             console.error('❌ [FOREGROUND] Erreur lecture son:', err);
-            if (__DEV__) {
-              Alert.alert('Erreur son', String(err));
-            }
+            Alert.alert('Erreur son', String(err));
           });
         } else {
           console.warn('⚠️ [FOREGROUND] Pas de proutKey ou pas Android:', { proutKey: data?.proutKey, platform: Platform.OS });
-          if (__DEV__) {
-            Alert.alert('Debug', `Pas de proutKey: ${!data?.proutKey}, Platform: ${Platform.OS}`);
-          }
+          Alert.alert('Debug Son', `Pas de proutKey: ${!data?.proutKey}, Platform: ${Platform.OS}`);
         }
       } else if (data?.type === 'identity_response') {
         showToast('Identité révélée', body || 'Ton ami a partagé son identité.');
