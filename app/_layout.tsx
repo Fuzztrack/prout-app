@@ -88,12 +88,17 @@ async function playProutSoundLocally(proutKey: string) {
 
 // 🔔 CONFIGURATION GLOBALE
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
+  handleNotification: async (notification) => {
+    // Log pour voir si le handler est appelé
+    console.log('🔔 [HANDLER] Notification handler appelé:', notification.request.content.data);
+    
+    return {
+      shouldPlaySound: false, // Désactiver le son système, on le joue manuellement
+      shouldSetBadge: false,
+      shouldShowBanner: false, // Désactiver le banner système, on affiche notre toast
+      shouldShowList: true,
+    };
+  },
 });
 
 class AppErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
