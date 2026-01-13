@@ -198,9 +198,9 @@ export default function RootLayout() {
         console.log('🔔 [FOREGROUND] Notification reçue:', { type: data?.type, proutKey: data?.proutKey, title, body });
         
         if (data?.type === 'prout') {
-          // Afficher les données de debug dans le toast
-          const debugInfo = `ProutKey: ${data?.proutKey || 'MANQUANT'}`;
-          showToast(title || 'Prout !', debugInfo);
+          // Afficher les données de debug dans le toast (forcer l'affichage)
+          const debugInfo = `DEBUG - ProutKey: ${data?.proutKey || 'MANQUANT'} - Type: ${data?.type || 'UNDEF'}`;
+          showToast('🔔 NOTIFICATION REÇUE', debugInfo);
           
           // Jouer le son localement en foreground (Android ne joue pas toujours le son du canal)
           if (Platform.OS === 'android') {
