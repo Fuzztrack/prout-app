@@ -179,15 +179,16 @@ export default function RootLayout() {
       if (data?.type === 'prout') {
         showToast(title || 'Prout !', body || '');
         // Jouer le son localement en foreground (Android ne joue pas toujours le son du canal)
-        if (data?.proutKey && Platform.OS === 'android') {
-          console.log('🔊 [FOREGROUND] Tentative de lecture son local pour:', data.proutKey);
-          playProutSoundLocally(data.proutKey).catch(err => {
+        if (Platform.OS === 'android') {
+          const proutKeyToPlay = data?.proutKey || 'prout1'; // Fallback sur prout1 si manquant
+          console.log('🔊 [FOREGROUND] Tentative de lecture son local pour:', proutKeyToPlay);
+          // Appel direct pour tester
+          playProutSoundLocally(proutKeyToPlay).then(() => {
+            console.log('✅ Son joué avec succès');
+          }).catch(err => {
             console.error('❌ [FOREGROUND] Erreur lecture son:', err);
             Alert.alert('Erreur son', String(err));
           });
-        } else {
-          console.warn('⚠️ [FOREGROUND] Pas de proutKey ou pas Android:', { proutKey: data?.proutKey, platform: Platform.OS });
-          Alert.alert('Debug Son', `Pas de proutKey: ${!data?.proutKey}, Platform: ${Platform.OS}`);
         }
       } else if (data?.type === 'identity_response') {
         showToast('Identité révélée', body || 'Ton ami a partagé son identité.');
