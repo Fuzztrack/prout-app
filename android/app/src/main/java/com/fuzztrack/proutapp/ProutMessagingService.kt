@@ -1,10 +1,13 @@
 package com.fuzztrack.proutapp
 
+import android.app.ActivityManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
+import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Build
 import android.util.Log
@@ -15,6 +18,37 @@ import com.google.firebase.messaging.RemoteMessage
 import org.json.JSONObject
 
 class ProutMessagingService : FirebaseMessagingService() {
+    
+    private fun isAppInForeground(): Boolean {
+        val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val appProcesses = activityManager.runningAppProcesses ?: return false
+        val packageName = packageName
+        for (appProcess in appProcesses) {
+            if (appProcess.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
+                && appProcess.processName == packageName
+            ) {
+                return true
+            }
+        }
+        return false
+    }
+    
+    private fun playSoundDirectly(soundUri: Uri) {
+        try {
+            val mediaPlayer = MediaPlayer.create(this, soundUri)
+            if (mediaPlayer != null) {
+                mediaPlayer.setOnCompletionListener { mp ->
+                    mp.release()
+                }
+                mediaPlayer.start()
+                Log.d(TAG, "✅ Son joué directement avec MediaPlayer")
+            } else {
+                Log.e(TAG, "❌ MediaPlayer.create retourne null")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Erreur lecture son directe:", e)
+        }
+    }
 
     companion object {
         private const val TAG = "ProutMessagingService"
@@ -76,6 +110,14 @@ class ProutMessagingService : FirebaseMessagingService() {
         val soundUri = resolveSoundUri(proutKey)
         val channelId = ensureChannel(proutKey, soundUri)
         Log.d(TAG, "Resolved Sound URI: " + soundUri + " for proutKey: " + proutKey)
+        
+        // Si l'app est en foreground, jouer le son directement ET afficher la notification
+        // (sur certains appareils anciens, le son du canal ne joue pas en foreground)
+        if (isAppInForeground()) {
+            Log.d(TAG, "📱 App en foreground, jouer son directement")
+            playSoundDirectly(soundUri)
+        }
+        
         showNotification(channelId, title, body, soundUri, proutKey, sender)
     }
 
