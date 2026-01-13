@@ -187,33 +187,45 @@ export default function RootLayout() {
     });
 
     const notificationListener = Notifications.addNotificationReceivedListener(notification => {
-      const { title, body, data } = notification.request.content;
-      
-      // Debug temporaire : afficher les données reçues (toujours, pas seulement en dev)
-      Alert.alert(
-        'DEBUG Notification Listener',
-        `Type: ${data?.type || 'UNDEFINED'}\nProutKey: ${data?.proutKey || 'MANQUANT'}\nPlatform: ${Platform.OS}\nTitle: ${title || 'UNDEFINED'}`,
-        [{ text: 'OK' }]
-      );
-      
-      console.log('🔔 [FOREGROUND] Notification reçue:', { type: data?.type, proutKey: data?.proutKey, title, body });
-      
-      if (data?.type === 'prout') {
-        showToast(title || 'Prout !', body || '');
-        // Jouer le son localement en foreground (Android ne joue pas toujours le son du canal)
-        if (Platform.OS === 'android') {
-          const proutKeyToPlay = data?.proutKey || 'prout1'; // Fallback sur prout1 si manquant
-          console.log('🔊 [FOREGROUND] Tentative de lecture son local pour:', proutKeyToPlay);
-          // Appel direct pour tester
-          playProutSoundLocally(proutKeyToPlay).then(() => {
-            console.log('✅ Son joué avec succès');
-          }).catch(err => {
-            console.error('❌ [FOREGROUND] Erreur lecture son:', err);
-            Alert.alert('Erreur son', String(err));
-          });
+      try {
+        const { title, body, data } = notification.request.content;
+        
+        // Test simple : Alert au tout début
+        setTimeout(() => {
+          Alert.alert('TEST', 'Listener appelé !');
+        }, 100);
+        
+        console.log('🔔 [FOREGROUND] Notification reçue:', { type: data?.type, proutKey: data?.proutKey, title, body });
+        
+        if (data?.type === 'prout') {
+          showToast(title || 'Prout !', body || '');
+          
+          // Alert pour voir les données
+          setTimeout(() => {
+            Alert.alert(
+              'DEBUG Notification',
+              `Type: ${data?.type || 'UNDEFINED'}\nProutKey: ${data?.proutKey || 'MANQUANT'}\nPlatform: ${Platform.OS}`
+            );
+          }, 500);
+          
+          // Jouer le son localement en foreground (Android ne joue pas toujours le son du canal)
+          if (Platform.OS === 'android') {
+            const proutKeyToPlay = data?.proutKey || 'prout1'; // Fallback sur prout1 si manquant
+            console.log('🔊 [FOREGROUND] Tentative de lecture son local pour:', proutKeyToPlay);
+            // Appel direct pour tester
+            playProutSoundLocally(proutKeyToPlay).then(() => {
+              console.log('✅ Son joué avec succès');
+            }).catch(err => {
+              console.error('❌ [FOREGROUND] Erreur lecture son:', err);
+              Alert.alert('Erreur son', String(err));
+            });
+          }
+        } else if (data?.type === 'identity_response') {
+          showToast('Identité révélée', body || 'Ton ami a partagé son identité.');
         }
-      } else if (data?.type === 'identity_response') {
-        showToast('Identité révélée', body || 'Ton ami a partagé son identité.');
+      } catch (error: any) {
+        Alert.alert('Erreur listener', String(error));
+        console.error('❌ Erreur dans notificationListener:', error);
       }
     });
 
