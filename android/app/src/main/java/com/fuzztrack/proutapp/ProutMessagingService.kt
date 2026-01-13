@@ -113,12 +113,17 @@ class ProutMessagingService : FirebaseMessagingService() {
         
         // Si l'app est en foreground, jouer le son directement ET afficher la notification
         // (sur certains appareils anciens, le son du canal ne joue pas en foreground)
-        if (isAppInForeground()) {
-            Log.d(TAG, "📱 App en foreground, jouer son directement")
+        val isForeground = isAppInForeground()
+        if (isForeground) {
+            Log.d(TAG, "📱 App en foreground, jouer son directement avec MediaPlayer")
             playSoundDirectly(soundUri)
+            // Afficher notification sans son (pour éviter double lecture)
+            showNotification(channelId, title, body, Uri.EMPTY, proutKey, sender)
+        } else {
+            // En background, laisser le canal jouer le son
+            Log.d(TAG, "📱 App en background, utiliser son du canal")
+            showNotification(channelId, title, body, soundUri, proutKey, sender)
         }
-        
-        showNotification(channelId, title, body, soundUri, proutKey, sender)
     }
 
     private fun resolveSoundUri(proutKey: String): Uri {
