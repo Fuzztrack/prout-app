@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Audio } from 'expo-av';
 import * as Linking from 'expo-linking';
 import * as Notifications from 'expo-notifications';
 import { Stack, useRouter } from 'expo-router';
@@ -12,6 +13,48 @@ import { ensureAndroidNotificationChannel } from '../lib/notifications';
 import { supabase } from '../lib/supabase';
 
 import i18n from '../lib/i18n';
+
+// Mapping des sons prout (doit correspondre à FriendsList.tsx)
+const PROUT_SOUNDS: { [key: string]: any } = {
+  prout1: require('../assets/sounds/prout1.wav'),
+  prout2: require('../assets/sounds/prout2.wav'),
+  prout3: require('../assets/sounds/prout3.wav'),
+  prout4: require('../assets/sounds/prout4.wav'),
+  prout5: require('../assets/sounds/prout5.wav'),
+  prout6: require('../assets/sounds/prout6.wav'),
+  prout7: require('../assets/sounds/prout7.wav'),
+  prout8: require('../assets/sounds/prout8.wav'),
+  prout9: require('../assets/sounds/prout9.wav'),
+  prout10: require('../assets/sounds/prout10.wav'),
+  prout11: require('../assets/sounds/prout11.wav'),
+  prout12: require('../assets/sounds/prout12.wav'),
+  prout13: require('../assets/sounds/prout13.wav'),
+  prout14: require('../assets/sounds/prout14.wav'),
+  prout15: require('../assets/sounds/prout15.wav'),
+  prout16: require('../assets/sounds/prout16.wav'),
+  prout17: require('../assets/sounds/prout17.wav'),
+  prout18: require('../assets/sounds/prout18.wav'),
+  prout19: require('../assets/sounds/prout19.wav'),
+  prout20: require('../assets/sounds/prout20.wav'),
+};
+
+// Fonction pour jouer le son prout localement (foreground)
+async function playProutSoundLocally(proutKey: string) {
+  try {
+    const soundFile = PROUT_SOUNDS[proutKey] || PROUT_SOUNDS.prout1;
+    const { sound } = await Audio.Sound.createAsync(soundFile);
+    await sound.playAsync();
+    
+    // Libérer la ressource après lecture
+    sound.setOnPlaybackStatusUpdate((status) => {
+      if (status.isLoaded && status.didJustFinish) {
+        sound.unloadAsync().catch(() => {});
+      }
+    });
+  } catch (error) {
+    console.error('❌ Erreur lecture son prout en foreground:', error);
+  }
+}
 
 // 🔔 CONFIGURATION GLOBALE
 Notifications.setNotificationHandler({
@@ -117,6 +160,12 @@ export default function RootLayout() {
       const { title, body, data } = notification.request.content;
       if (data?.type === 'prout') {
         showToast(title || 'Prout !', body || '');
+        // Jouer le son localement en foreground (Android ne joue pas toujours le son du canal)
+        if (data?.proutKey && Platform.OS === 'android') {
+          playProutSoundLocally(data.proutKey).catch(err => {
+            console.warn('⚠️ Impossible de jouer le son en foreground:', err);
+          });
+        }
       } else if (data?.type === 'identity_response') {
         showToast('Identité révélée', body || 'Ton ami a partagé son identité.');
       }
