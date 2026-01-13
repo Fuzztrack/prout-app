@@ -41,9 +41,17 @@ const PROUT_SOUNDS: { [key: string]: any } = {
 // Fonction pour jouer le son prout localement (foreground)
 async function playProutSoundLocally(proutKey: string) {
   try {
+    console.log('🔊 [playProutSoundLocally] Début pour:', proutKey);
     const soundFile = PROUT_SOUNDS[proutKey] || PROUT_SOUNDS.prout1;
+    if (!soundFile) {
+      console.error('❌ [playProutSoundLocally] Fichier son non trouvé pour:', proutKey);
+      return;
+    }
+    console.log('🔊 [playProutSoundLocally] Création Sound pour:', proutKey);
     const { sound } = await Audio.Sound.createAsync(soundFile);
+    console.log('🔊 [playProutSoundLocally] Lecture du son...');
     await sound.playAsync();
+    console.log('✅ [playProutSoundLocally] Son joué avec succès');
     
     // Libérer la ressource après lecture
     sound.setOnPlaybackStatusUpdate((status) => {
@@ -52,7 +60,7 @@ async function playProutSoundLocally(proutKey: string) {
       }
     });
   } catch (error) {
-    console.error('❌ Erreur lecture son prout en foreground:', error);
+    console.error('❌ [playProutSoundLocally] Erreur lecture son prout en foreground:', error);
   }
 }
 
@@ -158,13 +166,18 @@ export default function RootLayout() {
 
     const notificationListener = Notifications.addNotificationReceivedListener(notification => {
       const { title, body, data } = notification.request.content;
+      console.log('🔔 [FOREGROUND] Notification reçue:', { type: data?.type, proutKey: data?.proutKey, title, body });
+      
       if (data?.type === 'prout') {
         showToast(title || 'Prout !', body || '');
         // Jouer le son localement en foreground (Android ne joue pas toujours le son du canal)
         if (data?.proutKey && Platform.OS === 'android') {
+          console.log('🔊 [FOREGROUND] Tentative de lecture son local pour:', data.proutKey);
           playProutSoundLocally(data.proutKey).catch(err => {
-            console.warn('⚠️ Impossible de jouer le son en foreground:', err);
+            console.error('❌ [FOREGROUND] Erreur lecture son:', err);
           });
+        } else {
+          console.warn('⚠️ [FOREGROUND] Pas de proutKey ou pas Android:', { proutKey: data?.proutKey, platform: Platform.OS });
         }
       } else if (data?.type === 'identity_response') {
         showToast('Identité révélée', body || 'Ton ami a partagé son identité.');
