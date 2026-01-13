@@ -41,26 +41,48 @@ const PROUT_SOUNDS: { [key: string]: any } = {
 // Fonction pour jouer le son prout localement (foreground)
 async function playProutSoundLocally(proutKey: string) {
   try {
+    // Configurer le mode audio pour les notifications
+    await Audio.setAudioModeAsync({
+      playsInSilentModeIOS: true,
+      staysActiveInBackground: false,
+      shouldDuckAndroid: true,
+      playThroughEarpieceAndroid: false,
+    });
+    
     console.log('🔊 [playProutSoundLocally] Début pour:', proutKey);
     const soundFile = PROUT_SOUNDS[proutKey] || PROUT_SOUNDS.prout1;
     if (!soundFile) {
-      console.error('❌ [playProutSoundLocally] Fichier son non trouvé pour:', proutKey);
+      const errorMsg = `Fichier son non trouvé pour: ${proutKey}`;
+      console.error('❌ [playProutSoundLocally]', errorMsg);
+      Alert.alert('Erreur', errorMsg);
       return;
     }
     console.log('🔊 [playProutSoundLocally] Création Sound pour:', proutKey);
-    const { sound } = await Audio.Sound.createAsync(soundFile);
-    console.log('🔊 [playProutSoundLocally] Lecture du son...');
-    await sound.playAsync();
-    console.log('✅ [playProutSoundLocally] Son joué avec succès');
+    const { sound } = await Audio.Sound.createAsync(soundFile, {
+      shouldPlay: false,
+      volume: 1.0,
+    });
+    console.log('🔊 [playProutSoundLocally] Sound créé, lecture...');
     
     // Libérer la ressource après lecture
     sound.setOnPlaybackStatusUpdate((status) => {
-      if (status.isLoaded && status.didJustFinish) {
-        sound.unloadAsync().catch(() => {});
+      if (status.isLoaded) {
+        if (status.didJustFinish) {
+          console.log('✅ [playProutSoundLocally] Son terminé');
+          sound.unloadAsync().catch(() => {});
+        } else if (status.error) {
+          console.error('❌ [playProutSoundLocally] Erreur playback:', status.error);
+          Alert.alert('Erreur playback', status.error);
+        }
       }
     });
-  } catch (error) {
-    console.error('❌ [playProutSoundLocally] Erreur lecture son prout en foreground:', error);
+    
+    await sound.playAsync();
+    console.log('✅ [playProutSoundLocally] playAsync() appelé avec succès');
+  } catch (error: any) {
+    const errorMsg = `Erreur lecture son: ${error?.message || error}`;
+    console.error('❌ [playProutSoundLocally]', errorMsg);
+    Alert.alert('Erreur son', errorMsg);
   }
 }
 
