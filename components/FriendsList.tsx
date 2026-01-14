@@ -515,6 +515,9 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
   const [lastSentMessages, setLastSentMessages] = useState<Record<string, { text: string; ts: string }>>({});
   const [showSilentWarning, setShowSilentWarning] = useState(false);
   const [dismissedSilentWarning, setDismissedSilentWarning] = useState(dismissedSilentWarningSession); // reste à true pour toute la session après clic OK
+  // Flag pour détecter les téléphones sans volume dédié (Huawei P9) - utiliser une ref pour accès dans les listeners
+  const [hasNoDedicatedVolume, setHasNoDedicatedVolume] = useState(false);
+  const hasNoDedicatedVolumeRef = useRef(false);
   const [expandedFriendId, setExpandedFriendId] = useState<string | null>(null);
   const [expandedUnreadId, setExpandedUnreadId] = useState<string | null>(null);
   const [unreadCache, setUnreadCache] = useState<Record<string, { id: string; message_content: string }[]>>({});
@@ -525,6 +528,7 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
   const [volume, setVolume] = useState<number | undefined>(undefined);
   const [ringerMode, setRingerMode] = useState<number | undefined>(undefined); // Android : mode sonore
   const [notificationVolume, setNotificationVolume] = useState<number | undefined>(undefined); // Volume des notifications (Android)
+  const [ringVolume, setRingVolume] = useState<number | undefined>(undefined); // Volume ring (pour Samsung)
   const volumeListenerRef = useRef<any>(null);
   const ringerListenerRef = useRef<any>(null);
   
@@ -768,14 +772,28 @@ useEffect(() => {
         } else {
           // Android : vérifier uniquement le volume des notifications (pas le mode sonnerie)
           try {
+            // Version qui marchait sur Google Pixel : lire notification directement
             const readNotificationVolume = async (): Promise<number | undefined> => {
-              // API officielle : getVolume() renvoie un map avec notification/ring/etc.
+              // API générale qui retourne un objet avec notification/ring/etc.
               const res = await VolumeManager.getVolume();
+              
+              // Google Pixel : vérifier notification directement
               if (res && typeof (res as any).notification === 'number') {
                 return (res as any).notification;
               }
+              
+              // Fallback si pas de notification spécifique
               if (typeof res?.volume === 'number') {
                 return res.volume; // fallback musique
+              }
+              return undefined;
+            };
+            
+            // Lire aussi le volume ring pour Samsung
+            const readRingVolume = async (): Promise<number | undefined> => {
+              const res = await VolumeManager.getVolume();
+              if (res && typeof (res as any).ring === 'number') {
+                return (res as any).ring;
               }
               return undefined;
             };
@@ -785,28 +803,48 @@ useEffect(() => {
               setRingerMode(mode);
             }
 
-            const vol = await readNotificationVolume();
-            if (mounted && vol !== undefined) {
-              setNotificationVolume(vol);
-              if (mode === RINGER_MODE.normal && vol === 0 && !dismissedSilentWarning) {
-                setShowSilentWarning(true);
-              } else {
+            const notifVol = await readNotificationVolume();
+            const ringVol = await readRingVolume();
+            
+            if (mounted) {
+              // IMPORTANT : Si aucun volume n'est disponible (Huawei P9), ne jamais afficher la bannière
+              if (notifVol === undefined && ringVol === undefined) {
+                // Téléphone sans volume dédié notifications : pas de bannière nécessaire
+                hasNoDedicatedVolumeRef.current = true; // Marquer ce téléphone comme sans volume dédié (ref)
+                setHasNoDedicatedVolume(true); // Marquer ce téléphone comme sans volume dédié (state)
                 setShowSilentWarning(false);
+                setNotificationVolume(undefined); // Marquer explicitement comme undefined
+                setRingVolume(undefined); // Marquer explicitement comme undefined
+              } else {
+                hasNoDedicatedVolumeRef.current = false; // Volumes disponibles (ref)
+                setHasNoDedicatedVolume(false); // Volumes disponibles (state)
+                // Volumes disponibles : mettre à jour les states
+                if (notifVol !== undefined) {
+                  setNotificationVolume(notifVol);
+                }
+                if (ringVol !== undefined) {
+                  setRingVolume(ringVol);
+                }
               }
             }
 
-            // Écouter les changements de volume des notifications uniquement
+            // Écouter les changements de volume des notifications
             const volListener = VolumeManager.addVolumeListener((result) => {
               if (!mounted) return;
+              // Si on a déjà détecté qu'on est sur un téléphone sans volume dédié, ignorer les updates
+              // (pour éviter les mises à jour intempestives qui pourraient déclencher la bannière)
+              if (hasNoDedicatedVolumeRef.current) {
+                return;
+              }
               const isNotif = result?.type === 'notification';
+              const isRing = result?.type === 'ring';
               const vol = result?.volume;
+              
               if (isNotif && vol !== undefined) {
                 setNotificationVolume(vol);
-                if (ringerMode === RINGER_MODE.normal && vol === 0 && !dismissedSilentWarning) {
-                  setShowSilentWarning(true);
-                } else if (vol > 0) {
-                  setShowSilentWarning(false);
-                }
+              }
+              if (isRing && vol !== undefined) {
+                setRingVolume(vol);
               }
             });
             volumeListenerRef.current = volListener;
@@ -822,21 +860,16 @@ useEffect(() => {
                   ? RINGER_MODE.vibrate
                   : RINGER_MODE.silent;
               setRingerMode(modeVal);
+              
               // Re-évaluer avec le volume courant (relecture pour éviter la valeur stale)
-              VolumeManager.getVolume().then((res) => {
-                const notifVol =
-                  res && typeof (res as any).notification === 'number'
-                    ? (res as any).notification
-                    : typeof res?.volume === 'number'
-                    ? res.volume
-                    : undefined;
-                if (notifVol !== undefined) {
+              readNotificationVolume().then((notifVol) => {
+                if (mounted && notifVol !== undefined) {
                   setNotificationVolume(notifVol);
-                  if (modeVal === RINGER_MODE.normal && notifVol === 0 && !dismissedSilentWarning) {
-                    setShowSilentWarning(true);
-                  } else {
-                    setShowSilentWarning(false);
-                  }
+                }
+              });
+              readRingVolume().then((ringVol) => {
+                if (mounted && ringVol !== undefined) {
+                  setRingVolume(ringVol);
                 }
               });
             });
@@ -874,6 +907,13 @@ useEffect(() => {
 
   // Détecter si le volume des notifications est à 0 (uniquement), logique simplifiée
   useEffect(() => {
+    // IMPORTANT : Sur Huawei P9 (pas de volume dédié), ne jamais afficher la bannière
+    // Vérifier AVANT toute autre logique (utiliser le flag pour être sûr)
+    if (Platform.OS === 'android' && (hasNoDedicatedVolume || (notificationVolume === undefined && ringVolume === undefined))) {
+      setShowSilentWarning(false);
+      return;
+    }
+    
     let isSilent = false;
 
     if (Platform.OS === 'ios') {
@@ -883,22 +923,64 @@ useEffect(() => {
         return; // attendre la première valeur
       }
     } else {
+      // Android : vérifier notification (version qui marchait sur Google Pixel)
+      // IMPORTANT : Si aucun volume n'est disponible (Huawei P9 sans volume dédié notifications),
+      // ne jamais afficher la bannière car il n'y a pas de volume à vérifier
+      if (notificationVolume === undefined && ringVolume === undefined) {
+        // Téléphone sans volume dédié notifications (ex: Huawei P9)
+        // Pas de bannière nécessaire : soit silencieux (choix utilisateur), soit ça fonctionne
+        setShowSilentWarning(false);
+        return;
+      }
+      
       if (notificationVolume !== undefined) {
+        // Google Pixel : vérifier exactement 0 (comme avant)
         isSilent = notificationVolume === 0;
+        
+        // Samsung : si notification n'est pas à 0 mais ring est à 0, vérifier aussi ring
+        // (Sur Samsung, ring à 0 peut couper les notifs même si notification n'est pas à 0)
+        if (!isSilent && ringVolume !== undefined && ringVolume <= 0.05) {
+          isSilent = true; // Samsung : ring à 0 coupe souvent les notifs
+        }
+      } else if (ringVolume !== undefined) {
+        // Fallback : si notification n'est pas disponible, utiliser ring (pour Samsung)
+        isSilent = ringVolume <= 0.05;
       } else {
         return; // attendre la première valeur
       }
     }
 
     // Android : ne pas afficher si le ringer n'est pas en mode normal
-    const androidCanShow =
-      Platform.OS === 'android'
-        ? ringerMode === RINGER_MODE.normal && isSilent
-        : isSilent;
+    // LOGIQUE : Si l'utilisateur est en Silencieux ou Vibreur, c'est son choix.
+    // IMPORTANT : Attendre que ringerMode soit défini pour éviter l'affichage furtif (Huawei P9)
+    let androidCanShow = false;
+    if (Platform.OS === 'android') {
+      // Si ringerMode n'est pas encore défini, ne pas afficher (attendre)
+      if (ringerMode === undefined) {
+        setShowSilentWarning(false);
+        return;
+      }
+      // Si ringerMode est défini et n'est pas normal, ne pas afficher (choix utilisateur)
+      if (ringerMode !== RINGER_MODE.normal) {
+        androidCanShow = false;
+      } else {
+        // Mode normal : afficher si volume est à 0
+        androidCanShow = isSilent;
+      }
+    } else {
+      androidCanShow = isSilent;
+    }
+
+    // PROTECTION FINALE : Sur Huawei P9 (pas de volume dédié), ne JAMAIS afficher la bannière
+    // Même si androidCanShow est true par erreur, on vérifie une dernière fois (utiliser le flag)
+    if (Platform.OS === 'android' && (hasNoDedicatedVolume || (notificationVolume === undefined && ringVolume === undefined))) {
+      setShowSilentWarning(false);
+      return;
+    }
 
     // Afficher seulement si non dismissé dans la session courante
     setShowSilentWarning(androidCanShow && !dismissedSilentWarning);
-  }, [volume, notificationVolume, dismissedSilentWarning, ringerMode]);
+  }, [volume, notificationVolume, ringVolume, dismissedSilentWarning, ringerMode, hasNoDedicatedVolume]);
 
   // Note: Les notifications sont gérées par setupRealtimeSubscription et loadData
   // qui rechargent last_interaction_at depuis Supabase pour mettre à jour le tri

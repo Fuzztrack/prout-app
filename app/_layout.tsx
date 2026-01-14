@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Audio } from 'expo-av';
 import * as Linking from 'expo-linking';
 import * as Notifications from 'expo-notifications';
 import { Stack, useRouter } from 'expo-router';
@@ -14,88 +13,13 @@ import { supabase } from '../lib/supabase';
 
 import i18n from '../lib/i18n';
 
-// Mapping des sons prout (doit correspondre à FriendsList.tsx)
-const PROUT_SOUNDS: { [key: string]: any } = {
-  prout1: require('../assets/sounds/prout1.wav'),
-  prout2: require('../assets/sounds/prout2.wav'),
-  prout3: require('../assets/sounds/prout3.wav'),
-  prout4: require('../assets/sounds/prout4.wav'),
-  prout5: require('../assets/sounds/prout5.wav'),
-  prout6: require('../assets/sounds/prout6.wav'),
-  prout7: require('../assets/sounds/prout7.wav'),
-  prout8: require('../assets/sounds/prout8.wav'),
-  prout9: require('../assets/sounds/prout9.wav'),
-  prout10: require('../assets/sounds/prout10.wav'),
-  prout11: require('../assets/sounds/prout11.wav'),
-  prout12: require('../assets/sounds/prout12.wav'),
-  prout13: require('../assets/sounds/prout13.wav'),
-  prout14: require('../assets/sounds/prout14.wav'),
-  prout15: require('../assets/sounds/prout15.wav'),
-  prout16: require('../assets/sounds/prout16.wav'),
-  prout17: require('../assets/sounds/prout17.wav'),
-  prout18: require('../assets/sounds/prout18.wav'),
-  prout19: require('../assets/sounds/prout19.wav'),
-  prout20: require('../assets/sounds/prout20.wav'),
-};
-
-// Fonction pour jouer le son prout localement (foreground)
-async function playProutSoundLocally(proutKey: string) {
-  try {
-    // Configurer le mode audio pour les notifications
-    await Audio.setAudioModeAsync({
-      playsInSilentModeIOS: true,
-      staysActiveInBackground: false,
-      shouldDuckAndroid: true,
-      playThroughEarpieceAndroid: false,
-    });
-    
-    console.log('🔊 [playProutSoundLocally] Début pour:', proutKey);
-    const soundFile = PROUT_SOUNDS[proutKey] || PROUT_SOUNDS.prout1;
-    if (!soundFile) {
-      const errorMsg = `Fichier son non trouvé pour: ${proutKey}`;
-      console.error('❌ [playProutSoundLocally]', errorMsg);
-      Alert.alert('Erreur', errorMsg);
-      return;
-    }
-    console.log('🔊 [playProutSoundLocally] Création Sound pour:', proutKey);
-    const { sound } = await Audio.Sound.createAsync(soundFile, {
-      shouldPlay: false,
-      volume: 1.0,
-    });
-    console.log('🔊 [playProutSoundLocally] Sound créé, lecture...');
-    
-    // Libérer la ressource après lecture
-    sound.setOnPlaybackStatusUpdate((status) => {
-      if (status.isLoaded) {
-        if (status.didJustFinish) {
-          console.log('✅ [playProutSoundLocally] Son terminé');
-          sound.unloadAsync().catch(() => {});
-        } else if (status.error) {
-          console.error('❌ [playProutSoundLocally] Erreur playback:', status.error);
-          Alert.alert('Erreur playback', status.error);
-        }
-      }
-    });
-    
-    await sound.playAsync();
-    console.log('✅ [playProutSoundLocally] playAsync() appelé avec succès');
-  } catch (error: any) {
-    const errorMsg = `Erreur lecture son: ${error?.message || error}`;
-    console.error('❌ [playProutSoundLocally]', errorMsg);
-    Alert.alert('Erreur son', errorMsg);
-  }
-}
-
 // 🔔 CONFIGURATION GLOBALE
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
-    // Log pour voir si le handler est appelé
-    console.log('🔔 [HANDLER] Notification handler appelé:', notification.request.content.data);
-    
     return {
-      shouldPlaySound: false, // Désactiver le son système, on le joue manuellement
+      shouldPlaySound: true, // ✅ Le son du canal joue normalement
       shouldSetBadge: false,
-      shouldShowBanner: false, // Désactiver le banner système, on affiche notre toast
+      shouldShowBanner: true, // ✅ Banner système activé
       shouldShowList: true,
     };
   },
@@ -192,42 +116,12 @@ export default function RootLayout() {
     });
 
     const notificationListener = Notifications.addNotificationReceivedListener(notification => {
-      try {
-        const { title, body, data } = notification.request.content;
-        
-        // Test simple : Alert au tout début
-        setTimeout(() => {
-          Alert.alert('TEST', 'Listener appelé !');
-        }, 100);
-        
-        console.log('🔔 [FOREGROUND] Notification reçue:', { type: data?.type, proutKey: data?.proutKey, title, body });
-        
-        if (data?.type === 'prout') {
-          // Afficher les données de debug dans le toast (forcer l'affichage)
-          const debugInfo = `DEBUG - ProutKey: ${data?.proutKey || 'MANQUANT'} - Type: ${data?.type || 'UNDEF'}`;
-          showToast('🔔 NOTIFICATION REÇUE', debugInfo);
-          
-          // Jouer le son localement en foreground (Android ne joue pas toujours le son du canal)
-          if (Platform.OS === 'android') {
-            const proutKeyToPlay = data?.proutKey || 'prout1'; // Fallback sur prout1 si manquant
-            console.log('🔊 [FOREGROUND] Tentative de lecture son local pour:', proutKeyToPlay);
-            
-            // Appel direct pour tester
-            playProutSoundLocally(proutKeyToPlay).then(() => {
-              console.log('✅ Son joué avec succès');
-              // Mettre à jour le toast pour confirmer
-              showToast('Son joué', `ProutKey: ${proutKeyToPlay}`);
-            }).catch(err => {
-              console.error('❌ [FOREGROUND] Erreur lecture son:', err);
-              showToast('Erreur son', String(err).substring(0, 50));
-            });
-          }
-        } else if (data?.type === 'identity_response') {
-          showToast('Identité révélée', body || 'Ton ami a partagé son identité.');
-        }
-      } catch (error: any) {
-        Alert.alert('Erreur listener', String(error));
-        console.error('❌ Erreur dans notificationListener:', error);
+      const { title, body, data } = notification.request.content;
+      
+      if (data?.type === 'prout') {
+        showToast(title || 'Prout !', body || '');
+      } else if (data?.type === 'identity_response') {
+        showToast('Identité révélée', body || 'Ton ami a partagé son identité.');
       }
     });
 
