@@ -5,8 +5,8 @@ import { Audio } from 'expo-av';
 import * as Contacts from 'expo-contacts';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, FlatList, Linking, NativeModules, Platform, Animated as RNAnimated, StyleSheet, Text, TextInput, TouchableOpacity, View, KeyboardAvoidingView } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { ActivityIndicator, Alert, Dimensions, FlatList, Linking, NativeModules, Platform, Animated as RNAnimated, StyleSheet, Text, TextInput, TouchableOpacity, View, KeyboardAvoidingView, Keyboard } from 'react-native';
+import { Gesture, GestureDetector, TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
   Extrapolation,
@@ -445,7 +445,7 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
             animatedLineStyle,
           ]}
         >
-          <TouchableOpacity
+          <GHTouchableOpacity
             onPress={onPressName}
             onLongPress={onLongPressName}
             delayLongPress={500}
@@ -473,7 +473,7 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
                 <View style={styles.redDot} />
               ) : null}
             </View>
-          </TouchableOpacity>
+          </GHTouchableOpacity>
         </Animated.View>
       </GestureDetector>
     </View>
@@ -2039,14 +2039,14 @@ useEffect(() => {
 
   const scrollToItem = (index: number) => {
     if (flatListRef.current) {
-      // Petit délai pour laisser le clavier s'ouvrir et le layout s'ajuster
-      setTimeout(() => {
+      // Lancement immédiat pour synchroniser avec l'ouverture du clavier (style WhatsApp)
+      requestAnimationFrame(() => {
         try {
-          flatListRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.8 }); // 0.8 pour mettre l'item vers le bas de la zone visible
+          flatListRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.8 }); 
         } catch (e) {
           console.warn('Scroll failed', e);
         }
-      }, 500);
+      });
     }
   };
 
