@@ -15,7 +15,7 @@ export default function NotificationPermissionScreen() {
   const handleNext = async () => {
     // Demander la permission de notifications
     if (Platform.OS === 'web') {
-      Alert.alert('Information', 'Les notifications push ne sont pas disponibles sur le web.');
+      Alert.alert(i18n.t('info'), i18n.t('web_notifications_unavailable'));
       safePush(router, '/ContactPermissionScreen', { skipInitialCheck: false });
       return;
     }

@@ -289,10 +289,10 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
       if (isMuted) {
         // Si déjà en sourdine, proposer de quitter le mode sourdine
         Alert.alert(
-          'Quitter le mode sourdine ?',
-          `Voulez-vous quitter le mode sourdine pour ${friend.pseudo} ?`,
+          i18n.t('exit_mute_mode_title'),
+          i18n.t('exit_mute_mode_body', { pseudo: friend.pseudo }),
           [
-            { text: 'Annuler', style: 'cancel', onPress: () => {} },
+            { text: i18n.t('cancel'), style: 'cancel', onPress: () => {} },
             { text: 'Quitter le mode sourdine', onPress: () => {
               if (onUnmuteFriend) {
                 onUnmuteFriend();
@@ -1420,7 +1420,7 @@ useEffect(() => {
         
         if (updateError) {
           console.error('Erreur lors de l\'acceptation de l\'invitation:', updateError);
-          Alert.alert('Erreur', 'Impossible d\'accepter l\'invitation');
+          Alert.alert(i18n.t('error'), i18n.t('cannot_accept_invitation'));
           return;
         }
         // Le trigger créera automatiquement la réciproque, pas besoin de créer manuellement
@@ -1433,7 +1433,7 @@ useEffect(() => {
         
         if (updateError) {
           console.error('Erreur lors de l\'acceptation de la demande:', updateError);
-          Alert.alert('Erreur', 'Impossible d\'accepter la demande');
+          Alert.alert(i18n.t('error'), i18n.t('cannot_accept_request'));
           return;
         }
         
@@ -1467,7 +1467,7 @@ useEffect(() => {
       loadData();
     } catch (e) { 
       console.error("Erreur handleAccept:", e);
-      Alert.alert("Erreur", "Impossible d'accepter la demande"); 
+      Alert.alert(i18n.t('error'), i18n.t('cannot_accept_request')); 
     }
   };
 
@@ -1485,7 +1485,7 @@ useEffect(() => {
         .eq('friend_id', friend.id);
       if (error) {
         console.error('❌ Erreur mise en sourdine:', error);
-        Alert.alert(i18n.t('error'), "Impossible d'activer la sourdine.");
+        Alert.alert(i18n.t('error'), i18n.t('cannot_activate_mute'));
         return;
       }
       setAppUsers(prev => prev.map(u => u.id === friend.id ? { ...u, is_muted: true } : u));
@@ -1573,7 +1573,7 @@ useEffect(() => {
               showToast(i18n.t('friend_deleted_toast', { pseudo: friend.pseudo }));
             } catch (error) {
               console.error('Erreur lors de la suppression:', error);
-              Alert.alert(i18n.t('error'), 'Impossible de supprimer cet ami');
+              Alert.alert(i18n.t('error'), i18n.t('cannot_delete_friend'));
             }
           },
         },

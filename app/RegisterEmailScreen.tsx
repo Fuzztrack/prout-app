@@ -113,7 +113,7 @@ export default function RegisterEmailScreen() {
       }
 
     } catch (e: any) {
-      Alert.alert("Erreur", e.message);
+      Alert.alert(i18n.t('error'), e.message);
     } finally {
       setLoading(false);
     }
@@ -201,7 +201,7 @@ export default function RegisterEmailScreen() {
             />
             
             <CustomButton 
-                title="Annuler et Retour" 
+                title={i18n.t('cancel_and_return')} 
                 onPress={() => router.back()} 
                 color="transparent" 
                 textColor="#604a3e" 

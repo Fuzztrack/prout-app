@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, Button, FlatList, StyleSheet, Alert } from 'react-native';
 import { supabase } from '../lib/supabase';
+import i18n from '../lib/i18n';
 
 export default function SupabaseTest() {
   const [profiles, setProfiles] = useState<any[]>([]);
@@ -13,7 +14,7 @@ export default function SupabaseTest() {
     const { data, error } = await supabase.from('user_profiles').select('*');
     if (error) {
       console.log('Erreur Supabase:', error);
-      Alert.alert('Erreur', JSON.stringify(error));
+      Alert.alert(i18n.t('error'), JSON.stringify(error));
     } else {
       setProfiles(data || []);
     }
@@ -27,8 +28,8 @@ export default function SupabaseTest() {
   // Cette fonction est désactivée car elle nécessite une authentification complète
   const addProfile = async () => {
     Alert.alert(
-      'Information',
-      'Pour créer un profil, utilisez la page d\'inscription qui crée automatiquement le compte auth et le profil.'
+      i18n.t('info'),
+      i18n.t('create_profile_info')
     );
   };
 

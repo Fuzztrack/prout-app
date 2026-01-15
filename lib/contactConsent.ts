@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from 'react-native';
 import * as Contacts from 'expo-contacts';
+import i18n from './i18n';
 
 const CONSENT_KEY = 'contact_consent_v1';
 
@@ -14,11 +15,11 @@ async function ensureContactConsent(): Promise<boolean> {
   // Première fois : demander le consentement
   return await new Promise((resolve) => {
     Alert.alert(
-      'Contacts : utilisation et partage',
-      "Cette appli synchronise vos contacts (numéros et noms) vers nos serveurs Supabase (https://utfwujyymaikraaigvuv.supabase.co) pour trouver vos amis et créer les liens d'amitié. Aucune autre utilisation ni partage externe.\n\nAcceptez-vous cette synchronisation ?",
+      i18n.t('contact_consent_title'),
+      i18n.t('contact_consent_message'),
       [
         { 
-          text: 'Refuser', 
+          text: i18n.t('refuse'), 
           style: 'cancel', 
           onPress: async () => {
             // Stocker le refus pour ne plus redemander
@@ -27,7 +28,7 @@ async function ensureContactConsent(): Promise<boolean> {
           }
         },
         { 
-          text: 'Accepter', 
+          text: i18n.t('accept'), 
           onPress: async () => {
             await AsyncStorage.setItem(CONSENT_KEY, 'granted');
             resolve(true);

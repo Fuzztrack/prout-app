@@ -52,7 +52,7 @@ export default function CompleteProfileScreen() {
   }, []);
 
   const handleSave = async () => {
-    if (!pseudo.trim()) return Alert.alert("Erreur", "Choisis un pseudo !");
+    if (!pseudo.trim()) return Alert.alert(i18n.t('error'), i18n.t('choose_pseudo'));
     setLoading(true);
 
     try {
@@ -89,7 +89,7 @@ export default function CompleteProfileScreen() {
       safeReplace(router, '/(tabs)', { skipInitialCheck: false });
 
     } catch (e: any) {
-      Alert.alert("Erreur", e.message);
+      Alert.alert(i18n.t('error'), e.message);
     } finally {
       setLoading(false);
     }

@@ -92,7 +92,7 @@ export default function ProfileScreen() {
     const mailtoUrl = `mailto:${email}?subject=${encodeURIComponent(subject)}`;
     
     Linking.openURL(mailtoUrl).catch(() => {
-      Alert.alert('Erreur', 'Impossible d\'ouvrir l\'application email. Email: ' + email);
+      Alert.alert(i18n.t('error'), i18n.t('cannot_open_email_app', { email }));
     });
   };
 

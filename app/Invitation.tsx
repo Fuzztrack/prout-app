@@ -251,7 +251,7 @@ export default function InvitationScreen() {
 
       if (findError) {
         console.error('Erreur lors de la recherche de la relation:', findError);
-        Alert.alert('Erreur', 'Impossible de trouver l\'invitation');
+        Alert.alert(i18n.t('error'), i18n.t('cannot_find_invitation'));
         return;
       }
 
@@ -272,7 +272,7 @@ export default function InvitationScreen() {
 
         if (createError) {
           console.error('Erreur lors de la création de la relation:', createError);
-          Alert.alert('Erreur', 'Impossible d\'accepter l\'invitation');
+          Alert.alert(i18n.t('error'), i18n.t('cannot_accept_invitation'));
           return;
         }
       } else {
@@ -294,7 +294,7 @@ export default function InvitationScreen() {
 
       if (updateError) {
         console.error('Erreur lors de la mise à jour de l\'amitié A→B:', updateError);
-        Alert.alert('Erreur', 'Impossible d\'accepter l\'invitation');
+        Alert.alert(i18n.t('error'), i18n.t('cannot_accept_invitation'));
         return;
       }
 
@@ -319,7 +319,7 @@ export default function InvitationScreen() {
       safeReplace(router, '/(tabs)', { skipInitialCheck: false });
     } catch (error) {
       console.error('Erreur lors de l\'acceptation de l\'invitation:', error);
-      Alert.alert('Erreur', 'Une erreur est survenue');
+      Alert.alert(i18n.t('error'), i18n.t('error_occurred'));
     } finally {
       setLoading(false);
     }
@@ -361,7 +361,7 @@ export default function InvitationScreen() {
               await loadPendingInvitations();
             } catch (error) {
               console.error('Erreur lors du rejet de l\'invitation:', error);
-              Alert.alert('Erreur', 'Une erreur est survenue');
+              Alert.alert(i18n.t('error'), i18n.t('error_occurred'));
             } finally {
               setLoading(false);
             }
@@ -435,7 +435,7 @@ export default function InvitationScreen() {
       console.log(`📱 ${contactsList.length} contacts chargés`);
     } catch (error) {
       console.error('Erreur lors du chargement des contacts:', error);
-      Alert.alert('Erreur', 'Impossible de charger les contacts');
+      Alert.alert(i18n.t('error'), i18n.t('cannot_load_contacts'));
     } finally {
       setLoading(false);
     }
@@ -447,7 +447,7 @@ export default function InvitationScreen() {
 
   const handleInviteByValue = async () => {
     if (!inviteValue.trim()) {
-      Alert.alert('Erreur', 'Veuillez entrer une valeur');
+      Alert.alert(i18n.t('error'), i18n.t('enter_value'));
       return;
     }
 
@@ -476,7 +476,7 @@ export default function InvitationScreen() {
         const normalizedEmail = inviteValue.trim().toLowerCase();
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(normalizedEmail)) {
-          Alert.alert('Erreur', 'Email invalide');
+          Alert.alert(i18n.t('error'), i18n.t('invalid_email_simple'));
           return;
         }
 
@@ -696,7 +696,7 @@ export default function InvitationScreen() {
       await loadPendingInvitations();
     } catch (error) {
       console.error('Erreur lors de l\'invitation:', error);
-      Alert.alert('Erreur', 'Une erreur est survenue');
+      Alert.alert(i18n.t('error'), i18n.t('error_occurred'));
     } finally {
       setLoading(false);
     }
@@ -775,7 +775,7 @@ export default function InvitationScreen() {
       }
     } catch (error) {
       console.error('Erreur lors de l\'invitation:', error);
-      Alert.alert('Erreur', 'Une erreur est survenue');
+      Alert.alert(i18n.t('error'), i18n.t('error_occurred'));
     } finally {
       setLoading(false);
     }

@@ -58,7 +58,7 @@ export function AppleAuthButton({ onSuccess, onError }: AppleAuthButtonProps) {
               return;
             }
             console.error('Erreur connexion Apple:', e);
-            Alert.alert('Erreur', 'Impossible de se connecter avec Apple');
+            Alert.alert(i18n.t('error'), i18n.t('cannot_connect_apple'));
             onError?.(e);
             setLoading(false);
           }
@@ -97,7 +97,7 @@ export function AppleAuthButton({ onSuccess, onError }: AppleAuthButtonProps) {
       }
     } catch (e: any) {
       console.error('Erreur connexion Apple:', e);
-      Alert.alert('Erreur Apple', e.message || 'Impossible de se connecter avec Apple');
+      Alert.alert(i18n.t('apple_error'), e.message || i18n.t('cannot_connect_apple'));
       onError?.(e);
       setLoading(false);
     }

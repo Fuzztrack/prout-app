@@ -28,7 +28,7 @@ export default function EditProfilScreen() {
         error?.code === 'PGRST301') {
       Alert.alert(i18n.t('error'), i18n.t('connection_error_body'));
     } else {
-      Alert.alert('Erreur', defaultMessage);
+      Alert.alert(i18n.t('error'), defaultMessage);
     }
   };
 
@@ -57,7 +57,7 @@ export default function EditProfilScreen() {
           .single();
 
         if (profileError || !profile) {
-          Alert.alert('Erreur', 'Impossible de charger votre profil');
+          Alert.alert(i18n.t('error'), i18n.t('cannot_load_profile'));
           router.back();
           return;
         }
@@ -75,7 +75,7 @@ export default function EditProfilScreen() {
         if (err instanceof Error && (err.message.includes('network') || err.message.includes('fetch'))) {
           Alert.alert(i18n.t('error'), i18n.t('connection_error_body'));
         } else {
-          Alert.alert('Erreur', 'Impossible de charger votre profil');
+          Alert.alert(i18n.t('error'), i18n.t('cannot_load_profile'));
         }
         router.back();
       } finally {
@@ -89,7 +89,7 @@ export default function EditProfilScreen() {
   // Fonction pour mettre à jour tous les champs modifiés
   const handleUpdateAll = async () => {
     if (!userId) {
-      Alert.alert('Erreur', 'Impossible d\'identifier votre compte');
+      Alert.alert(i18n.t('error'), i18n.t('cannot_identify_account'));
       return;
     }
 
@@ -119,7 +119,7 @@ export default function EditProfilScreen() {
     if (emailChanged) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(trimmedEmail)) {
-        Alert.alert('Erreur', 'Veuillez entrer un email valide');
+        Alert.alert(i18n.t('error'), i18n.t('invalid_email_format'));
         return;
       }
       if (trimmedEmail.includes('@temp.proutapp.local')) {
@@ -238,7 +238,7 @@ export default function EditProfilScreen() {
           handleSupabaseError(err, 'Impossible de mettre à jour le profil');
         }
       } else {
-        Alert.alert('Erreur', 'Une erreur est survenue');
+        Alert.alert(i18n.t('error'), i18n.t('error_occurred'));
       }
     } finally {
       setLoading(false);
@@ -248,7 +248,7 @@ export default function EditProfilScreen() {
   // Mettre à jour le pseudo avec confirmation (fonction conservée pour compatibilité mais non utilisée)
   const updatePseudo = async () => {
     if (!pseudo || !userId) {
-      Alert.alert('Erreur', 'Veuillez entrer un nouveau pseudo');
+      Alert.alert(i18n.t('error'), i18n.t('enter_new_pseudo'));
       return;
     }
 
@@ -336,7 +336,7 @@ export default function EditProfilScreen() {
                 if (err instanceof Error && (err.message.includes('network') || err.message.includes('fetch'))) {
                   Alert.alert(i18n.t('error'), i18n.t('connection_error_body'));
                 } else {
-                  Alert.alert('Erreur', 'Une erreur est survenue');
+                  Alert.alert(i18n.t('error'), i18n.t('error_occurred'));
                 }
               } finally {
                 setLoading(false);
@@ -355,7 +355,7 @@ export default function EditProfilScreen() {
   // Mettre à jour l'email avec confirmation
   const updateEmail = async () => {
     if (!email || !userId) {
-      Alert.alert('Erreur', 'Veuillez entrer un nouvel email');
+      Alert.alert(i18n.t('error'), i18n.t('enter_new_email'));
       return;
     }
 
@@ -364,7 +364,7 @@ export default function EditProfilScreen() {
     // Valider le format de l'email (doit être un email valide, pas un email temporaire)
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(trimmedEmail)) {
-      Alert.alert('Erreur', 'Veuillez entrer un email valide');
+      Alert.alert(i18n.t('error'), i18n.t('invalid_email_format'));
       return;
     }
 
@@ -435,14 +435,14 @@ export default function EditProfilScreen() {
                   Alert.alert(i18n.t('error'), i18n.t('connection_error_body'));
                 } else if (err.message.includes('invalid') || err.message.includes('Email')) {
                   Alert.alert(
-                    'Erreur',
-                    'L\'email que vous avez entré n\'est pas valide. Veuillez utiliser un email réel.'
+                    i18n.t('error'),
+                    i18n.t('invalid_email')
                   );
                 } else {
-                  Alert.alert('Erreur', 'Une erreur est survenue');
+                  Alert.alert(i18n.t('error'), i18n.t('error_occurred'));
                 }
               } else {
-                Alert.alert('Erreur', 'Une erreur est survenue');
+                Alert.alert(i18n.t('error'), i18n.t('error_occurred'));
               }
             } finally {
               setLoading(false);
@@ -508,7 +508,7 @@ export default function EditProfilScreen() {
               if (err instanceof Error && (err.message.includes('network') || err.message.includes('fetch'))) {
                 Alert.alert(i18n.t('error'), i18n.t('connection_error_body'));
               } else {
-                Alert.alert('Erreur', 'Une erreur est survenue');
+                Alert.alert(i18n.t('error'), i18n.t('error_occurred'));
               }
             } finally {
               setLoading(false);
@@ -522,13 +522,13 @@ export default function EditProfilScreen() {
   // Supprimer le compte
   const unsubscribe = async () => {
     if (!userId) {
-      Alert.alert('Erreur', 'Impossible d\'identifier votre compte');
+      Alert.alert(i18n.t('error'), i18n.t('cannot_identify_account'));
       return;
     }
 
     Alert.alert(
-      'Confirmer',
-      'Êtes-vous sûr de vouloir supprimer votre compte ? Cette action est irréversible.',
+      i18n.t('delete_account_confirm_title'),
+      i18n.t('delete_account_confirm_body'),
       [
         {
           text: 'Annuler',
@@ -546,7 +546,7 @@ export default function EditProfilScreen() {
 
               if (deleteError) {
                 console.error('Erreur lors de la suppression du compte:', deleteError);
-                Alert.alert('Erreur', 'Impossible de supprimer le compte. Veuillez contacter le support.');
+                Alert.alert(i18n.t('error'), i18n.t('cannot_delete_account_support'));
                 return;
               }
 
@@ -563,7 +563,7 @@ export default function EditProfilScreen() {
               ]);
             } catch (err) {
               console.error('Erreur inattendue:', err);
-              Alert.alert('Erreur', 'Une erreur est survenue lors de la suppression du compte');
+              Alert.alert(i18n.t('error'), i18n.t('error_occurred_deletion'));
             } finally {
               setLoading(false);
             }

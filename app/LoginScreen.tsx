@@ -34,7 +34,7 @@ export default function LoginScreen() {
         clearTimeout(timeoutId);
         setLoading(false);
         console.error('❌ Erreur de connexion:', error.message);
-        return Alert.alert('Erreur', error.message);
+        return Alert.alert(i18n.t('error'), error.message);
       }
 
       if (!data.session || !data.session.user) {
@@ -71,16 +71,16 @@ export default function LoginScreen() {
       clearTimeout(timeoutId);
       console.error('❌ Erreur lors de la connexion:', e);
       setLoading(false);
-      Alert.alert('Erreur', e.message || 'Une erreur est survenue lors de la connexion');
+      Alert.alert(i18n.t('error'), e.message || i18n.t('connection_error'));
     }
   };
 
   const handleResetPassword = async () => {
     if (!email.trim()) {
       Alert.alert(
-        'Email requis',
-        'Veuillez d\'abord entrer votre email dans le champ ci-dessus.',
-        [{ text: 'OK' }]
+        i18n.t('email_required_title'),
+        i18n.t('email_required_body'),
+        [{ text: i18n.t('ok') }]
       );
       return;
     }

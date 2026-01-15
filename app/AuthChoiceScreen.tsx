@@ -332,7 +332,7 @@ export default function AuthChoiceScreen() {
         await handleOAuthResult(result, timeoutId);
       }
     } catch (e: any) {
-      Alert.alert('Erreur Google', e.message);
+      Alert.alert(i18n.t('google_error'), e.message);
       setLoading(false);
     }
   };

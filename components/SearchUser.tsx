@@ -132,7 +132,7 @@ export function SearchUser({ onClose }: { onClose: () => void }) {
       }
 
     } catch (e: any) {
-      Alert.alert(i18n.t('error'), "Impossible d'ajouter cet ami."); // TODO: Traduire
+      Alert.alert(i18n.t('error'), i18n.t('cannot_add_friend'));
       console.log(e);
     }
   };

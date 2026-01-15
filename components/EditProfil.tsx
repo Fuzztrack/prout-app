@@ -88,7 +88,7 @@ export function EditProfil({ onClose }: { onClose: () => void }) {
   // Fonction pour mettre à jour tous les champs modifiés
   const handleUpdateAll = async () => {
     if (!userId) {
-      Alert.alert('Erreur', 'Impossible d\'identifier votre compte');
+      Alert.alert(i18n.t('error'), i18n.t('cannot_identify_account'));
       return;
     }
 

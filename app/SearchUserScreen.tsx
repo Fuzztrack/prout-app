@@ -136,7 +136,7 @@ export default function SearchUserScreen() {
       }
 
     } catch (e: any) {
-      Alert.alert("Erreur", "Impossible d'ajouter cet ami.");
+      Alert.alert(i18n.t('error'), i18n.t('cannot_add_friend'));
       console.log(e);
     }
   };
