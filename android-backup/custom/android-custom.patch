@@ -1,0 +1,41 @@
+diff --git a/android/build.gradle b/android/build.gradle
+index 2f99fd5..dea488c 100644
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -14,6 +14,11 @@ buildscript {
+   }
+ }
+ 
++ext {
++  // Forcer le NDK 27 (compat C++20 std::format avec RN 0.81 / Expo SDK 54)
++  ndkVersion = "27.1.12297006"
++}
++
+ allprojects {
+   repositories {
+     google()
+diff --git a/android/gradle.properties b/android/gradle.properties
+index 8e39f82..5d4992c 100644
+--- a/android/gradle.properties
++++ b/android/gradle.properties
+@@ -8,14 +8,13 @@
+ # http://www.gradle.org/docs/current/userguide/build_environment.html
+ 
+ # Specifies the JVM arguments used for the daemon process.
+-# The setting is particularly useful for tweaking memory settings.
+-# Default value: -Xmx512m -XX:MaxMetaspaceSize=256m
+-org.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m
++# Ajusté pour limiter les erreurs de métaspace en build natif.
++org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g
+ 
+-# When configured, Gradle will run in incubating parallel mode.
+-# This option should only be used with decoupled projects. More details, visit
+-# http://www.gradle.org/docs/current/userguide/multi_project_builds.html#sec:decoupled_projects
+-org.gradle.parallel=true
++# Désactivation du parallélisme pour éviter les races entre worklets/reanimated
++org.gradle.parallel=false
++# Stabiliser en local : éviter les daemons persistants
++org.gradle.daemon=false
+ 
+ # AndroidX package structure to make it clearer which packages are bundled with the
+ # Android operating system, and which are packaged with your app's APK
