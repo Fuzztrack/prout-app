@@ -1507,7 +1507,7 @@ useEffect(() => {
         .eq('friend_id', friend.id);
       if (error) {
         console.error('❌ Erreur désactivation sourdine:', error);
-        Alert.alert(i18n.t('error'), "Impossible de désactiver la sourdine.");
+        Alert.alert(i18n.t('error'), i18n.t('cannot_disable_mute'));
         return;
       }
       setAppUsers(prev => prev.map(u => u.id === friend.id ? { ...u, is_muted: false } : u));
@@ -1515,7 +1515,7 @@ useEffect(() => {
       await saveCacheSafely(CACHE_KEY_FRIENDS, updated);
     } catch (e) {
       console.error('❌ Erreur désactivation sourdine:', e);
-      Alert.alert(i18n.t('error'), "Impossible de désactiver la sourdine.");
+      Alert.alert(i18n.t('error'), i18n.t('cannot_disable_mute'));
     }
   };
 
@@ -1781,8 +1781,8 @@ useEffect(() => {
       
       if (muteCheck?.is_muted) {
         Alert.alert(
-          'Mode sourdine actif',
-          `${recipient.pseudo} vous a mis en sourdine. Vous ne pouvez pas lui envoyer de message.`
+          i18n.t('mute_mode_active_title'),
+          i18n.t('mute_mode_active_body', { pseudo: recipient.pseudo })
         );
         return;
       }
@@ -1824,14 +1824,14 @@ useEffect(() => {
 
       if (senderProfileError || !senderProfile?.pseudo) {
         console.error('❌ Erreur lors de la récupération du pseudo de l\'expéditeur:', senderProfileError);
-        Alert.alert(i18n.t('error'), "Impossible de récupérer votre pseudo. Veuillez réessayer."); // Pas traduit pour l'instant (erreur technique)
+        Alert.alert(i18n.t('error'), i18n.t('cannot_retrieve_pseudo'));
         cooldownMapRef.current.delete(recipient.id);
         return;
       }
 
       const senderPseudo = senderProfile.pseudo.trim();
       if (!senderPseudo || senderPseudo === '') {
-        Alert.alert("Erreur", "Votre pseudo n'est pas défini. Veuillez compléter votre profil.");
+        Alert.alert(i18n.t('error'), i18n.t('pseudo_not_defined'));
         cooldownMapRef.current.delete(recipient.id);
         return;
       }
@@ -1868,8 +1868,8 @@ useEffect(() => {
           setAppUsers(updatedUsers);
         } else {
           Alert.alert(
-            "Oups", 
-            `${recipient.pseudo} n'a pas activé les notifications. Le token n'est pas disponible dans la base de données.`
+            i18n.t('error'), 
+            i18n.t('notifications_not_enabled', { pseudo: recipient.pseudo })
           );
           // Retirer le cooldown en cas d'erreur
           cooldownMapRef.current.delete(recipient.id);
@@ -1970,7 +1970,7 @@ useEffect(() => {
         error?.message?.includes('target_app_uninstalled') ||
         error?.code === 'target_app_uninstalled'
       ) {
-        Alert.alert(i18n.t('error'), `${recipient.pseudo} n'a plus l'application installée !`);
+        Alert.alert(i18n.t('error'), i18n.t('app_uninstalled', { pseudo: recipient.pseudo }));
         // Purger localement l'ami sans token
         const filtered = appUsers.filter(u => u.id !== recipient.id);
         setAppUsers(filtered);
@@ -1979,7 +1979,7 @@ useEffect(() => {
         // Message plus détaillé selon le type d'erreur
         let errorMessage = "Impossible d'envoyer le prout.";
         if (error?.message?.includes('Backend error')) {
-          errorMessage = "Erreur serveur. Le backend ne peut pas traiter ce type de token.\n\nVérifiez que le backend est configuré pour iOS (Expo Push).";
+          errorMessage = i18n.t('backend_error_ios');
         }
         Alert.alert(i18n.t('error'), errorMessage);
       }
@@ -1997,16 +1997,16 @@ useEffect(() => {
       <View style={styles.requestsContainer}>
         {shouldShowSilentWarning && (
           <View style={styles.silentWarning}>
-            <Text style={styles.silentWarningText}>Vos notifications sont silencieuses !</Text>
+            <Text style={styles.silentWarningText}>{i18n.t('silent_notifications_warning')}</Text>
             <View style={styles.silentWarningActions}>
               <TouchableOpacity style={styles.silentWarningButton} onPress={openNotificationSettings}>
-                <Text style={styles.silentWarningButtonText}>Réglages</Text>
+                <Text style={styles.silentWarningButtonText}>{i18n.t('settings')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.silentWarningButtonOk} onPress={() => {
                 dismissedSilentWarningSession = true; // bloquer pour toute la session
                 setDismissedSilentWarning(true);
               }}>
-                <Text style={styles.silentWarningButtonText}>OK</Text>
+                <Text style={styles.silentWarningButtonText}>{i18n.t('ok')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -2139,7 +2139,7 @@ useEffect(() => {
                     <View style={styles.messageInputRow}>
                       <TextInput
                         style={styles.messageInput}
-                        placeholder="Ajoutez un message ?"
+                        placeholder={i18n.t('add_message_placeholder')}
                         placeholderTextColor="#777"
                         value={draftValue}
                         onChangeText={(text) => setMessageDrafts(prev => ({ ...prev, [item.id]: text }))}
@@ -2179,7 +2179,7 @@ useEffect(() => {
             appUsers.length > 0 ? (
               <View style={styles.footerHelp}>
                 <Text style={styles.footerHelpText}>
-                  Swipez vers la droite pour envoyer un prout, cliquez avant de swiper pour ajouter un message !
+                  {i18n.t('footer_help_text')}
                 </Text>
               </View>
             ) : null

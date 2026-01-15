@@ -11,7 +11,7 @@ import { safePush, safeReplace } from '../lib/navigation';
 import { ensureAndroidNotificationChannel } from '../lib/notifications';
 import { supabase } from '../lib/supabase';
 
-import i18n from '../lib/i18n';
+import i18n, { updateLocale } from '../lib/i18n';
 
 // 🔔 CONFIGURATION GLOBALE
 Notifications.setNotificationHandler({
@@ -70,6 +70,13 @@ export default function RootLayout() {
     ]).start(() => setToastMessage(null));
   };
 
+  // Mise à jour de la langue au démarrage (important pour iOS)
+  useEffect(() => {
+    // Forcer la mise à jour de la locale au démarrage de l'app
+    // Cela garantit que la langue est correctement détectée sur iOS
+    updateLocale();
+  }, []);
+
   useEffect(() => {
     let mounted = true;
     const init = async () => {
@@ -121,7 +128,7 @@ export default function RootLayout() {
       if (data?.type === 'prout') {
         showToast(title || 'Prout !', body || '');
       } else if (data?.type === 'identity_response') {
-        showToast('Identité révélée', body || 'Ton ami a partagé son identité.');
+        showToast(i18n.t('identity_revealed_title'), body || i18n.t('identity_revealed_body'));
       }
     });
 

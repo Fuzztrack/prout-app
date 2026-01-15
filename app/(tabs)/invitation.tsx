@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { safePush } from '../../lib/navigation';
 import { supabase } from '../../lib/supabase';
+import i18n from '../../lib/i18n';
 
 export default function InvitationScreen() {
   const router = useRouter();
@@ -35,8 +36,8 @@ export default function InvitationScreen() {
   const onShare = async () => {
     try {
       const message = pseudo 
-        ? `Rejoins-moi sur l'appli "Prout !", mon pseudo est ${pseudo}\n\nTéléchargez l'appli : http://www.theproutapp.com`
-        : `Rejoins-moi sur l'appli "Prout !"\n\nTéléchargez l'appli : http://www.theproutapp.com`;
+        ? i18n.t('invite_message_with_pseudo', { pseudo })
+        : i18n.t('invite_message');
 
       await Share.share({
         message: message,

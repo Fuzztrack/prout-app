@@ -7,6 +7,7 @@ import { CustomButton } from '../components/CustomButton';
 import { safePush } from '../lib/navigation';
 import { ensureAndroidNotificationChannel } from '../lib/notifications';
 import { getFCMToken } from '../lib/fcmToken';
+import i18n from '../lib/i18n';
 
 export default function NotificationPermissionScreen() {
   const router = useRouter();
@@ -21,8 +22,8 @@ export default function NotificationPermissionScreen() {
 
     if (Constants.isDevice === false) {
       Alert.alert(
-        'Information',
-        'Les notifications push nécessitent un appareil réel. Les simulateurs ne peuvent pas obtenir de token.'
+        i18n.t('info'),
+        i18n.t('push_requires_device')
       );
       safePush(router, '/ContactPermissionScreen', { skipInitialCheck: false });
       return;
@@ -54,8 +55,8 @@ export default function NotificationPermissionScreen() {
         if (finalStatus === 'denied') {
           console.warn('⚠️ Permission de notifications refusée');
           Alert.alert(
-            'Permission refusée',
-            'Les notifications push nécessitent la permission de notifications. Vous pourrez l\'activer plus tard dans les paramètres.'
+            i18n.t('permission_denied_title'),
+            i18n.t('permission_denied_body')
           );
         } else if (finalStatus === 'granted') {
           console.log('✅ Permission de notifications accordée');
@@ -89,18 +90,18 @@ export default function NotificationPermissionScreen() {
       </View>
       
       <View style={styles.content}>
-        <Text style={styles.title}>Autorisation de notifications</Text>
+        <Text style={styles.title}>{i18n.t('notification_permission_title')}</Text>
         
         <Text style={styles.message}>
-          Prout est une application de notifications. Pour recevoir et envoyer des prouts à vos amis, vous devez autoriser les notifications.
+          {i18n.t('notification_permission_message')}
         </Text>
         
         <Text style={styles.message}>
-          Acceptez les notifications pour jouer le jeu ! 😊
+          {i18n.t('accept_notifications_message')}
         </Text>
         
         <CustomButton
-          title="Autoriser les notifications"
+          title={i18n.t('authorize_notifications')}
           onPress={handleNext}
           textColor="#604a3e"
         />

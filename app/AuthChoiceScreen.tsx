@@ -7,6 +7,7 @@ import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, Scroll
 import { CustomButton } from '../components/CustomButton';
 import { safePush, safeReplace } from '../lib/navigation';
 import { getRedirectUrl, supabase } from '../lib/supabase';
+import i18n from '../lib/i18n';
 
 // Sécurité pour OAuth
 WebBrowser.maybeCompleteAuthSession();
@@ -646,7 +647,7 @@ export default function AuthChoiceScreen() {
           />
         </View>
 
-        <Text style={styles.title}>Bienvenue !</Text>
+        <Text style={styles.title}>{i18n.t('welcome')}</Text>
 
         <View style={styles.socialContainer}>
           <TouchableOpacity
@@ -674,23 +675,23 @@ export default function AuthChoiceScreen() {
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.socialText}>Continuer avec Google ou Apple</Text>
+        <Text style={styles.socialText}>{i18n.t('continue_with_social')}</Text>
 
         <View style={styles.dividerContainer}>
           <View style={styles.divider} />
-          <Text style={styles.orText}>OU</Text>
+          <Text style={styles.orText}>{i18n.t('or')}</Text>
           <View style={styles.divider} />
         </View>
 
         <CustomButton 
-          title="S'inscrire avec un Email" 
+          title={i18n.t('signup_with_email')} 
           onPress={() => safePush(router, '/RegisterEmailScreen', { skipInitialCheck: false })} 
           color="#604a3e"
           textColor="#ebb89b"
         />
 
         <CustomButton
-          title="J'ai déjà un compte (Email)"
+          title={i18n.t('already_have_account')}
           onPress={() => safePush(router, '/LoginScreen', { skipInitialCheck: false })}
           color="transparent"
           textColor="#604a3e"

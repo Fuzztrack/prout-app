@@ -302,7 +302,7 @@ export function IdentityList({ onClose }: IdentityListProps) {
           </TouchableOpacity>
         )}
         <View style={styles.empty}>
-          <Text style={styles.emptyText}>Aucun ami encore. Ajoutez des amis pour demander leur identité.</Text>
+          <Text style={styles.emptyText}>{i18n.t('no_friends_identity')}</Text>
         </View>
       </View>
     );

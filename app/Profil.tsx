@@ -26,7 +26,7 @@ export default function ProfilScreen() {
         const { data: { user }, error: userError } = await supabase.auth.getUser();
         
         if (userError || !user) {
-          Alert.alert('Erreur', 'Impossible de récupérer votre compte');
+          Alert.alert(i18n.t('error'), i18n.t('cannot_retrieve_account'));
           router.back();
           return;
         }
@@ -41,7 +41,7 @@ export default function ProfilScreen() {
           .single();
 
         if (profileError || !profile) {
-          Alert.alert('Erreur', 'Impossible de charger votre profil');
+          Alert.alert(i18n.t('error'), i18n.t('cannot_load_profile'));
           router.back();
           return;
         }
@@ -53,9 +53,9 @@ export default function ProfilScreen() {
       } catch (err) {
         console.error('Erreur lors du chargement:', err);
         if (err instanceof Error && (err.message.includes('network') || err.message.includes('fetch'))) {
-          Alert.alert('Erreur', 'Problème de connexion, vérifiez votre réseau');
+          Alert.alert(i18n.t('error'), i18n.t('connection_error_body'));
         } else {
-          Alert.alert('Erreur', 'Impossible de charger votre profil');
+          Alert.alert(i18n.t('error'), i18n.t('cannot_load_profile'));
         }
         router.back();
       } finally {
@@ -69,15 +69,15 @@ export default function ProfilScreen() {
   // Fonction pour déconnecter l'utilisateur
   const handleSignOut = async () => {
     Alert.alert(
-      'Déconnexion',
-      'Êtes-vous sûr de vouloir vous déconnecter ?',
+      i18n.t('logout_title'),
+      i18n.t('logout_confirm'),
       [
         {
-          text: 'Annuler',
+          text: i18n.t('cancel'),
           style: 'cancel',
         },
         {
-          text: 'Déconnexion',
+          text: i18n.t('logout_disconnect'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -98,19 +98,19 @@ export default function ProfilScreen() {
               const { error } = await supabase.auth.signOut();
               
               if (error) {
-                Alert.alert('Erreur', 'Impossible de se déconnecter');
+                Alert.alert(i18n.t('error'), i18n.t('cannot_logout'));
                 return;
               }
 
               // Afficher le message
               Alert.alert(
-                "Déconnexion réussie",
-                "Vous ne recevrez plus de prout !",
-                [{ text: "OK", onPress: () => safeReplace(router, '/LoginScreen', { skipInitialCheck: false }) }]
+                i18n.t('logout_success_title'),
+                i18n.t('logout_success_body'),
+                [{ text: i18n.t('ok'), onPress: () => safeReplace(router, '/LoginScreen', { skipInitialCheck: false }) }]
               );
             } catch (err) {
               console.error('Erreur lors de la déconnexion:', err);
-              Alert.alert('Erreur', 'Une erreur est survenue lors de la déconnexion');
+              Alert.alert(i18n.t('error'), i18n.t('logout_error'));
             } finally {
               setLoading(false);
             }

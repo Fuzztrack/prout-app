@@ -3,17 +3,18 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { safeReplace } from '../lib/navigation';
 import { supabase } from '../lib/supabase';
+import i18n from '../lib/i18n';
 
 export default function ConfirmEmailScreen() {
   const router = useRouter();
-  const [status, setStatus] = useState("Finalisation de la connexion...");
+  const [status, setStatus] = useState(i18n.t('finalizing_connection'));
 
   useEffect(() => {
     let isMounted = true;
 
     const handleSuccess = async (userId: string) => {
       if (!isMounted) return;
-      setStatus("Vérification du profil...");
+      setStatus(i18n.t('verifying_profile'));
       
       // Petit délai pour laisser le temps au trigger SQL de créer le profil
       await new Promise(resolve => setTimeout(resolve, 1000));

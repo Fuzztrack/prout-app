@@ -41,7 +41,7 @@ export function EditProfil({ onClose }: { onClose: () => void }) {
         const { data: { user }, error: userError } = await supabase.auth.getUser();
         
         if (userError || !user) {
-          Alert.alert(i18n.t('error'), 'Impossible de récupérer votre compte');
+          Alert.alert(i18n.t('error'), i18n.t('cannot_retrieve_account'));
           onClose();
           return;
         }
@@ -110,7 +110,7 @@ export function EditProfil({ onClose }: { onClose: () => void }) {
     // Valider les champs modifiés
     if (pseudoChanged) {
       if (!trimmedPseudo) {
-        Alert.alert(i18n.t('error'), 'Le pseudo ne peut pas être vide');
+        Alert.alert(i18n.t('error'), i18n.t('cannot_be_empty'));
         return;
       }
     }
@@ -122,13 +122,13 @@ export function EditProfil({ onClose }: { onClose: () => void }) {
         return;
       }
       if (trimmedEmail.includes('@temp.proutapp.local')) {
-        Alert.alert(i18n.t('error'), 'Veuillez entrer un email réel valide (pas un email temporaire)');
+        Alert.alert(i18n.t('error'), i18n.t('invalid_email'));
         return;
       }
     }
 
     if (phoneChanged && normalizedPhone && normalizedPhone.length < 8) {
-      Alert.alert(i18n.t('error'), 'Le numéro de téléphone doit contenir au moins 8 chiffres');
+      Alert.alert(i18n.t('error'), i18n.t('phone_min_digits'));
       return;
     }
 
@@ -142,12 +142,12 @@ export function EditProfil({ onClose }: { onClose: () => void }) {
         .maybeSingle();
 
       if (checkError) {
-        Alert.alert(i18n.t('error'), 'Impossible de vérifier la disponibilité du pseudo');
+        Alert.alert(i18n.t('error'), i18n.t('cannot_check_pseudo'));
         return;
       }
 
       if (existingProfile) {
-        Alert.alert(i18n.t('error'), 'Ce pseudo est déjà utilisé par un autre utilisateur');
+        Alert.alert(i18n.t('error'), i18n.t('pseudo_already_used'));
         return;
       }
     }
@@ -166,7 +166,7 @@ export function EditProfil({ onClose }: { onClose: () => void }) {
       // Mettre à jour le téléphone si modifié
       if (phoneChanged) {
         updates.phone = normalizedPhone;
-        messages.push('téléphone');
+        messages.push(i18n.t('phone'));
       }
 
       // Mettre à jour le profil si nécessaire
@@ -178,7 +178,7 @@ export function EditProfil({ onClose }: { onClose: () => void }) {
 
         if (profileError) {
           if (profileError.code === '23505' || profileError.message?.includes('unique')) {
-            Alert.alert(i18n.t('error'), 'Ce pseudo est déjà utilisé par un autre utilisateur');
+            Alert.alert(i18n.t('error'), i18n.t('pseudo_already_used'));
             setLoading(false);
             return;
           }
@@ -204,7 +204,7 @@ export function EditProfil({ onClose }: { onClose: () => void }) {
 
         if (updateError) {
           if (updateError.message?.includes('already registered')) {
-            Alert.alert(i18n.t('error'), 'Cet email est déjà utilisé par un autre compte');
+            Alert.alert(i18n.t('error'), i18n.t('email_already_used'));
             setLoading(false);
             return;
           }
@@ -236,7 +236,7 @@ export function EditProfil({ onClose }: { onClose: () => void }) {
           handleSupabaseError(err, 'Impossible de mettre à jour le profil');
         }
       } else {
-        Alert.alert(i18n.t('error'), 'Une erreur est survenue');
+        Alert.alert(i18n.t('error'), i18n.t('error'));
       }
     } finally {
       setLoading(false);
@@ -276,7 +276,7 @@ export function EditProfil({ onClose }: { onClose: () => void }) {
               // Déconnecter l'utilisateur (même si le compte est déjà supprimé)
               await supabase.auth.signOut();
 
-              Alert.alert(i18n.t('success'), 'Votre compte a été supprimé avec succès.', [
+              Alert.alert(i18n.t('success'), i18n.t('account_deleted_success'), [
                 {
                   text: i18n.t('ok'),
                   onPress: () => {

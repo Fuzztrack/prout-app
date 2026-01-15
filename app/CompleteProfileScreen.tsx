@@ -5,6 +5,7 @@ import { CustomButton } from '../components/CustomButton';
 import { normalizePhone } from '../lib/normalizePhone';
 import { safePush, safeReplace } from '../lib/navigation';
 import { supabase } from '../lib/supabase';
+import i18n from '../lib/i18n';
 
 export default function CompleteProfileScreen() {
   const router = useRouter();
@@ -131,7 +132,7 @@ export default function CompleteProfileScreen() {
             value={phone} 
             onChangeText={setPhone} 
             style={styles.input} 
-            placeholder="Téléphone" 
+            placeholder={i18n.t('phone_placeholder')} 
             keyboardType="phone-pad"
             autoCapitalize="none"
         />
@@ -146,7 +147,7 @@ export default function CompleteProfileScreen() {
 
         {/* BOUTON DE SECOURS */}
         <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-            <Text style={styles.logoutText}>Annuler et se déconnecter</Text>
+            <Text style={styles.logoutText}>{i18n.t('cancel_and_logout')}</Text>
         </TouchableOpacity>
 
       </ScrollView>

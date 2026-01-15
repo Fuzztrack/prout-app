@@ -442,7 +442,7 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
     // Si on active le mode Zen, proposer des durées
     if (!isZenMode) {
       if (Platform.OS === 'ios') {
-        const options = ['1h', '8h', 'Save my job !', 'Save my night !', i18n.t('cancel')];
+        const options = ['1h', '8h', i18n.t('zen_job_label'), i18n.t('zen_night_label'), i18n.t('cancel')];
         ActionSheetIOS.showActionSheetWithOptions(
           {
             options,
@@ -512,12 +512,12 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
           <View style={styles.zenOverlay}>
             <View style={styles.zenCard}>
               <Text style={styles.zenTitle}>{i18n.t('zen_confirm_title')}</Text>
-              <Text style={styles.zenSubtitle}>Choisissez une durée</Text>
+              <Text style={styles.zenSubtitle}>{i18n.t('choose_duration')}</Text>
               {[
                 { label: '1h', type: '1h' as const },
                 { label: '8h', type: '8h' as const },
-                { label: 'Save my job ! (9h-19h, lun-ven)', type: 'job' as const },
-                { label: 'Save my night ! (22h-8h)', type: 'night' as const },
+                { label: i18n.t('zen_job_label'), type: 'job' as const },
+                { label: i18n.t('zen_night_label'), type: 'night' as const },
               ].map((opt) => (
                 <TouchableOpacity
                   key={opt.type}
@@ -614,14 +614,14 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
         ) : activeView === 'profileMenu' ? (
           <View style={styles.menuCard}>
             {[
-              { label: 'Rechercher un ami', icon: 'person-add-outline', onPress: () => setActiveView('search'), iconColor: '#604a3e' },
-              { label: 'Mode Zen', icon: isZenMode ? 'moon' : 'moon-outline', onPress: toggleZenMode, iconColor: isZenMode ? '#ffd700' : '#604a3e' },
+              { label: i18n.t('search_friend'), icon: 'person-add-outline', onPress: () => setActiveView('search'), iconColor: '#604a3e' },
+              { label: i18n.t('zen_mode'), icon: isZenMode ? 'moon' : 'moon-outline', onPress: toggleZenMode, iconColor: isZenMode ? '#ffd700' : '#604a3e' },
               { label: i18n.t('silent_mode'), icon: isSilentMode ? 'volume-mute' : 'volume-mute-outline', onPress: toggleSilentMode, iconColor: isSilentMode ? '#ff6b6b' : '#604a3e' },
-              { label: 'Gérez votre profil', icon: 'person-circle-outline', onPress: () => setActiveView('profile'), iconColor: '#604a3e' },
-              { label: 'Inviter un ami', icon: 'share-social-outline', onPress: handleShare, iconColor: '#604a3e' },
-              { label: 'Revoir les fonctions de l\'appli', icon: 'help-circle-outline', onPress: () => setActiveView('tutorial'), iconColor: '#604a3e' },
-              { label: 'Qui est qui ? Vérifiez les pseudos', icon: 'eye-outline', onPress: () => setActiveView('identity'), iconColor: '#604a3e' },
-              { label: 'Politiques de confidentialité', icon: 'document-text-outline', onPress: () => { setShowPrivacy(true); setActiveView('list'); }, iconColor: '#604a3e' },
+              { label: i18n.t('manage_profile'), icon: 'person-circle-outline', onPress: () => setActiveView('profile'), iconColor: '#604a3e' },
+              { label: i18n.t('invite_friend'), icon: 'share-social-outline', onPress: handleShare, iconColor: '#604a3e' },
+              { label: i18n.t('review_app_functions'), icon: 'help-circle-outline', onPress: () => setActiveView('tutorial'), iconColor: '#604a3e' },
+              { label: i18n.t('who_is_who'), icon: 'eye-outline', onPress: () => setActiveView('identity'), iconColor: '#604a3e' },
+              { label: i18n.t('privacy_policy_menu'), icon: 'document-text-outline', onPress: () => { setShowPrivacy(true); setActiveView('list'); }, iconColor: '#604a3e' },
             ].map((item, index) => (
               <TouchableOpacity 
                 key={index}

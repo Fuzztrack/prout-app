@@ -6,6 +6,7 @@ import { Image, Platform, StyleSheet, Text, View } from 'react-native';
 import { CustomButton } from '../components/CustomButton';
 import { safeReplace } from '../lib/navigation';
 import { ensureContactPermissionWithDisclosure } from '../lib/contactConsent';
+import i18n from '../lib/i18n';
 
 export default function ContactPermissionScreen() {
   const router = useRouter();
@@ -20,8 +21,8 @@ export default function ContactPermissionScreen() {
         
         if (status === 'denied') {
           Alert.alert(
-            'Permission requise',
-            'L\'accès aux contacts est nécessaire pour que l\'application fonctionne. Vous pourrez l\'activer plus tard dans les paramètres.'
+            i18n.t('error'),
+            i18n.t('contacts_access_required_later')
           );
         } else if (status === 'granted') {
           console.log('✅ Permission de contacts accordée');
@@ -46,13 +47,13 @@ export default function ContactPermissionScreen() {
       </View>
       
       <View style={styles.content}>
-        <Text style={styles.title}>Ça reste en nous !</Text>
+        <Text style={styles.title}>{i18n.t('contact_permission_title')}</Text>
         <Text style={styles.message}>
-          Cette appli synchronise vos contacts (noms et numéros) vers nos serveurs Supabase (utfwujyymaikraaigvuv.supabase.co) pour trouver vos amis et créer les liens. Aucune autre utilisation ni partage externe. Acceptez-vous cette synchronisation ?
+          {i18n.t('contact_permission_message')}
         </Text>
         
         <CustomButton
-          title="Suivant"
+          title={i18n.t('next')}
           onPress={handleNext}
           textColor="#604a3e"
         />

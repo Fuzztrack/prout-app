@@ -6,6 +6,7 @@ import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, Scroll
 import { safePush, safeReplace } from '../lib/navigation';
 import { normalizePhone } from '../lib/normalizePhone';
 import { supabase } from '../lib/supabase';
+import i18n from '../lib/i18n';
 
 export default function EditProfilScreen() {
   const router = useRouter();
@@ -25,7 +26,7 @@ export default function EditProfilScreen() {
         error?.message?.includes('fetch') || 
         error?.code === 'PGRST116' || 
         error?.code === 'PGRST301') {
-      Alert.alert('Erreur', 'Problème de connexion, vérifiez votre réseau');
+      Alert.alert(i18n.t('error'), i18n.t('connection_error_body'));
     } else {
       Alert.alert('Erreur', defaultMessage);
     }
@@ -41,7 +42,7 @@ export default function EditProfilScreen() {
         const { data: { user }, error: userError } = await supabase.auth.getUser();
         
         if (userError || !user) {
-          Alert.alert('Erreur', 'Impossible de récupérer votre compte');
+          Alert.alert(i18n.t('error'), i18n.t('cannot_retrieve_account'));
           router.back();
           return;
         }
@@ -72,7 +73,7 @@ export default function EditProfilScreen() {
       } catch (err) {
         console.error('Erreur lors du chargement:', err);
         if (err instanceof Error && (err.message.includes('network') || err.message.includes('fetch'))) {
-          Alert.alert('Erreur', 'Problème de connexion, vérifiez votre réseau');
+          Alert.alert(i18n.t('error'), i18n.t('connection_error_body'));
         } else {
           Alert.alert('Erreur', 'Impossible de charger votre profil');
         }
@@ -103,14 +104,14 @@ export default function EditProfilScreen() {
     const phoneChanged = normalizedPhone !== normalizedCurrentPhone;
 
     if (!pseudoChanged && !emailChanged && !phoneChanged) {
-      Alert.alert('Information', 'Aucun changement détecté');
+      Alert.alert(i18n.t('info'), i18n.t('no_change'));
       return;
     }
 
     // Valider les champs modifiés
     if (pseudoChanged) {
       if (!trimmedPseudo) {
-        Alert.alert('Erreur', 'Le pseudo ne peut pas être vide');
+        Alert.alert(i18n.t('error'), i18n.t('cannot_be_empty'));
         return;
       }
     }
@@ -122,13 +123,13 @@ export default function EditProfilScreen() {
         return;
       }
       if (trimmedEmail.includes('@temp.proutapp.local')) {
-        Alert.alert('Erreur', 'Veuillez entrer un email réel valide (pas un email temporaire)');
+        Alert.alert(i18n.t('error'), i18n.t('invalid_email'));
         return;
       }
     }
 
     if (phoneChanged && normalizedPhone && normalizedPhone.length < 8) {
-      Alert.alert('Erreur', 'Le numéro de téléphone doit contenir au moins 8 chiffres');
+      Alert.alert(i18n.t('error'), i18n.t('phone_min_digits'));
       return;
     }
 
@@ -142,12 +143,12 @@ export default function EditProfilScreen() {
         .maybeSingle();
 
       if (checkError) {
-        Alert.alert('Erreur', 'Impossible de vérifier la disponibilité du pseudo');
+        Alert.alert(i18n.t('error'), i18n.t('cannot_check_pseudo'));
         return;
       }
 
       if (existingProfile) {
-        Alert.alert('Erreur', 'Ce pseudo est déjà utilisé par un autre utilisateur');
+        Alert.alert(i18n.t('error'), i18n.t('pseudo_already_used'));
         return;
       }
     }
@@ -160,13 +161,13 @@ export default function EditProfilScreen() {
       // Mettre à jour le pseudo si modifié
       if (pseudoChanged) {
         updates.pseudo = trimmedPseudo;
-        messages.push('pseudo');
+        messages.push(i18n.t('pseudo'));
       }
 
       // Mettre à jour le téléphone si modifié
       if (phoneChanged) {
         updates.phone = normalizedPhone;
-        messages.push('téléphone');
+        messages.push(i18n.t('phone'));
       }
 
       // Mettre à jour le profil si nécessaire
@@ -178,7 +179,7 @@ export default function EditProfilScreen() {
 
         if (profileError) {
           if (profileError.code === '23505' || profileError.message?.includes('unique')) {
-            Alert.alert('Erreur', 'Ce pseudo est déjà utilisé par un autre utilisateur');
+            Alert.alert(i18n.t('error'), i18n.t('pseudo_already_used'));
             setLoading(false);
             return;
           }
@@ -204,7 +205,7 @@ export default function EditProfilScreen() {
 
         if (updateError) {
           if (updateError.message?.includes('already registered')) {
-            Alert.alert('Erreur', 'Cet email est déjà utilisé par un autre compte');
+            Alert.alert(i18n.t('error'), i18n.t('email_already_used'));
             setLoading(false);
             return;
           }
@@ -219,10 +220,10 @@ export default function EditProfilScreen() {
       // Afficher le message de succès
       const isCurrentEmailTemporary = currentEmail?.includes('@temp.proutapp.local');
       const successMessage = messages.length > 0
-        ? `${messages.join(', ')} mis${messages.length > 1 ? 's' : ''} à jour avec succès${emailChanged && isCurrentEmailTemporary ? ' ! Un email de confirmation a été envoyé.' : ' !'}`
-        : 'Aucun changement';
+        ? i18n.t('fields_updated_success', { fields: messages.join(', ') }) + (emailChanged && isCurrentEmailTemporary ? ' ' + i18n.t('email_confirmation_sent') : '')
+        : i18n.t('no_change');
 
-      Alert.alert('Succès', successMessage, [
+      Alert.alert(i18n.t('success'), successMessage, [
         {
           text: 'OK',
           onPress: () => safeReplace(router, '/Profil', { skipInitialCheck: false }),
@@ -232,7 +233,7 @@ export default function EditProfilScreen() {
       console.error('Erreur lors de la mise à jour:', err);
       if (err instanceof Error) {
         if (err.message.includes('network') || err.message.includes('fetch')) {
-          Alert.alert('Erreur', 'Problème de connexion, vérifiez votre réseau');
+          Alert.alert(i18n.t('error'), i18n.t('connection_error_body'));
         } else {
           handleSupabaseError(err, 'Impossible de mettre à jour le profil');
         }
@@ -255,12 +256,12 @@ export default function EditProfilScreen() {
 
     // Vérifier que le pseudo n'est pas vide après trim
     if (!trimmedPseudo) {
-      Alert.alert('Erreur', 'Le pseudo ne peut pas être vide');
+      Alert.alert(i18n.t('error'), i18n.t('cannot_be_empty'));
       return;
     }
 
     if (trimmedPseudo === currentPseudo) {
-      Alert.alert('Information', 'Le pseudo est identique à l\'actuel');
+      Alert.alert(i18n.t('info'), i18n.t('pseudo_identical'));
       return;
     }
 
@@ -277,31 +278,31 @@ export default function EditProfilScreen() {
 
       if (checkError) {
         console.error('Erreur lors de la vérification du pseudo:', checkError);
-        Alert.alert('Erreur', 'Impossible de vérifier la disponibilité du pseudo');
+        Alert.alert(i18n.t('error'), i18n.t('cannot_check_pseudo'));
         setLoading(false);
         return;
       }
 
       if (existingProfile) {
-        Alert.alert('Erreur', 'Ce pseudo est déjà utilisé par un autre utilisateur');
+        Alert.alert(i18n.t('error'), i18n.t('pseudo_already_used'));
         setLoading(false);
         return;
       }
 
       // Le pseudo est disponible, demander confirmation
       Alert.alert(
-        'Confirmer',
-        `Voulez-vous changer votre pseudo de "${currentPseudo}" à "${trimmedPseudo}" ?`,
+        i18n.t('confirm'),
+        i18n.t('change_pseudo_confirm', { current: currentPseudo, new: trimmedPseudo }),
         [
           {
-            text: 'Annuler',
+            text: i18n.t('cancel'),
             style: 'cancel',
             onPress: () => {
               setLoading(false);
             },
           },
           {
-            text: 'Confirmer',
+            text: i18n.t('confirm'),
             onPress: async () => {
               try {
                 const { error } = await supabase
@@ -312,7 +313,7 @@ export default function EditProfilScreen() {
                 if (error) {
                   // Gérer spécifiquement l'erreur de contrainte unique
                   if (error.code === '23505' || error.message?.includes('unique') || error.message?.includes('duplicate')) {
-                    Alert.alert('Erreur', 'Ce pseudo est déjà utilisé par un autre utilisateur');
+                    Alert.alert(i18n.t('error'), i18n.t('pseudo_already_used'));
                   } else {
                     handleSupabaseError(error, 'Impossible de mettre à jour le pseudo');
                   }
@@ -326,14 +327,14 @@ export default function EditProfilScreen() {
                   } catch (metaError) {
                     console.warn('⚠️ Impossible de mettre à jour les métadonnées pseudo:', metaError);
                   }
-                  Alert.alert('Succès', 'Pseudo mis à jour avec succès !');
+                  Alert.alert(i18n.t('success'), i18n.t('pseudo_updated_success'));
                   // Recharger les données après la mise à jour
                   safeReplace(router, '/Profil', { skipInitialCheck: false });
                 }
               } catch (err) {
                 console.error('Erreur inattendue:', err);
                 if (err instanceof Error && (err.message.includes('network') || err.message.includes('fetch'))) {
-                  Alert.alert('Erreur', 'Problème de connexion, vérifiez votre réseau');
+                  Alert.alert(i18n.t('error'), i18n.t('connection_error_body'));
                 } else {
                   Alert.alert('Erreur', 'Une erreur est survenue');
                 }
@@ -346,7 +347,7 @@ export default function EditProfilScreen() {
       );
     } catch (err) {
       console.error('Erreur lors de la vérification du pseudo:', err);
-      Alert.alert('Erreur', 'Une erreur est survenue lors de la vérification');
+      Alert.alert(i18n.t('error'), i18n.t('verification_error'));
       setLoading(false);
     }
   };
@@ -369,7 +370,7 @@ export default function EditProfilScreen() {
 
     // Vérifier que ce n'est pas un email temporaire
     if (trimmedEmail.includes('@temp.proutapp.local')) {
-      Alert.alert('Erreur', 'Veuillez entrer un email réel valide (pas un email temporaire)');
+      Alert.alert(i18n.t('error'), i18n.t('invalid_email'));
       return;
     }
 
@@ -377,27 +378,27 @@ export default function EditProfilScreen() {
     const normalizedCurrentEmail = currentEmail?.toLowerCase().trim() || '';
 
     if (trimmedEmail === normalizedCurrentEmail) {
-      Alert.alert('Information', 'L\'email est identique à l\'actuel');
+      Alert.alert(i18n.t('info'), i18n.t('email_identical'));
       return;
     }
 
     // Afficher un message différent si l'email actuel est temporaire
     const isCurrentEmailTemporary = normalizedCurrentEmail.includes('@temp.proutapp.local');
     const confirmationMessage = isCurrentEmailTemporary
-      ? `Voulez-vous définir votre email à "${trimmedEmail}" ?\n\nActuellement, vous utilisez un email temporaire.`
-      : `Voulez-vous changer votre email de "${currentEmail}" à "${trimmedEmail}" ?`;
+      ? i18n.t('set_email_confirm', { email: trimmedEmail })
+      : i18n.t('change_email_confirm', { current: currentEmail, new: trimmedEmail });
 
     // Demander confirmation
     Alert.alert(
-      'Confirmer',
+      i18n.t('confirm'),
       confirmationMessage,
       [
         {
-          text: 'Annuler',
+          text: i18n.t('cancel'),
           style: 'cancel',
         },
         {
-          text: 'Confirmer',
+          text: i18n.t('confirm'),
           onPress: async () => {
             setLoading(true);
             try {
@@ -410,21 +411,19 @@ export default function EditProfilScreen() {
                 // Gérer spécifiquement l'erreur d'email invalide
                 if (updateError.message?.includes('invalid') || updateError.message?.includes('Email address')) {
                   Alert.alert(
-                    'Erreur',
-                    'L\'email que vous avez entré n\'est pas valide. Veuillez utiliser un email réel (ex: nom@example.com)'
+                    i18n.t('error'),
+                    i18n.t('invalid_email_format')
                   );
                 } else if (updateError.message?.includes('already registered')) {
-                  Alert.alert('Erreur', 'Cet email est déjà utilisé par un autre compte');
+                  Alert.alert(i18n.t('error'), i18n.t('email_already_used'));
                 } else {
                   handleSupabaseError(updateError, 'Impossible de mettre à jour l\'email');
                 }
               } else {
                 setCurrentEmail(trimmedEmail);
                 Alert.alert(
-                  'Succès',
-                  isCurrentEmailTemporary
-                    ? 'Email défini avec succès ! Un email de confirmation a été envoyé.'
-                    : 'Email mis à jour avec succès ! Un email de confirmation a été envoyé.'
+                  i18n.t('success'),
+                  i18n.t('fields_updated_success', { fields: i18n.t('email') }) + ' ' + i18n.t('email_confirmation_sent')
                 );
                 // Recharger les données après la mise à jour
                 safeReplace(router, '/Profil', { skipInitialCheck: false });
@@ -433,7 +432,7 @@ export default function EditProfilScreen() {
               console.error('Erreur inattendue:', err);
               if (err instanceof Error) {
                 if (err.message.includes('network') || err.message.includes('fetch')) {
-                  Alert.alert('Erreur', 'Problème de connexion, vérifiez votre réseau');
+                  Alert.alert(i18n.t('error'), i18n.t('connection_error_body'));
                 } else if (err.message.includes('invalid') || err.message.includes('Email')) {
                   Alert.alert(
                     'Erreur',
@@ -457,7 +456,7 @@ export default function EditProfilScreen() {
   // Mettre à jour le numéro de téléphone avec confirmation
   const updatePhone = async () => {
     if (!phone || !userId) {
-      Alert.alert('Erreur', 'Veuillez entrer un nouveau numéro de téléphone');
+      Alert.alert(i18n.t('error'), i18n.t('enter_new_phone'));
       return;
     }
 
@@ -466,27 +465,27 @@ export default function EditProfilScreen() {
     const normalizedCurrentPhone = normalizePhone(currentPhone);
 
     if (normalizedPhone === normalizedCurrentPhone) {
-      Alert.alert('Information', 'Le numéro de téléphone est identique à l\'actuel');
+      Alert.alert(i18n.t('info'), i18n.t('phone_identical'));
       return;
     }
 
     // Vérifier que le numéro est valide (au moins 8 chiffres)
     if (normalizedPhone.length < 8) {
-      Alert.alert('Erreur', 'Le numéro de téléphone doit contenir au moins 8 chiffres');
+      Alert.alert(i18n.t('error'), i18n.t('phone_min_digits'));
       return;
     }
 
     // Demander confirmation
     Alert.alert(
-      'Confirmer',
-      `Voulez-vous changer votre numéro de téléphone de "${currentPhone}" à "${phone}" ?`,
+      i18n.t('confirm'),
+      i18n.t('change_phone_confirm', { current: currentPhone, new: phone }),
       [
         {
-          text: 'Annuler',
+          text: i18n.t('cancel'),
           style: 'cancel',
         },
         {
-          text: 'Confirmer',
+          text: i18n.t('confirm'),
           onPress: async () => {
             setLoading(true);
             try {
@@ -500,14 +499,14 @@ export default function EditProfilScreen() {
               } else {
                 setCurrentPhone(normalizedPhone);
                 setPhone(normalizedPhone);
-                Alert.alert('Succès', 'Numéro de téléphone mis à jour avec succès !');
+                Alert.alert(i18n.t('success'), i18n.t('phone_updated_success'));
                 // Recharger les données après la mise à jour
                 safeReplace(router, '/Profil', { skipInitialCheck: false });
               }
             } catch (err) {
               console.error('Erreur inattendue:', err);
               if (err instanceof Error && (err.message.includes('network') || err.message.includes('fetch'))) {
-                Alert.alert('Erreur', 'Problème de connexion, vérifiez votre réseau');
+                Alert.alert(i18n.t('error'), i18n.t('connection_error_body'));
               } else {
                 Alert.alert('Erreur', 'Une erreur est survenue');
               }
@@ -554,9 +553,9 @@ export default function EditProfilScreen() {
               // Déconnecter l'utilisateur (même si le compte est déjà supprimé)
               await supabase.auth.signOut();
 
-              Alert.alert('Compte supprimé', 'Votre compte a été supprimé avec succès.', [
+              Alert.alert(i18n.t('account_deleted_title'), i18n.t('account_deleted_success'), [
                 {
-                  text: 'OK',
+                  text: i18n.t('ok'),
                   onPress: () => {
                     safeReplace(router, '/AuthChoiceScreen');
                   },
@@ -641,7 +640,7 @@ export default function EditProfilScreen() {
 
           <View style={styles.section}>
             <TextInput
-              placeholder="Téléphone"
+              placeholder={i18n.t('phone_placeholder')}
               value={phone}
               onChangeText={setPhone}
               style={styles.input}
@@ -661,7 +660,7 @@ export default function EditProfilScreen() {
             ) : (
               <>
                 <Ionicons name="checkmark-outline" size={24} color="#ebb89b" />
-                <Text style={styles.updateAllText}>Mise à jour</Text>
+                <Text style={styles.updateAllText}>{i18n.t('update_button')}</Text>
               </>
             )}
           </TouchableOpacity>

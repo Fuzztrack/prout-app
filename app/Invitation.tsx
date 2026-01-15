@@ -9,6 +9,7 @@ import { normalizePhone } from '../lib/normalizePhone';
 import { safePush, safeReplace } from '../lib/navigation';
 // Import supprimé : on utilise maintenant sync_contacts (fonction SQL Supabase)
 import { supabase } from '../lib/supabase';
+import i18n from '../lib/i18n';
 
 interface Contact {
   id: string;
@@ -232,7 +233,7 @@ export default function InvitationScreen() {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       
       if (userError || !user) {
-        Alert.alert('Erreur', 'Impossible de récupérer votre compte');
+        Alert.alert(i18n.t('error'), i18n.t('cannot_retrieve_account'));
         return;
       }
 
@@ -276,7 +277,7 @@ export default function InvitationScreen() {
         }
       } else {
         if (friendRelation.status === 'accepted') {
-          Alert.alert('Information', 'Cette invitation a déjà été acceptée');
+          Alert.alert(i18n.t('info'), i18n.t('invitation_already_accepted'));
           await loadPendingInvitations();
           return;
         }
@@ -308,7 +309,7 @@ export default function InvitationScreen() {
         .update(updateData)
         .eq('id', invitation.id);
 
-      Alert.alert('Succès', 'Invitation acceptée !');
+      Alert.alert(i18n.t('success'), i18n.t('invitation_accepted'));
       await loadPendingInvitations();
       
       // Attendre un peu pour que le trigger crée la réciproque
@@ -327,15 +328,15 @@ export default function InvitationScreen() {
   // Rejeter une invitation
   const handleRejectInvitation = async (invitation: PendingInvitation) => {
     Alert.alert(
-      'Confirmer',
-      'Êtes-vous sûr de vouloir rejeter cette invitation ?',
+      i18n.t('confirm'),
+      i18n.t('reject_invitation_confirm'),
       [
         {
-          text: 'Annuler',
+          text: i18n.t('cancel'),
           style: 'cancel',
         },
         {
-          text: 'Rejeter',
+          text: i18n.t('reject'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -347,11 +348,11 @@ export default function InvitationScreen() {
                 .eq('id', invitation.id);
 
               if (error) {
-                Alert.alert('Erreur', 'Impossible de rejeter l\'invitation');
+                Alert.alert(i18n.t('error'), i18n.t('cannot_reject_invitation'));
                 return;
               }
 
-              Alert.alert('Succès', 'Invitation rejetée');
+              Alert.alert(i18n.t('success'), i18n.t('invitation_rejected'));
               
               // Recharger les invitations
               await loadPendingInvitations();
@@ -391,8 +392,8 @@ export default function InvitationScreen() {
       const status = await ensureContactPermissionWithDisclosure();
       if (status !== 'granted') {
         Alert.alert(
-          'Permission requise',
-          'L\'accès aux contacts est nécessaire pour inviter vos amis.'
+          i18n.t('error'),
+          i18n.t('contacts_access_required')
         );
         setLoading(false);
         return;
@@ -457,7 +458,7 @@ export default function InvitationScreen() {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       
       if (userError || !user) {
-        Alert.alert('Erreur', 'Impossible de récupérer votre compte');
+        Alert.alert(i18n.t('error'), i18n.t('cannot_retrieve_account'));
         return;
       }
 
@@ -513,7 +514,7 @@ export default function InvitationScreen() {
 
           if (checkError) {
             console.error('Erreur lors de la vérification de la relation:', checkError);
-            Alert.alert('Erreur', 'Impossible de vérifier la relation existante');
+            Alert.alert(i18n.t('error'), i18n.t('cannot_verify_relation'));
             return;
           }
 
@@ -529,7 +530,7 @@ export default function InvitationScreen() {
 
           // Si une relation acceptée existe dans l'un ou l'autre sens, c'est déjà un ami
           if (relationAB?.status === 'accepted' || relationBA?.status === 'accepted') {
-            Alert.alert('Information', 'Cette personne est déjà votre ami');
+            Alert.alert(i18n.t('info'), i18n.t('already_friend_info'));
             return;
           }
 
@@ -538,7 +539,7 @@ export default function InvitationScreen() {
             (relationAB?.status === 'pending' && relationAB?.method === 'invitation') ||
             (relationBA?.status === 'pending' && relationBA?.method === 'invitation')
           ) {
-            Alert.alert('Information', 'Une invitation est déjà en attente');
+            Alert.alert(i18n.t('info'), i18n.t('invitation_pending_info'));
             return;
           }
 
@@ -551,11 +552,11 @@ export default function InvitationScreen() {
 
             if (updateError) {
               console.error('Erreur lors de la mise à jour de la relation:', updateError);
-              Alert.alert('Erreur', 'Impossible de créer l\'invitation');
+              Alert.alert(i18n.t('error'), i18n.t('cannot_create_invitation'));
               return;
             }
 
-            Alert.alert('Succès', 'Invitation envoyée !');
+            Alert.alert(i18n.t('success'), i18n.t('invitation_sent'));
             setInviteValue('');
             await loadPendingInvitations();
             return;
@@ -574,12 +575,12 @@ export default function InvitationScreen() {
 
               if (deleteError) {
                 console.error('Erreur lors de la suppression de la relation:', deleteError);
-                Alert.alert('Erreur', 'Impossible de créer l\'invitation');
+                Alert.alert(i18n.t('error'), i18n.t('cannot_create_invitation'));
                 return;
               }
               // Continuer pour créer la nouvelle relation A→B
             } else {
-              Alert.alert('Information', 'Une relation existe déjà avec cette personne');
+              Alert.alert(i18n.t('info'), i18n.t('relation_exists'));
               return;
             }
           }
@@ -633,11 +634,11 @@ export default function InvitationScreen() {
               
               console.log('🔍 Relations après erreur:', recheckRelations);
               
-              Alert.alert('Information', 'Une invitation est déjà en attente avec cette personne');
+              Alert.alert(i18n.t('info'), i18n.t('invitation_pending_info'));
             } else if (friendError.message?.includes('friendship already exists')) {
-              Alert.alert('Information', 'Cette personne est déjà votre ami');
+              Alert.alert(i18n.t('info'), i18n.t('already_friend_info'));
             } else {
-              Alert.alert('Erreur', `Impossible de créer l'invitation: ${friendError.message || friendError.code}`);
+              Alert.alert(i18n.t('error'), i18n.t('cannot_create_invitation') + ': ' + (friendError.message || friendError.code));
             }
             return;
           }
@@ -662,7 +663,7 @@ export default function InvitationScreen() {
             }
           }
 
-          Alert.alert('Succès', 'Invitation envoyée !');
+          Alert.alert(i18n.t('success'), i18n.t('invitation_sent'));
           setInviteValue('');
           await loadPendingInvitations();
           return;
@@ -684,11 +685,11 @@ export default function InvitationScreen() {
           details: inviteError.details,
           hint: inviteError.hint,
         });
-        Alert.alert('Erreur', `Impossible de créer l'invitation: ${inviteError.message || inviteError.code}`);
+        Alert.alert(i18n.t('error'), i18n.t('cannot_create_invitation') + ': ' + (inviteError.message || inviteError.code));
         return;
       }
 
-      Alert.alert('Succès', 'Invitation envoyée !');
+      Alert.alert(i18n.t('success'), i18n.t('invitation_sent'));
       setInviteValue('');
       
       // Recharger les invitations
@@ -709,7 +710,7 @@ export default function InvitationScreen() {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       
       if (userError || !user) {
-        Alert.alert('Erreur', 'Impossible de récupérer votre compte');
+        Alert.alert(i18n.t('error'), i18n.t('cannot_retrieve_account'));
         return;
       }
 
@@ -724,7 +725,7 @@ export default function InvitationScreen() {
         // Utilisateur existant : créer l'amitié mutuelle via sync_contacts (fonction SQL)
         const normalizedPhone = normalizePhone(contact.phoneNumber);
         if (!normalizedPhone) {
-          Alert.alert('Erreur', 'Numéro de téléphone invalide');
+          Alert.alert(i18n.t('error'), i18n.t('invalid_phone'));
           return;
         }
 
@@ -735,11 +736,11 @@ export default function InvitationScreen() {
 
         if (error) {
           console.error('❌ Erreur sync contacts:', error);
-          Alert.alert('Erreur', `Impossible de créer l'amitié: ${error.message || 'Erreur inconnue'}`);
+          Alert.alert(i18n.t('error'), i18n.t('cannot_create_friendship') + ': ' + (error.message || i18n.t('unknown_error')));
         } else if (matchedFriends && matchedFriends.length > 0) {
-          Alert.alert('Succès', 'Amitié créée avec succès ! La relation est maintenant mutuelle.');
+          Alert.alert(i18n.t('success'), i18n.t('friendship_created'));
         } else {
-          Alert.alert('Information', 'Cette personne est déjà votre ami ou une invitation est en cours');
+          Alert.alert(i18n.t('info'), i18n.t('friend_or_invitation_exists'));
         }
         return;
       }
@@ -762,11 +763,11 @@ export default function InvitationScreen() {
           details: inviteError.details,
           hint: inviteError.hint,
         });
-        Alert.alert('Erreur', `Impossible de créer l'invitation: ${inviteError.message || inviteError.code}`);
+        Alert.alert(i18n.t('error'), i18n.t('cannot_create_invitation') + ': ' + (inviteError.message || inviteError.code));
         return;
       }
 
-      Alert.alert('Succès', 'Invitation envoyée !');
+      Alert.alert(i18n.t('success'), i18n.t('invitation_sent'));
       
       // Recharger les invitations si on revient à la vue principale
       if (!showContactList) {
@@ -796,30 +797,30 @@ export default function InvitationScreen() {
         <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
           {/* Section des invitations en attente */}
           <View style={styles.pendingSection}>
-            <Text style={styles.sectionTitle}>Invitations en attente de validation</Text>
+            <Text style={styles.sectionTitle}>{i18n.t('pending_invitations_title')}</Text>
             
             {loadingInvitations ? (
-              <Text style={styles.loadingText}>Chargement des invitations...</Text>
+              <Text style={styles.loadingText}>{i18n.t('loading_invitations')}</Text>
             ) : pendingInvitations.length > 0 ? (
               pendingInvitations.map((invitation) => (
                 <View key={invitation.id} style={styles.invitationItem}>
                   <View style={styles.invitationInfo}>
                     <Text style={styles.invitationFrom}>
-                      {invitation.from_user_pseudo || 'Utilisateur inconnu'} vous a invité
+                      {invitation.from_user_pseudo || i18n.t('unknown_user')} {i18n.t('invited_you')}
                     </Text>
                     {invitation.to_email && (
-                      <Text style={styles.invitationDetail}>Email: {invitation.to_email}</Text>
+                      <Text style={styles.invitationDetail}>{i18n.t('email')}: {invitation.to_email}</Text>
                     )}
                     {invitation.to_pseudo && (
-                      <Text style={styles.invitationDetail}>Pseudo: {invitation.to_pseudo}</Text>
+                      <Text style={styles.invitationDetail}>{i18n.t('pseudo')}: {invitation.to_pseudo}</Text>
                     )}
                     {invitation.to_phone && (
-                      <Text style={styles.invitationDetail}>Téléphone: {invitation.to_phone}</Text>
+                      <Text style={styles.invitationDetail}>{i18n.t('phone')}: {invitation.to_phone}</Text>
                     )}
                   </View>
                   <View style={styles.invitationActions}>
                     <CustomButton
-                      title="Accepter"
+                      title={i18n.t('accept')}
                       onPress={() => handleAcceptInvitation(invitation)}
                       textColor="#fff"
                       color="#4CAF50"
@@ -827,7 +828,7 @@ export default function InvitationScreen() {
                       disabled={loading}
                     />
                     <CustomButton
-                      title="Rejeter"
+                      title={i18n.t('reject')}
                       onPress={() => handleRejectInvitation(invitation)}
                       textColor="#fff"
                       color="#f44336"
@@ -838,7 +839,7 @@ export default function InvitationScreen() {
                 </View>
               ))
             ) : (
-              <Text style={styles.noInvitationsText}>Aucune invitation en attente</Text>
+              <Text style={styles.noInvitationsText}>{i18n.t('no_pending_invitations')}</Text>
             )}
           </View>
 
@@ -885,7 +886,7 @@ export default function InvitationScreen() {
           />
 
           <CustomButton
-            title={loading ? 'Chargement...' : 'Inviter depuis les contacts'}
+            title={loading ? i18n.t('loading') : i18n.t('invite_from_contacts')}
             onPress={handleInviteFriend}
             textColor="#604a3e"
             disabled={loading}
@@ -900,11 +901,11 @@ export default function InvitationScreen() {
         </ScrollView>
       ) : (
         <View style={styles.contactListContainer}>
-          <Text style={styles.contactListTitle}>Sélectionnez un contact</Text>
+          <Text style={styles.contactListTitle}>{i18n.t('select_contact')}</Text>
           
           {filteredContacts.length === 0 && contacts.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>Aucun contact trouvé</Text>
+              <Text style={styles.emptyText}>{i18n.t('no_contact_found')}</Text>
             </View>
           ) : (
             <FlatList
@@ -913,7 +914,7 @@ export default function InvitationScreen() {
               ListHeaderComponent={
                 <TextInput
                   style={styles.searchInput}
-                  placeholder="Rechercher un contact..."
+                  placeholder={i18n.t('search_contact_placeholder')}
                   placeholderTextColor="#999"
                   value={searchQuery}
                   onChangeText={setSearchQuery}
@@ -923,7 +924,7 @@ export default function InvitationScreen() {
               }
               ListEmptyComponent={
                 <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>Aucun contact trouvé</Text>
+                  <Text style={styles.emptyText}>{i18n.t('no_contact_found')}</Text>
                 </View>
               }
               renderItem={({ item }) => (

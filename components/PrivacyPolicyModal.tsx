@@ -1,6 +1,12 @@
 import React from 'react';
-import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import i18n from '../lib/i18n';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const MODAL_HEIGHT = SCREEN_HEIGHT * 0.85;
+const HEADER_HEIGHT = 60;
+const SCROLL_VIEW_HEIGHT = MODAL_HEIGHT - HEADER_HEIGHT;
 
 interface PrivacyPolicyModalProps {
   visible: boolean;
@@ -18,69 +24,58 @@ export function PrivacyPolicyModal({ visible, onClose }: PrivacyPolicyModalProps
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>Politique de Confidentialité</Text>
+            <Text style={styles.headerTitle}>{i18n.t('privacy_policy_title')}</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <Ionicons name="close" size={24} color="#604a3e" />
             </TouchableOpacity>
           </View>
           
-          <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+          <ScrollView 
+            style={styles.scrollView} 
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={true}
+            nestedScrollEnabled={true}
+            bounces={true}
+            alwaysBounceVertical={false}
+            scrollEnabled={true}
+            keyboardShouldPersistTaps="handled"
+          >
             <Text style={styles.text}>
-              <Text style={styles.bold}>Politique de Confidentialité de l'application Prout</Text>{'\n\n'}
-              <Text style={styles.italic}>Dernière mise à jour : 8 Décembre 2025</Text>{'\n\n'}
-              Bienvenue sur Prout (ci-après "l'Application"). Nous prenons la confidentialité de vos données très au sérieux. Cette politique décrit quelles données nous collectons, comment nous les utilisons et quels sont vos droits, en conformité avec le Règlement Général sur la Protection des Données (RGPD).{'\n\n'}
+              <Text style={styles.bold}>{i18n.t('privacy_policy_app_title')}</Text>{'\n\n'}
+              <Text style={styles.italic}>{i18n.t('privacy_policy_last_update')}</Text>{'\n\n'}
+              {i18n.t('privacy_policy_intro')}{'\n\n'}
 
-              <Text style={styles.sectionTitle}>1. Responsable du traitement</Text>{'\n'}
-              L'Application est éditée par The Prout Corporation (ci-après "Nous"). Pour toute question relative à vos données, vous pouvez nous contacter à : hello@theproutapp.com{'\n\n'}
+              <Text style={styles.sectionTitle}>{i18n.t('privacy_policy_section1_title')}</Text>{'\n'}
+              {i18n.t('privacy_policy_section1_content')}{'\n\n'}
 
-              <Text style={styles.sectionTitle}>2. Les données que nous collectons</Text>{'\n'}
-              Nous collectons uniquement les données strictement nécessaires au fonctionnement du service d'envoi de notifications sonores entre amis.{'\n\n'}
-              <Text style={styles.subTitle}>A. Données que vous nous fournissez</Text>{'\n'}
-              - Pseudo (Obligatoire) : Votre nom d'utilisateur public visible par vos amis.{'\n'}
-              - Adresse Email (Obligatoire) : Utilisée uniquement pour l'authentification (création de compte, connexion) et la récupération de mot de passe.{'\n'}
-              - Numéro de téléphone (Optionnel) : Utilisé pour vous permettre d'être retrouvé par vos amis présents dans votre carnet de contacts.{'\n'}
-              - Nom complet (Optionnel) : Si vous choisissez de le renseigner, il peut être partagé avec vos amis pour confirmer votre identité.{'\n\n'}
+              <Text style={styles.sectionTitle}>{i18n.t('privacy_policy_section2_title')}</Text>{'\n'}
+              {i18n.t('privacy_policy_section2_intro')}{'\n\n'}
+              <Text style={styles.subTitle}>{i18n.t('privacy_policy_section2a_title')}</Text>{'\n'}
+              {i18n.t('privacy_policy_section2a_content')}{'\n\n'}
 
-              <Text style={styles.subTitle}>B. Données collectées automatiquement</Text>{'\n'}
-              - Identifiant de l'appareil (Device ID) et Token de Notification (Push Token) : Nécessaires pour acheminer les notifications sonores ("Prouts") sur votre téléphone via les services d'Apple (APNs) et Google (FCM).{'\n'}
-              - Données techniques : Modèle de téléphone, version du système d'exploitation (iOS/Android) pour le débogage technique.{'\n\n'}
+              <Text style={styles.subTitle}>{i18n.t('privacy_policy_section2b_title')}</Text>{'\n'}
+              {i18n.t('privacy_policy_section2b_content')}{'\n\n'}
 
-              <Text style={styles.subTitle}>C. Accès aux Contacts (Carnet d'adresses)</Text>{'\n'}
-              L'Application vous demande l'autorisation d'accéder à vos contacts téléphoniques.{'\n'}
-              - But : Cet accès sert uniquement à vérifier si vos contacts utilisent déjà l'Application "Prout" afin de les ajouter automatiquement à votre liste d'amis.{'\n'}
-              - Confidentialité : Nous ne stockons pas votre carnet d'adresses complet sur nos serveurs. Nous envoyons les numéros de téléphone de manière sécurisée (hashée ou chiffrée lors du transit) pour effectuer une comparaison ("matching") avec notre base d'utilisateurs, puis le résultat est renvoyé. Les contacts qui n'utilisent pas l'application ne sont ni contactés, ni enregistrés.{'\n\n'}
+              <Text style={styles.subTitle}>{i18n.t('privacy_policy_section2c_title')}</Text>{'\n'}
+              {i18n.t('privacy_policy_section2c_content')}{'\n\n'}
 
-              <Text style={styles.sectionTitle}>3. Comment nous utilisons vos données</Text>{'\n'}
-              Vos données sont utilisées exclusivement pour :{'\n'}
-              - Vous connecter : Gestion de votre compte sécurisé via Supabase.{'\n'}
-              - Le service "Prout" : Envoyer et recevoir des notifications sonores instantanées.{'\n'}
-              - La mise en relation : Vous permettre de trouver vos amis et d'être trouvé.{'\n'}
-              - Le support : Répondre à vos demandes via email.{'\n'}
-              Nous ne vendons, ne louons et ne partageons jamais vos données personnelles à des tiers à des fins commerciales ou publicitaires.{'\n\n'}
+              <Text style={styles.sectionTitle}>{i18n.t('privacy_policy_section3_title')}</Text>{'\n'}
+              {i18n.t('privacy_policy_section3_content')}{'\n\n'}
 
-              <Text style={styles.sectionTitle}>4. Partage et Sous-traitants</Text>{'\n'}
-              Pour faire fonctionner l'Application, nous utilisons des services tiers de confiance. Vos données peuvent transiter par leurs serveurs :{'\n'}
-              - Supabase (Base de données & Auth) : Hébergement sécurisé des comptes utilisateurs.{'\n'}
-              - Expo (Infrastructure mobile) : Service technique pour l'envoi des notifications Push.{'\n'}
-              - Google Firebase (FCM) : Acheminement des notifications sur Android.{'\n'}
-              - Apple (APNs) : Acheminement des notifications sur iOS.{'\n'}
-              - Render : Hébergement de notre serveur backend.{'\n'}
-              Ces prestataires sont soumis à des obligations strictes de sécurité et de confidentialité.{'\n\n'}
+              <Text style={styles.sectionTitle}>{i18n.t('privacy_policy_section4_title')}</Text>{'\n'}
+              {i18n.t('privacy_policy_section4_content')}{'\n\n'}
 
-              <Text style={styles.sectionTitle}>5. Suppression des données et Vos Droits</Text>{'\n'}
-              Conformément au RGPD, vous disposez d'un droit d'accès, de modification et de suppression de vos données.{'\n\n'}
-              <Text style={styles.bold}>Comment supprimer votre compte ?</Text>{'\n'}
-              Vous pouvez demander la suppression complète de votre compte et de toutes vos données associées à tout moment :{'\n'}
-              - En nous envoyant un email simple à hello@theproutapp.com.{'\n'}
-              - Via le bouton "Supprimer mon compte" dans les paramètres de l'Application.{'\n'}
-              Une fois la demande traitée, toutes vos données (pseudo, téléphone, email, amis, historique) sont définitivement effacées de nos serveurs.{'\n\n'}
+              <Text style={styles.sectionTitle}>{i18n.t('privacy_policy_section5_title')}</Text>{'\n'}
+              {i18n.t('privacy_policy_section5_intro')}{'\n\n'}
+              <Text style={styles.bold}>{i18n.t('privacy_policy_section5_how_to_delete')}</Text>{'\n'}
+              {i18n.t('privacy_policy_section5_delete_content')}{'\n\n'}
 
-              <Text style={styles.sectionTitle}>6. Sécurité</Text>{'\n'}
-              Toutes les communications entre l'Application et nos serveurs sont chiffrées (HTTPS/SSL). Vos mots de passe ne sont jamais stockés en clair, ils sont hachés et sécurisés par notre fournisseur d'authentification.{'\n\n'}
+              <Text style={styles.sectionTitle}>{i18n.t('privacy_policy_section6_title')}</Text>{'\n'}
+              {i18n.t('privacy_policy_section6_content')}{'\n\n'}
 
-              <Text style={styles.sectionTitle}>7. Modifications</Text>{'\n'}
-              Nous pouvons mettre à jour cette politique de temps à autre. La version la plus récente sera toujours disponible via l'Application ou sur notre site web.{'\n\n'}
-              <Text style={styles.bold}>Contact : hello@theproutapp.com</Text>
+              <Text style={styles.sectionTitle}>{i18n.t('privacy_policy_section7_title')}</Text>{'\n'}
+              {i18n.t('privacy_policy_section7_content')}{'\n\n'}
+              <Text style={styles.bold}>{i18n.t('privacy_policy_contact')}</Text>
             </Text>
           </ScrollView>
         </View>
@@ -99,10 +94,12 @@ const styles = StyleSheet.create({
     paddingBottom: 50,
   },
   modalContent: {
-    flex: 1,
+    maxHeight: MODAL_HEIGHT,
+    height: MODAL_HEIGHT,
     backgroundColor: '#fff5eb', // Crème clair
     borderRadius: 20,
     overflow: 'hidden',
+    flexDirection: 'column',
   },
   header: {
     flexDirection: 'row',
@@ -112,6 +109,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(96, 74, 62, 0.1)',
     backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    height: 60,
   },
   headerTitle: {
     fontSize: 18,
@@ -124,10 +122,12 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+    maxHeight: SCROLL_VIEW_HEIGHT,
   },
   scrollContent: {
     padding: 20,
-    paddingBottom: 40,
+    paddingBottom: 60,
+    flexGrow: 1,
   },
   text: {
     fontSize: 14,

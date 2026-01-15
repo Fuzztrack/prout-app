@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { safePush, safeReplace } from '../../lib/navigation';
 import { supabase } from '../../lib/supabase';
+import i18n from '../../lib/i18n';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -44,12 +45,12 @@ export default function ProfileScreen() {
 
   const handleLogout = async () => {
     Alert.alert(
-      "Déconnexion",
-      "Voulez-vous vraiment vous déconnecter ?",
+      i18n.t('logout_title'),
+      i18n.t('logout_confirm'),
       [
-        { text: "Annuler", style: "cancel" },
+        { text: i18n.t('cancel'), style: "cancel" },
         { 
-          text: "Se déconnecter", 
+          text: i18n.t('logout_disconnect'), 
           style: "destructive", 
           onPress: async () => {
             try {
@@ -70,9 +71,9 @@ export default function ProfileScreen() {
               
               // Afficher le message
               Alert.alert(
-                "Déconnexion réussie",
-                "Vous ne recevrez plus de prout !",
-                [{ text: "OK", onPress: () => safeReplace(router, '/AuthChoiceScreen') }]
+                i18n.t('logout_success_title'),
+                i18n.t('logout_success_body'),
+                [{ text: i18n.t('ok'), onPress: () => safeReplace(router, '/AuthChoiceScreen') }]
               );
             } catch (error) {
               console.error('Erreur lors de la déconnexion:', error);
@@ -118,37 +119,37 @@ export default function ProfileScreen() {
 
       <View style={styles.infoContainer}>
         <Text style={styles.pseudo}>
-          <Text style={styles.label}>Pseudo: </Text>
-          {profile?.pseudo || 'Utilisateur'}
+          <Text style={styles.label}>{i18n.t('pseudo')}: </Text>
+          {profile?.pseudo || i18n.t('not_defined')}
         </Text>
         <Text style={styles.email}>
-          <Text style={styles.label}>Email: </Text>
+          <Text style={styles.label}>{i18n.t('email')}: </Text>
           {email}
         </Text>
         <Text style={styles.phone}>
-          <Text style={styles.label}>Téléphone: </Text>
-          {profile?.phone || 'Non renseigné'}
+          <Text style={styles.label}>{i18n.t('phone')}: </Text>
+          {profile?.phone || i18n.t('not_defined_phone')}
         </Text>
       </View>
 
       <TouchableOpacity style={styles.editButton} onPress={() => safePush(router, '/EditProfil', { skipInitialCheck: false })}>
         <Ionicons name="create-outline" size={24} color="#604a3e" />
-        <Text style={styles.editText}>Modifier son profil</Text>
+        <Text style={styles.editText}>{i18n.t('edit_profile')}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
         <Ionicons name="arrow-back" size={24} color="#604a3e" />
-        <Text style={styles.backText}>Retour</Text>
+        <Text style={styles.backText}>{i18n.t('back')}</Text>
       </TouchableOpacity>
 
       <View style={styles.spacer} />
 
       <TouchableOpacity style={styles.logoutLink} onPress={handleLogout}>
-        <Text style={styles.logoutLinkText}>Se déconnecter</Text>
+        <Text style={styles.logoutLinkText}>{i18n.t('logout')}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity onPress={handleContactSupport} style={styles.supportLink}>
-        <Text style={styles.supportLinkText}>Contacter le support</Text>
+        <Text style={styles.supportLinkText}>{i18n.t('contact_support')}</Text>
       </TouchableOpacity>
       <Text style={styles.versionText}>Prout version 1.0.1</Text>
       </ScrollView>

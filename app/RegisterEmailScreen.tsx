@@ -5,6 +5,7 @@ import { Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, T
 import { CustomButton } from '../components/CustomButton';
 import { safeReplace } from '../lib/navigation';
 import { getRedirectUrl, supabase } from '../lib/supabase';
+import i18n from '../lib/i18n';
 
 export default function RegisterEmailScreen() {
   const router = useRouter();
@@ -19,7 +20,7 @@ export default function RegisterEmailScreen() {
   const handleSignup = async () => {
     if (!pseudo.trim()) return Alert.alert("Oups", "Il nous faut un Pseudo !");
     if (!email.trim()) return Alert.alert("Oups", "L'email est obligatoire.");
-    if (!password || password.length < 6) return Alert.alert("Sécurité", "Le mot de passe doit faire au moins 6 caractères.");
+    if (!password || password.length < 6) return Alert.alert(i18n.t('security'), i18n.t('password_min_length'));
 
     setLoading(true);
     
@@ -105,9 +106,9 @@ export default function RegisterEmailScreen() {
         // Pas de session (email de confirmation requis)
         // Le pseudo sera mis à jour lors de la confirmation de l'email
         Alert.alert(
-          "Compte créé ! 📬", 
-          "Un email de confirmation vient d'être envoyé.\nCliquez sur le lien reçu pour activer votre compte.",
-          [{ text: "J'ai compris", onPress: () => safeReplace(router, '/LoginScreen', { skipInitialCheck: false }) }]
+          i18n.t('account_created_title'), 
+          i18n.t('account_created_body'),
+          [{ text: i18n.t('ok'), onPress: () => safeReplace(router, '/LoginScreen', { skipInitialCheck: false }) }]
         );
       }
 
@@ -131,42 +132,42 @@ export default function RegisterEmailScreen() {
                 style={styles.headerImage} 
                 resizeMode="contain" 
             />
-            <Text style={styles.title}>Créer un compte</Text>
-            <Text style={styles.subtitle}>Rejoignez la communauté du bruit !</Text>
+            <Text style={styles.title}>{i18n.t('create_account_title')}</Text>
+            <Text style={styles.subtitle}>{i18n.t('join_community')}</Text>
         </View>
 
         <View style={styles.inputGroup}>
-            <Text style={styles.label}>Pseudo <Text style={styles.required}>*</Text></Text>
+            <Text style={styles.label}>{i18n.t('pseudo_label')} <Text style={styles.required}>{i18n.t('required')}</Text></Text>
             <TextInput 
                 value={pseudo} 
                 onChangeText={setPseudo} 
                 style={styles.input} 
-                placeholder="Ex: CaptainProut" 
+                placeholder={i18n.t('pseudo_placeholder')} 
                 placeholderTextColor="#999"
             />
         </View>
 
         <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email <Text style={styles.required}>*</Text></Text>
+            <Text style={styles.label}>{i18n.t('email_label')} <Text style={styles.required}>{i18n.t('required')}</Text></Text>
             <TextInput 
                 value={email} 
                 onChangeText={setEmail} 
                 style={styles.input} 
-                placeholder="exemple@email.com" 
+                placeholder={i18n.t('email_placeholder')} 
                 keyboardType="email-address" 
                 autoCapitalize="none" 
                 placeholderTextColor="#999"
             />
-            <Text style={styles.helperText}>Un lien de validation vous sera envoyé.</Text>
+            <Text style={styles.helperText}>{i18n.t('validation_link_sent')}</Text>
         </View>
 
         <View style={styles.inputGroup}>
-            <Text style={styles.label}>Téléphone <Text style={styles.optional}>(Facultatif)</Text></Text>
+            <Text style={styles.label}>{i18n.t('phone_label')} <Text style={styles.optional}>{i18n.t('optional')}</Text></Text>
             <TextInput 
                 value={phone} 
                 onChangeText={setPhone} 
                 style={styles.input} 
-                placeholder="06 12 34 56 78" 
+                placeholder={i18n.t('phone_format_placeholder')} 
                 keyboardType="phone-pad" 
                 placeholderTextColor="#999"
             />
@@ -174,13 +175,13 @@ export default function RegisterEmailScreen() {
         </View>
 
         <View style={styles.inputGroup}>
-            <Text style={styles.label}>Mot de passe <Text style={styles.required}>*</Text></Text>
+            <Text style={styles.label}>{i18n.t('password_label_form')} <Text style={styles.required}>{i18n.t('required')}</Text></Text>
             <View style={styles.passwordContainer}>
                 <TextInput 
                     value={password} 
                     onChangeText={setPassword} 
                     style={styles.passInput} 
-                    placeholder="6 caractères minimum"
+                    placeholder={i18n.t('password_placeholder')}
                     placeholderTextColor="#999"
                     secureTextEntry={!showPassword} 
                 />
@@ -192,7 +193,7 @@ export default function RegisterEmailScreen() {
 
         <View style={styles.footer}>
             <CustomButton 
-                title={loading ? "Création en cours..." : "S'inscrire"} 
+                title={loading ? i18n.t('creating_account') : i18n.t('sign_up')} 
                 onPress={handleSignup} 
                 disabled={loading} 
                 color="#604a3e" 

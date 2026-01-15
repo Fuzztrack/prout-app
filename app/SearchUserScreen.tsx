@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { safePush } from '../lib/navigation';
+import i18n from '../lib/i18n';
 
 export default function SearchUserScreen() {
   const router = useRouter();
@@ -124,12 +125,12 @@ export default function SearchUserScreen() {
 
       if (error) {
         if (error.code === '23505') { // Doublon
-           Alert.alert("Info", "Vous êtes déjà en lien avec cette personne.");
+           Alert.alert(i18n.t('info'), i18n.t('already_linked_info'));
         } else {
            throw error;
         }
       } else {
-        Alert.alert("Succès", "Demande d'ami envoyée !");
+        Alert.alert(i18n.t('success'), i18n.t('request_sent_success'));
         // On met à jour la liste locale pour afficher "En attente"
         setResults(prev => prev.map(p => p.id === friendId ? { ...p, friendStatus: 'pending' } : p));
       }
@@ -192,7 +193,7 @@ export default function SearchUserScreen() {
             keyExtractor={item => item.id}
             scrollEnabled={false}
             ListEmptyComponent={
-              query.length > 0 ? <Text style={styles.empty}>Aucun prouteur trouvé.</Text> : null
+              query.length > 0 ? <Text style={styles.empty}>{i18n.t('no_farter_found')}</Text> : null
             }
             renderItem={({ item }) => (
               <View style={styles.userRow}>
@@ -204,7 +205,7 @@ export default function SearchUserScreen() {
                 </View>
 
                 {item.friendStatus === 'accepted' ? (
-                  <Text style={styles.statusText}>Déjà ami ✅</Text>
+                  <Text style={styles.statusText}>{i18n.t('already_friend_status')}</Text>
                 ) : (
                   <TouchableOpacity 
                     style={[

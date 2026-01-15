@@ -5,6 +5,7 @@ import { Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, T
 import { CustomButton } from '../components/CustomButton';
 import { safeReplace } from '../lib/navigation';
 import { supabase } from '../lib/supabase';
+import i18n from '../lib/i18n';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -40,7 +41,7 @@ export default function LoginScreen() {
         clearTimeout(timeoutId);
         setLoading(false);
         console.error('❌ Session invalide après connexion');
-        return Alert.alert('Erreur', 'Session invalide après connexion');
+        return Alert.alert(i18n.t('error'), i18n.t('session_invalid'));
       }
 
       console.log('✅ Connexion réussie, vérification du profil...');
@@ -88,14 +89,14 @@ export default function LoginScreen() {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     
     if (!emailRegex.test(trimmedEmail)) {
-      Alert.alert('Erreur', 'Veuillez entrer un email valide');
+      Alert.alert(i18n.t('error'), i18n.t('invalid_email_format'));
       return;
     }
 
     if (trimmedEmail.includes('@temp.proutapp.local')) {
       Alert.alert(
-        'Erreur',
-        'Impossible de réinitialiser le mot de passe avec un email temporaire.\n\nVeuillez contacter le support.'
+        i18n.t('error'),
+        i18n.t('cannot_reset_temp_email')
       );
       return;
     }
@@ -109,28 +110,28 @@ export default function LoginScreen() {
       if (error) {
         if (error.message?.includes('not found') || error.message?.includes('does not exist')) {
           Alert.alert(
-            'Email non trouvé',
-            'Aucun compte n\'est associé à cet email. Vérifiez votre adresse email.'
+            i18n.t('email_not_found_title'),
+            i18n.t('email_not_found_body')
           );
         } else if (error.message?.includes('rate limit') || error.message?.includes('too many')) {
           Alert.alert(
-            'Trop de tentatives',
-            'Vous avez fait trop de demandes. Veuillez patienter quelques minutes avant de réessayer.'
+            i18n.t('error'),
+            i18n.t('too_many_requests')
           );
         } else {
-          Alert.alert('Erreur', error.message || 'Impossible d\'envoyer l\'email de réinitialisation');
+          Alert.alert(i18n.t('error'), error.message || i18n.t('cannot_send_reset_email'));
         }
         return;
       }
 
       Alert.alert(
-        'Email envoyé 📧',
-        'Un email de réinitialisation a été envoyé à votre adresse.\n\nVérifiez votre boîte de réception (et vos spams) et suivez les instructions pour réinitialiser votre mot de passe.',
-        [{ text: 'OK' }]
+        i18n.t('reset_email_sent_title'),
+        i18n.t('reset_email_sent_body'),
+        [{ text: i18n.t('ok') }]
       );
     } catch (err) {
       console.error('Erreur lors de la réinitialisation:', err);
-      Alert.alert('Erreur', 'Une erreur est survenue lors de l\'envoi de l\'email');
+      Alert.alert(i18n.t('error'), i18n.t('reset_email_error'));
     } finally {
       setLoading(false);
     }
@@ -151,11 +152,11 @@ export default function LoginScreen() {
             style={styles.headerImage}
             resizeMode="contain"
           />
-          <Text style={styles.title}>Connexion</Text>
+          <Text style={styles.title}>{i18n.t('login_title')}</Text>
         </View>
 
         <TextInput
-          placeholder="Email"
+          placeholder={i18n.t('email')}
           value={email}
           onChangeText={setEmail}
           style={styles.input}
@@ -165,7 +166,7 @@ export default function LoginScreen() {
         />
         <View style={styles.passwordContainer}>
           <TextInput
-            placeholder="Mot de passe"
+            placeholder={i18n.t('password_label')}
             value={password}
             onChangeText={setPassword}
             secureTextEntry={!showPassword}
@@ -189,11 +190,11 @@ export default function LoginScreen() {
           disabled={loading}
           style={styles.forgotPasswordLink}
         >
-          <Text style={styles.forgotPasswordText}>Mot de passe oublié ?</Text>
+          <Text style={styles.forgotPasswordText}>{i18n.t('forgot_password')}</Text>
         </TouchableOpacity>
 
         <CustomButton 
-          title={loading ? 'Connexion...' : 'Se connecter'} 
+          title={loading ? i18n.t('logging_in') : i18n.t('login')} 
           onPress={handleLogin} 
           disabled={loading || !isFormValid}
           color="#604a3e"
@@ -201,7 +202,7 @@ export default function LoginScreen() {
         />
 
         <CustomButton
-          title="Pas de compte ? S'inscrire"
+          title={i18n.t('no_account_signup')}
           onPress={() => safeReplace(router, '/RegisterEmailScreen', { skipInitialCheck: false })}
           color="transparent"
           textColor="#604a3e"

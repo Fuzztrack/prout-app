@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { CustomButton } from '../components/CustomButton';
 import { safeReplace } from '../lib/navigation';
 import { supabase } from '../lib/supabase';
+import i18n from '../lib/i18n';
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
@@ -22,9 +23,9 @@ export default function ResetPasswordScreen() {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) {
           Alert.alert(
-            'Lien invalide',
-            'Ce lien de réinitialisation est invalide ou a expiré. Veuillez demander un nouveau lien.',
-            [{ text: 'OK', onPress: () => safeReplace(router, '/LoginScreen', { skipInitialCheck: false }) }]
+            i18n.t('error'),
+            i18n.t('reset_link_invalid'),
+            [{ text: i18n.t('ok'), onPress: () => safeReplace(router, '/LoginScreen', { skipInitialCheck: false }) }]
           );
           return;
         }
@@ -32,9 +33,9 @@ export default function ResetPasswordScreen() {
       } catch (error) {
         console.error('Erreur vérification session:', error);
         Alert.alert(
-          'Erreur',
-          'Impossible de vérifier votre session. Veuillez réessayer.',
-          [{ text: 'OK', onPress: () => safeReplace(router, '/LoginScreen', { skipInitialCheck: false }) }]
+          i18n.t('error'),
+          i18n.t('cannot_verify_session'),
+          [{ text: i18n.t('ok'), onPress: () => safeReplace(router, '/LoginScreen', { skipInitialCheck: false }) }]
         );
       }
     };
@@ -44,12 +45,12 @@ export default function ResetPasswordScreen() {
 
   const handleResetPassword = async () => {
     if (!password || password.length < 6) {
-      Alert.alert('Erreur', 'Le mot de passe doit contenir au moins 6 caractères');
+      Alert.alert(i18n.t('error'), i18n.t('password_min_length'));
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Erreur', 'Les mots de passe ne correspondent pas');
+      Alert.alert(i18n.t('error'), i18n.t('passwords_do_not_match'));
       return;
     }
 
@@ -60,16 +61,16 @@ export default function ResetPasswordScreen() {
       });
 
       if (error) {
-        Alert.alert('Erreur', error.message || 'Impossible de réinitialiser le mot de passe');
+        Alert.alert(i18n.t('error'), error.message || i18n.t('reset_error'));
         return;
       }
 
       Alert.alert(
-        'Succès ✅',
-        'Votre mot de passe a été réinitialisé avec succès !',
+        i18n.t('password_reset_success_title'),
+        i18n.t('password_reset_success_body'),
         [
           {
-            text: 'OK',
+            text: i18n.t('ok'),
             onPress: () => {
               safeReplace(router, '/LoginScreen', { skipInitialCheck: false });
             },
@@ -78,7 +79,7 @@ export default function ResetPasswordScreen() {
       );
     } catch (error: any) {
       console.error('Erreur réinitialisation:', error);
-      Alert.alert('Erreur', 'Une erreur est survenue lors de la réinitialisation');
+      Alert.alert(i18n.t('error'), i18n.t('reset_error'));
     } finally {
       setLoading(false);
     }
@@ -88,7 +89,7 @@ export default function ResetPasswordScreen() {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#604a3e" />
-        <Text style={styles.loadingText}>Vérification du lien...</Text>
+        <Text style={styles.loadingText}>{i18n.t('verifying_link')}</Text>
       </View>
     );
   }
@@ -108,15 +109,15 @@ export default function ResetPasswordScreen() {
             style={styles.headerImage}
             resizeMode="contain"
           />
-          <Text style={styles.title}>Réinitialiser le mot de passe</Text>
-          <Text style={styles.subtitle}>Choisissez un nouveau mot de passe sécurisé</Text>
+          <Text style={styles.title}>{i18n.t('reset_password')}</Text>
+          <Text style={styles.subtitle}>{i18n.t('choose_secure_password')}</Text>
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Nouveau mot de passe</Text>
+          <Text style={styles.label}>{i18n.t('new_password')}</Text>
           <View style={styles.passwordContainer}>
             <TextInput
-              placeholder="6 caractères minimum"
+              placeholder={i18n.t('password_placeholder')}
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
@@ -137,10 +138,10 @@ export default function ResetPasswordScreen() {
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Confirmer le mot de passe</Text>
+          <Text style={styles.label}>{i18n.t('confirm_password')}</Text>
           <View style={styles.passwordContainer}>
             <TextInput
-              placeholder="Répétez le mot de passe"
+              placeholder={i18n.t('repeat_password_placeholder')}
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               secureTextEntry={!showConfirmPassword}
@@ -161,7 +162,7 @@ export default function ResetPasswordScreen() {
         </View>
 
         <CustomButton
-          title={loading ? 'Réinitialisation...' : 'Réinitialiser le mot de passe'}
+          title={loading ? i18n.t('resetting') : i18n.t('reset_password')}
           onPress={handleResetPassword}
           disabled={loading}
           color="#604a3e"
@@ -172,7 +173,7 @@ export default function ResetPasswordScreen() {
           onPress={() => safeReplace(router, '/LoginScreen', { skipInitialCheck: false })}
           style={styles.backLink}
         >
-          <Text style={styles.backLinkText}>Retour à la connexion</Text>
+          <Text style={styles.backLinkText}>{i18n.t('back_to_login')}</Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
