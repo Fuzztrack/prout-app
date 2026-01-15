@@ -1671,7 +1671,8 @@ useEffect(() => {
           {
             requesterId: currentUserId,
             requesterPseudo: currentPseudo || 'Un ami',
-            locale: i18n.locale || 'fr',
+            receiverId: friend.id, // ⚠️ IMPORTANT : passer receiverId pour que le backend récupère la bonne locale
+            // locale: i18n.locale || 'fr', // ❌ RETIRÉ : le backend utilise la locale du destinataire
           },
         );
       }
@@ -1881,6 +1882,7 @@ useEffect(() => {
       }
 
       // Envoyer le push via backend avec le token FCM et le bon pseudo
+      // ⚠️ On ne passe PAS la locale de l'expéditeur : le backend récupère celle du destinataire depuis Supabase
       await sendProutViaBackend(
         fcmToken,
         senderPseudo,
@@ -1890,7 +1892,7 @@ useEffect(() => {
           ...(customMessage ? { customMessage } : {}),
           senderId: user.id,
           receiverId: recipient.id,
-          locale: i18n.locale || 'fr',
+          // locale: i18n.locale || 'fr', // ❌ RETIRÉ : le backend utilise la locale du destinataire
         }
       );
       

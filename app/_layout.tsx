@@ -73,6 +73,9 @@ export default function RootLayout() {
   // Fonction pour sauvegarder la locale dans Supabase
   const saveLocaleToSupabase = async () => {
     try {
+      // Forcer la mise à jour de la locale avant de sauvegarder
+      updateLocale();
+      
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         // S'assurer que la locale est à jour
@@ -86,9 +89,15 @@ export default function RootLayout() {
         
         if (error) {
           console.warn('⚠️ Erreur lors de la sauvegarde de la locale:', error.message);
+          // Si la colonne n'existe pas, on peut essayer de l'ajouter via SQL
+          if (error.message.includes('column') && error.message.includes('locale')) {
+            console.warn('⚠️ La colonne locale n\'existe peut-être pas. Exécutez le script supabase_add_locale.sql');
+          }
         } else {
-          console.log('✅ Locale sauvegardée avec succès');
+          console.log(`✅ Locale ${currentLocale} sauvegardée avec succès pour ${user.id}`);
         }
+      } else {
+        console.log('ℹ️ Aucun utilisateur connecté, locale non sauvegardée');
       }
     } catch (error) {
       console.warn('⚠️ Exception lors de la sauvegarde de la locale:', error);

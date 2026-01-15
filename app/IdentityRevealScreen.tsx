@@ -68,6 +68,10 @@ export default function IdentityRevealScreen() {
           senderPseudo,
           'identity-response',
           requesterProfile.push_platform as 'ios' | 'android' | undefined,
+          {
+            senderId: user.id,
+            receiverId: requesterId, // ⚠️ IMPORTANT : pour que le backend récupère la locale du destinataire
+          },
         );
       }
 

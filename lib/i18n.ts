@@ -1274,6 +1274,431 @@ const i18n = new I18n({
     connection_error_body: "Verifica tu red.",
     connection_slow_title: "Conexión lenta",
     connection_slow_body: "No se pudo cargar la lista de amigos. Verifica tu red.",
+  },
+  'pt-BR': {
+    // Geral
+    ok: "OK",
+    cancel: "Cancelar",
+    error: "Erro",
+    success: "Sucesso",
+    loading: "Carregando...",
+    back: "Voltar",
+    send: "Enviar",
+    later: "Mais tarde",
+    confirm: "Confirmar",
+    info: "Informação",
+    
+    // Prout Names (Zueira mode)
+    prout_names: {
+      prout1: "A Brisa Leve",
+      prout2: "O Pipoco",
+      prout3: "O Trovão Quicante",
+      prout4: "O Alarme Falso",
+      prout5: "O Marimbondo Bêbado",
+      prout6: "O Polvo Fofinho",
+      prout7: "A Festa Junina",
+      prout8: "A Entrevista",
+      prout9: "O Vixi Mainha",
+      prout10: "Churrasco na Laje!",
+      prout11: "A Metralhadora de Feijão",
+      prout12: "O Furacão Baiano",
+      prout13: "O Desapego",
+      prout14: "A Corneta Duvidosa",
+      prout15: "O Fantasma da Madrugada",
+      prout16: "O Cozinheiro Pistola",
+      prout17: "O Raio de Queijo",
+      prout18: "O De Repente",
+      prout19: "A Tuba Desafinada",
+      prout20: "O Infinito e Além",
+      'identity-request': "Pedido de identidade",
+      'identity-response': "Resposta de identidade",
+    },
+    
+    // Auth & Onboarding
+    welcome: "Bem-vindo!",
+    continue_with_social: "Continuar com Google ou Apple",
+    signup_with_email: "Entrar com Email",
+    or: "OU",
+    login: "Login",
+    login_title: "Entrar",
+    logging_in: "Entrando...",
+    register: "Cadastrar",
+    no_account_signup: "Sem conta? Cadastre-se",
+    forgot_password: "Esqueceu a senha?",
+    password_label: "Senha",
+    
+    // Home & Navigation
+    share_message: "Vem pro app \"Prout!\", meu user é %{pseudo}: http://theproutapp.com",
+    tab_list: "Amigos",
+    
+    // Friends List
+    friends_requests: "🔔 Pedidos de amizade",
+    identity_requests: "🕵️ Pedidos de identidade",
+    no_friends: "Nenhum amigo ainda 😢",
+    invite_contacts: "Convide seus contatos.",
+    delete_friend: "Excluir",
+    confirm_delete_title: "Excluir amigo",
+    confirm_delete_body: "Quer mesmo tirar \"%{pseudo}\" da lista?",
+    delete_impossible_contact: "Esse amigo é um contato do telefone, não dá pra excluir aqui",
+    delete_impossible_title: "Não dá pra excluir",
+    already_asked_identity_title: "Pedido pendente",
+    already_asked_identity_body: "Já pediu pro %{pseudo}. Pedir de novo?",
+    ask_identity_title: "Quem é esse?",
+    ask_identity_body: "Não sabe quem é \"%{pseudo}\". Pedir pra se revelar?",
+    ask_btn: "Pedir",
+    relaunch_btn: "Pedir de novo",
+    respond_btn: "Responder",
+    identity_request_sent: "Pedido enviado",
+    friend_deleted_toast: "%{pseudo} foi removido da lista",
+    
+    // Actions Prout
+    zen_mode_active_me_title: "Modo Zen Ativo 🧘‍♂️",
+    zen_mode_active_me_body: "Sem peidos no modo Zen. Desative no perfil pra voltar à guerra.",
+    zen_mode_active_friend_title: "Xiu! 🤫",
+    zen_mode_active_friend_body: "%{pseudo} tá no modo Zen. Não perturbe.",
+    mute_mode_active_title: "Modo mudo ativo",
+    mute_mode_active_body: "%{pseudo} te silenciou. Nada de mensagens.",
+    cooldown_alert: "Calma aí!",
+    cooldown_message: "Espera um pouco antes de mandar outro.",
+    not_connected: "Você não tá conectado.",
+    
+    // Search
+    search_title: "Achar amigo",
+    search_placeholder: "Digita um nome...",
+    search_btn: "Buscar",
+    search_subtitle: "Busca seu amigo pelo nome",
+    add_btn: "Adicionar",
+    pending_btn: "Pendente",
+    already_friend: "Já é amigo ✅",
+    no_results: "Nenhum peidorreiro encontrado.",
+    request_sent: "Pedido enviado!",
+    already_linked: "Vocês já tão conectados.",
+    
+    // Profil
+    edit_profile: "Editar Perfil",
+    pseudo: "Nome de usuário",
+    email: "Email",
+    phone: "Telefone",
+    update_btn: "Salvar",
+    logout: "Sair",
+    logout_title: "Sair",
+    logout_confirm: "Quer mesmo sair?\n\nVai ficar sem receber peidos!",
+    delete_account: "Excluir conta",
+    delete_account_confirm_title: "Confirmar",
+    delete_account_confirm_body: "Tem certeza? Isso apaga tudo e não tem volta.",
+    cannot_identify_account: "Não achei sua conta",
+    error_occurred: "Deu erro",
+    error_occurred_deletion: "Deu ruim ao apagar a conta",
+    cannot_delete_account_support: "Não deu pra apagar. Fala com o suporte.",
+    cannot_find_invitation: "Não achei o convite",
+    cannot_accept_invitation: "Não deu pra aceitar",
+    cannot_accept_request: "Não deu pra aceitar o pedido",
+    cannot_load_contacts: "Não carregou os contatos",
+    enter_value: "Digita alguma coisa",
+    invalid_email_simple: "Email inválido",
+    cannot_add_friend: "Não deu pra adicionar",
+    choose_pseudo: "Escolhe um nome!",
+    cannot_open_email_app: "Não abriu o app de email. Email: %{email}",
+    cannot_connect_apple: "Erro no Apple login",
+    apple_error: "Erro Apple",
+    google_error: "Erro Google",
+    web_notifications_unavailable: "Sem notificações na web.",
+    create_profile_info: "Pra criar perfil, usa a página de cadastro.",
+    contact_support: "Falar com suporte",
+    privacy_policy: "Política de Privacidade",
+    privacy_policy_title: "Política de Privacidade",
+    privacy_policy_app_title: "Política de Privacidade do Prout",
+    privacy_policy_last_update: "Última atualização: 8 de Dezembro de 2025",
+    privacy_policy_intro: "Bem-vindo ao Prout. Levamos seus dados a sério. Aqui tá explicado o que a gente pega e o que faz com isso.",
+    privacy_policy_section1_title: "1. Quem manda",
+    privacy_policy_section1_content: "App feito pela The Prout Corporation. Dúvidas? Manda email: hello@theproutapp.com",
+    privacy_policy_section2_title: "2. O que a gente pega",
+    privacy_policy_section2_intro: "Só o básico pra funcionar.",
+    privacy_policy_section2a_title: "A. Dados que você dá",
+    privacy_policy_section2a_content: "- Nome (Obrigatório): Seu nome público.\n- Email (Obrigatório): Pra login e senha.\n- Telefone (Opcional): Pros amigos te acharem.\n- Nome real (Opcional): Pra confirmar quem você é.",
+    privacy_policy_section2b_title: "B. Dados automáticos",
+    privacy_policy_section2b_content: "- ID do aparelho e Token Push: Pra enviar os peidos.\n- Dados técnicos: Modelo do cel, versão do sistema.",
+    privacy_policy_section2c_title: "C. Contatos",
+    privacy_policy_section2c_content: "O app pede acesso aos contatos.\n- Pra quê: Pra ver quem já tem o app e adicionar.\n- Privacidade: Não guardamos sua agenda. Só comparamos os números e pronto.",
+    privacy_policy_section3_title: "3. Uso dos dados",
+    privacy_policy_section3_content: "Seus dados servem pra:\n- Logar.\n- Enviar peidos.\n- Achar amigos.\n- Suporte.\nNão vendemos nada pra ninguém.",
+    privacy_policy_section4_title: "4. Parceiros",
+    privacy_policy_section4_content: "Usamos serviços de confiança:\n- Supabase (Banco e Login).\n- Expo (Notificações).\n- Firebase (Android).\n- Apple (iOS).\n- Render (Servidor).",
+    privacy_policy_section5_title: "5. Seus direitos",
+    privacy_policy_section5_intro: "Você pode ver, mudar ou apagar seus dados.",
+    privacy_policy_section5_how_to_delete: "Como apagar a conta?",
+    privacy_policy_section5_delete_content: "Pode pedir pra apagar tudo:\n- Email pra hello@theproutapp.com.\n- Botão \"Excluir conta\" no app.\nApagou, já era.",
+    privacy_policy_section6_title: "6. Segurança",
+    privacy_policy_section6_content: "Tudo criptografado (HTTPS/SSL). Senhas hashadas e seguras.",
+    privacy_policy_section7_title: "7. Mudanças",
+    privacy_policy_section7_content: "A gente pode atualizar isso aqui. A versão nova sempre vai estar no app.",
+    privacy_policy_contact: "Contato: hello@theproutapp.com",
+    no_change: "Nada mudou",
+    update_success: "Sucesso",
+    update_success_msg: "%{fields} atualizado!",
+    
+    // Zen Mode
+    zen_mode: "Modo Zen",
+    zen_description: "Ativa pra não receber nada (nem enviar). Bom pra dormir! 😴",
+    zen_confirm_title: "Modo Zen 🌙",
+    zen_confirm_body: "Você não vai receber nem enviar nada.",
+    activate: "Ativar",
+    
+    // Silent Mode
+    silent_mode: "Envio silencioso",
+    silent_mode_title: "Envio silencioso 🤫",
+    silent_mode_description: "Pra mandar na encolha!",
+    
+    // Identity Reveal
+    who_are_you: "Quem é tu? 👀",
+    who_are_you_subtitle: "%{requester} quer saber quem é você.",
+    reveal_placeholder: "Ex: João da Silva",
+    reveal_success_title: "Valeu!",
+    reveal_success_body: "Sua identidade foi enviada.",
+    reveal_error: "Não deu pra enviar.",
+    reveal_missing_id: "Falta o ID.",
+    reveal_missing_name: "Coloca um nome aí.",
+    
+    // Tuto
+    tuto_header: "Como funciona?",
+    tuto_notif_title: "Sem notificação?",
+    tuto_notif_desc: "Vê se tá liberado nas configurações.",
+    tuto_sound_title: "Sem som?",
+    tuto_sound_desc: "Vê se não tá no mudo.",
+    tuto_1_title: "Mandar um Prout",
+    tuto_1_desc: "Arrasta o nome do amigo pra direita! É surpresa, nunca se sabe o que vem!",
+    tuto_2_title: "Mandar recado",
+    tuto_2_desc: "Clica no nome antes de arrastar pra escrever algo.",
+    tuto_3_title: "Modo Zen",
+    tuto_3_desc: "Quer paz? Ativa o Zen.",
+    tuto_silent_title: "Envio ninja",
+    tuto_silent_desc: "Manda sem fazer barulho no seu cel!",
+    tuto_4_title: "Silenciar",
+    tuto_4_desc: "Arrasta pra esquerda pra calar a boca do amigo.",
+    
+    // Onboarding
+    onboarding_welcome_title: "Bem-vindo",
+    onboarding_welcome_subtitle: "Prout! A arte do peido francês",
+    onboarding_welcome_desc: "O app de notificação de peido.",
+    onboarding_notifications_title: "O coração do Prout",
+    onboarding_notifications_desc: "A graça é a surpresa! Aceita as notificações.",
+    onboarding_sound_title: "Aumenta o som",
+    onboarding_sound_desc: "Deixa o som ligado pra curtir a melodia.",
+    onboarding_gesture_title: "Sua vez",
+    onboarding_gesture_desc: "Tem amigo? Arrasta pra direita e manda ver.",
+    onboarding_message_title: "Mensagem rápida",
+    onboarding_message_desc: "Pode mandar texto junto clicando no nome!",
+    onboarding_skip: "Pular",
+    onboarding_start: "Bora!",
+    
+    // Common UI
+    greeting: "E aí",
+    profile_title: "Perfil",
+    not_defined: "Não definido",
+    delete_or_mute: "Excluir / Mudo",
+    settings: "Configurações",
+    add_message_placeholder: "Mandar recado?",
+    pseudo_placeholder: "Ex: CapitãoPeido",
+    email_placeholder: "exemplo@email.com",
+    phone_format_placeholder: "+55 11 99999 9999",
+    
+    // Footer & Help
+    footer_help_text: "Direita pra peidar, clica antes pra escrever!",
+    
+    // Notifications & Errors
+    notifications_not_enabled: "%{pseudo} não ativou notificação. Sem token.",
+    app_uninstalled: "%{pseudo} desinstalou o app!",
+    silent_notifications_warning: "Suas notificações tão no mudo!",
+    
+    // Identity Reveal
+    identity_revealed_title: "Identidade revelada",
+    identity_revealed_body: "Seu amigo contou quem é.",
+    
+    // Zen Mode Options
+    choose_duration: "Escolhe o tempo",
+    zen_job_label: "Salva meu emprego! (9h-19h, Seg-Sex)",
+    zen_night_label: "Salva meu sono! (22h-8h)",
+    zen_job_short: "Trabalho!",
+    zen_night_short: "Sono!",
+    
+    // Menu Items
+    search_friend: "Buscar amigo",
+    manage_profile: "Gerenciar perfil",
+    invite_friend: "Convidar amigo",
+    review_app_functions: "Ver funções",
+    who_is_who: "Quem é quem?",
+    privacy_policy_menu: "Privacidade",
+    
+    // Logout & Account
+    logout_success_title: "Saiu com sucesso",
+    logout_success_body: "Acabou os peidos!",
+    logout_disconnect: "Sair",
+    cannot_logout: "Não deu pra sair",
+    logout_error: "Erro ao sair",
+    cannot_retrieve_account: "Não achei a conta",
+    cannot_load_profile: "Não carregou perfil",
+    not_defined_phone: "Não informado",
+    
+    // Password Reset
+    reset_link_invalid: "Link inválido ou expirado.",
+    cannot_verify_session: "Sessão inválida.",
+    password_min_length: "Senha curta (min 6)",
+    passwords_do_not_match: "Senhas não batem",
+    password_reset_success_title: "Boa ✅",
+    password_reset_success_body: "Senha alterada!",
+    reset_error: "Erro ao resetar",
+    resetting: "Resetando...",
+    reset_password: "Resetar senha",
+    password_placeholder: "6 caracteres min",
+    repeat_password_placeholder: "Repete a senha",
+    verifying_link: "Verificando...",
+    choose_secure_password: "Escolhe uma senha boa",
+    new_password: "Nova senha",
+    confirm_password: "Confirma senha",
+    back_to_login: "Voltar pro login",
+    invalid_email_format: "Email inválido",
+    reset_email_error: "Erro ao enviar email",
+    
+    // Email Confirmation
+    verifying_profile: "Verificando...",
+    finalizing_connection: "Finalizando...",
+    
+    // Registration
+    account_created_title: "Conta criada! 📬",
+    account_created_body: "Email enviado.\nClica no link pra ativar.",
+    creating_account: "Criando...",
+    sign_up: "Cadastrar",
+    security: "Segurança",
+    
+    // Search & Invitations
+    already_linked_info: "Já tão conectados.",
+    request_sent_success: "Pedido enviado!",
+    invitation_already_accepted: "Já aceitaram esse convite",
+    invitation_accepted: "Aceito!",
+    invitation_rejected: "Recusado",
+    invitation_sent: "Enviado!",
+    already_friend_info: "Já é amigo",
+    invitation_pending_info: "Já tem convite pendente",
+    cannot_verify_relation: "Erro ao verificar relação",
+    cannot_create_invitation: "Erro ao criar convite",
+    cannot_reject_invitation: "Erro ao recusar",
+    relation_exists: "Já existe relação",
+    invalid_phone: "Telefone inválido",
+    friendship_created: "Amizade criada!",
+    cannot_create_friendship: "Erro ao criar amizade",
+    unknown_error: "Erro desconhecido",
+    friend_or_invitation_exists: "Já é amigo ou tem convite",
+    unknown_user: "Usuário desconhecido",
+    invited_you: "te convidou",
+    reject_invitation_confirm: "Certeza que quer recusar?",
+    reject: "Recusar",
+    accept: "Aceitar",
+    contacts_access_required: "Precisa dos contatos pra convidar.",
+    contacts_access_required_later: "Precisa dos contatos. Ativa lá nas configs depois.",
+    pending_invitations_title: "Convites pendentes",
+    loading_invitations: "Carregando...",
+    no_pending_invitations: "Nenhum convite",
+    invite_from_contacts: "Convidar dos contatos",
+    select_contact: "Escolhe um contato",
+    no_contact_found: "Nenhum contato",
+    search_contact_placeholder: "Busca contato...",
+    no_farter_found: "Ninguém achado.",
+    already_friend_status: "Já é amigo ✅",
+    create_account_title: "Criar conta",
+    join_community: "Vem pro barulho!",
+    pseudo_label: "Usuário",
+    email_label: "Email",
+    phone_label: "Telefone",
+    password_label_form: "Senha",
+    required: "*",
+    optional: "(Opcional)",
+    validation_link_sent: "Vou mandar um link.",
+    phone_helper: "Pros amigos te acharem.",
+    cancel_and_logout: "Cancelar e sair",
+    cancel_and_return: "Cancelar e voltar",
+    update_button: "Atualizar",
+    no_friends_identity: "Sem amigos. Adiciona pra pedir ID.",
+    
+    // Profile Edit
+    change_pseudo_confirm: "Mudar nome de \"%{current}\" pra \"%{new}\"?",
+    set_email_confirm: "Mudar email pra \"%{email}\"?",
+    change_email_confirm: "Trocar email de \"%{current}\" pra \"%{new}\"?",
+    change_phone_confirm: "Trocar telefone de \"%{current}\" pra \"%{new}\"?",
+    phone_placeholder: "Telefone",
+    cannot_be_empty: "Nome não pode ser vazio",
+    invalid_email: "Email inválido",
+    phone_min_digits: "Telefone curto",
+    cannot_check_pseudo: "Erro ao checar nome",
+    pseudo_already_used: "Nome já em uso",
+    email_already_used: "Email já em uso",
+    fields_updated_success: "%{fields} atualizado",
+    email_confirmation_sent: "Email de confirmação enviado.",
+    account_deleted_success: "Conta apagada.",
+    cannot_update_profile: "Erro ao atualizar",
+    cannot_activate_mute: "Erro ao ativar mudo.",
+    cannot_disable_mute: "Erro ao desativar mudo.",
+    exit_mute_mode_title: "Sair do mudo?",
+    exit_mute_mode_body: "Quer ouvir o %{pseudo} de novo?",
+    cannot_delete_friend: "Erro ao excluir",
+    cannot_send_request: "Erro ao enviar.",
+    cannot_retrieve_pseudo: "Erro ao pegar nome.",
+    pseudo_not_defined: "Nome não definido.",
+    backend_error_ios: "Erro no servidor (iOS).",
+    pseudo_updated_success: "Nome atualizado!",
+    phone_updated_success: "Telefone atualizado!",
+    pseudo_identical: "Mesmo nome",
+    email_identical: "Mesmo email",
+    phone_identical: "Mesmo telefone",
+    enter_new_phone: "Digita novo telefone",
+    enter_new_pseudo: "Digita novo nome",
+    enter_new_email: "Digita novo email",
+    verification_error: "Erro na verificação",
+    account_deleted_title: "Conta apagada",
+    
+    // Auth Choice
+    already_have_account: "Já tenho conta (Email)",
+    
+    // Invitation Share
+    invite_message_with_pseudo: "Vem pro app \"Prout!\", sou %{pseudo}\n\nBaixa aí: http://www.theproutapp.com",
+    invite_message: "Vem pro app \"Prout!\"\n\nBaixa aí: http://www.theproutapp.com",
+    
+    // Login
+    session_invalid: "Sessão inválida",
+    connection_error: "Erro ao conectar",
+    cannot_reset_temp_email: "Não dá pra resetar com email temporário.",
+    email_required_title: "Email obrigatório",
+    email_required_body: "Digita o email primeiro.",
+    email_not_found_title: "Email não achado",
+    email_not_found_body: "Nenhuma conta com esse email.",
+    too_many_requests: "Muitas tentativas. Espera um pouco.",
+    cannot_send_reset_email: "Erro ao enviar email",
+    reset_email_sent_title: "Email enviado 📧",
+    reset_email_sent_body: "Email de reset enviado.\n\nVê sua caixa (e spam) e segue as instruções.",
+    
+    // Notifications Permission
+    push_not_available_web: "Sem notificações na web.",
+    push_requires_device: "Precisa de dispositivo real.",
+    push_requires_dev_build: "Precisa de build de desenvolvimento.",
+    permission_denied_title: "Permissão negada",
+    permission_denied_body: "Precisa de permissão de notificação.",
+    notification_permission_title: "Autorização de notificações",
+    notification_permission_message: "Prout é app de notificação. Pra receber e enviar peidos, precisa autorizar.",
+    accept_notifications_message: "Aceita as notificações pra jogar! 😊",
+    authorize_notifications: "Autorizar notificações",
+    
+    // Contact Permission
+    contact_permission_title: "Fica só com a gente!",
+    contact_permission_message: "O app sincroniza seus contatos pros nossos servidores Supabase pra achar seus amigos. Nada mais.",
+    contact_consent_title: "Contatos: uso e compartilhamento",
+    contact_consent_message: "O app sincroniza seus contatos pros nossos servidores Supabase pra achar seus amigos. Nada mais.\n\nAceita essa sincronização?",
+    refuse: "Recusar",
+    next: "Próximo",
+    
+    // Network
+    connection_error_title: "Não conectou",
+    connection_error_body: "Vê sua rede.",
+    connection_slow_title: "Conexão lenta",
+    connection_slow_body: "Não carregou a lista. Vê sua rede.",
   }
 });
 
@@ -1304,25 +1729,44 @@ function getDeviceLanguage(): string {
     }
 
     // Mapper les langues supportées
-    const supportedLanguages = ['fr', 'en', 'es'];
+    const supportedLanguages = ['fr', 'en', 'es', 'pt', 'de', 'it'];
     const detectedLanguage = languageCode?.toLowerCase() || 'en';
     
     // Si la langue détectée est supportée, l'utiliser
     if (supportedLanguages.includes(detectedLanguage)) {
+      // Mapper 'pt' vers 'pt-BR'
+      if (detectedLanguage === 'pt') {
+        console.log(`🌍 Langue détectée: pt-BR (depuis ${firstLocale.languageTag || firstLocale.languageCode})`);
+        return 'pt-BR';
+      }
       console.log(`🌍 Langue détectée: ${detectedLanguage} (depuis ${firstLocale.languageTag || firstLocale.languageCode})`);
       return detectedLanguage;
     }
     
-    // Si la langue commence par "en" (en-US, en-GB, etc.), utiliser "en"
+    // Vérifications spécifiques par préfixe
     if (detectedLanguage.startsWith('en')) {
       console.log(`🌍 Langue détectée: en (depuis ${firstLocale.languageTag || firstLocale.languageCode})`);
       return 'en';
     }
     
-    // Si la langue commence par "es" (es-ES, es-MX, etc.), utiliser "es"
     if (detectedLanguage.startsWith('es')) {
       console.log(`🌍 Langue détectée: es (depuis ${firstLocale.languageTag || firstLocale.languageCode})`);
       return 'es';
+    }
+    
+    if (detectedLanguage.startsWith('pt')) {
+      console.log(`🌍 Langue détectée: pt-BR (depuis ${firstLocale.languageTag || firstLocale.languageCode})`);
+      return 'pt-BR';
+    }
+    
+    if (detectedLanguage.startsWith('de')) {
+      console.log(`🌍 Langue détectée: de (depuis ${firstLocale.languageTag || firstLocale.languageCode})`);
+      return 'de';
+    }
+    
+    if (detectedLanguage.startsWith('it')) {
+      console.log(`🌍 Langue détectée: it (depuis ${firstLocale.languageTag || firstLocale.languageCode})`);
+      return 'it';
     }
     
     // Fallback sur anglais

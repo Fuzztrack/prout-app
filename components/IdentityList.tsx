@@ -253,6 +253,7 @@ export function IdentityList({ onClose }: IdentityListProps) {
           {
             requesterId: currentUserId,
             requesterPseudo: currentPseudo || 'Un ami',
+            receiverId: friend.id, // ⚠️ IMPORTANT : pour que le backend récupère la locale du destinataire
           },
         );
       }
