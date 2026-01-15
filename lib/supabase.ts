@@ -2,10 +2,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from "@supabase/supabase-js";
 import { Platform } from 'react-native';
 
-// Utiliser les variables d'environnement avec fallback sur les valeurs par défaut
-// Cela permet de gérer différents environnements (dev, staging, prod) sans modifier le code
+// ⚠️ SECURITE: Utiliser UNIQUEMENT les variables d'environnement
+// Ne jamais hardcoder de clés dans le code source
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://utfwujyymaikraaigvuv.supabase.co';
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || "";
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseAnonKey) {
+  throw new Error('EXPO_PUBLIC_SUPABASE_ANON_KEY must be defined in environment variables. Please set it in your .env file or EAS secrets.');
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {

@@ -40,6 +40,9 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
+# Compiled JavaScript files with secrets
+lib/supabase.js
+
 app-example
 
 # generated native folders
