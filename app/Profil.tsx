@@ -176,7 +176,7 @@ export default function ProfilScreen() {
         <View style={styles.bottomSection}>
           <TouchableOpacity 
             style={styles.editButton} 
-            onPress={() => safePush(router, '/EditProfil', { skipInitialCheck: false })} 
+            onPress={() => safePush(router, '/edit-profile', { skipInitialCheck: false })} 
             disabled={loading}
           >
             <Ionicons name="create-outline" size={24} color="#604a3e" />

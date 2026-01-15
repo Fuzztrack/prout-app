@@ -5,7 +5,7 @@ import { Audio } from 'expo-av';
 import * as Contacts from 'expo-contacts';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, FlatList, Linking, NativeModules, Platform, Animated as RNAnimated, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, FlatList, Linking, NativeModules, Platform, Animated as RNAnimated, StyleSheet, Text, TextInput, TouchableOpacity, View, KeyboardAvoidingView } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
@@ -2037,6 +2037,19 @@ useEffect(() => {
     );
   };
 
+  const scrollToItem = (index: number) => {
+    if (flatListRef.current) {
+      // Petit délai pour laisser le clavier s'ouvrir et le layout s'ajuster
+      setTimeout(() => {
+        try {
+          flatListRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.8 }); // 0.8 pour mettre l'item vers le bas de la zone visible
+        } catch (e) {
+          console.warn('Scroll failed', e);
+        }
+      }, 500);
+    }
+  };
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
@@ -2048,7 +2061,7 @@ useEffect(() => {
 
   if (loading && appUsers.length === 0 && pendingRequests.length === 0) return <ActivityIndicator color="#007AFF" style={{margin: 20}} />;
 
-  return (
+  const content = (
     <View style={styles.container}>
         <FlatList
           ref={flatListRef}
@@ -2125,7 +2138,7 @@ useEffect(() => {
                         onChangeText={(text) => setMessageDrafts(prev => ({ ...prev, [item.id]: text }))}
                         maxLength={140}
                         multiline
-                        // Pas de scroll manuel : on laisse le KeyboardAvoidingView gérer le clavier
+                        onFocus={() => scrollToItem(index)}
                       />
                       <TouchableOpacity
                         onPress={() => draftValue.trim() && handleSendProut(item)}
@@ -2174,6 +2187,20 @@ useEffect(() => {
       )}
     </View>
   );
+
+  if (Platform.OS === 'ios') {
+    return (
+      <KeyboardAvoidingView 
+        style={{ flex: 1 }} 
+        behavior="padding"
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      >
+        {content}
+      </KeyboardAvoidingView>
+    );
+  }
+
+  return content;
 }
 
 const styles = StyleSheet.create({

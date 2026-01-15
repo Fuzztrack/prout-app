@@ -1,6 +1,6 @@
 // app/EditProfil.tsx - Page de modification du profil
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { safePush, safeReplace } from '../lib/navigation';
@@ -10,6 +10,14 @@ import i18n from '../lib/i18n';
 
 export default function EditProfilScreen() {
   const router = useRouter();
+  // Configuration explicite de la modale transparente
+  const stackOptions = {
+    presentation: 'transparentModal' as const,
+    animation: 'fade' as const,
+    headerShown: false,
+    contentStyle: { backgroundColor: 'transparent' }, // Important pour éviter le fond blanc par défaut
+  };
+  
   const [pseudo, setPseudo] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -575,47 +583,46 @@ export default function EditProfilScreen() {
 
   if (!userId) {
     return (
-      <KeyboardAvoidingView 
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <ScrollView contentContainerStyle={styles.scrollContent} style={styles.scrollContainer}>
-          <View style={styles.container}>
-            <Text style={styles.title}>Modifier votre profil</Text>
-            <View style={styles.centerContainer}>
-              <Text style={styles.loadingText}>Chargement...</Text>
-            </View>
-            <View style={styles.separator} />
-            <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-              <Ionicons name="arrow-back" size={24} color="#604a3e" />
-              <Text style={styles.backText}>Retour</Text>
+      <>
+        <Stack.Screen options={stackOptions} />
+        <KeyboardAvoidingView 
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+        <View style={styles.modalContent}>
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>Modifier votre profil</Text>
+            <TouchableOpacity onPress={() => router.back()} style={styles.closeButton}>
+              <Ionicons name="close" size={24} color="#604a3e" />
             </TouchableOpacity>
           </View>
-        </ScrollView>
+          <View style={styles.centerContainer}>
+            <ActivityIndicator size="large" color="#604a3e" />
+          </View>
+        </View>
       </KeyboardAvoidingView>
+    </>
     );
   }
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container}
+    <>
+      <Stack.Screen options={stackOptions} />
+      <KeyboardAvoidingView 
+        style={styles.modalOverlay}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent} style={styles.scrollContainer}>
-        <View style={styles.container}>
-          <View style={styles.header}>
-            <TouchableOpacity onPress={() => safePush(router, '/(tabs)', { skipInitialCheck: false })} activeOpacity={0.7}>
-              <Image
-                source={require('../assets/images/prout-meme.png')}
-                style={styles.headerImage}
-                resizeMode="contain"
-              />
-            </TouchableOpacity>
-          </View>
+      <View style={styles.modalContent}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Modifier votre profil</Text>
+          <TouchableOpacity onPress={() => router.back()} style={styles.closeButton}>
+            <Ionicons name="close" size={24} color="#604a3e" />
+          </TouchableOpacity>
+        </View>
 
-          <Text style={styles.title}>Modifier votre profil</Text>
-
+        <ScrollView contentContainerStyle={styles.scrollContent} style={styles.scrollContainer} keyboardShouldPersistTaps="handled">
+          
           <View style={styles.section}>
             <TextInput 
               placeholder="Pseudo" 
@@ -668,13 +675,6 @@ export default function EditProfilScreen() {
           <View style={styles.spacer} />
 
           <View style={styles.bottomSection}>
-            {/* Ajout d'un espace pour éviter la superposition */}
-            <View style={{ height: 20 }} />
-            <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-              <Ionicons name="arrow-back" size={24} color="#604a3e" />
-              <Text style={styles.backText}>Retour</Text>
-            </TouchableOpacity>
-            
             <View style={styles.deleteButtonContainer}>
               <TouchableOpacity 
                 style={styles.deleteButton} 
@@ -686,24 +686,66 @@ export default function EditProfilScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </View>
     </KeyboardAvoidingView>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    padding: 20,
+    paddingTop: 50,
+    paddingBottom: 50,
+  },
+  modalContent: {
+    backgroundColor: '#ebb89b',
+    borderRadius: 20,
+    overflow: 'hidden',
+    flexDirection: 'column',
+    maxHeight: '90%',
+    width: '100%',
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(96, 74, 62, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    height: 60,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#604a3e',
+    flex: 1,
+  },
+  closeButton: {
+    padding: 5,
+  },
   scrollContainer: { flex: 1 },
-  scrollContent: { flexGrow: 1 },
-  container: { flex: 1, padding: 20, paddingTop: 20, paddingBottom: 100, backgroundColor: '#ebb89b' },
-  header: { alignItems: 'center', marginBottom: 20 },
-  headerImage: { width: 180, height: 140, marginBottom: 10 },
-  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: '#604a3e' },
-  section: { marginBottom: 20 },
+  scrollContent: { 
+    padding: 20, 
+    flexGrow: 1,
+  },
+  section: { marginBottom: 15 },
   input: { 
     backgroundColor: '#fff', 
     padding: 15, 
-    marginBottom: 15, 
     borderRadius: 10, 
     color: '#333',
     fontSize: 16,
@@ -724,9 +766,9 @@ const styles = StyleSheet.create({
   },
   updateAllText: { color: '#ebb89b', fontWeight: 'bold', fontSize: 18, marginLeft: 10 },
   separator: { height: 20 },
-  spacer: { flex: 1 },
+  spacer: { flex: 1, minHeight: 20 },
   deleteButtonContainer: { marginTop: 10 },
-  bottomSection: { marginBottom: 20 },
+  bottomSection: { marginBottom: 10 },
   backButton: {
     flexDirection: 'row', 
     alignItems: 'center', 
@@ -746,7 +788,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 68, 68, 0.1)', 
     padding: 15, 
     borderRadius: 15,
-    marginBottom: 15, 
     borderWidth: 1, 
     borderColor: 'rgba(255, 68, 68, 0.3)'
   },

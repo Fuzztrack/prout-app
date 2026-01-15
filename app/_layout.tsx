@@ -74,33 +74,56 @@ export default function RootLayout() {
   const saveLocaleToSupabase = async () => {
     try {
       // Forcer la mise à jour de la locale avant de sauvegarder
-      updateLocale();
+      const detectedLocale = updateLocale();
+      const currentLocale = i18n.locale || detectedLocale || 'en';
+      
+      console.log(`🌍 [saveLocaleToSupabase] Locale détectée: ${detectedLocale}, i18n.locale: ${i18n.locale}, utilisée: ${currentLocale}`);
       
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        // S'assurer que la locale est à jour
-        const currentLocale = i18n.locale || 'en';
-        console.log(`🌍 Sauvegarde de la locale ${currentLocale} pour l'utilisateur ${user.id}`);
+        console.log(`🌍 [saveLocaleToSupabase] Tentative de sauvegarde de la locale ${currentLocale} pour l'utilisateur ${user.id}`);
         
+        // Vérifier d'abord si le profil existe
+        const { data: existingProfile, error: checkError } = await supabase
+          .from('user_profiles')
+          .select('id, locale')
+          .eq('id', user.id)
+          .maybeSingle();
+        
+        if (checkError) {
+          console.error(`❌ [saveLocaleToSupabase] Erreur lors de la vérification du profil:`, checkError.message);
+          if (checkError.message.includes('column') && checkError.message.includes('locale')) {
+            console.error('❌ La colonne locale n\'existe pas dans Supabase ! Exécutez le script supabase_add_locale.sql');
+          }
+          return;
+        }
+        
+        if (!existingProfile) {
+          console.warn(`⚠️ [saveLocaleToSupabase] Profil non trouvé pour ${user.id}`);
+          return;
+        }
+        
+        console.log(`📊 [saveLocaleToSupabase] Locale actuelle dans DB: ${existingProfile.locale || 'NULL'}, nouvelle: ${currentLocale}`);
+        
+        // Mettre à jour la locale
         const { error } = await supabase
           .from('user_profiles')
           .update({ locale: currentLocale })
           .eq('id', user.id);
         
         if (error) {
-          console.warn('⚠️ Erreur lors de la sauvegarde de la locale:', error.message);
-          // Si la colonne n'existe pas, on peut essayer de l'ajouter via SQL
+          console.error(`❌ [saveLocaleToSupabase] Erreur lors de la mise à jour:`, error.message);
           if (error.message.includes('column') && error.message.includes('locale')) {
-            console.warn('⚠️ La colonne locale n\'existe peut-être pas. Exécutez le script supabase_add_locale.sql');
+            console.error('❌ La colonne locale n\'existe pas dans Supabase ! Exécutez le script supabase_add_locale.sql');
           }
         } else {
-          console.log(`✅ Locale ${currentLocale} sauvegardée avec succès pour ${user.id}`);
+          console.log(`✅ [saveLocaleToSupabase] Locale ${currentLocale} sauvegardée avec succès pour ${user.id}`);
         }
       } else {
-        console.log('ℹ️ Aucun utilisateur connecté, locale non sauvegardée');
+        console.log('ℹ️ [saveLocaleToSupabase] Aucun utilisateur connecté, locale non sauvegardée');
       }
-    } catch (error) {
-      console.warn('⚠️ Exception lors de la sauvegarde de la locale:', error);
+    } catch (error: any) {
+      console.error('❌ [saveLocaleToSupabase] Exception:', error?.message || error);
     }
   };
 
@@ -316,6 +339,7 @@ export default function RootLayout() {
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="confirm-email" options={{ presentation: 'modal' }} />
               <Stack.Screen name="reset-password" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="edit-profile" options={{ presentation: 'transparentModal', animation: 'fade', headerShown: false }} />
             </Stack>
 
             {toastMessage && (

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Linking, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { normalizePhone } from '../lib/normalizePhone';
@@ -321,134 +321,189 @@ export function EditProfil({ onClose }: { onClose: () => void }) {
 
   if (!userId) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#604a3e" />
-        <Text style={styles.loadingText}>Chargement...</Text>
-      </View>
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={true}
+        onRequestClose={onClose}
+      >
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.header}>
+              <Text style={styles.headerTitle}>{i18n.t('edit_profile')}</Text>
+              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                <Ionicons name="close" size={24} color="#604a3e" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.centerContainer}>
+              <ActivityIndicator size="large" color="#604a3e" />
+              <Text style={styles.loadingText}>Chargement...</Text>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     );
   }
 
   return (
-    <View style={styles.wrapper}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>{i18n.t('edit_profile')}</Text>
-        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-          <Ionicons name="close" size={24} color="#604a3e" />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.section}>
-          <Text style={styles.label}>{i18n.t('pseudo')}</Text>
-          <TextInput 
-            placeholder={i18n.t('pseudo')}
-            value={pseudo} 
-            onChangeText={setPseudo} 
-            style={styles.input}
-            placeholderTextColor="#999"
-          />
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.label}>{i18n.t('email')}</Text>
-          <TextInput
-            placeholder={i18n.t('email')}
-            value={email}
-            onChangeText={setEmail}
-            style={styles.input}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            placeholderTextColor="#999"
-          />
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.label}>{i18n.t('phone')}</Text>
-          <TextInput
-            placeholder={i18n.t('phone')}
-            value={phone}
-            onChangeText={setPhone}
-            style={styles.input}
-            keyboardType="phone-pad"
-            placeholderTextColor="#999"
-          />
-        </View>
-
-        {/* Bouton de mise à jour */}
-        <TouchableOpacity 
-          style={styles.updateAllButton} 
-          onPress={handleUpdateAll}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator size="small" color="#ebb89b" />
-          ) : (
-            <>
-              <Ionicons name="checkmark-outline" size={24} color="#ebb89b" />
-              <Text style={styles.updateAllText}>{i18n.t('update_btn')}</Text>
-            </>
-          )}
-        </TouchableOpacity>
-
-        {/* Bouton de déconnexion */}
-        <TouchableOpacity 
-          style={styles.logoutButton} 
-          onPress={handleLogout}
-          disabled={loading}
-        >
-          <Ionicons name="log-out-outline" size={24} color="#604a3e" />
-          <Text style={styles.logoutText}>{i18n.t('logout')}</Text>
-        </TouchableOpacity>
-
-        <View style={styles.spacer} />
-
-        <View style={styles.bottomSection}>
-          <TouchableOpacity style={styles.supportButton} onPress={contactSupport}>
-            <Ionicons name="mail-outline" size={20} color="#604a3e" />
-            <Text style={styles.supportText}>{i18n.t('contact_support')}</Text>
-          </TouchableOpacity>
-          <Text style={styles.versionText}>Prout version 1.0.1</Text>
-
-          <View style={styles.deleteButtonContainer}>
-            <TouchableOpacity 
-              style={styles.deleteButton} 
-              onPress={unsubscribe} 
-              disabled={loading}
-            >
-              <Ionicons name="trash-outline" size={20} color="#ff4444" />
-              <Text style={styles.deleteText}>{i18n.t('delete_account')}</Text>
+    <Modal
+      animationType="fade"
+      transparent={true}
+      visible={true}
+      onRequestClose={onClose}
+    >
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.modalOverlay}
+      >
+        <View style={styles.modalContent}>
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>{i18n.t('edit_profile')}</Text>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <Ionicons name="close" size={24} color="#604a3e" />
             </TouchableOpacity>
           </View>
+
+          <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+            <View style={styles.section}>
+              <Text style={styles.label}>{i18n.t('pseudo')}</Text>
+              <TextInput 
+                placeholder={i18n.t('pseudo')}
+                value={pseudo} 
+                onChangeText={setPseudo} 
+                style={styles.input}
+                placeholderTextColor="#999"
+              />
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.label}>{i18n.t('email')}</Text>
+              <TextInput
+                placeholder={i18n.t('email')}
+                value={email}
+                onChangeText={setEmail}
+                style={styles.input}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                placeholderTextColor="#999"
+              />
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.label}>{i18n.t('phone')}</Text>
+              <TextInput
+                placeholder={i18n.t('phone')}
+                value={phone}
+                onChangeText={setPhone}
+                style={styles.input}
+                keyboardType="phone-pad"
+                placeholderTextColor="#999"
+              />
+            </View>
+
+            {/* Bouton de mise à jour */}
+            <TouchableOpacity 
+              style={styles.updateAllButton} 
+              onPress={handleUpdateAll}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color="#ebb89b" />
+              ) : (
+                <>
+                  <Ionicons name="checkmark-outline" size={24} color="#ebb89b" />
+                  <Text style={styles.updateAllText}>{i18n.t('update_btn')}</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            {/* Bouton de déconnexion */}
+            <TouchableOpacity 
+              style={styles.logoutButton} 
+              onPress={handleLogout}
+              disabled={loading}
+            >
+              <Ionicons name="log-out-outline" size={24} color="#604a3e" />
+              <Text style={styles.logoutText}>{i18n.t('logout')}</Text>
+            </TouchableOpacity>
+
+            <View style={styles.spacer} />
+
+            <View style={styles.bottomSection}>
+              <TouchableOpacity style={styles.supportButton} onPress={contactSupport}>
+                <Ionicons name="mail-outline" size={20} color="#604a3e" />
+                <Text style={styles.supportText}>{i18n.t('contact_support')}</Text>
+              </TouchableOpacity>
+              <Text style={styles.versionText}>Prout version 1.0.1</Text>
+
+              <View style={styles.deleteButtonContainer}>
+                <TouchableOpacity 
+                  style={styles.deleteButton} 
+                  onPress={unsubscribe} 
+                  disabled={loading}
+                >
+                  <Ionicons name="trash-outline" size={20} color="#ff4444" />
+                  <Text style={styles.deleteText}>{i18n.t('delete_account')}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </ScrollView>
         </View>
-      </ScrollView>
-    </View>
+      </KeyboardAvoidingView>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
+  modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
-    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
     padding: 20,
+    paddingTop: 50,
+    paddingBottom: 50,
+  },
+  modalContent: {
+    backgroundColor: '#ebb89b',
+    borderRadius: 20,
     overflow: 'hidden',
+    flexDirection: 'column',
+    maxHeight: '90%',
+    width: '100%',
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(96, 74, 62, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    height: 60,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#604a3e',
+    flex: 1,
   },
   closeButton: {
     padding: 5,
   },
   scrollContent: {
-    paddingBottom: 40,
+    padding: 20,
+    flexGrow: 1,
   },
   section: {
     marginBottom: 15,
@@ -478,6 +533,8 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     marginTop: 10,
     marginBottom: 20, 
+    borderWidth: 1, 
+    borderColor: 'rgba(96, 74, 62, 0.2)'
   },
   updateAllText: { color: '#ebb89b', fontWeight: 'bold', fontSize: 18, marginLeft: 10 },
   
@@ -489,7 +546,7 @@ const styles = StyleSheet.create({
     padding: 15, 
     borderRadius: 15,
     marginBottom: 20, 
-    borderWidth: 1,
+    borderWidth: 1, 
     borderColor: 'rgba(96, 74, 62, 0.2)',
   },
   logoutText: { color: '#604a3e', fontWeight: 'bold', fontSize: 16, marginLeft: 10 },
@@ -499,8 +556,8 @@ const styles = StyleSheet.create({
   bottomSection: { marginBottom: 20 },
   
   supportButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'row', 
+    alignItems: 'center', 
     justifyContent: 'center',
     padding: 10,
     marginBottom: 5,
