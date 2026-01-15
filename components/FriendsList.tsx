@@ -60,29 +60,7 @@ const PROUT_SOUNDS: { [key: string]: any } = {
   prout20: require('../assets/sounds/prout20.wav'),
 };
 
-// Mapping des noms de prouts (doit correspondre au backend)
-const PROUT_NAMES: Record<string, string> = {
-  prout1: "La Petite Bourrasque",
-  prout2: "Le Crépitant",
-  prout3: "Le Rebond du Tonnerre",
-  prout4: "Le Faux Départ",
-  prout5: "Le Frelon Trébuchant",
-  prout6: "Le Kraken Douillet",
-  prout7: "La Farandole",
-  prout8: "Le Question Réponse",
-  prout9: "Le Oulala… Problème",
-  prout10: "Kebab Party !",
-  prout11: "La Mitraille Molle",
-  prout12: "La Rafale Infernale",
-  prout13: "Le Lâché Prise",
-  prout14: "Le Basson Dubitatif",
-  prout15: "La Fantaisie de Minuit",
-  prout16: "Le Marmiton Furieux",
-  prout17: "L'Éclair Fromager",
-  prout18: "L'Impromptu",
-  prout19: "Le Tuba Chaotique",
-  prout20: "L'Eternel",
-};
+// Mapping des noms de prouts (via i18n maintenant)
 
 const SOUND_KEYS = Object.keys(PROUT_SOUNDS);
 
@@ -1951,8 +1929,8 @@ useEffect(() => {
         return newCache;
       });
 
-      // Afficher le nom du prout dans un toast
-      const proutName = PROUT_NAMES[randomKey] || randomKey;
+      // Afficher le nom du prout dans un toast (traduit dans la langue de l'expéditeur)
+      const proutName = i18n.t(`prout_names.${randomKey}`) || randomKey;
       showToast(`${proutName} !`);
       
       // Déclencher l'animation de secousse du header

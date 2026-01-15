@@ -16,6 +16,32 @@ const i18n = new I18n({
     confirm: "Confirmer",
     info: "Information",
     
+    // Prout Names
+    prout_names: {
+      prout1: "La Petite Bourrasque",
+      prout2: "Le Crépitant",
+      prout3: "Le Rebond du Tonnerre",
+      prout4: "Le Faux Départ",
+      prout5: "Le Frelon Trébuchant",
+      prout6: "Le Kraken Douillet",
+      prout7: "La Farandole",
+      prout8: "Le Question Réponse",
+      prout9: "Le Oulala… Problème",
+      prout10: "Kebab Party !",
+      prout11: "La Mitraille Molle",
+      prout12: "La Rafale Infernale",
+      prout13: "Le Lâché Prise",
+      prout14: "Le Basson Dubitatif",
+      prout15: "La Fantaisie de Minuit",
+      prout16: "Le Marmiton Furieux",
+      prout17: "L'Éclair Fromager",
+      prout18: "L'Impromptu",
+      prout19: "Le Tuba Chaotique",
+      prout20: "L'Eternel",
+      'identity-request': "Demande d'identité",
+      'identity-response': "Réponse d'identité",
+    },
+    
     // Auth & Onboarding
     welcome: "Bienvenue !",
     continue_with_social: "Continuer avec Google ou Apple",
@@ -415,6 +441,32 @@ const i18n = new I18n({
     confirm: "Confirm",
     info: "Info",
     
+    // Prout Names
+    prout_names: {
+      prout1: "The Little Gust",
+      prout2: "The Crackling",
+      prout3: "The Thunder Bounce",
+      prout4: "The False Start",
+      prout5: "The Stumbling Hornet",
+      prout6: "The Cuddly Kraken",
+      prout7: "The Farandole",
+      prout8: "The Question Answer",
+      prout9: "The Oops... Problem",
+      prout10: "Kebab Party!",
+      prout11: "The Soft Machine Gun",
+      prout12: "The Infernal Burst",
+      prout13: "The Let Go",
+      prout14: "The Doubtful Bassoon",
+      prout15: "The Midnight Fantasy",
+      prout16: "The Furious Cook",
+      prout17: "The Cheesy Lightning",
+      prout18: "The Impromptu",
+      prout19: "The Chaotic Tuba",
+      prout20: "The Eternal",
+      'identity-request': "Identity request",
+      'identity-response': "Identity answer",
+    },
+    
     // Auth & Onboarding
     welcome: "Welcome!",
     continue_with_social: "Continue with Google or Apple",
@@ -810,6 +862,32 @@ const i18n = new I18n({
     later: "Más tarde",
     confirm: "Confirmar",
     info: "Información",
+    
+    // Prout Names
+    prout_names: {
+      prout1: "La Pequeña Ráfaga",
+      prout2: "El Crepitante",
+      prout3: "El Rebote del Trueno",
+      prout4: "La Falsa Salida",
+      prout5: "El Avispón Tropezón",
+      prout6: "El Kraken Tierno",
+      prout7: "La Farándula",
+      prout8: "La Pregunta Respuesta",
+      prout9: "El Oops... Problema",
+      prout10: "Fiesta Kebab",
+      prout11: "La Ametralladora Blanda",
+      prout12: "La Ráfaga Infernal",
+      prout13: "El Dejar Ir",
+      prout14: "El Fagot Dudoso",
+      prout15: "La Fantasía de Medianoche",
+      prout16: "El Cocinero Furioso",
+      prout17: "El Relámpago Quesoso",
+      prout18: "El Improvisado",
+      prout19: "La Tuba Caótica",
+      prout20: "El Eterno",
+      'identity-request': "Solicitud de identidad",
+      'identity-response': "Respuesta de identidad",
+    },
     
     // Auth & Onboarding
     welcome: "¡Bienvenido!",
@@ -1207,8 +1285,8 @@ function getDeviceLanguage(): string {
   try {
     const locales = getLocales();
     if (!locales || locales.length === 0) {
-      console.log('🌍 Aucune locale détectée, utilisation du français par défaut');
-      return 'fr';
+      console.log('🌍 Aucune locale détectée, utilisation de l\'anglais par défaut');
+      return 'en';
     }
 
     const firstLocale = locales[0];
@@ -1227,7 +1305,7 @@ function getDeviceLanguage(): string {
 
     // Mapper les langues supportées
     const supportedLanguages = ['fr', 'en', 'es'];
-    const detectedLanguage = languageCode?.toLowerCase() || 'fr';
+    const detectedLanguage = languageCode?.toLowerCase() || 'en';
     
     // Si la langue détectée est supportée, l'utiliser
     if (supportedLanguages.includes(detectedLanguage)) {
@@ -1247,12 +1325,12 @@ function getDeviceLanguage(): string {
       return 'es';
     }
     
-    // Fallback sur français
-    console.log(`🌍 Langue non supportée (${detectedLanguage}), utilisation du français par défaut`);
-    return 'fr';
+    // Fallback sur anglais
+    console.log(`🌍 Langue non supportée (${detectedLanguage}), utilisation de l'anglais par défaut`);
+    return 'en';
   } catch (error) {
     console.error('❌ Erreur détection langue:', error);
-    return 'fr';
+    return 'en';
   }
 }
 

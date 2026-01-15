@@ -70,11 +70,39 @@ export default function RootLayout() {
     ]).start(() => setToastMessage(null));
   };
 
+  // Fonction pour sauvegarder la locale dans Supabase
+  const saveLocaleToSupabase = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        // S'assurer que la locale est à jour
+        const currentLocale = i18n.locale || 'en';
+        console.log(`🌍 Sauvegarde de la locale ${currentLocale} pour l'utilisateur ${user.id}`);
+        
+        const { error } = await supabase
+          .from('user_profiles')
+          .update({ locale: currentLocale })
+          .eq('id', user.id);
+        
+        if (error) {
+          console.warn('⚠️ Erreur lors de la sauvegarde de la locale:', error.message);
+        } else {
+          console.log('✅ Locale sauvegardée avec succès');
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ Exception lors de la sauvegarde de la locale:', error);
+    }
+  };
+
   // Mise à jour de la langue au démarrage (important pour iOS)
   useEffect(() => {
     // Forcer la mise à jour de la locale au démarrage de l'app
     // Cela garantit que la langue est correctement détectée sur iOS
     updateLocale();
+    
+    // Tenter de sauvegarder la locale si l'utilisateur est déjà connecté
+    saveLocaleToSupabase();
   }, []);
 
   useEffect(() => {
@@ -120,6 +148,10 @@ export default function RootLayout() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      // Sauvegarder la locale lors du changement d'auth (connexion)
+      if (session?.user) {
+        saveLocaleToSupabase();
+      }
     });
 
     const notificationListener = Notifications.addNotificationReceivedListener(notification => {

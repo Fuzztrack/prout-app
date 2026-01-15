@@ -65,3 +65,7 @@ backup-*.tar.gz
 backup-*.zip
 android-backup-*.tar.gz
 android_backup_*
+
+# Gros fichiers temporaires
+temp.apks
+*.tar.gz
