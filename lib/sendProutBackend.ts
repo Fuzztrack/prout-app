@@ -56,3 +56,34 @@ export async function sendProutViaBackend(
   }
 }
 
+export async function markMessageReadViaBackend(
+  messageId: string,
+  senderId: string
+) {
+  const API_URL = 'https://prout-backend.onrender.com/prout/read';
+  const API_KEY = '82d6d94d97ad501a596bf866c2831623';
+
+  try {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': API_KEY,
+      },
+      body: JSON.stringify({
+        messageId,
+        senderId,
+      }),
+    });
+
+    if (!res.ok) {
+      // On logue mais on ne bloque pas l'UI
+      console.warn(`Erreur backend markRead (${res.status})`);
+    }
+    return true;
+  } catch (err: any) {
+    console.warn('Erreur réseau/Backend markRead:', err?.message || err);
+    return false;
+  }
+}
+

@@ -22,7 +22,7 @@ import Animated, {
 import { RINGER_MODE, VolumeManager } from 'react-native-volume-manager';
 import { ensureContactPermissionWithDisclosure } from '../lib/contactConsent';
 import { normalizePhone } from '../lib/normalizePhone';
-import { sendProutViaBackend } from '../lib/sendProutBackend';
+import { sendProutViaBackend, markMessageReadViaBackend } from '../lib/sendProutBackend';
 // Import supprimé : on utilise maintenant sync_contacts (fonction SQL Supabase)
 import i18n from '../lib/i18n';
 import { supabase } from '../lib/supabase';
@@ -73,6 +73,9 @@ const CACHE_MAX_AGE = 24 * 60 * 60 * 1000; // 24 heures
 
 // Mémoire de session (pas persistée) pour bloquer la bannière après clic OK
 let dismissedSilentWarningSession = false;
+// Mémoire globale pour les messages supprimés (pour éviter la réapparition si re-render)
+const deletedMessagesCache = new Set<string>();
+
 // Importance Android : on considère silencieux si LOW (2) ou moindre
 const ANDROID_SOUND_IMPORTANCE_THRESHOLD = 2; // DEFAULT = 3, HIGH = 4, LOW = 2
 
@@ -620,7 +623,7 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
 
   // Marquer comme lu automatiquement les nouveaux messages si le sticky est déjà ouvert (mode chat en direct)
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: any;
     // Vérifier si l'app est active pour ne pas marquer lu en background
     if (expandedFriendId && AppState.currentState === 'active') {
       const unreadForActive = pendingMessages.filter(m => m.from_user_id === expandedFriendId);
@@ -687,12 +690,15 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
     if (error) {
       return;
     }
-    setPendingMessages(data || []);
+    
+    // Filtrer les messages qui sont dans la liste noire locale (supprimés mais pas encore sync)
+    const validMessages = (data || []).filter(m => !deletedMessagesCache.has(m.id));
+    setPendingMessages(validMessages);
 
     // Mise à jour optimiste locale pour remonter les expéditeurs (messages reçus)
-    if (data && data.length > 0) {
+    if (validMessages.length > 0) {
       const now = new Date().toISOString();
-      const uniqueSenderIds = [...new Set(data.map(m => m.from_user_id))];
+      const uniqueSenderIds = [...new Set(validMessages.map(m => m.from_user_id))];
       setAppUsers(prev => {
         const updated = prev.map(friend =>
           uniqueSenderIds.includes(friend.id)
@@ -707,32 +713,48 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
 
   const markMessageAsRead = async (messageId: string) => {
     try {
-      // Trouver l'expéditeur avant de supprimer pour lui envoyer un signal temps réel (Broadcast)
-      // Cela permet de confirmer la lecture instantanément chez lui, même si la DB lag ou RLS bloque
+      // 1. Ajouter à la liste noire locale pour empêcher la réapparition immédiate via polling
+      deletedMessagesCache.add(messageId);
+
+      // Trouver l'expéditeur pour l'info
       const msg = pendingMessages.find(m => m.id === messageId);
       const senderId = msg?.from_user_id;
 
-      await supabase.from('pending_messages').delete().eq('id', messageId);
-      
+      // Optimiste : on retire de la liste locale tout de suite
+      setPendingMessages(prev => prev.filter(m => m.id !== messageId));
+
+      // 2. Envoyer le signal Broadcast directement au client A (Sender) pour l'instantanéité
       if (senderId) {
-        // Envoi du signal sur le canal personnel de l'expéditeur
+        // On utilise un channel éphémère pour envoyer le signal
         const channel = supabase.channel(`room-${senderId}`);
         channel.subscribe(async (status) => {
           if (status === 'SUBSCRIBED') {
-            await channel.send({
-              type: 'broadcast',
-              event: 'message-read',
-              payload: { id: messageId }
-            });
-            // Nettoyage du canal après envoi (délai augmenté pour fiabilité)
+            // Rafale de 3 envois pour assurer la réception
+            for (let i = 0; i < 3; i++) {
+                await channel.send({
+                type: 'broadcast',
+                event: 'message-read',
+                payload: { id: messageId }
+                });
+                await new Promise(resolve => setTimeout(resolve, 300));
+            }
+            
+            // Nettoyage après un délai suffisant
             setTimeout(() => supabase.removeChannel(channel), 5000);
           }
         });
       }
 
-      setPendingMessages(prev => prev.filter(m => m.id !== messageId));
+      // On demande au BACKEND de faire le travail (Delete DB + Broadcast signal de secours)
+      // C'est beaucoup plus fiable car le backend a tous les droits
+      if (senderId) {
+        await markMessageReadViaBackend(messageId, senderId);
+      } else {
+        // Fallback si on a perdu l'info sender (rare)
+        await supabase.from('pending_messages').delete().eq('id', messageId);
+      }
     } catch (e) {
-      // Ignorer les erreurs de suppression silencieusement
+      console.warn('Erreur markMessageAsRead:', e);
     }
   };
 
@@ -1363,15 +1385,13 @@ useEffect(() => {
                    const msgTime = new Date(msg.ts).getTime();
                    const age = now - msgTime;
 
-                   if (age < 5000) {
-                      // Protection latence (5s) : On suppose qu'il n'est pas encore arrivé sur le serveur
-                      // On le garde en 'sent'
+                   if (age < 60000) {
+                      // Protection étendue (60s) : Le serveur ne renvoie pas le message (RLS probable)
+                      // On le garde en 'sent' en attendant le signal Broadcast 'message-read'
                       next[uid] = msg;
-                   } else {
-                      // Passé 5s, si le serveur ne l'a plus, c'est qu'il a été LU (supprimé)
-                      // On le passe en 'read' pour déclencher l'animation
-                      next[uid] = { ...msg, status: 'read' };
                    }
+                   // Après 60s, si toujours pas de signal, on nettoie (disparition sans animation 'Lu')
+                   // pour éviter les messages fantômes éternels
                 }
               });
 
@@ -1468,7 +1488,14 @@ useEffect(() => {
           },
           (payload) => {
             if (payload.eventType === 'INSERT') {
-              const senderId = (payload.new as any)?.from_user_id;
+              const newMessage = payload.new as any;
+              
+              // Vérifier si ce message n'est pas dans la liste noire (au cas où on reçoit un INSERT tardif)
+              if (deletedMessagesCache.has(newMessage.id)) {
+                  return;
+              }
+
+              const senderId = newMessage.from_user_id;
               const now = new Date().toISOString();
 
               setPendingMessages((prev) => {
@@ -1525,6 +1552,25 @@ useEffect(() => {
                   saveLastSentMessagesCache(next);
                   return next;
                 });
+              }
+            } else if (payload.eventType === 'UPDATE') {
+              // Gestion du Hack "READ:" pour la confirmation de lecture persistante
+              const toUserId = (payload.new as any)?.to_user_id;
+              const text = (payload.new as any)?.message_content;
+              const id = (payload.new as any)?.id;
+
+              if (text && text.startsWith('READ:')) {
+                 setLastSentMessages((prev) => {
+                    // On cherche l'entrée correspondante (par toUserId ou par ID si besoin)
+                    // Ici on assume que toUserId est fiable
+                    if (prev[toUserId] && prev[toUserId].id === id) {
+                        const copy = { ...prev };
+                        copy[toUserId] = { ...copy[toUserId], status: 'read' };
+                        saveLastSentMessagesCache(copy);
+                        return copy;
+                    }
+                    return prev;
+                 });
               }
             }
           }
@@ -2433,7 +2479,8 @@ useEffect(() => {
                     id: m.id,
                     text: m.message_content,
                     ts: m.created_at,
-                    isMe: false
+                    isMe: false,
+                    original: undefined
                 })),
                 ...(myLastSent ? [{
                     id: myLastSent.id || 'temp-sent',
