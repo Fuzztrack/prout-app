@@ -3,7 +3,7 @@ import * as Linking from 'expo-linking';
 import * as Notifications from 'expo-notifications';
 import { Stack, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Animated, AppState, Platform, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, AppState, DeviceEventEmitter, Platform, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Onboarding from '../components/Onboarding';
 import { ensureContactPermissionWithDisclosure } from '../lib/contactConsent';
@@ -187,6 +187,12 @@ export default function RootLayout() {
     });
 
     const notificationListener = Notifications.addNotificationReceivedListener(notification => {
+      // Émettre un événement global pour dire à FriendsList de se rafraîchir
+      DeviceEventEmitter.emit('REFRESH_DATA');
+
+      // Sur iOS, la notification système s'affiche déjà (shouldShowAlert: true), donc pas de toast doublon
+      if (Platform.OS === 'ios') return;
+
       const { title, body, data } = notification.request.content;
       
       if (data?.type === 'prout') {

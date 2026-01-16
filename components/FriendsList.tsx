@@ -5,7 +5,7 @@ import { Audio } from 'expo-av';
 import * as Contacts from 'expo-contacts';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, FlatList, Linking, NativeModules, Platform, Animated as RNAnimated, StyleSheet, Text, TextInput, TouchableOpacity, View, Keyboard, TouchableWithoutFeedback, KeyboardAvoidingView } from 'react-native';
+import { ActivityIndicator, Alert, AppState, DeviceEventEmitter, Dimensions, FlatList, Keyboard, KeyboardAvoidingView, Linking, NativeModules, Platform, Animated as RNAnimated, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { Gesture, GestureDetector, TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
@@ -103,8 +103,8 @@ const loadCacheSafely = async (key: string) => {
   }
 };
 
-// Cache pour les derniers messages envoyés (map userId -> {text, ts})
-const loadLastSentMessagesCache = async (): Promise<Record<string, { text: string; ts: string }>> => {
+// Cache pour les derniers messages envoyés (map userId -> {text, ts, id?, status?})
+const loadLastSentMessagesCache = async (): Promise<Record<string, { text: string; ts: string; id?: string; status?: 'read' }>> => {
   try {
     const cached = await AsyncStorage.getItem(CACHE_KEY_LAST_SENT_MESSAGES);
     if (!cached) return {};
@@ -118,7 +118,7 @@ const loadLastSentMessagesCache = async (): Promise<Record<string, { text: strin
   }
 };
 
-const saveLastSentMessagesCache = async (map: Record<string, { text: string; ts: string }>) => {
+const saveLastSentMessagesCache = async (map: Record<string, { text: string; ts: string; id?: string; status?: 'read' }>) => {
   try {
     await AsyncStorage.setItem(CACHE_KEY_LAST_SENT_MESSAGES, JSON.stringify(map));
   } catch {
@@ -479,6 +479,49 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
     </View>
   );
 });
+
+// Composant pour gérer l'animation du message envoyé
+const SentMessageStatus = ({ message }: { message: { text: string; status?: 'read' } | undefined }) => {
+  const [displayedMessage, setDisplayedMessage] = useState(message);
+  const opacity = useRef(new RNAnimated.Value(1)).current;
+  const [isRead, setIsRead] = useState(false);
+
+  useEffect(() => {
+    if (message && message.status !== 'read') {
+      setDisplayedMessage(message);
+      setIsRead(false);
+      opacity.setValue(1);
+    } else if (displayedMessage && (message?.status === 'read' || !message)) {
+      // Le message est marqué lu ou a disparu
+      setIsRead(true);
+      RNAnimated.sequence([
+        RNAnimated.delay(500),
+        RNAnimated.timing(opacity, {
+          toValue: 0,
+          duration: 500,
+          useNativeDriver: true,
+        })
+      ]).start(() => {
+        // L'animation est finie, mais on attend que le parent supprime le message
+      });
+    }
+  }, [message]);
+
+  if (!displayedMessage) return null;
+
+  return (
+    <RNAnimated.View style={{ alignSelf: 'flex-end', opacity, maxWidth: '100%', alignItems: 'flex-end' }}>
+      <View style={styles.bubbleSent}>
+        <Text style={styles.bubbleTextSent}>{displayedMessage.text}</Text>
+      </View>
+      {isRead && (
+        <Text style={{ fontSize: 12, color: '#604a3e', marginRight: 12, marginBottom: 4, fontStyle: 'italic' }}>
+          Lu
+        </Text>
+      )}
+    </RNAnimated.View>
+  );
+};
  
 export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerComponent }: { onProutSent?: () => void; isZenMode?: boolean; isSilentMode?: boolean; headerComponent?: React.ReactElement } = {}) {
   const [appUsers, setAppUsers] = useState<any[]>([]);
@@ -490,7 +533,7 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [pendingMessages, setPendingMessages] = useState<any[]>([]);
-  const [lastSentMessages, setLastSentMessages] = useState<Record<string, { text: string; ts: string }>>({});
+  const [lastSentMessages, setLastSentMessages] = useState<Record<string, { text: string; ts: string; id?: string; status?: 'read' }>>({});
   const [showSilentWarning, setShowSilentWarning] = useState(false);
   const [dismissedSilentWarning, setDismissedSilentWarning] = useState(dismissedSilentWarningSession); // reste à true pour toute la session après clic OK
   const [expandedFriendId, setExpandedFriendId] = useState<string | null>(null);
@@ -551,6 +594,7 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
     }
   }, []);
   const subscriptionRef = useRef<any>(null);
+  const broadcastSubscriptionRef = useRef<any>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const cacheLoadedRef = useRef(false); // Pour éviter de charger le cache plusieurs fois
   const contactsSyncedRef = useRef(false); // Pour éviter de synchroniser les contacts plusieurs fois
@@ -573,6 +617,66 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
       return () => clearTimeout(timer);
     }
   }, [expandedFriendId]);
+
+  // Marquer comme lu automatiquement les nouveaux messages si le sticky est déjà ouvert (mode chat en direct)
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    // Vérifier si l'app est active pour ne pas marquer lu en background
+    if (expandedFriendId && AppState.currentState === 'active') {
+      const unreadForActive = pendingMessages.filter(m => m.from_user_id === expandedFriendId);
+      if (unreadForActive.length > 0) {
+        // 1. D'abord ajouter au cache pour qu'ils restent affichés
+        setUnreadCache(prev => {
+            const currentCache = prev[expandedFriendId] || [];
+            const newMsgs = unreadForActive.filter(u => !currentCache.some(c => c.id === u.id));
+            if (newMsgs.length === 0) return prev;
+            return { ...prev, [expandedFriendId]: [...currentCache, ...newMsgs] };
+        });
+        
+        // 2. Ensuite marquer comme lu avec un délai pour éviter les lectures instantanées/accidentelles
+        timer = setTimeout(() => {
+          unreadForActive.forEach(msg => markMessageAsRead(msg.id));
+        }, 1500);
+      }
+    }
+    return () => clearTimeout(timer);
+  }, [pendingMessages, expandedFriendId]);
+
+  // Nettoyage automatique des messages envoyés marqués comme 'read' (après animation)
+  useEffect(() => {
+    const readMessages = Object.entries(lastSentMessages).filter(([_, msg]) => msg.status === 'read');
+    if (readMessages.length > 0) {
+      const timer = setTimeout(() => {
+        setLastSentMessages(prev => {
+          const next = { ...prev };
+          let changed = false;
+          readMessages.forEach(([userId]) => {
+            if (next[userId]?.status === 'read') {
+              delete next[userId];
+              changed = true;
+            }
+          });
+          if (changed) {
+            saveLastSentMessagesCache(next);
+            return next;
+          }
+          return prev;
+        });
+      }, 2000); // 2 secondes pour laisser l'animation 'Lu' se jouer
+      return () => clearTimeout(timer);
+    }
+  }, [lastSentMessages]);
+
+  // Écouter l'événement global de rafraîchissement (déclenché par la réception d'une notif push)
+  useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener('REFRESH_DATA', () => {
+      console.log('🔄 [FriendsList] Réception signal REFRESH_DATA -> Reloading data...');
+      loadData(false, false, false);
+    });
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   // Messages éphémères (pending_messages)
   const fetchPendingMessages = async (userId: string) => {
@@ -603,7 +707,29 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
 
   const markMessageAsRead = async (messageId: string) => {
     try {
+      // Trouver l'expéditeur avant de supprimer pour lui envoyer un signal temps réel (Broadcast)
+      // Cela permet de confirmer la lecture instantanément chez lui, même si la DB lag ou RLS bloque
+      const msg = pendingMessages.find(m => m.id === messageId);
+      const senderId = msg?.from_user_id;
+
       await supabase.from('pending_messages').delete().eq('id', messageId);
+      
+      if (senderId) {
+        // Envoi du signal sur le canal personnel de l'expéditeur
+        const channel = supabase.channel(`room-${senderId}`);
+        channel.subscribe(async (status) => {
+          if (status === 'SUBSCRIBED') {
+            await channel.send({
+              type: 'broadcast',
+              event: 'message-read',
+              payload: { id: messageId }
+            });
+            // Nettoyage du canal après envoi (délai augmenté pour fiabilité)
+            setTimeout(() => supabase.removeChannel(channel), 5000);
+          }
+        });
+      }
+
       setPendingMessages(prev => prev.filter(m => m.id !== messageId));
     } catch (e) {
       // Ignorer les erreurs de suppression silencieusement
@@ -614,10 +740,10 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
   const fetchSentPendingMessages = async (userId: string) => {
     const { data, error } = await supabase
       .from('pending_messages')
-      .select('to_user_id, message_content, created_at')
+      .select('id, to_user_id, message_content, created_at')
       .eq('from_user_id', userId);
     if (error) {
-      return [];
+      return null;
     }
     return data || [];
   };
@@ -710,11 +836,10 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
       // ÉTAPE 3 : Configurer Realtime et polling
       setupRealtimeSubscription();
       
-      // Polling simple (sans backoff exponentiel)
-      // Les changements importants sont gérés en temps réel via Realtime
+      // Polling rapide pour garantir la réception même si le Realtime échoue
       pollingIntervalRef.current = setInterval(() => {
-        loadData(false, false, false); // Pas de cache, pas de forceLoading, PAS de sync contacts
-      }, 30000) as unknown as NodeJS.Timeout; // 30 secondes
+        loadData(false, false, false); 
+      }, 2000) as unknown as NodeJS.Timeout; // 2 secondes
     };
     
     initialize();
@@ -724,6 +849,10 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
       if (subscriptionRef.current) {
         supabase.removeChannel(subscriptionRef.current);
         subscriptionRef.current = null;
+      }
+      if (broadcastSubscriptionRef.current) {
+        supabase.removeChannel(broadcastSubscriptionRef.current);
+        broadcastSubscriptionRef.current = null;
       }
       // Nettoyer le polling
       if (pollingIntervalRef.current) {
@@ -1203,26 +1332,54 @@ useEffect(() => {
 
       await Promise.all([pendingMessagesPromise, requestsAndIdentityPromise]);
       const sentPendingMessagesResult = await sentPendingMessagesPromise;
-      if (sentPendingMessagesResult && sentPendingMessagesResult.length > 0) {
-        const map: Record<string, { text: string; ts: string }> = {};
-        sentPendingMessagesResult.forEach((m: any) => {
-          map[m.to_user_id] = { text: m.message_content, ts: m.created_at };
-        });
-        setLastSentMessages(map);
-        saveLastSentMessagesCache(map);
-      } else {
-        // Aucun message envoyé en attente côté serveur : ne nettoyer que si aucun set récent (éviter la course après envoi)
-        setLastSentMessages((prev) => {
-          if (Object.keys(prev).length === 0) return prev;
-          const now = Date.now();
-          if (now - lastSentSetAtRef.current < 5000) {
-            // On vient de poser un message local, on attend le prochain cycle
-            return prev;
+      
+          // Si null, c'est une erreur, on ne touche pas au cache local pour éviter les disparitions fantômes
+          if (sentPendingMessagesResult !== null) {
+            setLastSentMessages((prev) => {
+              // 1. Convertir le résultat serveur en map
+              const serverMap: Record<string, { text: string; ts: string; id?: string; status?: 'read' }> = {};
+              if (sentPendingMessagesResult.length > 0) {
+                 sentPendingMessagesResult.forEach((m: any) => {
+                    serverMap[m.to_user_id] = { text: m.message_content, ts: m.created_at, id: m.id };
+                 });
+              }
+
+              // 2. Fusionner avec le cache local pour préserver les messages 'read' (animation)
+              // et DÉDUIRE la lecture si un message disparaît du serveur
+              const next = { ...serverMap };
+              
+              Object.entries(prev).forEach(([uid, msg]) => {
+                // Cas 1: Déjà marqué lu localement -> on garde pour finir l'animation
+                if (msg.status === 'read') {
+                  if (!next[uid]) {
+                    next[uid] = msg;
+                  }
+                  return;
+                }
+
+                // Cas 2: Message 'sent' localement mais absent du serveur
+                if (!next[uid]) {
+                   const now = Date.now();
+                   const msgTime = new Date(msg.ts).getTime();
+                   const age = now - msgTime;
+
+                   if (age < 5000) {
+                      // Protection latence (5s) : On suppose qu'il n'est pas encore arrivé sur le serveur
+                      // On le garde en 'sent'
+                      next[uid] = msg;
+                   } else {
+                      // Passé 5s, si le serveur ne l'a plus, c'est qu'il a été LU (supprimé)
+                      // On le passe en 'read' pour déclencher l'animation
+                      next[uid] = { ...msg, status: 'read' };
+                   }
+                }
+              });
+
+              // Sauvegarder dans le cache
+              saveLastSentMessagesCache(next);
+              return next;
+            });
           }
-          saveLastSentMessagesCache({});
-          return {};
-        });
-      }
     } catch (e) {
       // Erreur silencieuse (le polling réessayera plus tard)
     } finally { 
@@ -1355,24 +1512,15 @@ useEffect(() => {
             filter: `from_user_id=eq.${user.id}`,
           },
           (payload) => {
-            if (payload.eventType === 'DELETE') {
-              const toUserId = (payload.old as any)?.to_user_id;
-              if (toUserId) {
-                setLastSentMessages((prev) => {
-                  const copy = { ...prev };
-                  delete copy[toUserId];
-                  saveLastSentMessagesCache(copy);
-                  return copy;
-                });
-                lastSentSetAtRef.current = 0;
-              }
-            } else if (payload.eventType === 'INSERT') {
+            if (payload.eventType === 'INSERT') {
               const toUserId = (payload.new as any)?.to_user_id;
               const text = (payload.new as any)?.message_content;
               const ts = (payload.new as any)?.created_at || new Date().toISOString();
+              const id = (payload.new as any)?.id;
+              
               if (toUserId && text) {
                 setLastSentMessages((prev) => {
-                  const next = { ...prev, [toUserId]: { text, ts } };
+                  const next = { ...prev, [toUserId]: { text, ts, id } };
                   lastSentSetAtRef.current = Date.now();
                   saveLastSentMessagesCache(next);
                   return next;
@@ -1381,11 +1529,69 @@ useEffect(() => {
             }
           }
         )
+        // Écouter TOUS les DELETE sur pending_messages (pour savoir quand mon message est lu/supprimé)
+        // On ne filtre PAS par from_user_id car le payload DELETE ne contient souvent pas cette info (Replica Identity Default)
+        .on(
+          'postgres_changes',
+          {
+            event: 'DELETE',
+            schema: 'public',
+            table: 'pending_messages',
+          },
+          (payload) => {
+            const deletedId = (payload.old as any)?.id;
+            if (deletedId) {
+              // On cherche dans notre map locale quel ami correspond à ce message ID
+              setLastSentMessages((prev) => {
+                const targetUserId = Object.keys(prev).find(uid => prev[uid].id === deletedId);
+                if (targetUserId) {
+                  // Au lieu de supprimer tout de suite, on marque comme LU pour déclencher l'animation
+                  const copy = { ...prev };
+                  if (copy[targetUserId]) {
+                    copy[targetUserId] = { ...copy[targetUserId], status: 'read' };
+                  }
+                  saveLastSentMessagesCache(copy);
+                  return copy;
+                }
+                return prev;
+              });
+              lastSentSetAtRef.current = 0;
+            }
+          }
+        )
         .subscribe(() => {
           // Subscription active, pas besoin de log
         });
 
       subscriptionRef.current = channel;
+
+      // Canal Broadcast pour la lecture instantanée (bypass DB)
+      const broadcastChannel = supabase
+        .channel(`room-${user.id}`)
+        .on('broadcast', { event: 'message-read' }, (payload) => {
+            const deletedId = payload.payload?.id;
+            if (deletedId) {
+              setLastSentMessages((prev) => {
+                const targetUserId = Object.keys(prev).find(uid => prev[uid].id === deletedId);
+                if (targetUserId) {
+                  const copy = { ...prev };
+                  if (copy[targetUserId]) {
+                    copy[targetUserId] = { ...copy[targetUserId], status: 'read' };
+                  }
+                  saveLastSentMessagesCache(copy);
+                  return copy;
+                }
+                return prev;
+              });
+            }
+        })
+        .on('broadcast', { event: 'message-received' }, () => {
+            console.log('🔄 [FriendsList] Réception signal REFRESH_DATA (Broadcast) -> Reloading data...');
+            loadData(false, false, false);
+        })
+        .subscribe();
+      broadcastSubscriptionRef.current = broadcastChannel;
+
     } catch (error) {
       console.error('❌ Erreur lors de la configuration de Realtime friends:', error);
     }
@@ -1761,7 +1967,10 @@ useEffect(() => {
         // Première ouverture : afficher les messages ET ouvrir le champ de saisie automatiquement
         setExpandedUnreadId(friend.id);
         setUnreadCache((prev) => ({ ...prev, [friend.id]: unreadMessages }));
-        unreadMessages.forEach(msg => markMessageAsRead(msg.id));
+        // Marquer lu avec un délai pour laisser le temps de voir
+        setTimeout(() => {
+          unreadMessages.forEach(msg => markMessageAsRead(msg.id));
+        }, 1000);
         setExpandedFriendId(friend.id); // Ouvrir le champ de saisie automatiquement
         return;
       }
@@ -2218,20 +2427,38 @@ useEffect(() => {
             const activeMessagesToShow = activeUnreadMessages.length > 0 ? activeUnreadMessages : (unreadCache[activeFriend.id] || []);
             const myLastSent = lastSentMessages[activeFriend.id];
             
-            if (activeMessagesToShow.length === 0 && !myLastSent) return null;
+            // Fusion et tri par date pour affichage chronologique (type WhatsApp)
+            const allMessages = [
+                ...activeMessagesToShow.map(m => ({
+                    id: m.id,
+                    text: m.message_content,
+                    ts: m.created_at,
+                    isMe: false
+                })),
+                ...(myLastSent ? [{
+                    id: myLastSent.id || 'temp-sent',
+                    text: myLastSent.text,
+                    ts: myLastSent.ts,
+                    isMe: true,
+                    original: myLastSent
+                }] : [])
+            ].sort((a, b) => {
+                const timeA = a.ts ? new Date(a.ts).getTime() : 0;
+                const timeB = b.ts ? new Date(b.ts).getTime() : 0;
+                return timeA - timeB;
+            });
             
             return (
               <View style={styles.stickyMessages}>
-                {activeMessagesToShow.map((msg) => (
-                  <View key={msg.id} style={styles.bubbleReceived}>
-                    <Text style={styles.bubbleTextReceived}>{msg.message_content}</Text>
-                  </View>
+                {allMessages.map((msg) => (
+                  msg.isMe ? (
+                    <SentMessageStatus key={msg.id} message={msg.original!} />
+                  ) : (
+                    <View key={msg.id} style={styles.bubbleReceived}>
+                      <Text style={styles.bubbleTextReceived}>{msg.text}</Text>
+                    </View>
+                  )
                 ))}
-                {myLastSent && (
-                  <View style={styles.bubbleSent}>
-                    <Text style={styles.bubbleTextSent}>{myLastSent.text}</Text>
-                  </View>
-                )}
               </View>
             );
           })()}
