@@ -5,7 +5,7 @@ import { Audio } from 'expo-av';
 import * as Contacts from 'expo-contacts';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, FlatList, Linking, NativeModules, Platform, Animated as RNAnimated, StyleSheet, Text, TextInput, TouchableOpacity, View, KeyboardAvoidingView, Keyboard } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, FlatList, Linking, NativeModules, Platform, Animated as RNAnimated, StyleSheet, Text, TextInput, TouchableOpacity, View, Keyboard, TouchableWithoutFeedback, KeyboardAvoidingView } from 'react-native';
 import { Gesture, GestureDetector, TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
@@ -164,14 +164,14 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
   friend, 
   backgroundColor, 
   onSendProut, 
-  onLongPressName,
-  onPressName,
-  hasUnread = false,
-  unreadMessage,
-  onDeleteFriend,
-  onMuteFriend,
-  onUnmuteFriend,
-  isMuted = false,
+  onLongPressName, 
+  onPressName, 
+  hasUnread = false, 
+  unreadMessage, 
+  onDeleteFriend, 
+  onMuteFriend, 
+  onUnmuteFriend, 
+  isMuted = false, 
   introDelay = 0,
 }, ref) => {
   const translationX = useSharedValue(0);
@@ -420,7 +420,7 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
                 },
               ]}
               resizeMode="contain"
-            />
+              />
           </View>
         ) : (
           /* Image normale pendant le swipe */
@@ -556,10 +556,23 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
   const contactsSyncedRef = useRef(false); // Pour éviter de synchroniser les contacts plusieurs fois
   const phoneFriendIdsRef = useRef<string[]>([]);
   const lastSentSetAtRef = useRef<number>(0); // timestamp du dernier setLastSentMessages local (pour éviter un clear trop tôt)
+  const lastPressTime = useRef(0); // Debounce pour les clics sur les amis
   
   // Polling simple (sans backoff exponentiel)
   const flatListRef = useRef<FlatList>(null);
   const rowRefs = useRef<Record<string, SwipeableFriendRowHandle | null>>({});
+  const textInputRefs = useRef<Record<string, TextInput | null>>({});
+
+  // Focus automatique du TextInput quand le champ de message s'ouvre
+  useEffect(() => {
+    if (expandedFriendId && textInputRefs.current[expandedFriendId]) {
+      // Petit délai pour laisser le layout se stabiliser avant de focus
+      const timer = setTimeout(() => {
+        textInputRefs.current[expandedFriendId]?.focus();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [expandedFriendId]);
 
   // Messages éphémères (pending_messages)
   const fetchPendingMessages = async (userId: string) => {
@@ -1689,12 +1702,54 @@ useEffect(() => {
     }
   };
 
-  const scrollToFriend = (_friendId: string) => {
-    // Désactivé : on laisse le KeyboardAvoidingView gérer le décalage du clavier, pas de scroll manuel supplémentaire.
-    return;
+  const scrollToActiveFriend = (index: number) => {
+    if (index < 0) return;
+    try {
+      flatListRef.current?.scrollToIndex({
+        index,
+        viewPosition: 1, // Aligner le bas de l'item avec le bas de la zone visible (juste au-dessus du clavier/input)
+        animated: true
+      });
+    } catch (e) {
+      // Ignorer les erreurs de layout (si l'item n'est pas encore mesuré)
+    }
   };
 
+  // Scroller vers l'ami sélectionné quand le clavier s'ouvre ou quand on change d'ami
+  useEffect(() => {
+    if (expandedFriendId) {
+      const index = appUsers.findIndex(u => u.id === expandedFriendId);
+      if (index !== -1) {
+        // Scroll immédiat (utile si clavier déjà ouvert)
+        scrollToActiveFriend(index);
+      }
+    }
+  }, [expandedFriendId]);
+
+  useEffect(() => {
+    const onShow = () => {
+      if (expandedFriendId) {
+        const index = appUsers.findIndex(u => u.id === expandedFriendId);
+        if (index !== -1) {
+          // Scroll ajusté après apparition du clavier
+          // Petit délai pour laisser le layout (paddingBottom dynamique) se mettre à jour
+          setTimeout(() => scrollToActiveFriend(index), 50); 
+        }
+      }
+    };
+
+    // Sur iOS keyboardWillShow est plus fluide, sur Android keyboardDidShow est plus sûr pour le layout
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const sub = Keyboard.addListener(showEvent, onShow);
+    return () => sub.remove();
+  }, [expandedFriendId, appUsers]);
+
   const handlePressFriend = (friend: any) => {
+    // Debounce pour éviter les doubles clics (fermeture puis réouverture immédiate)
+    const now = Date.now();
+    if (now - lastPressTime.current < 500) return;
+    lastPressTime.current = now;
+
     const unreadMessages = pendingMessages.filter(m => m.from_user_id === friend.id);
     const alreadyUnreadOpen = expandedUnreadId === friend.id;
     const isInputOpen = expandedFriendId === friend.id;
@@ -1721,6 +1776,7 @@ useEffect(() => {
       // Si l'input est ouvert, fermer tout
       setExpandedFriendId(null);
       setExpandedUnreadId(null);
+      Keyboard.dismiss(); // Force la fermeture du clavier
       // Nettoyer le cache pour ce contact
       setUnreadCache((prev) => {
         const newCache = { ...prev };
@@ -1731,6 +1787,9 @@ useEffect(() => {
     }
 
     const newExpandedId = expandedFriendId === friend.id ? null : friend.id;
+    if (!newExpandedId) {
+      Keyboard.dismiss(); // Force la fermeture du clavier si on ferme
+    }
     setExpandedFriendId(newExpandedId);
     // Ne pas fermer les messages d'un autre contact quand on clique sur un contact sans messages
   };
@@ -2037,17 +2096,17 @@ useEffect(() => {
     );
   };
 
-  const scrollToItem = (index: number) => {
-    if (flatListRef.current) {
-      // Lancement immédiat pour synchroniser avec l'ouverture du clavier (style WhatsApp)
-      requestAnimationFrame(() => {
-        try {
-          flatListRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.8 }); 
-        } catch (e) {
-          console.warn('Scroll failed', e);
-        }
-      });
-    }
+  const activeFriend = expandedFriendId ? appUsers.find(u => u.id === expandedFriendId) : null;
+  const activeFriendIndex = expandedFriendId ? appUsers.findIndex(u => u.id === expandedFriendId) : -1;
+  const activeBackgroundColor = activeFriendIndex !== -1 
+    ? (activeFriendIndex % 2 === 0 ? '#d2f1ef' : '#baded7') 
+    : '#ebb89b';
+
+  const activeDraft = activeFriend ? (messageDrafts[activeFriend.id] || '') : '';
+
+  const handlePressHeader = () => {
+    Keyboard.dismiss();
+    setExpandedFriendId(null);
   };
 
   const handleRefresh = async () => {
@@ -2061,45 +2120,62 @@ useEffect(() => {
 
   if (loading && appUsers.length === 0 && pendingRequests.length === 0) return <ActivityIndicator color="#007AFF" style={{margin: 20}} />;
 
+  // Rendu différencié pour le conteneur principal pour éviter les bugs Android/iOS
+  const Container = Platform.OS === 'ios' ? KeyboardAvoidingView : View;
+  const containerProps = Platform.OS === 'ios' 
+    ? { 
+        style: styles.container, 
+        behavior: 'padding' as const, 
+        keyboardVerticalOffset: 0 
+      }
+    : { 
+        style: styles.container 
+      };
+
   const content = (
-    <View style={styles.container}>
-        <FlatList
-          ref={flatListRef}
-          data={appUsers}
-          keyExtractor={(item) => item.id}
-          style={styles.list}
-          keyboardShouldPersistTaps="always"
-          contentContainerStyle={[
-            styles.listContent,
-            appUsers.length === 0 && pendingRequests.length === 0 ? styles.emptyContentPadding : null,
-          ]}
-          ListHeaderComponent={
-            <>
+    <Container {...containerProps}>
+      <FlatList
+        ref={flatListRef}
+        data={appUsers}
+        keyExtractor={(item) => item.id}
+        style={styles.list}
+        // Android a besoin de 'always' pour bien gérer les clics quand le clavier est là
+        keyboardShouldPersistTaps={Platform.OS === 'android' ? "always" : "handled"}
+        keyboardDismissMode={Platform.OS === 'ios' ? "interactive" : "on-drag"}
+        contentContainerStyle={[
+          styles.listContent,
+          appUsers.length === 0 && pendingRequests.length === 0 ? styles.emptyContentPadding : null,
+        ]}
+        ListHeaderComponent={
+          <TouchableWithoutFeedback onPress={handlePressHeader}>
+            <View>
               {headerComponent}
               {renderRequestsHeader()}
-            </>
-          }
-          ListEmptyComponent={
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyText}>{i18n.t('no_friends')}</Text>
-              <Text style={styles.subText}>{i18n.t('invite_contacts')}</Text>
             </View>
-          }
-          renderItem={({ item, index }) => {
-            const unreadMessages = pendingMessages.filter(m => m.from_user_id === item.id);
-            const hasUnread = unreadMessages.length > 0;
-            // Afficher le dernier message (le plus récent) dans l'aperçu
-            const lastUnread = unreadMessages.length > 0 ? unreadMessages[unreadMessages.length - 1] : null;
-            const isUnreadExpanded = expandedUnreadId === item.id;
-            const isExpanded = expandedFriendId === item.id;
-            const draftValue = messageDrafts[item.id] || '';
-            const unreadListToShow = unreadMessages.length > 0 ? unreadMessages : (unreadCache[item.id] || []);
-            return (
-              <View style={{ position: 'relative', marginBottom: 5 }}>
+          </TouchableWithoutFeedback>
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyText}>{i18n.t('no_friends')}</Text>
+            <Text style={styles.subText}>{i18n.t('invite_contacts')}</Text>
+          </View>
+        }
+        renderItem={({ item, index }) => {
+          const unreadMessages = pendingMessages.filter(m => m.from_user_id === item.id);
+          const hasUnread = unreadMessages.length > 0;
+          const lastUnread = unreadMessages.length > 0 ? unreadMessages[unreadMessages.length - 1] : null;
+          const isUnreadExpanded = expandedUnreadId === item.id;
+          const unreadListToShow = unreadMessages.length > 0 ? unreadMessages : (unreadCache[item.id] || []);
+          
+          const isActive = expandedFriendId === item.id;
+          const backgroundColor = index % 2 === 0 ? '#d2f1ef' : '#baded7';
+
+          return (
+            <View style={{ position: 'relative', marginBottom: 5 }}>
               <SwipeableFriendRow
                 ref={(ref) => { rowRefs.current[item.id] = ref; }}
                 friend={item}
-                backgroundColor={index % 2 === 0 ? '#d2f1ef' : '#baded7'}
+                backgroundColor={backgroundColor}
                 onSendProut={() => handleSendProut(item)}
                 onLongPressName={() => handleLongPressName(item)}
                 onPressName={() => handlePressFriend(item)}
@@ -2111,94 +2187,91 @@ useEffect(() => {
                 isMuted={item.is_muted || false}
                 introDelay={index * 40}
               />
-                {isUnreadExpanded && unreadListToShow.length > 0 && (
-                  <TouchableOpacity 
-                    style={styles.unreadContainer}
-                    onPress={() => handlePressFriend(item)}
-                    activeOpacity={0.7}
-                  >
-                    {unreadListToShow.map((msg) => (
-                      <Text key={msg.id} style={styles.unreadItemText}>- "{msg.message_content}"</Text>
-                    ))}
-                  </TouchableOpacity>
-                )}
-                {isExpanded && (
-                  <View style={styles.messageInputContainer}>
-                  {lastSentMessages[item.id]?.text ? (
-                    <View style={styles.lastSentContainer}>
-                      <Text style={styles.lastSentText}>"{lastSentMessages[item.id].text}"</Text>
-                    </View>
-                  ) : null}
-                    <View style={styles.messageInputRow}>
-                      <TextInput
-                        style={styles.messageInput}
-                        placeholder={i18n.t('add_message_placeholder')}
-                        placeholderTextColor="#777"
-                        value={draftValue}
-                        onChangeText={(text) => setMessageDrafts(prev => ({ ...prev, [item.id]: text }))}
-                        maxLength={140}
-                        multiline
-                        onFocus={() => scrollToItem(index)}
-                      />
-                      <TouchableOpacity
-                        onPress={() => draftValue.trim() && handleSendProut(item)}
-                        style={[
-                          styles.messageSendButton,
-                          !draftValue.trim() && styles.messageSendButtonDisabled,
-                        ]}
-                        accessibilityLabel="Envoyer"
-                        activeOpacity={draftValue.trim() ? 0.8 : 1}
-                        disabled={!draftValue.trim()}
-                      >
-                        <Ionicons name="send" size={18} color="#fff" />
-                      </TouchableOpacity>
-                    </View>
+            </View>
+          );
+        }}
+        refreshing={isRefreshing}
+        onRefresh={handleRefresh}
+        showsVerticalScrollIndicator={false}
+        ListFooterComponent={
+          appUsers.length > 0 ? (
+            <View style={styles.footerHelp}>
+              <Text style={styles.footerHelpText}>{i18n.t('footer_help_text')}</Text>
+            </View>
+          ) : null
+        }
+      />
+
+      {activeFriend && (
+        <View style={styles.stickyInputContainer}>
+          {/* Header */}
+          <View style={styles.stickyHeader}>
+             <Text style={styles.stickyPseudo}>Chat 👻 avec {activeFriend.pseudo}</Text>
+             <TouchableOpacity onPress={() => { Keyboard.dismiss(); setExpandedFriendId(null); }} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
+               <Ionicons name="close-circle" size={24} color="#604a3e" />
+             </TouchableOpacity>
+          </View>
+
+          {/* Messages */}
+          {(() => {
+            const activeUnreadMessages = pendingMessages.filter(m => m.from_user_id === activeFriend.id);
+            const activeMessagesToShow = activeUnreadMessages.length > 0 ? activeUnreadMessages : (unreadCache[activeFriend.id] || []);
+            const myLastSent = lastSentMessages[activeFriend.id];
+            
+            if (activeMessagesToShow.length === 0 && !myLastSent) return null;
+            
+            return (
+              <View style={styles.stickyMessages}>
+                {activeMessagesToShow.map((msg) => (
+                  <View key={msg.id} style={styles.bubbleReceived}>
+                    <Text style={styles.bubbleTextReceived}>{msg.message_content}</Text>
+                  </View>
+                ))}
+                {myLastSent && (
+                  <View style={styles.bubbleSent}>
+                    <Text style={styles.bubbleTextSent}>{myLastSent.text}</Text>
                   </View>
                 )}
               </View>
             );
-          }}
-          refreshing={isRefreshing}
-          onRefresh={handleRefresh}
-          showsVerticalScrollIndicator={false}
-          onScrollToIndexFailed={(info) => {
-            // Gérer l'erreur si l'index n'est pas encore rendu
-            const wait = new Promise(resolve => setTimeout(resolve, 500));
-            wait.then(() => {
-              flatListRef.current?.scrollToIndex({ index: info.index, animated: true });
-            });
-          }}
-          ListFooterComponent={
-            appUsers.length > 0 ? (
-              <View style={styles.footerHelp}>
-                <Text style={styles.footerHelpText}>
-                  {i18n.t('footer_help_text')}
-                </Text>
-              </View>
-            ) : null
-          }
-        />
+          })()}
 
-      {/* Toast qui disparaît automatiquement */}
+          <View style={[styles.messageInputRow, { alignItems: 'flex-end' }]}>
+            <TextInput
+              ref={(ref) => { textInputRefs.current[activeFriend.id] = ref; }}
+              style={styles.messageInput}
+              placeholder={i18n.t('add_message_placeholder')}
+              placeholderTextColor="#777"
+              value={activeDraft}
+              onChangeText={(text) => setMessageDrafts(prev => ({ ...prev, [activeFriend.id]: text }))}
+              maxLength={140}
+              multiline
+              autoFocus
+            />
+            <TouchableOpacity
+              onPress={() => activeDraft.trim() && handleSendProut(activeFriend)}
+              style={[
+                styles.messageSendButton,
+                { backgroundColor: activeBackgroundColor },
+                !activeDraft.trim() && styles.messageSendButtonDisabled,
+              ]}
+              accessibilityLabel="Envoyer"
+              activeOpacity={activeDraft.trim() ? 0.8 : 1}
+              disabled={!activeDraft.trim()}
+            >
+              <Ionicons name="send" size={18} color="#604a3e" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       {toastMessage && (
         <RNAnimated.View style={[styles.toast, { opacity: toastOpacity }]}>
           <Text style={styles.toastText}>{toastMessage}</Text>
         </RNAnimated.View>
       )}
-    </View>
+    </Container>
   );
-
-  if (Platform.OS === 'ios') {
-    return (
-      <KeyboardAvoidingView 
-        style={{ flex: 1 }} 
-        behavior="padding"
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-      >
-        {content}
-      </KeyboardAvoidingView>
-    );
-  }
 
   return content;
 }
@@ -2207,7 +2280,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, marginTop: 0 },
   keyboardAvoidingView: { flex: 1 },
   list: { flex: 1 },
-  listContent: { paddingBottom: 0 },
+  listContent: { paddingBottom: 20 },
   emptyContentPadding: { flexGrow: 1, justifyContent: 'center' },
   sectionTitle: { fontWeight: 'bold', color: '#604a3e', marginBottom: 10, fontSize: 16, marginLeft: 5 },
   requestsContainer: { marginBottom: 20 },
@@ -2223,9 +2296,11 @@ const styles = StyleSheet.create({
   emptyText: { color: '#666', fontSize: 16, fontWeight: 'bold' },
   subText: { color: '#888', fontSize: 14, marginTop: 5 },
   messageInputContainer: { backgroundColor: 'rgba(255,255,255,0.9)', marginTop: 0, marginBottom: 10, padding: 8, paddingBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#d9e6e3' },
+  messageInputContainerAndroid: { marginBottom: 0, paddingBottom: 0 },
   messageLabel: { color: '#604a3e', fontWeight: '600', marginBottom: 6 },
   messageInputRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 0, gap: 8 },
-  messageInput: { flex: 1, minHeight: 40, maxHeight: 80, borderWidth: 1, borderColor: '#c5d7d3', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, color: '#333', backgroundColor: '#fff', fontSize: 14 },
+  messageInputRowAndroid: { alignItems: 'flex-end' },
+  messageInput: { flex: 1, minHeight: 40, maxHeight: 80, borderWidth: 1, borderColor: '#c5d7d3', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, color: '#333', backgroundColor: '#fff', fontSize: 18 },
   messageSendButton: { backgroundColor: '#ebb89b', padding: 10, borderRadius: 999, justifyContent: 'center', alignItems: 'center', minWidth: 40, minHeight: 40 },
   messageSendButtonDisabled: { backgroundColor: '#d9d9d9' },
   sendButton: { padding: 16, width: 80, height: 80, justifyContent: 'center', alignItems: 'center', alignSelf: 'center' },
@@ -2341,5 +2416,69 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontStyle: 'italic',
     opacity: 0.7,
+  },
+  stickyInputContainer: {
+    backgroundColor: '#ebb89b',
+    padding: 10,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 10, // Padding safe area basique
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  stickyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+    borderBottomWidth: 1, 
+    borderBottomColor: 'rgba(96, 74, 62, 0.1)',
+    paddingBottom: 4,
+  },
+  stickyPseudo: {
+    fontWeight: 'bold',
+    color: '#604a3e',
+    fontSize: 16,
+  },
+  stickyMessages: {
+    marginBottom: 8,
+    maxHeight: 150, // Un peu plus de hauteur pour les bulles
+  },
+  bubbleReceived: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    borderTopLeftRadius: 4,
+    padding: 8,
+    paddingHorizontal: 12,
+    marginBottom: 6,
+    maxWidth: '80%',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  bubbleSent: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#e3f2fd', // Bleu très clair
+    borderRadius: 16,
+    borderTopRightRadius: 4,
+    padding: 8,
+    paddingHorizontal: 12,
+    marginBottom: 6,
+    maxWidth: '80%',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  bubbleTextReceived: {
+    color: '#333',
+    fontSize: 18,
+  },
+  bubbleTextSent: {
+    color: '#333',
+    fontSize: 18,
   },
 });
