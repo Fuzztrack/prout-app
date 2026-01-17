@@ -17,7 +17,6 @@ export default function Index() {
     let isMounted = true;
 
     const decideNavigation = async () => {
-      console.log('🧭 Routeur: Analyse de la destination...');
 
       try {
         if (shouldSkipInitialNavigation()) {

@@ -52,14 +52,12 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
         // Obtenir le token FCM natif (ou Expo Push Token sur iOS)
         const fcmToken = await getFCMToken();
         if (fcmToken) {
-          console.log('✅ Token généré:', Platform.OS === 'ios' ? 'Expo Push Token' : 'FCM Token', fcmToken.substring(0, 30) + '...');
           // Stocker le token FCM dans expo_push_token (on réutilise le champ existant)
           // Ou créer un nouveau champ fcm_token dans Supabase si préféré
           const { error } = await supabase.from('user_profiles').update({ expo_push_token: fcmToken, push_platform: Platform.OS }).eq('id', userId);
           if (error) {
             console.error('❌ Erreur mise à jour token dans Supabase:', error);
           } else {
-            console.log('✅ Token mis à jour dans Supabase');
           }
         }
       }
@@ -105,12 +103,10 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
               if (status === 'granted') {
                   getFCMToken().then(fcmToken => {
                       if (fcmToken) {
-                          console.log('✅ Token généré au chargement:', Platform.OS === 'ios' ? 'Expo Push Token' : 'FCM Token', fcmToken.substring(0, 30) + '...');
                           supabase.from('user_profiles').update({ expo_push_token: fcmToken, push_platform: Platform.OS }).eq('id', user.id).then(({ error }) => {
                               if (error) {
                                   console.error('❌ Erreur mise à jour token dans Supabase:', error);
                               } else {
-                                  console.log('✅ Token mis à jour dans Supabase');
                               }
                           });
                       }
@@ -563,43 +559,45 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
             <View style={styles.navBar}>
               <View style={styles.navBarContent}>
                 <View style={styles.greetingContainer}>
-                      {currentPseudo ? (
-                        <View style={styles.greetingRow}>
-                          <Text style={styles.greetingText}>{i18n.t('greeting')} {currentPseudo} !</Text>
-                          {isZenMode && (
-                            <Ionicons
-                              name="moon"
-                              size={18}
-                              color="#ffd700"
-                              style={styles.zenIcon}
-                            />
-                          )}
-                          {isSilentMode && (
-                            <Ionicons
-                              name="volume-mute"
-                              size={18}
-                              color="#ff6b6b"
-                              style={styles.zenIcon}
-                            />
-                          )}
-                        </View>
-                      ) : null}
-                </View>
-                {/* 1. Profil */}
-                <TouchableOpacity 
-                  onPress={() => setActiveView(activeView === 'profileMenu' ? 'list' : 'profileMenu')} 
-                  style={[styles.iconButton, (activeView === 'profileMenu' || activeView === 'profile') && { opacity: 0.7 }]}
-                >
-                    {(activeView === 'profileMenu' || activeView === 'profile') ? (
-                      <Ionicons name="close-circle-outline" size={28} color="#ffffff" />
-                    ) : (
-                      <Image 
-                          source={require('../../assets/images/icon_compte.png')} 
-                          style={styles.navIcon} 
-                          resizeMode="contain"
+                  <View style={styles.greetingRow}>
+                    {currentPseudo ? (
+                      <Text style={styles.greetingText}>{i18n.t('greeting')} {currentPseudo} !</Text>
+                    ) : null}
+                    {isZenMode && (
+                      <Ionicons
+                        name="moon"
+                        size={18}
+                        color="#ffffff"
+                        style={styles.zenIcon}
                       />
                     )}
-                </TouchableOpacity>
+                    {isSilentMode && (
+                      <Ionicons
+                        name="volume-mute"
+                        size={22}
+                        color="#ffffff"
+                        style={styles.zenIcon}
+                      />
+                    )}
+                  </View>
+                </View>
+                {/* Icône Profil à droite */}
+                <View style={styles.rightIconsContainer}>
+                  <TouchableOpacity 
+                    onPress={() => setActiveView(activeView === 'profileMenu' ? 'list' : 'profileMenu')} 
+                    style={[styles.iconButton, (activeView === 'profileMenu' || activeView === 'profile') && { opacity: 0.7 }]}
+                  >
+                      {(activeView === 'profileMenu' || activeView === 'profile') ? (
+                        <Ionicons name="close-circle-outline" size={28} color="#ffffff" />
+                      ) : (
+                        <Image 
+                            source={require('../../assets/images/icon_compte.png')} 
+                            style={styles.navIcon} 
+                            resizeMode="contain"
+                        />
+                      )}
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           </View>
@@ -615,8 +613,8 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
           <View style={styles.menuCard}>
             {[
               { label: i18n.t('search_friend'), icon: 'person-add-outline', onPress: () => setActiveView('search'), iconColor: '#604a3e' },
-              { label: i18n.t('zen_mode'), icon: isZenMode ? 'moon' : 'moon-outline', onPress: toggleZenMode, iconColor: isZenMode ? '#ffd700' : '#604a3e' },
-              { label: i18n.t('silent_mode'), icon: isSilentMode ? 'volume-mute' : 'volume-mute-outline', onPress: toggleSilentMode, iconColor: isSilentMode ? '#ff6b6b' : '#604a3e' },
+              { label: i18n.t('zen_mode'), icon: isZenMode ? 'moon' : 'moon-outline', onPress: toggleZenMode, iconColor: isZenMode ? '#ebb89b' : '#604a3e' },
+              { label: i18n.t('silent_mode'), icon: isSilentMode ? 'volume-mute' : 'volume-mute-outline', onPress: toggleSilentMode, iconColor: isSilentMode ? '#ebb89b' : '#604a3e' },
               { label: i18n.t('manage_profile'), icon: 'person-circle-outline', onPress: () => setActiveView('profile'), iconColor: '#604a3e' },
               { label: i18n.t('invite_friend'), icon: 'share-social-outline', onPress: handleShare, iconColor: '#604a3e' },
               { label: i18n.t('review_app_functions'), icon: 'help-circle-outline', onPress: () => setActiveView('tutorial'), iconColor: '#604a3e' },
@@ -629,7 +627,11 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
                 onPress={item.onPress}
               >
                 <Text style={styles.menuText}>{item.label}</Text>
-                <Ionicons name={item.icon as any} size={22} color={item.iconColor} />
+                <Ionicons
+                  name={item.icon as any}
+                  size={item.label === i18n.t('silent_mode') ? 26 : 22}
+                  color={item.iconColor}
+                />
               </TouchableOpacity>
             ))}
           </View>
@@ -665,43 +667,45 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
                 <View style={styles.navBar}>
                   <View style={styles.navBarContent}>
                     <View style={styles.greetingContainer}>
-                      {currentPseudo ? (
-                        <View style={styles.greetingRow}>
+                      <View style={styles.greetingRow}>
+                        {currentPseudo ? (
                           <Text style={styles.greetingText}>{i18n.t('greeting')} {currentPseudo} !</Text>
-                          {isZenMode && (
-                            <Ionicons
-                              name="moon"
-                              size={18}
-                              color="#ffd700"
-                              style={styles.zenIcon}
-                            />
-                          )}
-                          {isSilentMode && (
-                            <Ionicons
-                              name="volume-mute"
-                              size={18}
-                              color="#ff6b6b"
-                              style={styles.zenIcon}
-                            />
-                          )}
-                        </View>
-                      ) : null}
-                    </View>
-                    {/* 1. Profil */}
-                    <TouchableOpacity 
-                      onPress={() => setActiveView(activeView === 'profileMenu' ? 'list' : 'profileMenu')} 
-                      style={[styles.iconButton, (activeView === 'profileMenu' || activeView === 'profile') && { opacity: 0.7 }]}
-                    >
-                        {(activeView === 'profileMenu' || activeView === 'profile') ? (
-                          <Ionicons name="close-circle-outline" size={28} color="#ffffff" />
-                        ) : (
-                          <Image 
-                              source={require('../../assets/images/icon_compte.png')} 
-                              style={styles.navIcon} 
-                              resizeMode="contain"
+                        ) : null}
+                        {isZenMode && (
+                          <Ionicons
+                            name="moon"
+                            size={18}
+                            color="#ffffff"
+                            style={styles.zenIcon}
                           />
                         )}
-                    </TouchableOpacity>
+                        {isSilentMode && (
+                          <Ionicons
+                            name="volume-mute"
+                            size={22}
+                            color="#ffffff"
+                            style={styles.zenIcon}
+                          />
+                        )}
+                      </View>
+                    </View>
+                    {/* Icône Profil à droite */}
+                    <View style={styles.rightIconsContainer}>
+                      <TouchableOpacity 
+                        onPress={() => setActiveView(activeView === 'profileMenu' ? 'list' : 'profileMenu')} 
+                        style={[styles.iconButton, (activeView === 'profileMenu' || activeView === 'profile') && { opacity: 0.7 }]}
+                      >
+                          {(activeView === 'profileMenu' || activeView === 'profile') ? (
+                            <Ionicons name="close-circle-outline" size={28} color="#ffffff" />
+                          ) : (
+                            <Image 
+                                source={require('../../assets/images/icon_compte.png')} 
+                                style={styles.navIcon} 
+                                resizeMode="contain"
+                            />
+                          )}
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </View>
               </View>
@@ -773,10 +777,17 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
-    marginLeft: 12,
   },
   zenIcon: {
     marginTop: 1,
+  },
+  rightIconsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  silentIcon: {
+    marginRight: 4,
   },
   
   iconButton: {

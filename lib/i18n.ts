@@ -177,8 +177,8 @@ const i18n = new I18n({
     tuto_sound_desc: "Vérifiez le mode silencieux et le volume des notifications.",
     tuto_1_title: "Envoyer un Prout",
     tuto_1_desc: "Pour envoyer un prout, swipez vers la droite sur le nom de votre ami ! Comme dans la vie, on ne sait pas toujours ce qui vient. Ce sera une surprise à chaque envoi !",
-    tuto_2_title: "Ajouter un mot doux",
-    tuto_2_desc: "Cliquer sur le nom de votre ami pour ajouter un message, puis swiper le nom.",
+    tuto_2_title: "Messages éphémères",
+    tuto_2_desc: "Cliquez sur le nom de votre ami pour ajouter un message avec le chat éphémère !",
     tuto_3_title: "Mode Zen",
     tuto_3_desc: "Besoin de calme ? Activez le mode Zen pour ne plus recevoir (ni envoyer) de prouts.",
     tuto_silent_title: "Envois silencieux",
@@ -196,8 +196,10 @@ const i18n = new I18n({
     onboarding_sound_desc: "Pensez à vérifier que vous avez le son activé (et pas en silencieux) pour profiter de la mélodie.",
     onboarding_gesture_title: "À vous de jouer",
     onboarding_gesture_desc: "Dès que vous avez un ami, swipez simplement sur son nom vers la droite pour lui envoyer un prout. Surprise garantie !",
-    onboarding_message_title: "Message éphémère",
-    onboarding_message_desc: "Vous pouvez ajouter un message éphémère en cliquant sur le nom de votre ami avant d'envoyer le prout !",
+    onboarding_message_title: "Messages éphémères",
+    onboarding_message_desc: "Cliquez sur le nom de votre ami pour ajouter un message avec le chat éphémère !",
+    sticky_chat_with: "Chat 👻 avec %{pseudo}",
+    message_read: "Lu",
     onboarding_skip: "Passer",
     onboarding_start: "C'est parti !",
     
@@ -619,8 +621,8 @@ const i18n = new I18n({
     tuto_sound_desc: "Check silent mode and notification volume.",
     tuto_1_title: "Send a Fart",
     tuto_1_desc: "To send a fart, swipe right on your friend's name! Just like in real life, you never know what's going to happen! It will be a surprise every time!",
-    tuto_2_title: "Add a note",
-    tuto_2_desc: "Tap your friend's name to add a message, then swipe the name, or long-press the gas!",
+    tuto_2_title: "Ephemeral messages",
+    tuto_2_desc: "Tap your friend's name to add a message with the ephemeral chat!",
     tuto_3_title: "Zen Mode",
     tuto_3_desc: "Need some quiet? Enable Zen Mode to stop receiving (and sending) farts.",
     tuto_silent_title: "Silent sends",
@@ -638,8 +640,10 @@ const i18n = new I18n({
     onboarding_sound_desc: "Make sure you have sound enabled (and not on silent) to enjoy the melody.",
     onboarding_gesture_title: "Your turn",
     onboarding_gesture_desc: "Once you have a friend, simply swipe right on their name to send them a fart. Guaranteed surprise!",
-    onboarding_message_title: "Ephemeral message",
-    onboarding_message_desc: "You can add an ephemeral message by clicking on your friend's name before sending the fart!",
+    onboarding_message_title: "Ephemeral messages",
+    onboarding_message_desc: "Tap your friend's name to add a message with the ephemeral chat!",
+    sticky_chat_with: "Chat 👻 with %{pseudo}",
+    message_read: "Read",
     onboarding_skip: "Skip",
     onboarding_start: "Let's go!",
     
@@ -1042,8 +1046,8 @@ const i18n = new I18n({
     tuto_sound_desc: "Verifica el modo silencioso y el volumen de las notificaciones.",
     tuto_1_title: "Enviar un Prout",
     tuto_1_desc: "¡Para enviar un prout, desliza hacia la derecha sobre el nombre de tu amigo! Como en la vida real, nunca sabes qué va a pasar. ¡Será una sorpresa cada vez!",
-    tuto_2_title: "Agregar un mensaje",
-    tuto_2_desc: "Toca el nombre de tu amigo para agregar un mensaje, luego desliza el nombre o mantén pulsado el gas.",
+    tuto_2_title: "Mensajes efímeros",
+    tuto_2_desc: "Toca el nombre de tu amigo para añadir un mensaje con el chat efímero.",
     tuto_3_title: "Modo Zen",
     tuto_3_desc: "¿Necesitas tranquilidad? Activa el modo Zen para dejar de recibir (y enviar) prouts.",
     tuto_silent_title: "Envíos silenciosos",
@@ -1061,8 +1065,10 @@ const i18n = new I18n({
     onboarding_sound_desc: "Asegúrate de tener el sonido activado (y no en silencioso) para disfrutar de la melodía.",
     onboarding_gesture_title: "A ti te toca",
     onboarding_gesture_desc: "Una vez que tengas un amigo, simplemente desliza hacia la derecha sobre su nombre para enviarle un prout. ¡Sorpresa garantizada!",
-    onboarding_message_title: "Mensaje efímero",
-    onboarding_message_desc: "¡Puedes agregar un mensaje efímero haciendo clic en el nombre de tu amigo antes de enviar el prout!",
+    onboarding_message_title: "Mensajes efímeros",
+    onboarding_message_desc: "Toca el nombre de tu amigo para añadir un mensaje con el chat efímero.",
+    sticky_chat_with: "Chat 👻 con %{pseudo}",
+    message_read: "Leído",
     onboarding_skip: "Omitir",
     onboarding_start: "¡Vamos!",
     
@@ -1467,8 +1473,8 @@ const i18n = new I18n({
     tuto_sound_desc: "Vê se não tá no mudo.",
     tuto_1_title: "Mandar um Prout",
     tuto_1_desc: "Arrasta o nome do amigo pra direita! É surpresa, nunca se sabe o que vem!",
-    tuto_2_title: "Mandar recado",
-    tuto_2_desc: "Clica no nome antes de arrastar pra escrever algo.",
+    tuto_2_title: "Mensagens efêmeras",
+    tuto_2_desc: "Clica no nome do amigo pra mandar um recado no chat efêmero!",
     tuto_3_title: "Modo Zen",
     tuto_3_desc: "Quer paz? Ativa o Zen.",
     tuto_silent_title: "Envio ninja",
@@ -1486,8 +1492,10 @@ const i18n = new I18n({
     onboarding_sound_desc: "Deixa o som ligado pra curtir a melodia.",
     onboarding_gesture_title: "Sua vez",
     onboarding_gesture_desc: "Tem amigo? Arrasta pra direita e manda ver.",
-    onboarding_message_title: "Mensagem rápida",
-    onboarding_message_desc: "Pode mandar texto junto clicando no nome!",
+    onboarding_message_title: "Mensagens efêmeras",
+    onboarding_message_desc: "Pode mandar recado no chat efêmero clicando no nome!",
+    sticky_chat_with: "Chat 👻 com %{pseudo}",
+    message_read: "Lido",
     onboarding_skip: "Pular",
     onboarding_start: "Bora!",
     
@@ -1710,7 +1718,6 @@ function getDeviceLanguage(): string {
   try {
     const locales = getLocales();
     if (!locales || locales.length === 0) {
-      console.log('🌍 Aucune locale détectée, utilisation de l\'anglais par défaut');
       return 'en';
     }
 
@@ -1736,41 +1743,33 @@ function getDeviceLanguage(): string {
     if (supportedLanguages.includes(detectedLanguage)) {
       // Mapper 'pt' vers 'pt-BR'
       if (detectedLanguage === 'pt') {
-        console.log(`🌍 Langue détectée: pt-BR (depuis ${firstLocale.languageTag || firstLocale.languageCode})`);
         return 'pt-BR';
       }
-      console.log(`🌍 Langue détectée: ${detectedLanguage} (depuis ${firstLocale.languageTag || firstLocale.languageCode})`);
       return detectedLanguage;
     }
     
     // Vérifications spécifiques par préfixe
     if (detectedLanguage.startsWith('en')) {
-      console.log(`🌍 Langue détectée: en (depuis ${firstLocale.languageTag || firstLocale.languageCode})`);
       return 'en';
     }
     
     if (detectedLanguage.startsWith('es')) {
-      console.log(`🌍 Langue détectée: es (depuis ${firstLocale.languageTag || firstLocale.languageCode})`);
       return 'es';
     }
     
     if (detectedLanguage.startsWith('pt')) {
-      console.log(`🌍 Langue détectée: pt-BR (depuis ${firstLocale.languageTag || firstLocale.languageCode})`);
       return 'pt-BR';
     }
     
     if (detectedLanguage.startsWith('de')) {
-      console.log(`🌍 Langue détectée: de (depuis ${firstLocale.languageTag || firstLocale.languageCode})`);
       return 'de';
     }
     
     if (detectedLanguage.startsWith('it')) {
-      console.log(`🌍 Langue détectée: it (depuis ${firstLocale.languageTag || firstLocale.languageCode})`);
       return 'it';
     }
     
     // Fallback sur anglais
-    console.log(`🌍 Langue non supportée (${detectedLanguage}), utilisation de l'anglais par défaut`);
     return 'en';
   } catch (error) {
     console.error('❌ Erreur détection langue:', error);
@@ -1786,12 +1785,10 @@ i18n.locale = deviceLanguage;
 export function updateLocale() {
   const newLanguage = getDeviceLanguage();
   if (i18n.locale !== newLanguage) {
-    console.log(`🌍 Mise à jour locale i18n: ${i18n.locale} → ${newLanguage}`);
     i18n.locale = newLanguage;
     // Forcer un re-render en déclenchant un événement personnalisé si nécessaire
     if (Platform.OS === 'ios') {
       // Sur iOS, s'assurer que la locale est bien appliquée
-      console.log(`🌍 Locale iOS mise à jour vers: ${newLanguage}`);
     }
   }
   return newLanguage;
@@ -1804,22 +1801,10 @@ if (Platform.OS === 'ios') {
     const currentLocale = i18n.locale;
     const updatedLocale = updateLocale();
     if (currentLocale !== updatedLocale) {
-      console.log(`🌍 Locale iOS corrigée: ${currentLocale} → ${updatedLocale}`);
     }
   }, 100);
 }
 
-// Log pour debug
-if (__DEV__) {
-  console.log(`🌍 Configuration i18n - Langue sélectionnée: ${i18n.locale}`);
-  console.log(`🌍 Locales disponibles:`, getLocales().map(l => ({
-    languageCode: l.languageCode,
-    languageTag: l.languageTag,
-    regionCode: l.regionCode,
-  })));
-  console.log(`🌍 Platform: ${Platform.OS}`);
-  console.log(`🌍 Traductions disponibles pour ${i18n.locale}:`, Object.keys(i18n.translations[i18n.locale] || {}).length, 'clés');
-}
 
 export default i18n;
 

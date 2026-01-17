@@ -77,11 +77,9 @@ export default function RootLayout() {
       const detectedLocale = updateLocale();
       const currentLocale = i18n.locale || detectedLocale || 'en';
       
-      console.log(`🌍 [saveLocaleToSupabase] Locale détectée: ${detectedLocale}, i18n.locale: ${i18n.locale}, utilisée: ${currentLocale}`);
       
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        console.log(`🌍 [saveLocaleToSupabase] Tentative de sauvegarde de la locale ${currentLocale} pour l'utilisateur ${user.id}`);
         
         // Vérifier d'abord si le profil existe
         const { data: existingProfile, error: checkError } = await supabase
@@ -103,7 +101,6 @@ export default function RootLayout() {
           return;
         }
         
-        console.log(`📊 [saveLocaleToSupabase] Locale actuelle dans DB: ${existingProfile.locale || 'NULL'}, nouvelle: ${currentLocale}`);
         
         // Mettre à jour la locale
         const { error } = await supabase
@@ -117,10 +114,8 @@ export default function RootLayout() {
             console.error('❌ La colonne locale n\'existe pas dans Supabase ! Exécutez le script supabase_add_locale.sql');
           }
         } else {
-          console.log(`✅ [saveLocaleToSupabase] Locale ${currentLocale} sauvegardée avec succès pour ${user.id}`);
         }
       } else {
-        console.log('ℹ️ [saveLocaleToSupabase] Aucun utilisateur connecté, locale non sauvegardée');
       }
     } catch (error: any) {
       console.error('❌ [saveLocaleToSupabase] Exception:', error?.message || error);

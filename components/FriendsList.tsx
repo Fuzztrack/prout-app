@@ -22,7 +22,7 @@ import Animated, {
 import { RINGER_MODE, VolumeManager } from 'react-native-volume-manager';
 import { ensureContactPermissionWithDisclosure } from '../lib/contactConsent';
 import { normalizePhone } from '../lib/normalizePhone';
-import { sendProutViaBackend, markMessageReadViaBackend } from '../lib/sendProutBackend';
+import { markMessageReadViaBackend, sendProutViaBackend } from '../lib/sendProutBackend';
 // Import supprimé : on utilise maintenant sync_contacts (fonction SQL Supabase)
 import i18n from '../lib/i18n';
 import { supabase } from '../lib/supabase';
@@ -71,6 +71,9 @@ const CACHE_KEY_LAST_SENT_MESSAGES = 'cached_last_sent_messages';
 const CACHE_KEY_DISMISSED_SILENT_WARNING = 'cached_dismissed_silent_warning';
 const CACHE_MAX_AGE = 24 * 60 * 60 * 1000; // 24 heures
 
+type LastSentMessage = { text: string; ts: string; id?: string; status?: 'read' };
+type LastSentMap = Record<string, LastSentMessage>;
+
 // Mémoire de session (pas persistée) pour bloquer la bannière après clic OK
 let dismissedSilentWarningSession = false;
 // Mémoire globale pour les messages supprimés (pour éviter la réapparition si re-render)
@@ -107,7 +110,7 @@ const loadCacheSafely = async (key: string) => {
 };
 
 // Cache pour les derniers messages envoyés (map userId -> {text, ts, id?, status?})
-const loadLastSentMessagesCache = async (): Promise<Record<string, { text: string; ts: string; id?: string; status?: 'read' }>> => {
+const loadLastSentMessagesCache = async (): Promise<LastSentMap> => {
   try {
     const cached = await AsyncStorage.getItem(CACHE_KEY_LAST_SENT_MESSAGES);
     if (!cached) return {};
@@ -121,7 +124,7 @@ const loadLastSentMessagesCache = async (): Promise<Record<string, { text: strin
   }
 };
 
-const saveLastSentMessagesCache = async (map: Record<string, { text: string; ts: string; id?: string; status?: 'read' }>) => {
+const saveLastSentMessagesCache = async (map: LastSentMap) => {
   try {
     await AsyncStorage.setItem(CACHE_KEY_LAST_SENT_MESSAGES, JSON.stringify(map));
   } catch {
@@ -457,9 +460,11 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
           >
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Text style={styles.pseudo} numberOfLines={1}>{friend.pseudo}</Text>
-              {friend.isZenMode && <Text style={{marginLeft: 5, fontSize: 16}}>🌙</Text>}
+              {friend.isZenMode && (
+                <Ionicons name="moon" size={20} color="#ebb89b" style={{ marginLeft: 5 }} />
+              )}
               {friend.is_muted && (
-                <Ionicons name="volume-mute-outline" size={20} color="#666" style={{marginLeft: 5}} />
+                <Ionicons name="volume-mute-outline" size={20} color="#666" style={{ marginLeft: 5 }} />
               )}
               {hasUnread && unreadMessage ? (
                 <View style={styles.unreadInline}>
@@ -519,7 +524,7 @@ const SentMessageStatus = ({ message }: { message: { text: string; status?: 'rea
       </View>
       {isRead && (
         <Text style={{ fontSize: 12, color: '#604a3e', marginRight: 12, marginBottom: 4, fontStyle: 'italic' }}>
-          Lu
+          {i18n.t('message_read')}
         </Text>
       )}
     </RNAnimated.View>
@@ -528,6 +533,7 @@ const SentMessageStatus = ({ message }: { message: { text: string; status?: 'rea
  
 export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerComponent }: { onProutSent?: () => void; isZenMode?: boolean; isSilentMode?: boolean; headerComponent?: React.ReactElement } = {}) {
   const [appUsers, setAppUsers] = useState<any[]>([]);
+  const appUsersRef = useRef<any[]>([]);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
   const [identityRequests, setIdentityRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true); // Commencer à true pour éviter le flash
@@ -536,14 +542,42 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [pendingMessages, setPendingMessages] = useState<any[]>([]);
-  const [lastSentMessages, setLastSentMessages] = useState<Record<string, { text: string; ts: string; id?: string; status?: 'read' }>>({});
+  const [lastSentMessages, setLastSentMessages] = useState<LastSentMap>({});
   const [showSilentWarning, setShowSilentWarning] = useState(false);
   const [dismissedSilentWarning, setDismissedSilentWarning] = useState(dismissedSilentWarningSession); // reste à true pour toute la session après clic OK
   const [expandedFriendId, setExpandedFriendId] = useState<string | null>(null);
   const [expandedUnreadId, setExpandedUnreadId] = useState<string | null>(null);
-  const [unreadCache, setUnreadCache] = useState<Record<string, { id: string; message_content: string }[]>>({});
+  const [unreadCache, setUnreadCache] = useState<Record<string, { id: string; message_content: string; created_at?: string }[]>>({});
   const [messageDrafts, setMessageDrafts] = useState<Record<string, string>>({});
+  const [sendingFriendId, setSendingFriendId] = useState<string | null>(null);
   const toastOpacity = useRef(new RNAnimated.Value(0)).current;
+  const lastSentByIdRef = useRef<Record<string, string>>({});
+  const pendingReadIdsRef = useRef<Set<string>>(new Set());
+  const prevExpandedRef = useRef<string | null>(null);
+
+  const updateLastSentIndex = (map: LastSentMap) => {
+    const index: Record<string, string> = {};
+    Object.entries(map).forEach(([userId, msg]) => {
+      if (msg?.id) {
+        index[msg.id] = userId;
+      }
+    });
+    lastSentByIdRef.current = index;
+  };
+
+  const reconcilePendingReadIds = (input: LastSentMap) => {
+    let updated = false;
+    const next = { ...input };
+    pendingReadIdsRef.current.forEach((id) => {
+      const userId = Object.keys(next).find(uid => next[uid]?.id === id);
+      if (userId && next[userId]) {
+        next[userId] = { ...next[userId], status: 'read' };
+        pendingReadIdsRef.current.delete(id);
+        updated = true;
+      }
+    });
+    return { next, updated };
+  };
   
   // État pour le mode silencieux
   const [volume, setVolume] = useState<number | undefined>(undefined);
@@ -610,16 +644,46 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
   const rowRefs = useRef<Record<string, SwipeableFriendRowHandle | null>>({});
   const textInputRefs = useRef<Record<string, TextInput | null>>({});
 
+  const isHuaweiDevice =
+    Platform.OS === 'android' &&
+    /huawei/i.test(
+      ((Platform as any).constants?.Brand as string) ||
+        ((Platform as any).constants?.Manufacturer as string) ||
+        ''
+    );
+  const huaweiModel =
+    ((Platform as any).constants?.Model as string) ||
+    ((Platform as any).constants?.model as string) ||
+    '';
+  // Détection des vieux Android (Huawei P9, Android 8 et moins)
+const isOldAndroid = Platform.OS === 'android' && Platform.Version < 29;
+
+// Props de sécurité pour stabiliser le clavier sur les vieux appareils
+const oldAndroidInputProps = isOldAndroid ? {
+  autoCorrect: false,           // Désactive la correction (cause majeure de sauts)
+  autoComplete: 'off',          // Désactive les suggestions système
+  importantForAutofill: 'no',   // Empêche Android de scanner le champ
+  spellCheck: false,            // Désactive le soulignement rouge
+  contextMenuHidden: true,      // Empêche le menu copier/coller qui vole le focus
+  textContentType: 'none',      // Désactive l'analyse de contenu
+  keyboardType: 'visible-password' // ⚠️ ASTUCE ULTIME : Force un clavier texte basique sans prédiction agressive, tout en acceptant les caractères
+} : {};
+
+  useEffect(() => {
+    appUsersRef.current = appUsers;
+  }, [appUsers]);
+
   // Focus automatique du TextInput quand le champ de message s'ouvre
   useEffect(() => {
     if (expandedFriendId && textInputRefs.current[expandedFriendId]) {
       // Petit délai pour laisser le layout se stabiliser avant de focus
+      const focusDelay = isOldAndroid ? 500 : 100;
       const timer = setTimeout(() => {
         textInputRefs.current[expandedFriendId]?.focus();
-      }, 100);
+      }, focusDelay);
       return () => clearTimeout(timer);
     }
-  }, [expandedFriendId]);
+  }, [expandedFriendId, isOldAndroid]);
 
   // Marquer comme lu automatiquement les nouveaux messages si le sticky est déjà ouvert (mode chat en direct)
   useEffect(() => {
@@ -645,6 +709,15 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
     return () => clearTimeout(timer);
   }, [pendingMessages, expandedFriendId]);
 
+  // Quand on ferme le sticky, on efface l'historique local pour ce contact
+  useEffect(() => {
+    if (prevExpandedRef.current && !expandedFriendId) {
+      const prevId = prevExpandedRef.current;
+      setUnreadCache(prev => ({ ...prev, [prevId]: [] }));
+    }
+    prevExpandedRef.current = expandedFriendId;
+  }, [expandedFriendId]);
+
   // Nettoyage automatique des messages envoyés marqués comme 'read' (après animation)
   useEffect(() => {
     const readMessages = Object.entries(lastSentMessages).filter(([_, msg]) => msg.status === 'read');
@@ -660,6 +733,7 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
             }
           });
           if (changed) {
+            updateLastSentIndex(next);
             saveLastSentMessagesCache(next);
             return next;
           }
@@ -670,10 +744,25 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
     }
   }, [lastSentMessages]);
 
+  // Animation "Lu" immédiate côté A dès que B lit (pas besoin d'ouvrir le sticky)
+
+  // Si un broadcast arrive avant que le message soit en cache, on réconcilie dès que possible
+  useEffect(() => {
+    if (pendingReadIdsRef.current.size === 0) return;
+    setLastSentMessages(prev => {
+      const { next, updated } = reconcilePendingReadIds(prev);
+      if (updated) {
+        updateLastSentIndex(next);
+        saveLastSentMessagesCache(next);
+        return next;
+      }
+      return prev;
+    });
+  }, [lastSentMessages]);
+
   // Écouter l'événement global de rafraîchissement (déclenché par la réception d'une notif push)
   useEffect(() => {
     const subscription = DeviceEventEmitter.addListener('REFRESH_DATA', () => {
-      console.log('🔄 [FriendsList] Réception signal REFRESH_DATA -> Reloading data...');
       loadData(false, false, false);
     });
     return () => {
@@ -719,6 +808,22 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
       // Trouver l'expéditeur pour l'info
       const msg = pendingMessages.find(m => m.id === messageId);
       const senderId = msg?.from_user_id;
+      
+      // Garantir que le message reste visible dans le sticky tant qu'il est ouvert
+      if (msg?.from_user_id) {
+        setUnreadCache(prev => {
+          const current = prev[msg.from_user_id] || [];
+          const already = current.some(m => m.id === msg.id);
+          if (already) return prev;
+          return {
+            ...prev,
+            [msg.from_user_id]: [
+              ...current,
+              { id: msg.id, message_content: msg.message_content, created_at: msg.created_at },
+            ],
+          };
+        });
+      }
 
       // Optimiste : on retire de la liste locale tout de suite
       setPendingMessages(prev => prev.filter(m => m.id !== messageId));
@@ -731,11 +836,11 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
           if (status === 'SUBSCRIBED') {
             // Rafale de 3 envois pour assurer la réception
             for (let i = 0; i < 3; i++) {
-                await channel.send({
-                type: 'broadcast',
-                event: 'message-read',
-                payload: { id: messageId }
-                });
+            await channel.send({
+              type: 'broadcast',
+              event: 'message-read',
+              payload: { id: messageId, senderId, receiverId: currentUserId }
+            });
                 await new Promise(resolve => setTimeout(resolve, 300));
             }
             
@@ -768,6 +873,17 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
       return null;
     }
     return data || [];
+  };
+
+  const pickLatestTimestamp = (a?: string | null, b?: string | null) => {
+    if (!a) return b || null;
+    if (!b) return a;
+    const timeA = new Date(a).getTime();
+    const timeB = new Date(b).getTime();
+    if (!Number.isFinite(timeA) && !Number.isFinite(timeB)) return a;
+    if (!Number.isFinite(timeA)) return b;
+    if (!Number.isFinite(timeB)) return a;
+    return timeA >= timeB ? a : b;
   };
 
   // Fonction de tri basée sur last_interaction_at depuis Supabase
@@ -888,6 +1004,7 @@ export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerCompon
 useEffect(() => {
   const loadCache = async () => {
     const cached = await loadLastSentMessagesCache();
+    updateLastSentIndex(cached);
     setLastSentMessages(cached);
   };
   loadCache();
@@ -1316,10 +1433,21 @@ useEffect(() => {
             });
           }
 
+          const currentUsers = appUsersRef.current || [];
+          const currentLastInteractionMap = new Map(
+            currentUsers.map((u: any) => [u.id, u.last_interaction_at])
+          );
+
           const friendsList = (finalFriends || []).map(friend => {
             // Si cet ami m'a mis en sourdine, je dois le voir en mode veille
             const isMutedByMe = mutedMap[friend.id] || false;
             const hasMutedMe = mutedByMap[friend.id] || false;
+            const serverLastInteraction = lastInteractionMap[friend.id] || null;
+            const localLastInteraction = currentLastInteractionMap.get(friend.id) || null;
+            const lastInteractionAt = pickLatestTimestamp(
+              localLastInteraction,
+              serverLastInteraction
+            );
             
             return {
               ...friend,
@@ -1330,7 +1458,7 @@ useEffect(() => {
               isZenMode: friend.is_zen_mode || hasMutedMe,
               is_muted: isMutedByMe,
               // Ajouter last_interaction_at directement sur l'objet friend pour le tri
-              last_interaction_at: lastInteractionMap[friend.id] || null,
+              last_interaction_at: lastInteractionAt,
             };
           });
           
@@ -1359,10 +1487,15 @@ useEffect(() => {
           if (sentPendingMessagesResult !== null) {
             setLastSentMessages((prev) => {
               // 1. Convertir le résultat serveur en map
-              const serverMap: Record<string, { text: string; ts: string; id?: string; status?: 'read' }> = {};
+              const serverMap: LastSentMap = {};
               if (sentPendingMessagesResult.length > 0) {
                  sentPendingMessagesResult.forEach((m: any) => {
-                    serverMap[m.to_user_id] = { text: m.message_content, ts: m.created_at, id: m.id };
+                    const rawText = m.message_content || '';
+                    const isRead = rawText.startsWith('READ:');
+                    const text = isRead ? rawText.replace(/^READ:/, '') : rawText;
+                    serverMap[m.to_user_id] = { text, ts: m.created_at, id: m.id, status: isRead ? 'read' : undefined };
+                    if (isRead) {
+                    }
                  });
               }
 
@@ -1373,9 +1506,8 @@ useEffect(() => {
               Object.entries(prev).forEach(([uid, msg]) => {
                 // Cas 1: Déjà marqué lu localement -> on garde pour finir l'animation
                 if (msg.status === 'read') {
-                  if (!next[uid]) {
-                    next[uid] = msg;
-                  }
+                  // Toujours forcer la version "read" pour ne pas l'écraser par le serveur
+                  next[uid] = msg;
                   return;
                 }
 
@@ -1385,19 +1517,24 @@ useEffect(() => {
                    const msgTime = new Date(msg.ts).getTime();
                    const age = now - msgTime;
 
-                   if (age < 60000) {
-                      // Protection étendue (60s) : Le serveur ne renvoie pas le message (RLS probable)
-                      // On le garde en 'sent' en attendant le signal Broadcast 'message-read'
+                   if (age < 86400000) { // 24 heures de persistance locale si absent du serveur
+                      // Protection étendue : Le serveur ne renvoie pas le message (RLS ou suppression non confirmée)
+                      // On le garde en 'sent' en attendant le signal Broadcast 'message-read' ou UPDATE 'READ:'
                       next[uid] = msg;
                    }
-                   // Après 60s, si toujours pas de signal, on nettoie (disparition sans animation 'Lu')
+                   // Après 24h, on nettoie (disparition sans animation 'Lu')
                    // pour éviter les messages fantômes éternels
                 }
               });
 
+              // Réconcilier avec les broadcast reçus en avance
+              const { next: reconciled, updated } = reconcilePendingReadIds(next);
+              const finalNext = updated ? reconciled : next;
+
               // Sauvegarder dans le cache
-              saveLastSentMessagesCache(next);
-              return next;
+              updateLastSentIndex(finalNext);
+              saveLastSentMessagesCache(finalNext);
+              return finalNext;
             });
           }
     } catch (e) {
@@ -1511,15 +1648,6 @@ useEffect(() => {
                   );
                   return sortFriends(updated);
                 });
-
-                // Si on avait un dernier message envoyé à ce contact, le retirer dès qu'il répond / que son message arrive
-                setLastSentMessages((prev) => {
-                  if (!prev[senderId]) return prev;
-                  const next = { ...prev };
-                  delete next[senderId];
-                  saveLastSentMessagesCache(next);
-                  return next;
-                });
               }
 
               // Rechargement pour synchroniser avec Supabase
@@ -1549,6 +1677,7 @@ useEffect(() => {
                 setLastSentMessages((prev) => {
                   const next = { ...prev, [toUserId]: { text, ts, id } };
                   lastSentSetAtRef.current = Date.now();
+                  updateLastSentIndex(next);
                   saveLastSentMessagesCache(next);
                   return next;
                 });
@@ -1561,13 +1690,24 @@ useEffect(() => {
 
               if (text && text.startsWith('READ:')) {
                  setLastSentMessages((prev) => {
-                    // On cherche l'entrée correspondante (par toUserId ou par ID si besoin)
-                    // Ici on assume que toUserId est fiable
-                    if (prev[toUserId] && prev[toUserId].id === id) {
-                        const copy = { ...prev };
+                    const copy = { ...prev };
+                    let updated = false;
+
+                    if (toUserId && copy[toUserId] && copy[toUserId].id === id) {
                         copy[toUserId] = { ...copy[toUserId], status: 'read' };
-                        saveLastSentMessagesCache(copy);
-                        return copy;
+                      updated = true;
+                    } else if (id) {
+                      const matchKey = Object.keys(copy).find(key => copy[key]?.id === id);
+                      if (matchKey) {
+                        copy[matchKey] = { ...copy[matchKey], status: 'read' };
+                        updated = true;
+                      }
+                    }
+
+                    if (updated) {
+                      updateLastSentIndex(copy);
+                      saveLastSentMessagesCache(copy);
+                      return copy;
                     }
                     return prev;
                  });
@@ -1596,6 +1736,7 @@ useEffect(() => {
                   if (copy[targetUserId]) {
                     copy[targetUserId] = { ...copy[targetUserId], status: 'read' };
                   }
+                  updateLastSentIndex(copy);
                   saveLastSentMessagesCache(copy);
                   return copy;
                 }
@@ -1616,23 +1757,30 @@ useEffect(() => {
         .channel(`room-${user.id}`)
         .on('broadcast', { event: 'message-read' }, (payload) => {
             const deletedId = payload.payload?.id;
+            const senderId = payload.payload?.senderId;
+            const receiverId = payload.payload?.receiverId;
             if (deletedId) {
               setLastSentMessages((prev) => {
-                const targetUserId = Object.keys(prev).find(uid => prev[uid].id === deletedId);
+                const targetUserId = Object.keys(prev).find(uid => prev[uid].id === deletedId)
+                  || lastSentByIdRef.current[deletedId]
+                  || receiverId;
                 if (targetUserId) {
                   const copy = { ...prev };
                   if (copy[targetUserId]) {
                     copy[targetUserId] = { ...copy[targetUserId], status: 'read' };
                   }
+                  updateLastSentIndex(copy);
                   saveLastSentMessagesCache(copy);
                   return copy;
                 }
+                pendingReadIdsRef.current.add(deletedId);
+                // Forcer un refresh pour tenter de retrouver l'ID via loadData
+                loadData(false, false, false);
                 return prev;
               });
             }
         })
         .on('broadcast', { event: 'message-received' }, () => {
-            console.log('🔄 [FriendsList] Réception signal REFRESH_DATA (Broadcast) -> Reloading data...');
             loadData(false, false, false);
         })
         .subscribe();
@@ -2012,7 +2160,14 @@ useEffect(() => {
       if (!alreadyUnreadOpen && unreadMessages.length > 0) {
         // Première ouverture : afficher les messages ET ouvrir le champ de saisie automatiquement
         setExpandedUnreadId(friend.id);
-        setUnreadCache((prev) => ({ ...prev, [friend.id]: unreadMessages }));
+        setUnreadCache((prev) => ({
+          ...prev,
+          [friend.id]: unreadMessages.map((m: any) => ({
+            id: m.id,
+            message_content: m.message_content,
+            created_at: m.created_at,
+          })),
+        }));
         // Marquer lu avec un délai pour laisser le temps de voir
         setTimeout(() => {
           unreadMessages.forEach(msg => markMessageAsRead(msg.id));
@@ -2099,12 +2254,45 @@ useEffect(() => {
     cooldownMapRef.current.set(recipient.id, now);
     
     try {
+      setSendingFriendId(recipient.id);
+      // ⚡ Choisir un prout aléatoire et préparer le message tout de suite
+      const randomKey = SOUND_KEYS[Math.floor(Math.random() * SOUND_KEYS.length)];
+      const customMessage = (messageDrafts[recipient.id] || '').trim().slice(0, 140);
+
+      // Feedback immédiat côté expéditeur
+      const proutName = i18n.t(`prout_names.${randomKey}`) || randomKey;
+      showToast(`${proutName} !`);
+      if (onProutSent) {
+        onProutSent();
+      }
+
+      // Jouer localement avec expo-av sans bloquer l'envoi
+      if (!isSilentMode) {
+        const soundFile = PROUT_SOUNDS[randomKey];
+        void (async () => {
+          try {
+            const { sound } = await Audio.Sound.createAsync(soundFile);
+            await sound.playAsync();
+            // Libérer la ressource après lecture
+            sound.setOnPlaybackStatusUpdate(async (status) => {
+              if (status.isLoaded && status.didJustFinish) {
+                await sound.unloadAsync();
+              }
+            });
+          } catch (error) {
+            // Ignorer l'erreur si l'app est en arrière-plan (comportement normal d'Android)
+            // Ignorer les erreurs de lecture audio silencieusement (normal en arrière-plan)
+          }
+        })();
+      }
+
       // TOUJOURS recharger le pseudo depuis la base pour être sûr d'avoir la valeur à jour
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         Alert.alert(i18n.t('error'), i18n.t('not_connected'));
         // Retirer le cooldown en cas d'erreur
         cooldownMapRef.current.delete(recipient.id);
+        setSendingFriendId(null);
         return;
       }
 
@@ -2119,6 +2307,7 @@ useEffect(() => {
         console.error('❌ Erreur lors de la récupération du pseudo de l\'expéditeur:', senderProfileError);
         Alert.alert(i18n.t('error'), i18n.t('cannot_retrieve_pseudo'));
         cooldownMapRef.current.delete(recipient.id);
+        setSendingFriendId(null);
         return;
       }
 
@@ -2126,6 +2315,7 @@ useEffect(() => {
       if (!senderPseudo || senderPseudo === '') {
         Alert.alert(i18n.t('error'), i18n.t('pseudo_not_defined'));
         cooldownMapRef.current.delete(recipient.id);
+        setSendingFriendId(null);
         return;
       }
 
@@ -2173,28 +2363,6 @@ useEffect(() => {
       // Le backend se charge de détecter le type de token (iOS Expo ou Android FCM)
       // et d'utiliser la bonne API. On envoie le token tel quel.
 
-      // ⚡ Choisir un prout aléatoire AVANT de l'utiliser
-      const randomKey = SOUND_KEYS[Math.floor(Math.random() * SOUND_KEYS.length)];
-      const customMessage = (messageDrafts[recipient.id] || '').trim().slice(0, 140);
-
-      // Jouer localement avec expo-av (seulement si le mode silencieux n'est pas activé)
-      if (!isSilentMode) {
-        const soundFile = PROUT_SOUNDS[randomKey];
-        try {
-          const { sound } = await Audio.Sound.createAsync(soundFile);
-          await sound.playAsync();
-          // Libérer la ressource après lecture
-          sound.setOnPlaybackStatusUpdate(async (status) => {
-            if (status.isLoaded && status.didJustFinish) {
-              await sound.unloadAsync();
-            }
-          });
-        } catch (error) {
-          // Ignorer l'erreur si l'app est en arrière-plan (comportement normal d'Android)
-          // Ignorer les erreurs de lecture audio silencieusement (normal en arrière-plan)
-        }
-      }
-
       // Envoyer le push via backend avec le token FCM et le bon pseudo
       // ⚠️ On ne passe PAS la locale de l'expéditeur : le backend récupère celle du destinataire depuis Supabase
       await sendProutViaBackend(
@@ -2234,28 +2402,16 @@ useEffect(() => {
       // Recharger les données depuis Supabase pour synchroniser avec le backend
       loadData(false, false, false);
 
-      // Nettoyer le brouillon et refermer le champ
+      // Nettoyer le brouillon sans fermer le sticky
       setMessageDrafts(prev => ({ ...prev, [recipient.id]: '' }));
-      setExpandedFriendId(null);
-      setExpandedUnreadId(null);
-      // Nettoyer le cache pour ce contact
-      setUnreadCache((prev) => {
-        const newCache = { ...prev };
-        delete newCache[recipient.id];
-        return newCache;
-      });
-
-      // Afficher le nom du prout dans un toast (traduit dans la langue de l'expéditeur)
-      const proutName = i18n.t(`prout_names.${randomKey}`) || randomKey;
-      showToast(`${proutName} !`);
-      
-      // Déclencher l'animation de secousse du header
-      if (onProutSent) {
-        onProutSent();
-      }
+      // Si A répond, on enlève les messages de B du sticky (on garde uniquement la réponse de A)
+      setUnreadCache(prev => ({ ...prev, [recipient.id]: [] }));
+      // Laisser un feedback visuel court après envoi
+      setTimeout(() => setSendingFriendId(null), 600);
 
     } catch (error: any) {
       console.error("Erreur lors de l'envoi du prout:", error?.message || error);
+      setSendingFriendId(null);
       
       // Si c'est une erreur 429 (Too Many Requests), informer l'utilisateur
       if (error?.message?.includes('429') || error?.message?.includes('Too Many Requests')) {
@@ -2354,8 +2510,8 @@ useEffect(() => {
   const activeFriend = expandedFriendId ? appUsers.find(u => u.id === expandedFriendId) : null;
   const activeFriendIndex = expandedFriendId ? appUsers.findIndex(u => u.id === expandedFriendId) : -1;
   const activeBackgroundColor = activeFriendIndex !== -1 
-    ? (activeFriendIndex % 2 === 0 ? '#d2f1ef' : '#baded7') 
-    : '#ebb89b';
+    ? '#8fb3a5' 
+    : '#d4a88a';
 
   const activeDraft = activeFriend ? (messageDrafts[activeFriend.id] || '') : '';
 
@@ -2423,7 +2579,10 @@ useEffect(() => {
           const unreadListToShow = unreadMessages.length > 0 ? unreadMessages : (unreadCache[item.id] || []);
           
           const isActive = expandedFriendId === item.id;
-          const backgroundColor = index % 2 === 0 ? '#d2f1ef' : '#baded7';
+          const baseColor = index % 2 === 0 ? '#d2f1ef' : '#baded7';
+          const backgroundColor = isActive 
+            ? '#8fb3a5' 
+            : baseColor;
 
           return (
             <View style={{ position: 'relative', marginBottom: 5 }}>
@@ -2461,7 +2620,9 @@ useEffect(() => {
         <View style={styles.stickyInputContainer}>
           {/* Header */}
           <View style={styles.stickyHeader}>
-             <Text style={styles.stickyPseudo}>Chat 👻 avec {activeFriend.pseudo}</Text>
+             <Text style={styles.stickyPseudo}>
+               {i18n.t('sticky_chat_with', { pseudo: activeFriend.pseudo })}
+             </Text>
              <TouchableOpacity onPress={() => { Keyboard.dismiss(); setExpandedFriendId(null); }} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
                <Ionicons name="close-circle" size={24} color="#604a3e" />
              </TouchableOpacity>
@@ -2470,7 +2631,11 @@ useEffect(() => {
           {/* Messages */}
           {(() => {
             const activeUnreadMessages = pendingMessages.filter(m => m.from_user_id === activeFriend.id);
-            const activeMessagesToShow = activeUnreadMessages.length > 0 ? activeUnreadMessages : (unreadCache[activeFriend.id] || []);
+            const cachedForFriend = unreadCache[activeFriend.id] || [];
+            const mergedMap = new Map<string, any>();
+            cachedForFriend.forEach(m => mergedMap.set(m.id, m));
+            activeUnreadMessages.forEach(m => mergedMap.set(m.id, m));
+            const activeMessagesToShow = Array.from(mergedMap.values());
             const myLastSent = lastSentMessages[activeFriend.id];
             
             // Fusion et tri par date pour affichage chronologique (type WhatsApp)
@@ -2490,8 +2655,25 @@ useEffect(() => {
                     original: myLastSent
                 }] : [])
             ].sort((a, b) => {
-                const timeA = a.ts ? new Date(a.ts).getTime() : 0;
-                const timeB = b.ts ? new Date(b.ts).getTime() : 0;
+                const getTs = (d: string) => {
+                    if (!d) return 0;
+                    const t = new Date(d).getTime();
+                    return isNaN(t) ? 0 : t;
+                };
+                const timeA = getTs(a.ts);
+                const timeB = getTs(b.ts);
+                if (timeA === timeB) {
+                    if (a.isMe !== b.isMe) {
+                        return a.isMe ? -1 : 1; // Si égalité, mon message avant la réponse
+                    }
+                    return 0;
+                }
+                // Si timestamp invalide, on place les réponses après le message envoyé
+                if (timeA === 0 || timeB === 0) {
+                    if (a.isMe !== b.isMe) {
+                        return a.isMe ? -1 : 1;
+                    }
+                }
                 return timeA - timeB;
             });
             
@@ -2521,12 +2703,13 @@ useEffect(() => {
               maxLength={140}
               multiline
               autoFocus
+              {...oldAndroidInputProps}
             />
             <TouchableOpacity
               onPress={() => activeDraft.trim() && handleSendProut(activeFriend)}
               style={[
                 styles.messageSendButton,
-                { backgroundColor: activeBackgroundColor },
+                { backgroundColor: sendingFriendId === activeFriend.id ? '#a8d5ba' : activeBackgroundColor },
                 !activeDraft.trim() && styles.messageSendButtonDisabled,
               ]}
               accessibilityLabel="Envoyer"
@@ -2660,7 +2843,7 @@ const styles = StyleSheet.create({
   pseudo: { fontSize: 18, fontWeight: '600', color: '#333', marginLeft: 10, flex: 1 },
   unreadInline: { flexDirection: 'row', alignItems: 'center', maxWidth: '55%', marginLeft: -60, gap: 6 },
   unreadMessage: { fontSize: 13, fontStyle: 'italic', color: '#7a5547', flexShrink: 1 },
-  redDot: { width: 16, height: 16, borderRadius: 8, backgroundColor: '#4caf50' },
+  redDot: { width: 16, height: 16, borderRadius: 8, backgroundColor: '#ebb89b' },
   deleteBackground: {
     position: 'absolute',
     left: 0,
@@ -2700,6 +2883,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+    borderWidth: 2,
+    borderColor: 'rgba(96, 74, 62, 0.3)',
+    borderRadius: 12,
   },
   stickyHeader: {
     flexDirection: 'row',
@@ -2709,6 +2895,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, 
     borderBottomColor: 'rgba(96, 74, 62, 0.1)',
     paddingBottom: 4,
+    backgroundColor: 'rgba(96, 74, 62, 0.08)',
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    borderRadius: 8,
   },
   stickyPseudo: {
     fontWeight: 'bold',
