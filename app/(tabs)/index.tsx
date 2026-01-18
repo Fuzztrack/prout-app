@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, ActionSheetIOS, Animated, Image, Keyboard, KeyboardAvoidingView, Platform, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ActionSheetIOS, Animated, Image, Keyboard, KeyboardAvoidingView, Platform, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
@@ -610,31 +610,37 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
         ) : activeView === 'profile' ? (
           <EditProfil onClose={() => setActiveView('list')} />
         ) : activeView === 'profileMenu' ? (
-          <View style={styles.menuCard}>
-            {[
-              { label: i18n.t('search_friend'), icon: 'person-add-outline', onPress: () => { setShowSearch(true); setActiveView('list'); }, iconColor: '#604a3e' },
-              { label: i18n.t('zen_mode'), icon: isZenMode ? 'moon' : 'moon-outline', onPress: toggleZenMode, iconColor: isZenMode ? '#ebb89b' : '#604a3e' },
-              { label: i18n.t('silent_mode'), icon: isSilentMode ? 'volume-mute' : 'volume-mute-outline', onPress: toggleSilentMode, iconColor: isSilentMode ? '#ebb89b' : '#604a3e' },
-              { label: i18n.t('manage_profile'), icon: 'person-circle-outline', onPress: () => setActiveView('profile'), iconColor: '#604a3e' },
-              { label: i18n.t('invite_friend'), icon: 'share-social-outline', onPress: handleShare, iconColor: '#604a3e' },
-              { label: i18n.t('review_app_functions'), icon: 'help-circle-outline', onPress: () => setActiveView('tutorial'), iconColor: '#604a3e' },
-              { label: i18n.t('who_is_who'), icon: 'eye-outline', onPress: () => { setShowIdentity(true); setActiveView('list'); }, iconColor: '#604a3e' },
-              { label: i18n.t('privacy_policy_menu'), icon: 'document-text-outline', onPress: () => { setShowPrivacy(true); setActiveView('list'); }, iconColor: '#604a3e' },
-            ].map((item, index) => (
-              <TouchableOpacity 
-                key={index}
-                style={[styles.menuItem, { backgroundColor: index % 2 === 0 ? '#d2f1ef' : '#baded7' }]} 
-                onPress={item.onPress}
-              >
-                <Text style={styles.menuText}>{item.label}</Text>
-                <Ionicons
-                  name={item.icon as any}
-                  size={item.label === i18n.t('silent_mode') ? 26 : 22}
-                  color={item.iconColor}
-                />
-              </TouchableOpacity>
-            ))}
-          </View>
+          <ScrollView 
+            style={{ flex: 1 }} 
+            contentContainerStyle={{ paddingBottom: 20 }}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.menuCard}>
+              {[
+                { label: i18n.t('search_friend'), icon: 'person-add-outline', onPress: () => { setShowSearch(true); setActiveView('list'); }, iconColor: '#604a3e' },
+                { label: i18n.t('zen_mode'), icon: isZenMode ? 'moon' : 'moon-outline', onPress: toggleZenMode, iconColor: isZenMode ? '#ebb89b' : '#604a3e' },
+                { label: i18n.t('silent_mode'), icon: isSilentMode ? 'volume-mute' : 'volume-mute-outline', onPress: toggleSilentMode, iconColor: isSilentMode ? '#ebb89b' : '#604a3e' },
+                { label: i18n.t('manage_profile'), icon: 'person-circle-outline', onPress: () => setActiveView('profile'), iconColor: '#604a3e' },
+                { label: i18n.t('invite_friend'), icon: 'share-social-outline', onPress: handleShare, iconColor: '#604a3e' },
+                { label: i18n.t('review_app_functions'), icon: 'help-circle-outline', onPress: () => setActiveView('tutorial'), iconColor: '#604a3e' },
+                { label: i18n.t('who_is_who'), icon: 'eye-outline', onPress: () => { setShowIdentity(true); setActiveView('list'); }, iconColor: '#604a3e' },
+                { label: i18n.t('privacy_policy_menu'), icon: 'document-text-outline', onPress: () => { setShowPrivacy(true); setActiveView('list'); }, iconColor: '#604a3e' },
+              ].map((item, index) => (
+                <TouchableOpacity 
+                  key={index}
+                  style={[styles.menuItem, { backgroundColor: index % 2 === 0 ? '#d2f1ef' : '#baded7' }]} 
+                  onPress={item.onPress}
+                >
+                  <Text style={styles.menuText}>{item.label}</Text>
+                  <Ionicons
+                    name={item.icon as any}
+                    size={item.label === i18n.t('silent_mode') ? 26 : 22}
+                    color={item.iconColor}
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ScrollView>
         ) : (
           <FriendsList 
             onProutSent={shakeHeader} 
@@ -803,9 +809,11 @@ const styles = StyleSheet.create({
   },
   menuCard: {
     backgroundColor: 'rgba(255,255,255,0.95)',
-    padding: 16,
+    padding: 12, // Réduit de 16 à 12 pour gagner de la place
     borderRadius: 14,
-    gap: 6,
+    gap: 4, // Réduit de 6 à 4
+    marginHorizontal: 10, // Réduit de 20 à 10 pour moins d'étroitesse
+    marginTop: 5,
     shadowColor: '#000',
     shadowOpacity: 0.08,
     shadowRadius: 8,
@@ -816,10 +824,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 8,
+    paddingVertical: 10, // Un peu plus d'air vertical mais fixe
     paddingHorizontal: 12,
     borderRadius: 10,
-    marginBottom: 6,
+    marginBottom: 4, // Réduit de 6 à 4
+    minHeight: 44,
   },
   menuText: {
     fontSize: 15,
