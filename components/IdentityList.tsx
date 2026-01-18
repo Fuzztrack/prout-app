@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Alert, ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ActivityIndicator, Dimensions, FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Contacts from 'expo-contacts';
 import { useIsFocused } from '@react-navigation/native';
@@ -8,6 +8,9 @@ import { sendProutViaBackend } from '../lib/sendProutBackend';
 import { normalizePhone } from '../lib/normalizePhone';
 import i18n from '../lib/i18n';
 import { ensureContactPermissionWithDisclosure } from '../lib/contactConsent';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const MODAL_HEIGHT = SCREEN_HEIGHT * 0.85;
 
 type IdentityFriend = {
   id: string;
@@ -20,16 +23,16 @@ type IdentityFriend = {
 };
 
 type IdentityListProps = {
-  onClose?: () => void;
+  visible: boolean;
+  onClose: () => void;
 };
 
-export function IdentityList({ onClose }: IdentityListProps) {
+export function IdentityList({ visible, onClose }: IdentityListProps) {
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<IdentityFriend[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentPseudo, setCurrentPseudo] = useState<string>('Un ami');
-  const isFocused = useIsFocused();
-
+  
   const load = useCallback(async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -212,11 +215,11 @@ export function IdentityList({ onClose }: IdentityListProps) {
   }, []);
 
   useEffect(() => {
-    if (isFocused) {
+    if (visible) {
       setLoading(true);
       load();
     }
-  }, [isFocused, load]);
+  }, [visible, load]);
 
   const requestIdentity = async (friend: IdentityFriend) => {
     if (!currentUserId) return;
@@ -282,7 +285,7 @@ export function IdentityList({ onClose }: IdentityListProps) {
             <Text style={styles.pending}>En attente…</Text>
           ) : (
             <TouchableOpacity style={styles.askButton} onPress={() => requestIdentity(item)}>
-              <Text style={styles.askText}>Qui ?</Text>
+              <Text style={styles.askText}>{i18n.t('ask_btn')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -290,66 +293,88 @@ export function IdentityList({ onClose }: IdentityListProps) {
     );
   };
 
-  if (loading) {
-    return <ActivityIndicator style={{ marginTop: 20 }} />;
-  }
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>{i18n.t('who_is_who')}</Text>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <Ionicons name="close" size={24} color="#604a3e" />
+            </TouchableOpacity>
+          </View>
 
-  if (items.length === 0) {
-    return (
-      <View style={styles.container}>
-        {onClose && (
-          <TouchableOpacity style={styles.closeButton} onPress={onClose} accessibilityLabel="Fermer">
-            <Ionicons name="close" size={22} color="#604a3e" />
-          </TouchableOpacity>
-        )}
-        <View style={styles.empty}>
-          <Text style={styles.emptyText}>{i18n.t('no_friends_identity')}</Text>
+          {loading ? (
+            <ActivityIndicator style={{ marginTop: 20 }} color="#604a3e" />
+          ) : items.length === 0 ? (
+            <View style={styles.empty}>
+              <Text style={styles.emptyText}>{i18n.t('no_friends_identity')}</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={items}
+              keyExtractor={(item) => item.id}
+              renderItem={renderItem}
+              contentContainerStyle={{ padding: 20 }}
+              ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+              showsVerticalScrollIndicator={true}
+            />
+          )}
         </View>
       </View>
-    );
-  }
-
-  return (
-    <View style={styles.container}>
-      {onClose && (
-        <TouchableOpacity style={styles.closeButton} onPress={onClose} accessibilityLabel="Fermer">
-          <Ionicons name="close" size={22} color="#604a3e" />
-        </TouchableOpacity>
-      )}
-      <FlatList
-        data={items}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={{ paddingVertical: 10 }}
-        ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
-        showsVerticalScrollIndicator={false}
-      />
-    </View>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 50,
+  },
+  modalContent: {
+    width: '96%',
+    maxHeight: MODAL_HEIGHT,
+    height: MODAL_HEIGHT,
+    backgroundColor: '#fff5eb',
+    borderRadius: 20,
+    overflow: 'hidden',
+    flexDirection: 'column',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(96, 74, 62, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    height: 60,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#604a3e',
     flex: 1,
   },
   closeButton: {
-    alignSelf: 'flex-end',
-    padding: 6,
-    marginBottom: 8,
-    borderRadius: 999,
-    backgroundColor: 'rgba(0,0,0,0.05)',
+    padding: 5,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
     padding: 12,
     borderRadius: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(96, 74, 62, 0.1)',
   },
   pseudo: {
     fontSize: 16,
@@ -388,10 +413,14 @@ const styles = StyleSheet.create({
   empty: {
     padding: 20,
     alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
   },
   emptyText: {
     textAlign: 'center',
-    color: '#555',
+    color: '#604a3e',
+    fontSize: 16,
+    opacity: 0.7,
   },
 });
 

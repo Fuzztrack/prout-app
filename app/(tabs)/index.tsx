@@ -21,12 +21,14 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   
   const isLoadedRef = useRef(false);
-  const [activeView, setActiveView] = useState<'list' | 'tutorial' | 'search' | 'profile' | 'profileMenu' | 'identity'>('list');
+  const [activeView, setActiveView] = useState<'list' | 'tutorial' | 'profile' | 'profileMenu'>('list');
   const [isZenMode, setIsZenMode] = useState(false);
   const [isSilentMode, setIsSilentMode] = useState(false);
   const [currentPseudo, setCurrentPseudo] = useState<string>('');
   const [userId, setUserId] = useState<string | null>(null);
   const [showPrivacy, setShowPrivacy] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [showIdentity, setShowIdentity] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const zenTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const zenStartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -605,20 +607,18 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
         <View style={[styles.listSection, Platform.OS === 'android' && !keyboardVisible && { paddingBottom: 0, marginBottom: 0 }]}>
         {activeView === 'tutorial' ? (
           <TutorialSwiper onClose={() => setActiveView('list')} />
-        ) : activeView === 'search' ? (
-          <SearchUser onClose={() => setActiveView('list')} />
         ) : activeView === 'profile' ? (
           <EditProfil onClose={() => setActiveView('list')} />
         ) : activeView === 'profileMenu' ? (
           <View style={styles.menuCard}>
             {[
-              { label: i18n.t('search_friend'), icon: 'person-add-outline', onPress: () => setActiveView('search'), iconColor: '#604a3e' },
+              { label: i18n.t('search_friend'), icon: 'person-add-outline', onPress: () => { setShowSearch(true); setActiveView('list'); }, iconColor: '#604a3e' },
               { label: i18n.t('zen_mode'), icon: isZenMode ? 'moon' : 'moon-outline', onPress: toggleZenMode, iconColor: isZenMode ? '#ebb89b' : '#604a3e' },
               { label: i18n.t('silent_mode'), icon: isSilentMode ? 'volume-mute' : 'volume-mute-outline', onPress: toggleSilentMode, iconColor: isSilentMode ? '#ebb89b' : '#604a3e' },
               { label: i18n.t('manage_profile'), icon: 'person-circle-outline', onPress: () => setActiveView('profile'), iconColor: '#604a3e' },
               { label: i18n.t('invite_friend'), icon: 'share-social-outline', onPress: handleShare, iconColor: '#604a3e' },
               { label: i18n.t('review_app_functions'), icon: 'help-circle-outline', onPress: () => setActiveView('tutorial'), iconColor: '#604a3e' },
-              { label: i18n.t('who_is_who'), icon: 'eye-outline', onPress: () => setActiveView('identity'), iconColor: '#604a3e' },
+              { label: i18n.t('who_is_who'), icon: 'eye-outline', onPress: () => { setShowIdentity(true); setActiveView('list'); }, iconColor: '#604a3e' },
               { label: i18n.t('privacy_policy_menu'), icon: 'document-text-outline', onPress: () => { setShowPrivacy(true); setActiveView('list'); }, iconColor: '#604a3e' },
             ].map((item, index) => (
               <TouchableOpacity 
@@ -635,8 +635,6 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
               </TouchableOpacity>
             ))}
           </View>
-        ) : activeView === 'identity' ? (
-          <IdentityList onClose={() => setActiveView('list')} />
         ) : (
           <FriendsList 
             onProutSent={shakeHeader} 
@@ -715,6 +713,8 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
         </View>
       </KeyboardAvoidingView>
       <PrivacyPolicyModal visible={showPrivacy} onClose={() => setShowPrivacy(false)} />
+      <SearchUser visible={showSearch} onClose={() => setShowSearch(false)} />
+      <IdentityList visible={showIdentity} onClose={() => setShowIdentity(false)} />
     </View>
   );
 }

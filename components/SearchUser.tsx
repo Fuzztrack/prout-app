@@ -1,10 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, FlatList, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import i18n from '../lib/i18n';
 
-export function SearchUser({ onClose }: { onClose: () => void }) {
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const MODAL_HEIGHT = SCREEN_HEIGHT * 0.85;
+
+export function SearchUser({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -138,120 +141,148 @@ export function SearchUser({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>{i18n.t('search_title')}</Text>
-        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-          <Ionicons name="close" size={24} color="#604a3e" />
-        </TouchableOpacity>
-      </View>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>{i18n.t('search_title')}</Text>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <Ionicons name="close" size={24} color="#604a3e" />
+            </TouchableOpacity>
+          </View>
 
-      <Text style={styles.subtitle}>{i18n.t('search_subtitle')}</Text>
-
-      <View style={styles.searchBox}>
-        <TextInput
-          style={styles.input}
-          placeholder={i18n.t('search_placeholder')}
-          value={query}
-          onChangeText={setQuery}
-          autoCapitalize="none"
-          returnKeyType="search"
-          onSubmitEditing={handleSearch}
-          placeholderTextColor="#999"
-        />
-      </View>
-
-      <TouchableOpacity 
-        style={[
-          styles.searchButtonMain,
-          (loading || !query.trim()) && styles.searchButtonDisabled
-        ]} 
-        onPress={handleSearch}
-        disabled={loading || !query.trim()}
-      >
-        <Ionicons 
-          name="search" 
-          size={20} 
-          color="white" 
-          style={{marginRight: 8}} 
-        />
-        <Text style={styles.searchButtonText}>
-          {loading ? i18n.t('loading') : i18n.t('search_btn')}
-        </Text>
-      </TouchableOpacity>
-
-      {loading ? (
-        <ActivityIndicator style={{marginTop: 20}} color="#604a3e" />
-      ) : (
-        <FlatList
-          data={results}
-          keyExtractor={item => item.id}
-          style={styles.resultsList}
-          ListEmptyComponent={
-            query.length > 0 ? <Text style={styles.empty}>{i18n.t('no_results')}</Text> : null
-          }
-          renderItem={({ item }) => (
-            <View style={styles.userRow}>
-              <View style={styles.userInfo}>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>{item.pseudo.charAt(0).toUpperCase()}</Text>
-                </View>
-                <Text style={styles.pseudo}>{item.pseudo}</Text>
-              </View>
-
-              {item.friendStatus === 'accepted' ? (
-                <Text style={styles.statusText}>{i18n.t('already_friend')}</Text>
-              ) : (
-                <TouchableOpacity 
-                  style={[
-                    styles.addButton,
-                    item.friendStatus === 'pending' && styles.addButtonPending
-                  ]} 
-                  onPress={() => item.friendStatus !== 'pending' && handleAddFriend(item.id)}
-                  disabled={item.friendStatus === 'pending'}
-                >
-                  <Ionicons 
-                    name={item.friendStatus === 'pending' ? "time-outline" : "person-add-outline"} 
-                    size={20} 
-                    color={item.friendStatus === 'pending' ? "#ff4444" : "#604a3e"} 
-                  />
-                  <Text style={[
-                    styles.addButtonText,
-                    item.friendStatus === 'pending' && styles.addButtonTextPending
-                  ]}>
-                    {item.friendStatus === 'pending' ? i18n.t('pending_btn') : i18n.t('add_btn')}
-                  </Text>
-                </TouchableOpacity>
-              )}
+          <View style={styles.contentContainer}>
+            <View style={styles.searchBox}>
+              <TextInput
+                style={styles.input}
+                placeholder={i18n.t('search_placeholder')}
+                value={query}
+                onChangeText={setQuery}
+                autoCapitalize="none"
+                returnKeyType="search"
+                onSubmitEditing={handleSearch}
+                placeholderTextColor="#999"
+              />
             </View>
-          )}
-        />
-      )}
-    </View>
+
+            <TouchableOpacity 
+              style={[
+                styles.searchButtonMain,
+                (loading || !query.trim()) && styles.searchButtonDisabled
+              ]} 
+              onPress={handleSearch}
+              disabled={loading || !query.trim()}
+            >
+              <Ionicons 
+                name="search" 
+                size={20} 
+                color="white" 
+                style={{marginRight: 8}} 
+              />
+              <Text style={styles.searchButtonText}>
+                {loading ? i18n.t('loading') : i18n.t('search_btn')}
+              </Text>
+            </TouchableOpacity>
+
+            {loading ? (
+              <ActivityIndicator style={{marginTop: 20}} color="#604a3e" />
+            ) : (
+              <FlatList
+                data={results}
+                keyExtractor={item => item.id}
+                style={styles.resultsList}
+                contentContainerStyle={{ paddingBottom: 20 }}
+                ListEmptyComponent={
+                  query.length > 0 ? <Text style={styles.empty}>{i18n.t('no_results')}</Text> : null
+                }
+                renderItem={({ item }) => (
+                  <View style={styles.userRow}>
+                    <View style={styles.userInfo}>
+                      <View style={styles.avatar}>
+                        <Text style={styles.avatarText}>{item.pseudo.charAt(0).toUpperCase()}</Text>
+                      </View>
+                      <Text style={styles.pseudo}>{item.pseudo}</Text>
+                    </View>
+
+                    {item.friendStatus === 'accepted' ? (
+                      <Text style={styles.statusText}>{i18n.t('already_friend')}</Text>
+                    ) : (
+                      <TouchableOpacity 
+                        style={[
+                          styles.addButton,
+                          item.friendStatus === 'pending' && styles.addButtonPending
+                        ]} 
+                        onPress={() => item.friendStatus !== 'pending' && handleAddFriend(item.id)}
+                        disabled={item.friendStatus === 'pending'}
+                      >
+                        <Ionicons 
+                          name={item.friendStatus === 'pending' ? "time-outline" : "person-add-outline"} 
+                          size={20} 
+                          color={item.friendStatus === 'pending' ? "#ff4444" : "#604a3e"} 
+                        />
+                        <Text style={[
+                          styles.addButtonText,
+                          item.friendStatus === 'pending' && styles.addButtonTextPending
+                        ]}>
+                          {item.friendStatus === 'pending' ? i18n.t('pending_btn') : i18n.t('add_btn')}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
+              />
+            )}
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)', // Plus transparent pour laisser voir le fond
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 50,
+  },
+  modalContent: {
+    width: '96%',
+    maxHeight: MODAL_HEIGHT,
+    height: MODAL_HEIGHT,
+    backgroundColor: '#fff5eb', // Crème clair comme PrivacyPolicy
     borderRadius: 20,
-    padding: 20,
     overflow: 'hidden',
+    flexDirection: 'column',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(96, 74, 62, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    height: 60,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#604a3e',
+    flex: 1,
   },
   closeButton: {
     padding: 5,
+  },
+  contentContainer: {
+    flex: 1,
+    padding: 20,
   },
   subtitle: {
     color: '#604a3e',

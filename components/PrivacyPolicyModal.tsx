@@ -89,11 +89,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
-    padding: 20,
-    paddingTop: 50,
-    paddingBottom: 50,
+    alignItems: 'center', // Centrer horizontalement
+    paddingVertical: 50, // Garder l'espace vertical
   },
   modalContent: {
+    width: '96%', // Prendre 96% de la largeur
     maxHeight: MODAL_HEIGHT,
     height: MODAL_HEIGHT,
     backgroundColor: '#fff5eb', // Crème clair

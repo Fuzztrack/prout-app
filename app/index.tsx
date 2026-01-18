@@ -50,7 +50,17 @@ export default function Index() {
 
         // 2. Vérifier la session active
         // On utilise getUser() pour valider le token côté serveur (plus sûr)
-        const { data: { user } } = await supabase.auth.getUser();
+        // MAIS si ça échoue (réseau), on fallback sur getSession() (cache local) pour le mode offline
+        let { data: { user }, error: userError } = await supabase.auth.getUser();
+
+        if (!user || userError) {
+          console.log('⚠️ getUser échoué (réseau ?), tentative via cache local...');
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user) {
+            user = session.user;
+            console.log('✅ User récupéré du cache local (Mode Offline)');
+          }
+        }
 
         if (user) {
         // Récupérer les métadonnées utilisateur pour obtenir le pseudo

@@ -238,7 +238,7 @@ const i18n = new I18n({
     manage_profile: "Gérer votre profil",
     invite_friend: "Inviter un ami",
     review_app_functions: "Revoir les fonctions de l'appli",
-    who_is_who: "Qui est qui ? Vérifiez les pseudos",
+    who_is_who: "Qui est qui ?",
     privacy_policy_menu: "Politique de confidentialité",
 
     // Logout & Account
@@ -429,6 +429,7 @@ const i18n = new I18n({
     connection_error_body: "Vérifiez votre réseau.",
     connection_slow_title: "Connexion lente",
     connection_slow_body: "Impossible de charger la liste d'amis. Vérifiez votre réseau.",
+    check_connection_body: "Vérifiez votre connexion.",
   },
   en: {
     // General
@@ -682,7 +683,7 @@ const i18n = new I18n({
     manage_profile: "Manage your profile",
     invite_friend: "Invite a friend",
     review_app_functions: "Review app features",
-    who_is_who: "Who is who? Check usernames",
+    who_is_who: "Who is who?",
     privacy_policy_menu: "Privacy Policy",
 
     // Logout & Account
@@ -853,6 +854,7 @@ const i18n = new I18n({
     connection_error_body: "Check your network.",
     connection_slow_title: "Slow Connection",
     connection_slow_body: "Unable to load friends list. Check your network.",
+    check_connection_body: "Check your connection.",
   },
   es: {
     // General
@@ -1107,7 +1109,7 @@ const i18n = new I18n({
     manage_profile: "Gestiona tu perfil",
     invite_friend: "Invitar un amigo",
     review_app_functions: "Revisar funciones de la app",
-    who_is_who: "¿Quién es quién? Verifica los nombres de usuario",
+    who_is_who: "¿Quién es quién?",
     privacy_policy_menu: "Política de privacidad",
     
     // Logout & Account
@@ -1280,6 +1282,7 @@ const i18n = new I18n({
     connection_error_body: "Verifica tu red.",
     connection_slow_title: "Conexión lenta",
     connection_slow_body: "No se pudo cargar la lista de amigos. Verifica tu red.",
+    check_connection_body: "Verifica tu conexión.",
   },
   'pt-BR': {
     // Geral
@@ -1707,6 +1710,7 @@ const i18n = new I18n({
     connection_error_body: "Vê sua rede.",
     connection_slow_title: "Conexão lenta",
     connection_slow_body: "Não carregou a lista. Vê sua rede.",
+    check_connection_body: "Verifica sua conexão.",
   }
 });
 

@@ -938,8 +938,11 @@ const oldAndroidInputProps = isOldAndroid ? {
       if (!cacheLoadedRef.current) {
         cacheLoadedRef.current = true;
         try {
-          const cachedFriends = await loadCacheSafely(CACHE_KEY_FRIENDS);
-          const cachedRequests = await loadCacheSafely(CACHE_KEY_PENDING_REQUESTS);
+          // Charger le cache des amis et des requêtes en parallèle pour aller plus vite
+          const [cachedFriends, cachedRequests] = await Promise.all([
+            loadCacheSafely(CACHE_KEY_FRIENDS),
+            loadCacheSafely(CACHE_KEY_PENDING_REQUESTS)
+          ]);
           
           // Afficher immédiatement le cache s'il existe, même si certains tokens manquent
           const cacheHasEntries = cachedFriends && cachedFriends.length > 0;
@@ -948,7 +951,7 @@ const oldAndroidInputProps = isOldAndroid ? {
             // Appliquer le tri sur le cache (basé sur last_interaction_at depuis Supabase)
             const sortedCache = sortFriends(cachedFriends);
             setAppUsers(sortedCache);
-            setLoading(false); // Cache trouvé, pas de spinner
+            setLoading(false); // Cache trouvé, pas de spinner : AFFICHAGE INSTANTANÉ
             hasCache = true;
           }
           
@@ -1180,6 +1183,18 @@ useEffect(() => {
 
   const router = useRouter();
 
+  // Mémoire pour le dernier toast hors connexion (anti-spam)
+  const lastOfflineToastTimeRef = useRef<number>(0);
+
+  const showOfflineToast = () => {
+    const now = Date.now();
+    // Anti-spam de 30 secondes
+    if (now - lastOfflineToastTimeRef.current > 30000) {
+      showToast(i18n.t('connection_error_title'), i18n.t('check_connection_body'));
+      lastOfflineToastTimeRef.current = now;
+    }
+  };
+
   const loadData = async (hasCacheFromInit: boolean = false, forceLoading: boolean = false, syncContacts: boolean = true) => {
     // Ne mettre loading à true que si :
     // 1. On n'a pas de cache à l'init ET pas de données affichées
@@ -1200,7 +1215,19 @@ useEffect(() => {
     }
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      // Gestion explicite de l'erreur réseau pour getUser
+      if (userError) {
+        console.warn('⚠️ Erreur getUser:', userError);
+        // Si c'est une erreur réseau ou si on n'a pas d'utilisateur
+        if (userError.message?.includes('Network') || userError.message?.includes('fetch') || !user) {
+          showOfflineToast();
+          setLoading(false);
+          return;
+        }
+      }
+
       if (!user) {
         setLoading(false);
         return;
@@ -1476,8 +1503,20 @@ useEffect(() => {
           // Sauvegarder dans le cache (sans bloquer si ça échoue)
           await saveCacheSafely(CACHE_KEY_FRIENDS, sortedList);
       } else {
-          setAppUsers([]);
-          await saveCacheSafely(CACHE_KEY_FRIENDS, []);
+          // Si aucune donnée n'est renvoyée (ex: erreur réseau silencieuse ou déconnexion),
+          // on vérifie si on a déjà des données en local.
+          // Si on a déjà des amis, ON NE VIDE PAS la liste pour éviter l'effet "Aucun ami" lors des microcoupures.
+          // On ne vide que si c'est explicitement vide ET qu'on n'est pas en erreur.
+          // Mais ici 'finalFriends' est null en cas d'erreur dans le bloc try/catch du dessus ?
+          // Non, finalFriends est filtré.
+          
+          // Protection anti-vide : Si on a déjà des users et que la nouvelle liste est vide,
+          // c'est suspect (perte de connexion ?). On ne vide que si on est sûr.
+          // Pour l'instant, on vide seulement si on est connecté et qu'on a bien reçu une réponse vide valide.
+          if (friendsResult.data && friendsResult.data.length === 0) {
+             setAppUsers([]);
+             await saveCacheSafely(CACHE_KEY_FRIENDS, []);
+          }
       }
 
       await Promise.all([pendingMessagesPromise, requestsAndIdentityPromise]);
@@ -1538,7 +1577,9 @@ useEffect(() => {
             });
           }
     } catch (e) {
-      // Erreur silencieuse (le polling réessayera plus tard)
+      // En cas d'erreur réseau, avertir l'utilisateur (avec anti-spam)
+      console.warn('⚠️ Erreur loadData:', e);
+      showOfflineToast();
     } finally { 
       setLoading(false); 
     }
@@ -2287,7 +2328,17 @@ useEffect(() => {
       }
 
       // TOUJOURS recharger le pseudo depuis la base pour être sûr d'avoir la valeur à jour
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) {
+         if (userError.message?.includes('Network') || userError.message?.includes('fetch')) {
+           showOfflineToast();
+           cooldownMapRef.current.delete(recipient.id);
+           setSendingFriendId(null);
+           return;
+         }
+      }
+
       if (!user) {
         Alert.alert(i18n.t('error'), i18n.t('not_connected'));
         // Retirer le cooldown en cas d'erreur
@@ -2425,6 +2476,12 @@ useEffect(() => {
         const filtered = appUsers.filter(u => u.id !== recipient.id);
         setAppUsers(filtered);
         await saveCacheSafely(CACHE_KEY_FRIENDS, filtered);
+      } else if (
+        error?.message?.includes('Network request failed') || 
+        error?.message?.includes('fetch') ||
+        error?.message?.toLowerCase().includes('network')
+      ) {
+         showOfflineToast();
       } else {
         // Message plus détaillé selon le type d'erreur
         let errorMessage = "Impossible d'envoyer le prout.";

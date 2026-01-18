@@ -55,6 +55,7 @@ class AppErrorBoundary extends React.Component<{ children: React.ReactNode }, { 
 export default function RootLayout() {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [offlineAccess, setOfflineAccess] = useState(false);
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const router = useRouter();
@@ -146,9 +147,21 @@ export default function RootLayout() {
           await Notifications.setBadgeCountAsync(0);
         }
 
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!mounted) return;
-        setSession(session);
+        try {
+          const { data: { session }, error } = await supabase.auth.getSession();
+          if (error) throw error;
+          
+          if (!mounted) return;
+          setSession(session);
+        } catch (authError) {
+          console.warn('⚠️ Erreur auth initial:', authError);
+          // Si erreur (ex: réseau), vérifier si on était connecté avant
+          const wasLoggedIn = await AsyncStorage.getItem('wasLoggedIn');
+          if (wasLoggedIn === 'true') {
+            console.log('⚡ Mode offline activé (basé sur wasLoggedIn)');
+            setOfflineAccess(true);
+          }
+        }
         setLoading(false);
       } catch (err) {
         console.warn('⚠️ Init app error:', err);
@@ -173,11 +186,15 @@ export default function RootLayout() {
       });
     }, 5000);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
-      // Sauvegarder la locale lors du changement d'auth (connexion)
+      // Gérer le marqueur de connexion locale
       if (session?.user) {
+        AsyncStorage.setItem('wasLoggedIn', 'true');
         saveLocaleToSupabase();
+      } else if (event === 'SIGNED_OUT') {
+        AsyncStorage.removeItem('wasLoggedIn');
+        setOfflineAccess(false); // Révoquer l'accès offline
       }
     });
 
