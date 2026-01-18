@@ -30,6 +30,9 @@ export default function HomeScreen() {
   const [showSearch, setShowSearch] = useState(false);
   const [showIdentity, setShowIdentity] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [isSearchVisible, setIsSearchVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const friendsListRef = useRef<any>(null);
   const zenTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const zenStartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const ZEN_END_KEY = 'zen_end_at';
@@ -646,6 +649,10 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
             onProutSent={shakeHeader} 
             isZenMode={isZenMode}
             isSilentMode={isSilentMode}
+            isSearchVisible={isSearchVisible}
+            onSearchChange={setIsSearchVisible}
+            searchQuery={searchQuery}
+            onSearchQueryChange={setSearchQuery}
             headerComponent={
               <View style={styles.headerSection}>
                 {/* 1. LE LOGO (Tout en haut, centré) */}
@@ -673,7 +680,13 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
                     <View style={styles.greetingContainer}>
                       <View style={styles.greetingRow}>
                         {currentPseudo ? (
-                          <Text style={styles.greetingText}>{i18n.t('greeting')} {currentPseudo} !</Text>
+                          <Text 
+                            style={styles.greetingText}
+                            numberOfLines={1}
+                            ellipsizeMode="tail"
+                          >
+                            {i18n.t('greeting')} {currentPseudo} !
+                          </Text>
                         ) : null}
                         {isZenMode && (
                           <Ionicons
@@ -693,11 +706,30 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
                         )}
                       </View>
                     </View>
-                    {/* Icône Profil à droite */}
+                    {/* Icônes à droite : Recherche + Profil */}
                     <View style={styles.rightIconsContainer}>
                       <TouchableOpacity 
+                        onPress={() => {
+                          if (isSearchVisible) {
+                            // Fermer la recherche et vider le texte
+                            setIsSearchVisible(false);
+                            setSearchQuery('');
+                          } else {
+                            // Ouvrir la recherche
+                            setIsSearchVisible(true);
+                          }
+                        }} 
+                        style={[styles.iconButton, { justifyContent: 'center', alignItems: 'center', minHeight: 28, marginTop: 2 }]}
+                      >
+                        <Ionicons 
+                          name={isSearchVisible ? "close" : "search"} 
+                          size={22} 
+                          color="#ffffff" 
+                        />
+                      </TouchableOpacity>
+                      <TouchableOpacity 
                         onPress={() => setActiveView(activeView === 'profileMenu' ? 'list' : 'profileMenu')} 
-                        style={[styles.iconButton, (activeView === 'profileMenu' || activeView === 'profile') && { opacity: 0.7 }]}
+                        style={[styles.iconButton, { justifyContent: 'center', alignItems: 'center', minHeight: 28 }, (activeView === 'profileMenu' || activeView === 'profile') && { opacity: 0.7 }]}
                       >
                           {(activeView === 'profileMenu' || activeView === 'profile') ? (
                             <Ionicons name="close-circle-outline" size={28} color="#ffffff" />
@@ -762,35 +794,43 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 10, // Réduit de 20 à 10
-    paddingHorizontal: 10, // Marges sur les côtés
+    paddingLeft: 5, // Réduit pour rapprocher du bord gauche
+    paddingRight: 0, // Pas de padding à droite pour coller au bord
   },
   navBarContent: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-    gap: 12,
+    gap: 6, // Écart uniforme entre tous les éléments
   },
   greetingContainer: {
     flex: 1,
     justifyContent: 'center',
+    flexShrink: 1, // Permet la compression si nécessaire
+    minWidth: 0, // Important pour que flex-shrink fonctionne avec le texte
   },
   greetingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    flexShrink: 1, // Permet la compression
   },
   greetingText: {
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
+    flexShrink: 1, // Permet la compression du texte
   },
   zenIcon: {
     marginTop: 1,
+    flexShrink: 0, // Les icônes ne se compressent jamais
   },
   rightIconsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
+    marginRight: -8, // Augmenté pour être encore plus à droite
+    flexShrink: 0, // Les icônes droites ne se compressent jamais
   },
   silentIcon: {
     marginRight: 4,

@@ -531,7 +531,25 @@ const SentMessageStatus = ({ message }: { message: { text: string; status?: 'rea
   );
 };
  
-export function FriendsList({ onProutSent, isZenMode, isSilentMode, headerComponent }: { onProutSent?: () => void; isZenMode?: boolean; isSilentMode?: boolean; headerComponent?: React.ReactElement } = {}) {
+export function FriendsList({ 
+  onProutSent, 
+  isZenMode, 
+  isSilentMode, 
+  headerComponent,
+  isSearchVisible = false,
+  onSearchChange,
+  searchQuery = '',
+  onSearchQueryChange
+}: { 
+  onProutSent?: () => void; 
+  isZenMode?: boolean; 
+  isSilentMode?: boolean; 
+  headerComponent?: React.ReactElement;
+  isSearchVisible?: boolean;
+  onSearchChange?: (visible: boolean) => void;
+  searchQuery?: string;
+  onSearchQueryChange?: (query: string) => void;
+} = {}) {
   const [appUsers, setAppUsers] = useState<any[]>([]);
   const appUsersRef = useRef<any[]>([]);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
@@ -2496,6 +2514,37 @@ useEffect(() => {
     }
   };
 
+  const renderSearchBar = () => {
+    if (!isSearchVisible) return null;
+    
+    return (
+      <View style={styles.searchContainer}>
+        <Ionicons name="search" size={20} color="#604a3e" style={styles.searchIcon} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder={i18n.t('search_contact_placeholder')}
+          placeholderTextColor="#999"
+          value={searchQuery}
+          onChangeText={onSearchQueryChange}
+          autoFocus
+          returnKeyType="search"
+        />
+        <TouchableOpacity
+          onPress={() => {
+            if (searchQuery.trim()) {
+              onSearchQueryChange?.('');
+            } else {
+              onSearchChange?.(false);
+            }
+          }}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="close-circle" size={22} color="#604a3e" />
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   const renderRequestsHeader = () => {
     const hasRequests = pendingRequests.length > 0 || identityRequests.length > 0;
     const shouldShowSilentWarning = showSilentWarning && !dismissedSilentWarning;
@@ -2589,22 +2638,24 @@ useEffect(() => {
   if (loading && appUsers.length === 0 && pendingRequests.length === 0) return <ActivityIndicator color="#007AFF" style={{margin: 20}} />;
 
   // Rendu différencié pour le conteneur principal pour éviter les bugs Android/iOS
-  const Container = Platform.OS === 'ios' ? KeyboardAvoidingView : View;
-  const containerProps = Platform.OS === 'ios' 
-    ? { 
-        style: styles.container, 
-        behavior: 'padding' as const, 
-        keyboardVerticalOffset: 0 
-      }
-    : { 
-        style: styles.container 
-      };
+  // Note: Le KeyboardAvoidingView est déjà géré au niveau parent (index.tsx)
+  const Container = View;
+  const containerProps = { 
+    style: styles.container 
+  };
 
   const content = (
     <Container {...containerProps}>
       <FlatList
         ref={flatListRef}
-        data={appUsers}
+        data={(() => {
+          // Filtrage local basé sur searchQuery
+          if (!searchQuery.trim()) return appUsers;
+          const query = searchQuery.toLowerCase().trim();
+          return appUsers.filter(user => 
+            user.pseudo && user.pseudo.toLowerCase().includes(query)
+          );
+        })()}
         keyExtractor={(item) => item.id}
         style={styles.list}
         // Android a besoin de 'always' pour bien gérer les clics quand le clavier est là
@@ -2618,14 +2669,23 @@ useEffect(() => {
           <TouchableWithoutFeedback onPress={handlePressHeader}>
             <View>
               {headerComponent}
+              {renderSearchBar()}
               {renderRequestsHeader()}
             </View>
           </TouchableWithoutFeedback>
         }
         ListEmptyComponent={
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyText}>{i18n.t('no_friends')}</Text>
-            <Text style={styles.subText}>{i18n.t('invite_contacts')}</Text>
+            {searchQuery.trim() ? (
+              // Message pour recherche sans résultat
+              <Text style={styles.emptyText}>Aucun ami</Text>
+            ) : (
+              // Message par défaut
+              <>
+                <Text style={styles.emptyText}>{i18n.t('no_friends')}</Text>
+                <Text style={styles.subText}>{i18n.t('invite_contacts')}</Text>
+              </>
+            )}
           </View>
         }
         renderItem={({ item, index }) => {
@@ -2931,6 +2991,31 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     opacity: 0.7,
   },
+  
+  // Styles pour la recherche
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    marginHorizontal: 15,
+    marginTop: 5,
+    marginBottom: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(96, 74, 62, 0.2)',
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333',
+    padding: 0,
+  },
+  
   stickyInputContainer: {
     backgroundColor: '#ebb89b',
     padding: 10,
