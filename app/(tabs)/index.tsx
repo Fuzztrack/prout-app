@@ -506,7 +506,7 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
         behavior="padding"
         style={styles.keyboardAvoid}
         keyboardVerticalOffset={0}
-        enabled={Platform.OS === 'android' ? keyboardVisible : true}
+        enabled={(Platform.OS === 'android' ? keyboardVisible : true) && !isSearchVisible}
       >
         {/* Modal simple pour Android : choix du Mode Zen */}
         {showZenOptions && (

@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useSegments } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, StyleSheet, View } from 'react-native';
 import { clearSkipInitialNavigationFlag, safeReplace, shouldSkipInitialNavigation } from '../lib/navigation';
@@ -277,6 +278,7 @@ export default function Index() {
         console.error('❌ Erreur lors de la navigation:', error);
         if (isMounted) {
           setIsReady(true);
+          SplashScreen.hideAsync(); // Masquer en cas d'erreur aussi
         }
       }
     }, 100);
@@ -287,20 +289,11 @@ export default function Index() {
     };
   }, []);
 
-  // Si la navigation est terminée, ne rien afficher (laisser l'écran suivant s'afficher)
-  if (isReady) {
-    return null;
-  }
-
+  // Composant purement logique : on ne rend rien car le Layout gère déjà le loading
+  // et la redirection se fera automatiquement
+  // On affiche juste le fond couleur pour éviter un flash blanc pendant la transition
   return (
-    <View style={styles.container}>
-      <Image 
-        source={require('../assets/images/prout-meme.png')} 
-        style={styles.image} 
-        resizeMode="contain" 
-      />
-      <ActivityIndicator size="large" color="#604a3e" style={{ marginTop: 20 }} />
-    </View>
+    <View style={styles.container} />
   );
 }
 

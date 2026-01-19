@@ -2,9 +2,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import * as Notifications from 'expo-notifications';
 import { Stack, useRouter } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen'; // Ajout de l'import
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Animated, AppState, DeviceEventEmitter, Platform, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+
+// Empêcher le splash screen de disparaître automatiquement
+SplashScreen.preventAutoHideAsync().catch(() => {
+  /* reloading the app might trigger some race conditions, ignore them */
+});
 import Onboarding from '../components/Onboarding';
 import { ensureContactPermissionWithDisclosure } from '../lib/contactConsent';
 import { safePush, safeReplace } from '../lib/navigation';
@@ -242,6 +248,13 @@ export default function RootLayout() {
       responseListener.remove();
     };
   }, []);
+
+  // Masquer le splash screen une fois que le chargement initial est terminé
+  useEffect(() => {
+    if (!loading) {
+      SplashScreen.hideAsync().catch(console.warn);
+    }
+  }, [loading]);
 
   // Deep Linking
   useEffect(() => {
