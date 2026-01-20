@@ -258,12 +258,65 @@ export default function RootLayout() {
 
   // Deep Linking
   useEffect(() => {
-    const handleDeepLink = (event: { url: string }) => {
-      let data = Linking.parse(event.url);
-      if (event.url.includes('confirm-email')) safeReplace(router, '/confirm-email', { skipInitialCheck: false });
-      else if (event.url.includes('reset-password')) safeReplace(router, '/reset-password', { skipInitialCheck: false });
+    const handleUrl = async (url: string) => {
+      if (!url) return;
+      console.log('🔗 Deep link reçu:', url);
+
+      // Regex flexible pour capturer les tokens dans query string (?) ou fragment (#)
+      const accessTokenMatch = url.match(/[?&#]access_token=([^&]+)/);
+      const refreshTokenMatch = url.match(/[?&#]refresh_token=([^&]+)/);
+
+      if (url.includes('confirm-email')) {
+        if (accessTokenMatch && refreshTokenMatch) {
+          try {
+            console.log('🔑 Tokens confirmation trouvés, établissement session...');
+            const { error } = await supabase.auth.setSession({
+              access_token: decodeURIComponent(accessTokenMatch[1]),
+              refresh_token: decodeURIComponent(refreshTokenMatch[1]),
+            });
+            if (error) console.error('❌ Erreur session confirm-email:', error);
+            else console.log('✅ Session établie pour confirm-email');
+          } catch (e) {
+            console.error('❌ Exception session confirm-email:', e);
+          }
+        }
+        safeReplace(router, '/confirm-email', { skipInitialCheck: false });
+      } 
+      else if (url.includes('reset-password')) {
+        if (accessTokenMatch && refreshTokenMatch) {
+          try {
+            console.log('🔑 Tokens reset trouvés, établissement session...');
+            const { error } = await supabase.auth.setSession({
+              access_token: decodeURIComponent(accessTokenMatch[1]),
+              refresh_token: decodeURIComponent(refreshTokenMatch[1]),
+            });
+            
+            if (error) {
+              console.error('❌ Erreur session reset-password:', error);
+              Alert.alert(i18n.t('error'), i18n.t('reset_link_invalid'));
+              return;
+            }
+            
+            console.log('✅ Session établie pour reset-password');
+            safeReplace(router, '/reset-password', { skipInitialCheck: false });
+          } catch (err) {
+            console.error('❌ Exception session reset-password:', err);
+            Alert.alert(i18n.t('error'), i18n.t('reset_link_invalid'));
+          }
+        } else {
+          console.warn('⚠️ Lien reset sans tokens');
+          Alert.alert(i18n.t('error'), i18n.t('reset_link_invalid'));
+        }
+      }
     };
-    const subscription = Linking.addEventListener('url', handleDeepLink);
+
+    // 1. Cold Start (App fermée)
+    Linking.getInitialURL().then((url) => {
+      if (url) handleUrl(url);
+    });
+
+    // 2. Warm Start (App en arrière-plan)
+    const subscription = Linking.addEventListener('url', (event) => handleUrl(event.url));
     return () => subscription.remove();
   }, []);
 

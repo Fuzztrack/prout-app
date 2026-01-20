@@ -17,19 +17,48 @@ export default function ResetPasswordScreen() {
   const [verifying, setVerifying] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+    let subscription: any = null;
+
     // Vérifier que l'utilisateur a bien accès à cette page (via le lien de reset)
     const checkSession = async () => {
       try {
+        // 1. Vérification immédiate
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          Alert.alert(
-            i18n.t('error'),
-            i18n.t('reset_link_invalid'),
-            [{ text: i18n.t('ok'), onPress: () => safeReplace(router, '/LoginScreen', { skipInitialCheck: false }) }]
-          );
+        if (session) {
+          if (isMounted) setVerifying(false);
           return;
         }
-        setVerifying(false);
+
+        console.log('⏳ Pas de session immédiate, attente propagation...');
+
+        // 2. Écouter si la session arrive (via _layout deep link handler)
+        const { data } = supabase.auth.onAuthStateChange((event, session) => {
+          if (session && isMounted) {
+            console.log('✅ Session reçue via listener !');
+            setVerifying(false);
+          }
+        });
+        subscription = data.subscription;
+
+        // 3. Timeout de sécurité (5 secondes)
+        setTimeout(async () => {
+          if (!isMounted) return;
+          
+          // Vérification finale
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) {
+             console.warn('❌ Timeout vérification session reset-password');
+             Alert.alert(
+              i18n.t('error'),
+              i18n.t('reset_link_invalid'),
+              [{ text: i18n.t('ok'), onPress: () => safeReplace(router, '/LoginScreen', { skipInitialCheck: false }) }]
+            );
+          } else {
+             setVerifying(false);
+          }
+        }, 5000);
+
       } catch (error) {
         console.error('Erreur vérification session:', error);
         Alert.alert(
@@ -41,6 +70,11 @@ export default function ResetPasswordScreen() {
     };
 
     checkSession();
+
+    return () => {
+      isMounted = false;
+      if (subscription) subscription.unsubscribe();
+    };
   }, []);
 
   const handleResetPassword = async () => {
