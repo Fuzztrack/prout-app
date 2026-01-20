@@ -5,7 +5,7 @@ import { Audio } from 'expo-av';
 import * as Contacts from 'expo-contacts';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, DeviceEventEmitter, Dimensions, FlatList, Keyboard, KeyboardAvoidingView, Linking, NativeModules, Platform, Animated as RNAnimated, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, DeviceEventEmitter, Dimensions, FlatList, Keyboard, KeyboardAvoidingView, Linking, NativeModules, Platform, Animated as RNAnimated, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { Gesture, GestureDetector, TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
@@ -564,6 +564,7 @@ export function FriendsList({
   const [showSilentWarning, setShowSilentWarning] = useState(false);
   const [dismissedSilentWarning, setDismissedSilentWarning] = useState(dismissedSilentWarningSession); // reste à true pour toute la session après clic OK
   const [expandedFriendId, setExpandedFriendId] = useState<string | null>(null);
+  const [keyboardVisible, setKeyboardVisible] = useState(false); // État local pour le clavier
   const [expandedUnreadId, setExpandedUnreadId] = useState<string | null>(null);
   const [unreadCache, setUnreadCache] = useState<Record<string, { id: string; message_content: string; created_at?: string }[]>>({});
   const [messageDrafts, setMessageDrafts] = useState<Record<string, string>>({});
@@ -572,6 +573,7 @@ export function FriendsList({
   const lastSentByIdRef = useRef<Record<string, string>>({});
   const pendingReadIdsRef = useRef<Set<string>>(new Set());
   const prevExpandedRef = useRef<string | null>(null);
+  const stickyScrollViewRef = useRef<ScrollView>(null);
 
   const updateLastSentIndex = (map: LastSentMap) => {
     const index: Record<string, string> = {};
@@ -2187,6 +2189,7 @@ useEffect(() => {
 
   useEffect(() => {
     const onShow = () => {
+      setKeyboardVisible(true);
       if (expandedFriendId) {
         const index = appUsers.findIndex(u => u.id === expandedFriendId);
         if (index !== -1) {
@@ -2197,10 +2200,21 @@ useEffect(() => {
       }
     };
 
+    const onHide = () => {
+      setKeyboardVisible(false);
+    };
+
     // Sur iOS keyboardWillShow est plus fluide, sur Android keyboardDidShow est plus sûr pour le layout
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const sub = Keyboard.addListener(showEvent, onShow);
-    return () => sub.remove();
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    
+    const subShow = Keyboard.addListener(showEvent, onShow);
+    const subHide = Keyboard.addListener(hideEvent, onHide);
+    
+    return () => {
+      subShow.remove();
+      subHide.remove();
+    };
   }, [expandedFriendId, appUsers]);
 
   const handlePressFriend = (friend: any) => {
@@ -2734,16 +2748,23 @@ useEffect(() => {
       />
 
       {activeFriend && (
-        <View style={styles.stickyInputContainer}>
+        <View style={[
+          styles.stickyInputContainer,
+          Platform.OS === 'android' && !keyboardVisible && { paddingBottom: 70 } // Marge supplémentaire quand le clavier est fermé sur Android
+        ]}>
           {/* Header */}
-          <View style={styles.stickyHeader}>
+          <TouchableOpacity 
+            style={styles.stickyHeader} 
+            onPress={() => { Keyboard.dismiss(); setExpandedFriendId(null); }}
+            activeOpacity={0.9}
+          >
              <Text style={styles.stickyPseudo}>
                {i18n.t('sticky_chat_with', { pseudo: activeFriend.pseudo })}
              </Text>
              <TouchableOpacity onPress={() => { Keyboard.dismiss(); setExpandedFriendId(null); }} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
                <Ionicons name="close-circle" size={24} color="#604a3e" />
              </TouchableOpacity>
-          </View>
+          </TouchableOpacity>
 
           {/* Messages */}
           {(() => {
@@ -2795,7 +2816,12 @@ useEffect(() => {
             });
             
             return (
-              <View style={styles.stickyMessages}>
+              <ScrollView
+                ref={stickyScrollViewRef}
+                style={styles.stickyMessages}
+                onContentSizeChange={() => stickyScrollViewRef.current?.scrollToEnd({ animated: true })}
+                showsVerticalScrollIndicator={true}
+              >
                 {allMessages.map((msg) => (
                   msg.isMe ? (
                     <SentMessageStatus key={msg.id} message={msg.original!} />
@@ -2805,7 +2831,7 @@ useEffect(() => {
                     </View>
                   )
                 ))}
-              </View>
+              </ScrollView>
             );
           })()}
 
@@ -3049,7 +3075,7 @@ const styles = StyleSheet.create({
   },
   stickyMessages: {
     marginBottom: 8,
-    maxHeight: 150, // Un peu plus de hauteur pour les bulles
+    maxHeight: 200, // Augmenté pour plus de visibilité, scrollable si dépasse
   },
   bubbleReceived: {
     alignSelf: 'flex-start',
