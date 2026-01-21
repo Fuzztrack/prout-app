@@ -658,6 +658,7 @@ export function FriendsList({
   const phoneFriendIdsRef = useRef<string[]>([]);
   const lastSentSetAtRef = useRef<number>(0); // timestamp du dernier setLastSentMessages local (pour éviter un clear trop tôt)
   const lastPressTime = useRef(0); // Debounce pour les clics sur les amis
+  const pendingCenterScrollFriendIdRef = useRef<string | null>(null);
   
   // Polling simple (sans backoff exponentiel)
   const flatListRef = useRef<FlatList>(null);
@@ -2163,40 +2164,73 @@ useEffect(() => {
     }
   };
 
-  const scrollToActiveFriend = (index: number) => {
+  const getVisibleUsers = () => {
+    // Filtrage local basé sur searchQuery (même logique que la FlatList)
+    if (!searchQuery.trim()) return appUsers;
+    const query = searchQuery.toLowerCase().trim();
+    return appUsers.filter(user =>
+      user.pseudo && user.pseudo.toLowerCase().includes(query)
+    );
+  };
+
+  const scrollToActiveFriend = (friendId: string, delay = 0) => {
+    const visibleUsers = getVisibleUsers();
+    const index = visibleUsers.findIndex(u => u.id === friendId);
     if (index < 0) return;
-    try {
-      flatListRef.current?.scrollToIndex({
-        index,
-        viewPosition: 1, // Aligner le bas de l'item avec le bas de la zone visible (juste au-dessus du clavier/input)
-        animated: true
-      });
-    } catch (e) {
-      // Ignorer les erreurs de layout (si l'item n'est pas encore mesuré)
+
+    const doScroll = () => {
+      try {
+        flatListRef.current?.scrollToIndex({
+          index,
+          viewPosition: 0.5, // Centrer l'élément
+          animated: true,
+        });
+      } catch (e) {
+        // Ignorer les erreurs de layout (si l'item n'est pas encore mesuré)
+      }
+    };
+
+    if (delay > 0) {
+      setTimeout(doScroll, delay);
+    } else {
+      requestAnimationFrame(doScroll);
     }
   };
 
   // Scroller vers l'ami sélectionné quand le clavier s'ouvre ou quand on change d'ami
   useEffect(() => {
-    if (expandedFriendId) {
-      const index = appUsers.findIndex(u => u.id === expandedFriendId);
-      if (index !== -1) {
-        // Scroll immédiat (utile si clavier déjà ouvert)
-        scrollToActiveFriend(index);
-      }
+    if (!expandedFriendId) return;
+    // On centre uniquement quand ça provient d'une sélection utilisateur (évite l'effet "ça cherche")
+    if (pendingCenterScrollFriendIdRef.current !== expandedFriendId) return;
+    // Si le clavier est déjà visible (ex: on change de contact avec clavier ouvert), on peut centrer tout de suite.
+    if (keyboardVisible) {
+      scrollToActiveFriend(expandedFriendId);
+      pendingCenterScrollFriendIdRef.current = null;
+      return;
     }
-  }, [expandedFriendId]);
+    // Sinon, on attend l'event clavier (voir onShow). Fallback si jamais le clavier ne s'affiche pas.
+    const t = setTimeout(() => {
+      if (
+        pendingCenterScrollFriendIdRef.current === expandedFriendId &&
+        !keyboardVisible
+      ) {
+        scrollToActiveFriend(expandedFriendId);
+        pendingCenterScrollFriendIdRef.current = null;
+      }
+    }, 350);
+    return () => clearTimeout(t);
+  }, [expandedFriendId, keyboardVisible, appUsers, searchQuery]);
 
   useEffect(() => {
     const onShow = () => {
       setKeyboardVisible(true);
-      if (expandedFriendId) {
-        const index = appUsers.findIndex(u => u.id === expandedFriendId);
-        if (index !== -1) {
-          // Scroll ajusté après apparition du clavier
-          // Petit délai pour laisser le layout (paddingBottom dynamique) se mettre à jour
-          setTimeout(() => scrollToActiveFriend(index), 50); 
-        }
+      // Si on vient juste d'ouvrir un contact, on centre après apparition clavier (viewport stabilisé)
+      if (
+        expandedFriendId &&
+        pendingCenterScrollFriendIdRef.current === expandedFriendId
+      ) {
+        scrollToActiveFriend(expandedFriendId, 60);
+        pendingCenterScrollFriendIdRef.current = null;
       }
     };
 
@@ -2245,6 +2279,7 @@ useEffect(() => {
         setTimeout(() => {
           unreadMessages.forEach(msg => markMessageAsRead(msg.id));
         }, 1000);
+        pendingCenterScrollFriendIdRef.current = friend.id;
         setExpandedFriendId(friend.id); // Ouvrir le champ de saisie automatiquement
         return;
       }
@@ -2252,6 +2287,7 @@ useEffect(() => {
       // Messages déjà ouverts (soit dans unreadMessages, soit dans le cache)
       if (!isInputOpen) {
         // Si l'input n'est pas ouvert, ouvrir l'input en gardant les messages visibles
+        pendingCenterScrollFriendIdRef.current = friend.id;
         setExpandedFriendId(friend.id);
         return;
       }
@@ -2260,6 +2296,7 @@ useEffect(() => {
       setExpandedFriendId(null);
       setExpandedUnreadId(null);
       Keyboard.dismiss(); // Force la fermeture du clavier
+      pendingCenterScrollFriendIdRef.current = null;
       // Nettoyer le cache pour ce contact
       setUnreadCache((prev) => {
         const newCache = { ...prev };
@@ -2272,6 +2309,18 @@ useEffect(() => {
     const newExpandedId = expandedFriendId === friend.id ? null : friend.id;
     if (!newExpandedId) {
       Keyboard.dismiss(); // Force la fermeture du clavier si on ferme
+      pendingCenterScrollFriendIdRef.current = null;
+      // Si on ferme le sticky et qu'on était en recherche, on vide tout pour retrouver la liste complète
+      if (searchQuery.trim()) {
+        onSearchQueryChange?.('');
+        onSearchChange?.(false);
+      }
+    } else {
+      pendingCenterScrollFriendIdRef.current = friend.id;
+      // Si on ouvre un sticky et qu'on était en recherche, on ferme la barre de recherche proprement
+      if (searchQuery.trim()) {
+        onSearchChange?.(false);
+      }
     }
     setExpandedFriendId(newExpandedId);
     // Ne pas fermer les messages d'un autre contact quand on clique sur un contact sans messages
@@ -2542,6 +2591,7 @@ useEffect(() => {
           onChangeText={onSearchQueryChange}
           autoFocus
           returnKeyType="search"
+          {...oldAndroidInputProps}
         />
         <TouchableOpacity
           onPress={() => {
@@ -2638,6 +2688,11 @@ useEffect(() => {
   const handlePressHeader = () => {
     Keyboard.dismiss();
     setExpandedFriendId(null);
+    // Si on ferme le sticky par le header et qu'on était en recherche, on vide tout
+    if (searchQuery.trim()) {
+      onSearchQueryChange?.('');
+      onSearchChange?.(false);
+    }
   };
 
   const handleRefresh = async () => {
@@ -2662,14 +2717,7 @@ useEffect(() => {
     <Container {...containerProps}>
       <FlatList
         ref={flatListRef}
-        data={(() => {
-          // Filtrage local basé sur searchQuery
-          if (!searchQuery.trim()) return appUsers;
-          const query = searchQuery.toLowerCase().trim();
-          return appUsers.filter(user => 
-            user.pseudo && user.pseudo.toLowerCase().includes(query)
-          );
-        })()}
+        data={getVisibleUsers()}
         keyExtractor={(item) => item.id}
         style={styles.list}
         // Android a besoin de 'always' pour bien gérer les clics quand le clavier est là
@@ -2679,6 +2727,20 @@ useEffect(() => {
           styles.listContent,
           appUsers.length === 0 && pendingRequests.length === 0 ? styles.emptyContentPadding : null,
         ]}
+        onScrollToIndexFailed={(info) => {
+          // Fallback : si l'index n'est pas mesurable immédiatement (virtualisation)
+          const approxOffset = Math.max(info.averageItemLength * info.index - info.averageItemLength * 2, 0);
+          flatListRef.current?.scrollToOffset({ offset: approxOffset, animated: true });
+          setTimeout(() => {
+            try {
+              flatListRef.current?.scrollToIndex({
+                index: info.index,
+                viewPosition: 0.5,
+                animated: true,
+              });
+            } catch {}
+          }, 80);
+        }}
         ListHeaderComponent={
           <TouchableWithoutFeedback onPress={handlePressHeader}>
             <View>
@@ -2755,13 +2817,13 @@ useEffect(() => {
           {/* Header */}
           <TouchableOpacity 
             style={styles.stickyHeader} 
-            onPress={() => { Keyboard.dismiss(); setExpandedFriendId(null); }}
+            onPress={handlePressHeader}
             activeOpacity={0.9}
           >
              <Text style={styles.stickyPseudo}>
                {i18n.t('sticky_chat_with', { pseudo: activeFriend.pseudo })}
              </Text>
-             <TouchableOpacity onPress={() => { Keyboard.dismiss(); setExpandedFriendId(null); }} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
+             <TouchableOpacity onPress={handlePressHeader} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
                <Ionicons name="close-circle" size={24} color="#604a3e" />
              </TouchableOpacity>
           </TouchableOpacity>
