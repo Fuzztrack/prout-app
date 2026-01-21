@@ -1,3 +1,4 @@
+import { AppHeader } from '@/components/AppHeader';
 import { EditProfil } from '@/components/EditProfil';
 import { FriendsList } from '@/components/FriendsList';
 import { IdentityList } from '@/components/IdentityList';
@@ -32,6 +33,7 @@ export default function HomeScreen() {
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [listIntroTrigger, setListIntroTrigger] = useState(0);
   const friendsListRef = useRef<any>(null);
   const zenTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const zenStartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -217,6 +219,20 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
       Animated.sequence(createVibrationSequence(shakeY, yValues, durations)),
     ]).start();
   }, [shakeX, shakeY]);
+
+  const triggerListIntro = useCallback(() => {
+    setListIntroTrigger((prev) => prev + 1);
+  }, []);
+
+  const toggleProfileMenu = useCallback(() => {
+    setActiveView((prev) => {
+      const next = prev === 'profileMenu' ? 'list' : 'profileMenu';
+      if (prev === 'profileMenu') {
+        triggerListIntro();
+      }
+      return next;
+    });
+  }, [triggerListIntro]);
 
   // --- MODE ZEN ---
   const clearZenAutoOff = useCallback(async () => {
@@ -466,6 +482,12 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
     }
   };
 
+  // Désactiver directement le mode Zen (quand on clique sur l'icône)
+  const disableZenMode = async () => {
+    if (!userId || !isZenMode) return;
+    await applyZenMode(false);
+  };
+
   const toggleSilentMode = async () => {
     const newValue = !isSilentMode;
     setIsSilentMode(newValue);
@@ -501,252 +523,136 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
   };
 
   return (
-    <View style={styles.container}>
-      <KeyboardAvoidingView 
-        behavior="padding"
-        style={styles.keyboardAvoid}
-        keyboardVerticalOffset={0}
-        enabled={(Platform.OS === 'android' ? keyboardVisible : true) && !isSearchVisible}
-      >
-        {/* Modal simple pour Android : choix du Mode Zen */}
-        {showZenOptions && (
-          <View style={styles.zenOverlay}>
-            <View style={styles.zenCard}>
-              <Text style={styles.zenTitle}>{i18n.t('zen_confirm_title')}</Text>
-              <Text style={styles.zenSubtitle}>{i18n.t('choose_duration')}</Text>
-              {[
-                { label: '1h', type: '1h' as const },
-                { label: '8h', type: '8h' as const },
-                { label: i18n.t('zen_job_label'), type: 'job' as const },
-                { label: i18n.t('zen_night_label'), type: 'night' as const },
-              ].map((opt) => (
-                <TouchableOpacity
-                  key={opt.type}
-                  style={styles.zenOption}
-                  onPress={async () => {
-                    setShowZenOptions(false);
-                    await handleZenSelection(opt.type);
-                  }}
-                >
-                  <Text style={styles.zenOptionText}>{opt.label}</Text>
-                </TouchableOpacity>
-              ))}
-              <TouchableOpacity style={styles.zenCancel} onPress={() => setShowZenOptions(false)}>
-                <Text style={styles.zenCancelText}>{i18n.t('cancel')}</Text>
+    <>
+      {/* Modal Zen - EN DEHORS pour couvrir la StatusBar (Edge-to-Edge) */}
+      {showZenOptions && (
+        <View style={styles.zenOverlay}>
+          <View style={styles.zenCard}>
+            <Text style={styles.zenTitle}>{i18n.t('zen_confirm_title')}</Text>
+            <Text style={styles.zenSubtitle}>{i18n.t('choose_duration')}</Text>
+            {[
+              { label: '1h', type: '1h' as const },
+              { label: '8h', type: '8h' as const },
+              { label: i18n.t('zen_job_label'), type: 'job' as const },
+              { label: i18n.t('zen_night_label'), type: 'night' as const },
+            ].map((opt) => (
+              <TouchableOpacity
+                key={opt.type}
+                style={styles.zenOption}
+                onPress={async () => {
+                  setShowZenOptions(false);
+                  await handleZenSelection(opt.type);
+                }}
+              >
+                <Text style={styles.zenOptionText}>{opt.label}</Text>
               </TouchableOpacity>
-            </View>
+            ))}
+            <TouchableOpacity style={styles.zenCancel} onPress={() => setShowZenOptions(false)}>
+              <Text style={styles.zenCancelText}>{i18n.t('cancel')}</Text>
+            </TouchableOpacity>
           </View>
-        )}
+        </View>
+      )}
 
-        {/* CONTENU PRINCIPAL */}
-        {activeView !== 'list' && (
-          <View style={styles.headerSection}>
-            {/* 1. LE LOGO (Tout en haut, centré) */}
-            <Animated.View 
-              style={[
-                styles.logoContainer,
-                {
-                  transform: [
-                    { translateX: shakeX },
-                    { translateY: shakeY },
-                  ],
-                }
-              ]}
-            >
-              <Image 
-                  source={require('../../assets/images/prout-meme.png')} 
-                  style={styles.headerImage} 
-                  resizeMode="contain" 
-              />
-            </Animated.View>
-
-            {/* 2. LA BARRE DE NAVIGATION */}
-            <View style={styles.navBar}>
-              <View style={styles.navBarContent}>
-                <View style={styles.greetingContainer}>
-                  <View style={styles.greetingRow}>
-                    {currentPseudo ? (
-                      <Text style={styles.greetingText}>{i18n.t('greeting')} {currentPseudo} !</Text>
-                    ) : null}
-                    {isZenMode && (
-                      <Ionicons
-                        name="moon"
-                        size={18}
-                        color="#ffffff"
-                        style={styles.zenIcon}
-                      />
-                    )}
-                    {isSilentMode && (
-                      <Ionicons
-                        name="volume-mute"
-                        size={22}
-                        color="#ffffff"
-                        style={styles.zenIcon}
-                      />
-                    )}
-                  </View>
-                </View>
-                {/* Icône Profil à droite */}
-                <View style={styles.rightIconsContainer}>
-                  <TouchableOpacity 
-                    onPress={() => setActiveView(activeView === 'profileMenu' ? 'list' : 'profileMenu')} 
-                    style={[styles.iconButton, (activeView === 'profileMenu' || activeView === 'profile') && { opacity: 0.7 }]}
-                  >
-                      {(activeView === 'profileMenu' || activeView === 'profile') ? (
-                        <Ionicons name="close-circle-outline" size={28} color="#ffffff" />
-                      ) : (
-                        <Image 
-                            source={require('../../assets/images/icon_compte.png')} 
-                            style={styles.navIcon} 
-                            resizeMode="contain"
-                        />
-                      )}
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          </View>
-        )}
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.keyboardAvoid}
+          keyboardVerticalOffset={0}
+          enabled={(Platform.OS === 'android' ? keyboardVisible : true) && !isSearchVisible}
+        >
+          {/* CONTENU PRINCIPAL */}
         <View style={[styles.listSection, Platform.OS === 'android' && !keyboardVisible && { paddingBottom: 0, marginBottom: 0 }]}>
         {activeView === 'tutorial' ? (
           <TutorialSwiper onClose={() => setActiveView('list')} />
         ) : activeView === 'profile' ? (
           <EditProfil onClose={() => setActiveView('list')} />
-        ) : activeView === 'profileMenu' ? (
-          <ScrollView 
-            style={{ flex: 1 }} 
-            contentContainerStyle={{ paddingBottom: 20 }}
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.menuCard}>
-              {[
-                { label: i18n.t('search_friend'), icon: 'person-add-outline', onPress: () => { setShowSearch(true); setActiveView('list'); }, iconColor: '#604a3e' },
-                { label: i18n.t('zen_mode'), icon: isZenMode ? 'moon' : 'moon-outline', onPress: toggleZenMode, iconColor: isZenMode ? '#ebb89b' : '#604a3e' },
-                { label: i18n.t('silent_mode'), icon: isSilentMode ? 'volume-mute' : 'volume-mute-outline', onPress: toggleSilentMode, iconColor: isSilentMode ? '#ebb89b' : '#604a3e' },
-                { label: i18n.t('manage_profile'), icon: 'person-circle-outline', onPress: () => setActiveView('profile'), iconColor: '#604a3e' },
-                { label: i18n.t('invite_friend'), icon: 'share-social-outline', onPress: handleShare, iconColor: '#604a3e' },
-                { label: i18n.t('review_app_functions'), icon: 'help-circle-outline', onPress: () => setActiveView('tutorial'), iconColor: '#604a3e' },
-                { label: i18n.t('who_is_who'), icon: 'eye-outline', onPress: () => { setShowIdentity(true); setActiveView('list'); }, iconColor: '#604a3e' },
-                { label: i18n.t('privacy_policy_menu'), icon: 'document-text-outline', onPress: () => { setShowPrivacy(true); setActiveView('list'); }, iconColor: '#604a3e' },
-              ].map((item, index) => (
-                <TouchableOpacity 
-                  key={index}
-                  style={[styles.menuItem, { backgroundColor: index % 2 === 0 ? '#d2f1ef' : '#baded7' }]} 
-                  onPress={item.onPress}
-                >
-                  <Text style={styles.menuText}>{item.label}</Text>
-                  <Ionicons
-                    name={item.icon as any}
-                    size={item.label === i18n.t('silent_mode') ? 26 : 22}
-                    color={item.iconColor}
-                  />
-                </TouchableOpacity>
-              ))}
-            </View>
-          </ScrollView>
         ) : (
-          <FriendsList 
-            onProutSent={shakeHeader} 
-            isZenMode={isZenMode}
-            isSilentMode={isSilentMode}
-            isSearchVisible={isSearchVisible}
-            onSearchChange={setIsSearchVisible}
-            searchQuery={searchQuery}
-            onSearchQueryChange={setSearchQuery}
-            headerComponent={
-              <View style={styles.headerSection}>
-                {/* 1. LE LOGO (Tout en haut, centré) */}
-                <Animated.View 
-                  style={[
-                    styles.logoContainer,
-                    {
-                      transform: [
-                        { translateX: shakeX },
-                        { translateY: shakeY },
-                      ],
+          <>
+            <FriendsList 
+              onProutSent={shakeHeader} 
+              isZenMode={isZenMode}
+              isSilentMode={isSilentMode}
+              isSearchVisible={isSearchVisible}
+              onSearchChange={setIsSearchVisible}
+              searchQuery={searchQuery}
+              onSearchQueryChange={setSearchQuery}
+              listIntroTrigger={listIntroTrigger}
+              headerComponent={
+                <AppHeader
+                  currentPseudo={currentPseudo}
+                  isZenMode={isZenMode}
+                  isSilentMode={isSilentMode}
+                  isProfileMenuOpen={activeView === 'profileMenu'}
+                  isProfileOpen={activeView === 'profile'}
+                  isSearchVisible={isSearchVisible}
+                  onSearchToggle={() => {
+                    if (isSearchVisible) {
+                      setIsSearchVisible(false);
+                      setSearchQuery('');
+                    } else {
+                      setIsSearchVisible(true);
                     }
-                  ]}
-                >
-                  <Image 
-                      source={require('../../assets/images/prout-meme.png')} 
-                      style={styles.headerImage} 
-                      resizeMode="contain" 
-                  />
-                </Animated.View>
+                  }}
+                  onProfileMenuPress={toggleProfileMenu}
+                  onZenModeToggle={disableZenMode}
+                  onSilentModeToggle={toggleSilentMode}
+                  shakeX={shakeX}
+                  shakeY={shakeY}
+                />
+              }
+            />
 
-                {/* 2. LA BARRE DE NAVIGATION */}
-                <View style={styles.navBar}>
-                  <View style={styles.navBarContent}>
-                    <View style={styles.greetingContainer}>
-                      <View style={styles.greetingRow}>
-                        {currentPseudo ? (
-                          <Text 
-                            style={styles.greetingText}
-                            numberOfLines={1}
-                            ellipsizeMode="tail"
-                          >
-                            {i18n.t('greeting')} {currentPseudo} !
-                          </Text>
-                        ) : null}
-                        {isZenMode && (
-                          <Ionicons
-                            name="moon"
-                            size={18}
-                            color="#ffffff"
-                            style={styles.zenIcon}
-                          />
-                        )}
-                        {isSilentMode && (
-                          <Ionicons
-                            name="volume-mute"
-                            size={22}
-                            color="#ffffff"
-                            style={styles.zenIcon}
-                          />
-                        )}
-                      </View>
-                    </View>
-                    {/* Icônes à droite : Recherche + Profil */}
-                    <View style={styles.rightIconsContainer}>
+            {activeView === 'profileMenu' && (
+              <View style={styles.menuOverlay}>
+                <ScrollView 
+                  style={{ flex: 1 }} 
+                  contentContainerStyle={{ paddingBottom: 20 }}
+                  showsVerticalScrollIndicator={false}
+                >
+                  {/* Header synchronisé avec la liste */}
+                  <AppHeader
+                    currentPseudo={currentPseudo}
+                    isZenMode={isZenMode}
+                    isSilentMode={isSilentMode}
+                    isProfileMenuOpen={activeView === 'profileMenu'}
+                    isProfileOpen={activeView === 'profile'}
+                    onProfileMenuPress={toggleProfileMenu}
+                    onZenModeToggle={disableZenMode}
+                    onSilentModeToggle={toggleSilentMode}
+                    shakeX={shakeX}
+                    shakeY={shakeY}
+                  />
+                  
+                  <View style={styles.menuCard}>
+                    {[
+                      { label: i18n.t('search_friend'), icon: 'person-add-outline', onPress: () => { setShowSearch(true); setActiveView('list'); }, iconColor: '#604a3e' },
+                      { label: i18n.t('zen_mode'), icon: isZenMode ? 'moon' : 'moon-outline', onPress: toggleZenMode, iconColor: isZenMode ? '#ebb89b' : '#604a3e' },
+                      { label: i18n.t('silent_mode'), icon: isSilentMode ? 'volume-mute' : 'volume-mute-outline', onPress: toggleSilentMode, iconColor: isSilentMode ? '#ebb89b' : '#604a3e' },
+                      { label: i18n.t('manage_profile'), icon: 'person-circle-outline', onPress: () => setActiveView('profile'), iconColor: '#604a3e' },
+                      { label: i18n.t('invite_friend'), icon: 'share-social-outline', onPress: handleShare, iconColor: '#604a3e' },
+                      { label: i18n.t('review_app_functions'), icon: 'help-circle-outline', onPress: () => setActiveView('tutorial'), iconColor: '#604a3e' },
+                      { label: i18n.t('who_is_who'), icon: 'eye-outline', onPress: () => { setShowIdentity(true); setActiveView('list'); }, iconColor: '#604a3e' },
+                      { label: i18n.t('privacy_policy_menu'), icon: 'document-text-outline', onPress: () => { setShowPrivacy(true); setActiveView('list'); }, iconColor: '#604a3e' },
+                    ].map((item, index) => (
                       <TouchableOpacity 
-                        onPress={() => {
-                          if (isSearchVisible) {
-                            // Fermer la recherche et vider le texte
-                            setIsSearchVisible(false);
-                            setSearchQuery('');
-                          } else {
-                            // Ouvrir la recherche
-                            setIsSearchVisible(true);
-                          }
-                        }} 
-                        style={[styles.iconButton, { justifyContent: 'center', alignItems: 'center', minHeight: 28, marginTop: 2 }]}
+                        key={index}
+                        style={[styles.menuItem, { backgroundColor: index % 2 === 0 ? '#d2f1ef' : '#baded7' }]} 
+                        onPress={item.onPress}
                       >
-                        <Ionicons 
-                          name={isSearchVisible ? "close" : "search"} 
-                          size={22} 
-                          color="#ffffff" 
+                        <Text style={styles.menuText}>{item.label}</Text>
+                        <Ionicons
+                          name={item.icon as any}
+                          size={item.label === i18n.t('silent_mode') ? 26 : 22}
+                          color={item.iconColor}
                         />
                       </TouchableOpacity>
-                      <TouchableOpacity 
-                        onPress={() => setActiveView(activeView === 'profileMenu' ? 'list' : 'profileMenu')} 
-                        style={[styles.iconButton, { justifyContent: 'center', alignItems: 'center', minHeight: 28 }, (activeView === 'profileMenu' || activeView === 'profile') && { opacity: 0.7 }]}
-                      >
-                          {(activeView === 'profileMenu' || activeView === 'profile') ? (
-                            <Ionicons name="close-circle-outline" size={28} color="#ffffff" />
-                          ) : (
-                            <Image 
-                                source={require('../../assets/images/icon_compte.png')} 
-                                style={styles.navIcon} 
-                                resizeMode="contain"
-                            />
-                          )}
-                      </TouchableOpacity>
-                    </View>
+                    ))}
                   </View>
-                </View>
+                </ScrollView>
               </View>
-            }
-          />
+            )}
+          </>
         )}
         </View>
       </KeyboardAvoidingView>
@@ -754,6 +660,7 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
       <SearchUser visible={showSearch} onClose={() => setShowSearch(false)} />
       <IdentityList visible={showIdentity} onClose={() => setShowIdentity(false)} />
     </View>
+    </>
   );
 }
 
@@ -762,90 +669,25 @@ const styles = StyleSheet.create({
     flex: 1, 
     backgroundColor: '#ebb89b' 
   },
-  headerSection: {
-    paddingTop: 30, // Réduit de 40 à 30 (-10px)
-    paddingHorizontal: 20,
-    paddingBottom: 5, // Réduit de 10 à 5
-  },
   keyboardAvoid: {
     flex: 1,
   },
   listSection: {
     flex: 1,
     paddingBottom: 0,
+    position: 'relative',
   },
   listSectionWithMargin: {
     paddingTop: 50,
   },
-  
-  // Conteneur du Logo
-  logoContainer: {
-    alignItems: 'center',
-    marginTop: 0,
-    marginBottom: -10, // Réduit de 10px pour la marge en dessous
-  },
-  headerImage: { 
-    width: 220, 
-    height: 160, 
-  },
-
-  // Barre de boutons
-  navBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10, // Réduit de 20 à 10
-    paddingLeft: 5, // Réduit pour rapprocher du bord gauche
-    paddingRight: 0, // Pas de padding à droite pour coller au bord
-  },
-  navBarContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    gap: 6, // Écart uniforme entre tous les éléments
-  },
-  greetingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    flexShrink: 1, // Permet la compression si nécessaire
-    minWidth: 0, // Important pour que flex-shrink fonctionne avec le texte
-  },
-  greetingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flexShrink: 1, // Permet la compression
-  },
-  greetingText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-    flexShrink: 1, // Permet la compression du texte
-  },
-  zenIcon: {
-    marginTop: 1,
-    flexShrink: 0, // Les icônes ne se compressent jamais
-  },
-  rightIconsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginRight: -8, // Augmenté pour être encore plus à droite
-    flexShrink: 0, // Les icônes droites ne se compressent jamais
-  },
-  silentIcon: {
-    marginRight: 4,
-  },
-  
-  iconButton: {
-    padding: 5,
-    // backgroundColor: 'rgba(255,255,255,0.2)', // Décommentez pour voir la zone de touche
-    borderRadius: 10,
-  },
-  
-  navIcon: {
-    width: 28, // Réduit de 32 à 28
-    height: 28, // Réduit de 32 à 28
-    tintColor: 'white' // Icônes en blanc
+  menuOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#ebb89b',
+    zIndex: 10,
   },
   menuCard: {
     backgroundColor: 'rgba(255,255,255,0.95)',
@@ -875,7 +717,7 @@ const styles = StyleSheet.create({
     color: '#604a3e',
     fontWeight: '600',
   },
-  // Zen options overlay (Android)
+  // Zen options overlay (Android) - Edge-to-Edge
   zenOverlay: {
     position: 'absolute',
     top: 0,
@@ -885,7 +727,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.35)',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 20,
+    zIndex: 9999, // Au-dessus de tout, y compris StatusBar
   },
   zenCard: {
     width: '86%',

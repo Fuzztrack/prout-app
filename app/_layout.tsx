@@ -2,15 +2,22 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import * as Notifications from 'expo-notifications';
 import { Stack, useRouter } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen'; // Ajout de l'import
+import * as SplashScreen from 'expo-splash-screen';
+import * as SystemUI from 'expo-system-ui'; // ← Solution native pour fond StatusBar
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Animated, AppState, DeviceEventEmitter, Platform, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, AppState, DeviceEventEmitter, Platform, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 // Empêcher le splash screen de disparaître automatiquement
 SplashScreen.preventAutoHideAsync().catch(() => {
   /* reloading the app might trigger some race conditions, ignore them */
 });
+
+// ✅ CORRECTION ROOT VIEW : Forcer la couleur de fond native AVANT que React ne monte
+// Cela évite le flash noir au démarrage (StatusBar noire)
+SystemUI.setBackgroundColorAsync("#ebb89b");
+
 import Onboarding from '../components/Onboarding';
 import { ensureContactPermissionWithDisclosure } from '../lib/contactConsent';
 import { safePush, safeReplace } from '../lib/navigation';
@@ -406,7 +413,10 @@ export default function RootLayout() {
 
   return (
     <AppErrorBoundary>
-      <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#ebb89b' }}>
+          {/* StatusBar Edge-to-Edge : transparente pour permettre aux overlays de couvrir tout l'écran */}
+          <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
         {!checkingOnboarding && showOnboarding ? (
           <Onboarding onFinish={handleOnboardingFinish} />
         ) : (
@@ -434,7 +444,8 @@ export default function RootLayout() {
             )}
           </>
         )}
-      </GestureHandlerRootView>
+        </GestureHandlerRootView>
+      </SafeAreaProvider>
     </AppErrorBoundary>
   );
 }

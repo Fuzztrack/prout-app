@@ -2,12 +2,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { safePush } from '../../lib/navigation';
 import { supabase } from '../../lib/supabase';
 import i18n from '../../lib/i18n';
 
 export default function InvitationScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [pseudo, setPseudo] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -55,7 +57,7 @@ export default function InvitationScreen() {
   return (
     <View style={styles.wrapper}>
       <ScrollView 
-        contentContainerStyle={styles.container}
+        contentContainerStyle={[styles.container, { paddingTop: insets.top + 20 }]}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
@@ -98,7 +100,7 @@ export default function InvitationScreen() {
 
 const styles = StyleSheet.create({
   wrapper: { flex: 1, backgroundColor: '#ebb89b' },
-  container: { flexGrow: 1, backgroundColor: '#ebb89b', padding: 20, paddingTop: 20, paddingBottom: 100 },
+  container: { flexGrow: 1, backgroundColor: '#ebb89b', padding: 20, paddingBottom: 100 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#ebb89b' },
   header: { alignItems: 'center', marginBottom: 20 },
   headerImage: { width: 180, height: 140, marginBottom: 10 },
