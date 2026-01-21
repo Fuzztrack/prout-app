@@ -4,8 +4,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Audio } from 'expo-av';
 import * as Contacts from 'expo-contacts';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, DeviceEventEmitter, Dimensions, FlatList, Keyboard, KeyboardAvoidingView, Linking, NativeModules, Platform, Animated as RNAnimated, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState, useMemo } from 'react';
+import { ActivityIndicator, Alert, AppState, DeviceEventEmitter, Dimensions, FlatList, Keyboard, Linking, NativeModules, Platform, Animated as RNAnimated, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { Gesture, GestureDetector, TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
@@ -164,6 +164,7 @@ type SwipeableFriendRowProps = {
   onUnmuteFriend?: () => void;
   isMuted?: boolean;
   introDelay?: number;
+  introTrigger?: number;
 };
 
 // Composant SwipeableFriendRow : Swipe to Action avec animation frame-by-frame (version Reanimated pour iOS fluide)
@@ -180,6 +181,7 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
   onUnmuteFriend, 
   isMuted = false, 
   introDelay = 0,
+  introTrigger = 0,
 }, ref) => {
   const translationX = useSharedValue(0);
   const maxSwipeRight = SCREEN_WIDTH * 0.7; // Maximum 70% de l'écran vers la droite
@@ -195,7 +197,7 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
       introDelay,
       withSpring(0, { damping: 12, stiffness: 140 })
     );
-  }, [introDelay, introOffset]);
+  }, [introDelay, introOffset, introTrigger]);
   
   // Calculer l'index de l'image en fonction de la distance du swipe (seulement pour swipe droite)
   const getImageIndex = (dx: number) => {
@@ -540,7 +542,8 @@ export function FriendsList({
   isSearchVisible = false,
   onSearchChange,
   searchQuery = '',
-  onSearchQueryChange
+  onSearchQueryChange,
+  listIntroTrigger = 0
 }: { 
   onProutSent?: () => void; 
   isZenMode?: boolean; 
@@ -550,6 +553,7 @@ export function FriendsList({
   onSearchChange?: (visible: boolean) => void;
   searchQuery?: string;
   onSearchQueryChange?: (query: string) => void;
+  listIntroTrigger?: number;
 } = {}) {
   const [appUsers, setAppUsers] = useState<any[]>([]);
   const appUsersRef = useRef<any[]>([]);
@@ -2183,8 +2187,8 @@ useEffect(() => {
       try {
         flatListRef.current?.scrollToIndex({
           index,
-          viewPosition: 0.5, // Centrer l'élément
-          animated: true,
+          viewPosition: 0.3, // Position plus haute (30% de l'écran) pour meilleure visibilité
+          animated: false, // Désactiver l'animation pour éviter l'effet "ça cherche"
         });
       } catch (e) {
         // Ignorer les erreurs de layout (si l'item n'est pas encore mesuré)
@@ -2282,6 +2286,10 @@ useEffect(() => {
         }, 1000);
         pendingCenterScrollFriendIdRef.current = friend.id;
         setExpandedFriendId(friend.id); // Ouvrir le champ de saisie automatiquement
+        // Fermer la recherche si active
+        if (searchQuery.trim()) {
+          onSearchChange?.(false);
+        }
         return;
       }
       
@@ -2290,6 +2298,10 @@ useEffect(() => {
         // Si l'input n'est pas ouvert, ouvrir l'input en gardant les messages visibles
         pendingCenterScrollFriendIdRef.current = friend.id;
         setExpandedFriendId(friend.id);
+        // Fermer la recherche si active
+        if (searchQuery.trim()) {
+          onSearchChange?.(false);
+        }
         return;
       }
       
@@ -2702,26 +2714,25 @@ useEffect(() => {
     handlePressHeaderRef.current = handlePressHeader;
   }); // Update à chaque render pour avoir la dernière closure
 
-  // --- OPTIMISATION SAMSUNG/XIAOMI : Reanimated + useMemo ---
+  // --- ANDROID UNIQUEMENT : Optimisation Reanimated pour Samsung/Xiaomi ---
+  // Récupère la hauteur du clavier sur le thread UI (pas de re-render React)
+  const androidKeyboard = Platform.OS === 'android' ? useAnimatedKeyboard() : null;
   
-  // 1. Récupérer la hauteur du clavier sur le thread UI (Android uniquement)
-  const keyboard = useAnimatedKeyboard();
-
-  // 2. Style Animé pour Android (Collage parfait sans re-render React)
-  const animatedAndroidStyle = useAnimatedStyle(() => {
-    const isKeyboardOpen = keyboard.height.value > 0;
+  // Style animé pour Android : évite le re-render qui ferme le clavier
+  const androidAnimatedStyle = useAnimatedStyle(() => {
+    if (Platform.OS !== 'android' || !androidKeyboard) return {};
     
+    const isKeyboardOpen = androidKeyboard.height.value > 0;
     return {
-      // Si clavier ouvert : pas de padding (le clavier pousse naturellement)
-      // Si clavier fermé : padding de 70px pour éviter la TabBar
-      paddingBottom: isKeyboardOpen ? 0 : 70,
-      // marginBottom suit exactement la hauteur du clavier
-      marginBottom: keyboard.height.value, 
+      // Padding en bas : 40px quand clavier ouvert (clarté/lisibilité), 70px quand fermé (TabBar)
+      paddingBottom: isKeyboardOpen ? 40 : 70,
+      // Coller le sticky au-dessus du clavier sans pousser la liste
+      transform: [{ translateY: isKeyboardOpen ? -androidKeyboard.height.value : 0 }],
     };
   });
 
-  // 3. Mémoriser le contenu du sticky pour éviter de recréer le TextInput
-  // quand le clavier s'ouvre (changement de keyboardVisible).
+  // Optimisation Samsung : mémoriser le contenu interne pour éviter de recréer le TextInput
+  // quand le clavier s'ouvre (changement de keyboardVisible dans le parent).
   const stickyInnerContent = useMemo(() => {
     if (!activeFriend) return null;
 
@@ -2733,10 +2744,6 @@ useEffect(() => {
     activeUnreadMessages.forEach(m => mergedMap.set(m.id, m));
     const activeMessagesToShow = Array.from(mergedMap.values());
     const myLastSent = lastSentMessages[activeFriend.id];
-
-    // Draft et couleur pour cet ami
-    const currentDraft = activeDraft;
-    const friendBackgroundColor = activeBackgroundColor;
 
     // Fusion et tri
     const allMessages = [
@@ -2805,7 +2812,7 @@ useEffect(() => {
             style={styles.messageInput}
             placeholder={i18n.t('add_message_placeholder')}
             placeholderTextColor="#777"
-            value={currentDraft}
+            value={activeDraft}
             onChangeText={(text) => setMessageDrafts(prev => ({ ...prev, [activeFriend.id]: text }))}
             maxLength={140}
             multiline
@@ -2813,11 +2820,11 @@ useEffect(() => {
             {...oldAndroidInputProps}
           />
           <TouchableOpacity
-            onPress={() => currentDraft.trim() && handleSendProut(activeFriend)}
+            onPress={() => activeDraft.trim() && handleSendProut(activeFriend)}
             style={[
               styles.messageSendButton,
-              { backgroundColor: sendingFriendId === activeFriend.id ? '#a8d5ba' : friendBackgroundColor },
-              !currentDraft.trim() && styles.messageSendButtonDisabled,
+              { backgroundColor: sendingFriendId === activeFriend.id ? '#a8d5ba' : activeBackgroundColor },
+              !activeDraft.trim() && styles.messageSendButtonDisabled,
             ]}
             accessibilityLabel="Envoyer"
             activeOpacity={activeDraft.trim() ? 0.8 : 1}
@@ -2836,7 +2843,8 @@ useEffect(() => {
     activeDraft,
     sendingFriendId,
     activeBackgroundColor,
-    // PAS de keyboardVisible ici pour éviter le re-render
+    // PAS de keyboardVisible ici !
+    // PAS de handlePressHeader ici ! (on utilise la Ref)
   ]);
 
   const handleRefresh = async () => {
@@ -2848,7 +2856,9 @@ useEffect(() => {
     }
   };
 
-  if (loading && appUsers.length === 0 && pendingRequests.length === 0) return <ActivityIndicator color="#007AFF" style={{margin: 20}} />;
+  // ✅ Supprimé : ActivityIndicator masqué lors du chargement initial
+  // On affiche toujours le contenu, même en chargement
+  // if (loading && appUsers.length === 0 && pendingRequests.length === 0) return <ActivityIndicator color="#007AFF" style={{margin: 20}} />;
 
   // Rendu différencié pour le conteneur principal pour éviter les bugs Android/iOS
   // Note: Le KeyboardAvoidingView est déjà géré au niveau parent (index.tsx)
@@ -2869,8 +2879,7 @@ useEffect(() => {
         keyboardDismissMode={Platform.OS === 'ios' ? "interactive" : "on-drag"}
         contentContainerStyle={[
           styles.listContent,
-          appUsers.length === 0 && pendingRequests.length === 0 ? styles.emptyContentPadding : null,
-          // Ajouter du padding en bas quand le sticky est ouvert pour pouvoir scroller au-dessus
+          // Padding pour scroller au-dessus du sticky quand il est ouvert
           activeFriend ? { paddingBottom: 300 } : null,
         ]}
         onScrollToIndexFailed={(info) => {
@@ -2897,18 +2906,20 @@ useEffect(() => {
           </TouchableWithoutFeedback>
         }
         ListEmptyComponent={
-          <View style={styles.emptyCard}>
-            {searchQuery.trim() ? (
-              // Message pour recherche sans résultat
-              <Text style={styles.emptyText}>Aucun ami</Text>
-            ) : (
-              // Message par défaut
-              <>
-                <Text style={styles.emptyText}>{i18n.t('no_friends')}</Text>
-                <Text style={styles.subText}>{i18n.t('invite_contacts')}</Text>
-              </>
-            )}
-          </View>
+          loading ? null : (
+            <View style={styles.emptyCard}>
+              {searchQuery.trim() ? (
+                // Message pour recherche sans résultat
+                <Text style={styles.emptyText}>Aucun ami</Text>
+              ) : (
+                // Message par défaut
+                <>
+                  <Text style={styles.emptyText}>{i18n.t('no_friends')}</Text>
+                  <Text style={styles.subText}>{i18n.t('invite_contacts')}</Text>
+                </>
+              )}
+            </View>
+          )
         }
         renderItem={({ item, index }) => {
           const unreadMessages = pendingMessages.filter(m => m.from_user_id === item.id);
@@ -2939,6 +2950,7 @@ useEffect(() => {
                 onUnmuteFriend={() => handleUnmuteFriend(item)}
                 isMuted={item.is_muted || false}
                 introDelay={index * 40}
+                introTrigger={listIntroTrigger}
               />
             </View>
           );
@@ -2956,25 +2968,25 @@ useEffect(() => {
       />
 
       {/* 
-         ARCHI GHOST INPUT (Version Simplifiée) : 
-         On rend le sticky seulement quand actif, mais on garde le TextInput stable via useMemo.
-         Sur Android, Animated.View suit le clavier sans re-render.
-         Sur iOS, KeyboardAvoidingView gère nativement.
+        STICKY CHAT - Séparation iOS/Android
+        - iOS : View classique avec padding conditionnel (logique d'origine qui fonctionne)
+        - Android : Animated.View avec Reanimated (Thread UI, pas de re-render)
       */}
       {activeFriend && (
         Platform.OS === 'ios' ? (
-          <KeyboardAvoidingView
-            behavior="padding"
-            keyboardVerticalOffset={90}
-          >
-            <View style={[styles.stickyInputContainer, { paddingBottom: 20 }]}>
-              {stickyInnerContent}
-            </View>
-          </KeyboardAvoidingView>
+          // IOS : Logique originale avec padding ajusté
+          <View style={[
+            styles.stickyInputContainer,
+            { paddingBottom: keyboardVisible ? 40 : 70 }
+          ]}>
+            {stickyInnerContent}
+          </View>
         ) : (
+          // ANDROID : Reanimated pour Samsung/Xiaomi (Thread UI)
           <Animated.View style={[
             styles.stickyInputContainer,
-            animatedAndroidStyle
+            androidAnimatedStyle,
+            { position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 100 }
           ]}>
             {stickyInnerContent}
           </Animated.View>
@@ -2997,7 +3009,7 @@ const styles = StyleSheet.create({
   keyboardAvoidingView: { flex: 1 },
   list: { flex: 1 },
   listContent: { paddingBottom: 20 },
-  emptyContentPadding: { flexGrow: 1, justifyContent: 'center' },
+  // emptyContentPadding supprimé : évite de repousser le header vers le bas
   sectionTitle: { fontWeight: 'bold', color: '#604a3e', marginBottom: 10, fontSize: 16, marginLeft: 5 },
   requestsContainer: { marginBottom: 20 },
   requestRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.9)', padding: 12, borderRadius: 10, marginBottom: 8 },
