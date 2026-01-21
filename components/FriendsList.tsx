@@ -4,8 +4,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Audio } from 'expo-av';
 import * as Contacts from 'expo-contacts';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, DeviceEventEmitter, Dimensions, FlatList, Keyboard, KeyboardAvoidingView, Linking, NativeModules, Platform, Animated as RNAnimated, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState, useMemo } from 'react';
+import { ActivityIndicator, Alert, AppState, DeviceEventEmitter, Dimensions, FlatList, Keyboard, Linking, NativeModules, Platform, Animated as RNAnimated, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { Gesture, GestureDetector, TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
@@ -2695,6 +2695,128 @@ useEffect(() => {
     }
   };
 
+  // Ref Proxy pour Samsung (Solution 1)
+  const handlePressHeaderRef = useRef(handlePressHeader);
+  useEffect(() => {
+    handlePressHeaderRef.current = handlePressHeader;
+  }); // Update à chaque render pour avoir la dernière closure
+
+  // Optimisation Samsung : mémoriser le contenu interne pour éviter de recréer le TextInput
+  // quand le clavier s'ouvre (changement de keyboardVisible dans le parent).
+  const stickyInnerContent = useMemo(() => {
+    if (!activeFriend) return null;
+
+    // Calcul des messages
+    const activeUnreadMessages = pendingMessages.filter(m => m.from_user_id === activeFriend.id);
+    const cachedForFriend = unreadCache[activeFriend.id] || [];
+    const mergedMap = new Map<string, any>();
+    cachedForFriend.forEach(m => mergedMap.set(m.id, m));
+    activeUnreadMessages.forEach(m => mergedMap.set(m.id, m));
+    const activeMessagesToShow = Array.from(mergedMap.values());
+    const myLastSent = lastSentMessages[activeFriend.id];
+
+    // Fusion et tri
+    const allMessages = [
+        ...activeMessagesToShow.map(m => ({
+            id: m.id,
+            text: m.message_content,
+            ts: m.created_at,
+            isMe: false,
+            original: undefined
+        })),
+        ...(myLastSent ? [{
+            id: myLastSent.id || 'temp-sent',
+            text: myLastSent.text,
+            ts: myLastSent.ts,
+            isMe: true,
+            original: myLastSent
+        }] : [])
+    ].sort((a, b) => {
+        const getTs = (d: string) => {
+            if (!d) return 0;
+            const t = new Date(d).getTime();
+            return isNaN(t) ? 0 : t;
+        };
+        const timeA = getTs(a.ts);
+        const timeB = getTs(b.ts);
+        if (timeA === timeB) return a.isMe ? -1 : 1;
+        if (timeA === 0 || timeB === 0) return a.isMe ? -1 : 1;
+        return timeA - timeB;
+    });
+
+    return (
+      <>
+        <TouchableOpacity 
+          style={styles.stickyHeader} 
+          onPress={() => handlePressHeaderRef.current()}
+          activeOpacity={0.9}
+        >
+           <Text style={styles.stickyPseudo}>
+             {i18n.t('sticky_chat_with', { pseudo: activeFriend.pseudo })}
+           </Text>
+           <TouchableOpacity onPress={() => handlePressHeaderRef.current()} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
+             <Ionicons name="close-circle" size={24} color="#604a3e" />
+           </TouchableOpacity>
+        </TouchableOpacity>
+
+        <ScrollView
+          ref={stickyScrollViewRef}
+          style={styles.stickyMessages}
+          onContentSizeChange={() => stickyScrollViewRef.current?.scrollToEnd({ animated: true })}
+          showsVerticalScrollIndicator={true}
+        >
+          {allMessages.map((msg) => (
+            msg.isMe ? (
+              <SentMessageStatus key={msg.id} message={msg.original!} />
+            ) : (
+              <View key={msg.id} style={styles.bubbleReceived}>
+                <Text style={styles.bubbleTextReceived}>{msg.text}</Text>
+              </View>
+            )
+          ))}
+        </ScrollView>
+
+        <View style={[styles.messageInputRow, { alignItems: 'flex-end' }]}>
+          <TextInput
+            ref={(ref) => { textInputRefs.current[activeFriend.id] = ref; }}
+            style={styles.messageInput}
+            placeholder={i18n.t('add_message_placeholder')}
+            placeholderTextColor="#777"
+            value={activeDraft}
+            onChangeText={(text) => setMessageDrafts(prev => ({ ...prev, [activeFriend.id]: text }))}
+            maxLength={140}
+            multiline
+            autoFocus
+            {...oldAndroidInputProps}
+          />
+          <TouchableOpacity
+            onPress={() => activeDraft.trim() && handleSendProut(activeFriend)}
+            style={[
+              styles.messageSendButton,
+              { backgroundColor: sendingFriendId === activeFriend.id ? '#a8d5ba' : activeBackgroundColor },
+              !activeDraft.trim() && styles.messageSendButtonDisabled,
+            ]}
+            accessibilityLabel="Envoyer"
+            activeOpacity={activeDraft.trim() ? 0.8 : 1}
+            disabled={!activeDraft.trim()}
+          >
+            <Ionicons name="send" size={18} color="#604a3e" />
+          </TouchableOpacity>
+        </View>
+      </>
+    );
+  }, [
+    activeFriend,
+    pendingMessages,
+    unreadCache,
+    lastSentMessages,
+    activeDraft,
+    sendingFriendId,
+    activeBackgroundColor,
+    // PAS de keyboardVisible ici !
+    // PAS de handlePressHeader ici ! (on utilise la Ref)
+  ]);
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
@@ -2814,116 +2936,7 @@ useEffect(() => {
           styles.stickyInputContainer,
           Platform.OS === 'android' && !keyboardVisible && { paddingBottom: 70 } // Marge supplémentaire quand le clavier est fermé sur Android
         ]}>
-          {/* Header */}
-          <TouchableOpacity 
-            style={styles.stickyHeader} 
-            onPress={handlePressHeader}
-            activeOpacity={0.9}
-          >
-             <Text style={styles.stickyPseudo}>
-               {i18n.t('sticky_chat_with', { pseudo: activeFriend.pseudo })}
-             </Text>
-             <TouchableOpacity onPress={handlePressHeader} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
-               <Ionicons name="close-circle" size={24} color="#604a3e" />
-             </TouchableOpacity>
-          </TouchableOpacity>
-
-          {/* Messages */}
-          {(() => {
-            const activeUnreadMessages = pendingMessages.filter(m => m.from_user_id === activeFriend.id);
-            const cachedForFriend = unreadCache[activeFriend.id] || [];
-            const mergedMap = new Map<string, any>();
-            cachedForFriend.forEach(m => mergedMap.set(m.id, m));
-            activeUnreadMessages.forEach(m => mergedMap.set(m.id, m));
-            const activeMessagesToShow = Array.from(mergedMap.values());
-            const myLastSent = lastSentMessages[activeFriend.id];
-            
-            // Fusion et tri par date pour affichage chronologique (type WhatsApp)
-            const allMessages = [
-                ...activeMessagesToShow.map(m => ({
-                    id: m.id,
-                    text: m.message_content,
-                    ts: m.created_at,
-                    isMe: false,
-                    original: undefined
-                })),
-                ...(myLastSent ? [{
-                    id: myLastSent.id || 'temp-sent',
-                    text: myLastSent.text,
-                    ts: myLastSent.ts,
-                    isMe: true,
-                    original: myLastSent
-                }] : [])
-            ].sort((a, b) => {
-                const getTs = (d: string) => {
-                    if (!d) return 0;
-                    const t = new Date(d).getTime();
-                    return isNaN(t) ? 0 : t;
-                };
-                const timeA = getTs(a.ts);
-                const timeB = getTs(b.ts);
-                if (timeA === timeB) {
-                    if (a.isMe !== b.isMe) {
-                        return a.isMe ? -1 : 1; // Si égalité, mon message avant la réponse
-                    }
-                    return 0;
-                }
-                // Si timestamp invalide, on place les réponses après le message envoyé
-                if (timeA === 0 || timeB === 0) {
-                    if (a.isMe !== b.isMe) {
-                        return a.isMe ? -1 : 1;
-                    }
-                }
-                return timeA - timeB;
-            });
-            
-            return (
-              <ScrollView
-                ref={stickyScrollViewRef}
-                style={styles.stickyMessages}
-                onContentSizeChange={() => stickyScrollViewRef.current?.scrollToEnd({ animated: true })}
-                showsVerticalScrollIndicator={true}
-              >
-                {allMessages.map((msg) => (
-                  msg.isMe ? (
-                    <SentMessageStatus key={msg.id} message={msg.original!} />
-                  ) : (
-                    <View key={msg.id} style={styles.bubbleReceived}>
-                      <Text style={styles.bubbleTextReceived}>{msg.text}</Text>
-                    </View>
-                  )
-                ))}
-              </ScrollView>
-            );
-          })()}
-
-          <View style={[styles.messageInputRow, { alignItems: 'flex-end' }]}>
-            <TextInput
-              ref={(ref) => { textInputRefs.current[activeFriend.id] = ref; }}
-              style={styles.messageInput}
-              placeholder={i18n.t('add_message_placeholder')}
-              placeholderTextColor="#777"
-              value={activeDraft}
-              onChangeText={(text) => setMessageDrafts(prev => ({ ...prev, [activeFriend.id]: text }))}
-              maxLength={140}
-              multiline
-              autoFocus
-              {...oldAndroidInputProps}
-            />
-            <TouchableOpacity
-              onPress={() => activeDraft.trim() && handleSendProut(activeFriend)}
-              style={[
-                styles.messageSendButton,
-                { backgroundColor: sendingFriendId === activeFriend.id ? '#a8d5ba' : activeBackgroundColor },
-                !activeDraft.trim() && styles.messageSendButtonDisabled,
-              ]}
-              accessibilityLabel="Envoyer"
-              activeOpacity={activeDraft.trim() ? 0.8 : 1}
-              disabled={!activeDraft.trim()}
-            >
-              <Ionicons name="send" size={18} color="#604a3e" />
-            </TouchableOpacity>
-          </View>
+          {stickyInnerContent}
         </View>
       )}
 
