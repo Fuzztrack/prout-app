@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Audio } from 'expo-av';
 import * as Contacts from 'expo-contacts';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState, useMemo } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, AppState, DeviceEventEmitter, Dimensions, FlatList, Keyboard, Linking, NativeModules, Platform, Animated as RNAnimated, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { Gesture, GestureDetector, TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
 import Animated, {
@@ -18,6 +18,7 @@ import Animated, {
   withDelay,
   withSpring,
   withTiming,
+  useAnimatedKeyboard,
 } from 'react-native-reanimated';
 import { RINGER_MODE, VolumeManager } from 'react-native-volume-manager';
 import { ensureContactPermissionWithDisclosure } from '../lib/contactConsent';
@@ -2701,19 +2702,61 @@ useEffect(() => {
     handlePressHeaderRef.current = handlePressHeader;
   }); // Update à chaque render pour avoir la dernière closure
 
+  // --- GESTION "GHOST INPUT" & REANIMATED (Solution Ultime) ---
+  
+  // 1. Récupérer la hauteur du clavier sur le thread UI
+  const keyboard = useAnimatedKeyboard();
+
+  // 2. Mémoriser le dernier ami actif pour garder le contenu rendu même quand c'est fermé
+  const lastActiveFriendRef = useRef<any>(null);
+  if (activeFriend) {
+    lastActiveFriendRef.current = activeFriend;
+  }
+  // L'ami à afficher : soit l'actuel, soit le dernier (pour le mode fantôme)
+  const displayFriend = activeFriend || lastActiveFriendRef.current;
+
+  // 3. Style Animé pour Android (Collage parfait sans re-render)
+  const animatedAndroidStyle = useAnimatedStyle(() => {
+    // Si on est sur iOS, on ne fait rien (KeyboardAvoidingView gère)
+    if (Platform.OS !== 'android') return {};
+
+    const isKeyboardOpen = keyboard.height.value > 0;
+    
+    return {
+      // Si clavier ouvert : on colle au clavier (height.value)
+      // Si clavier fermé : on garde le padding de 70px pour la TabBar
+      paddingBottom: isKeyboardOpen ? 0 : 70,
+      marginBottom: keyboard.height.value, 
+    };
+  });
+
   // Optimisation Samsung : mémoriser le contenu interne pour éviter de recréer le TextInput
   // quand le clavier s'ouvre (changement de keyboardVisible dans le parent).
   const stickyInnerContent = useMemo(() => {
-    if (!activeFriend) return null;
+    // Si aucun ami n'a jamais été sélectionné, on rend un input fantôme caché pour initialiser
+    if (!displayFriend) {
+       return (
+         <View style={{ opacity: 0, height: 0 }}>
+            <TextInput {...oldAndroidInputProps} />
+         </View>
+       );
+    }
 
-    // Calcul des messages
-    const activeUnreadMessages = pendingMessages.filter(m => m.from_user_id === activeFriend.id);
-    const cachedForFriend = unreadCache[activeFriend.id] || [];
+    // Calcul des messages pour l'ami affiché (peut être l'ami fermé)
+    const activeUnreadMessages = pendingMessages.filter(m => m.from_user_id === displayFriend.id);
+    const cachedForFriend = unreadCache[displayFriend.id] || [];
     const mergedMap = new Map<string, any>();
     cachedForFriend.forEach(m => mergedMap.set(m.id, m));
     activeUnreadMessages.forEach(m => mergedMap.set(m.id, m));
     const activeMessagesToShow = Array.from(mergedMap.values());
-    const myLastSent = lastSentMessages[activeFriend.id];
+    const myLastSent = lastSentMessages[displayFriend.id];
+
+    // Draft pour cet ami
+    const currentDraft = messageDrafts[displayFriend.id] || '';
+    
+    // Couleur pour cet ami
+    const friendIndex = appUsers.findIndex(u => u.id === displayFriend.id);
+    const friendBackgroundColor = friendIndex !== -1 ? '#8fb3a5' : '#d4a88a';
 
     // Fusion et tri
     const allMessages = [
@@ -2752,7 +2795,7 @@ useEffect(() => {
           activeOpacity={0.9}
         >
            <Text style={styles.stickyPseudo}>
-             {i18n.t('sticky_chat_with', { pseudo: activeFriend.pseudo })}
+             {i18n.t('sticky_chat_with', { pseudo: displayFriend.pseudo })}
            </Text>
            <TouchableOpacity onPress={() => handlePressHeaderRef.current()} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
              <Ionicons name="close-circle" size={24} color="#604a3e" />
@@ -2778,27 +2821,29 @@ useEffect(() => {
 
         <View style={[styles.messageInputRow, { alignItems: 'flex-end' }]}>
           <TextInput
-            ref={(ref) => { textInputRefs.current[activeFriend.id] = ref; }}
+            ref={(ref) => { textInputRefs.current[displayFriend.id] = ref; }}
             style={styles.messageInput}
             placeholder={i18n.t('add_message_placeholder')}
             placeholderTextColor="#777"
-            value={activeDraft}
-            onChangeText={(text) => setMessageDrafts(prev => ({ ...prev, [activeFriend.id]: text }))}
+            value={currentDraft}
+            onChangeText={(text) => setMessageDrafts(prev => ({ ...prev, [displayFriend.id]: text }))}
             maxLength={140}
             multiline
-            autoFocus
+            // On retire autoFocus ici car on gère le focus manuellement ou via le tap
+            // Mais pour le premier rendu, on peut le laisser si c'est l'ami actif
+            autoFocus={displayFriend.id === expandedFriendId} 
             {...oldAndroidInputProps}
           />
           <TouchableOpacity
-            onPress={() => activeDraft.trim() && handleSendProut(activeFriend)}
+            onPress={() => currentDraft.trim() && handleSendProut(displayFriend)}
             style={[
               styles.messageSendButton,
-              { backgroundColor: sendingFriendId === activeFriend.id ? '#a8d5ba' : activeBackgroundColor },
-              !activeDraft.trim() && styles.messageSendButtonDisabled,
+              { backgroundColor: sendingFriendId === displayFriend.id ? '#a8d5ba' : friendBackgroundColor },
+              !currentDraft.trim() && styles.messageSendButtonDisabled,
             ]}
             accessibilityLabel="Envoyer"
-            activeOpacity={activeDraft.trim() ? 0.8 : 1}
-            disabled={!activeDraft.trim()}
+            activeOpacity={currentDraft.trim() ? 0.8 : 1}
+            disabled={!currentDraft.trim()}
           >
             <Ionicons name="send" size={18} color="#604a3e" />
           </TouchableOpacity>
@@ -2806,15 +2851,14 @@ useEffect(() => {
       </>
     );
   }, [
-    activeFriend,
+    displayFriend, // On dépend de l'ami affiché (actuel ou fantôme)
     pendingMessages,
     unreadCache,
     lastSentMessages,
-    activeDraft,
+    messageDrafts, // On dépend de tous les drafts car on pioche dedans
     sendingFriendId,
-    activeBackgroundColor,
-    // PAS de keyboardVisible ici !
-    // PAS de handlePressHeader ici ! (on utilise la Ref)
+    appUsers, // Pour la couleur
+    expandedFriendId, // Pour l'autoFocus
   ]);
 
   const handleRefresh = async () => {
@@ -2931,14 +2975,32 @@ useEffect(() => {
         }
       />
 
-      {activeFriend && (
-        <View style={[
+      {/* 
+         ARCHI GHOST INPUT : 
+         On rend TOUJOURS le sticky, mais on le cache (opacity 0 + zIndex -1) quand inactif.
+         Sur Android, on utilise Animated.View pour coller au clavier sans re-render.
+      */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          opacity: activeFriend ? 1 : 0,
+          zIndex: activeFriend ? 100 : -1,
+          height: activeFriend ? 'auto' : 0, 
+        }}
+        pointerEvents={activeFriend ? 'auto' : 'none'}
+      >
+        <Animated.View style={[
           styles.stickyInputContainer,
-          Platform.OS === 'android' && !keyboardVisible && { paddingBottom: 70 } // Marge supplémentaire quand le clavier est fermé sur Android
+          Platform.OS === 'android' ? animatedAndroidStyle : { paddingBottom: 20 }
         ]}>
           {stickyInnerContent}
-        </View>
-      )}
+        </Animated.View>
+      </KeyboardAvoidingView>
 
       {toastMessage && (
         <RNAnimated.View style={[styles.toast, { opacity: toastOpacity }]}>
