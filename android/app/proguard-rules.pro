@@ -15,15 +15,3 @@
 
 # Keep custom FCM service
 -keep class com.fuzztrack.proutapp.ProutMessagingService { *; }
-
-# Keep SoundSettingsModule (pour ouvrir les paramètres son)
--keep class com.fuzztrack.proutapp.SoundSettingsModule { *; }
--keep class com.fuzztrack.proutapp.SoundSettingsPackage { *; }
--keepclassmembers class com.fuzztrack.proutapp.SoundSettingsModule {
-    public *;
-}
-# Préserver les annotations React Native
--keep @com.facebook.react.bridge.ReactMethod class * { *; }
--keepclassmembers class * {
-    @com.facebook.react.bridge.ReactMethod *;
-}

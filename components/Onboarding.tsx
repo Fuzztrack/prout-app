@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
   },
   skipButton: {
     position: 'absolute',
-    top: 20,
+    top: 80,
     right: 20,
     zIndex: 2,
     padding: 10,
@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   footer: {
-    paddingBottom: 24,
+    paddingBottom: 94,
     alignItems: 'center',
   },
   dots: {

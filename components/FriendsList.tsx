@@ -585,6 +585,7 @@ export function FriendsList({
   const refocusSearchOnBlurAttemptedRef = useRef(false);
   const isClosingModalRef = useRef(false);
   const closingCooldownUntilRef = useRef<number | null>(null);
+  const openedFromSearchRef = useRef(false); // Track si le chat a été ouvert depuis la recherche
   const [expandedUnreadId, setExpandedUnreadId] = useState<string | null>(null);
   const [unreadCache, setUnreadCache] = useState<Record<string, { id: string; message_content: string; created_at?: string }[]>>({});
   const [messageDrafts, setMessageDrafts] = useState<Record<string, string>>({});
@@ -2379,6 +2380,8 @@ useEffect(() => {
           unreadMessages.forEach(msg => markMessageAsRead(msg.id));
         }, 1000);
         pendingCenterScrollFriendIdRef.current = friend.id;
+        // Marquer si on vient de la recherche (pour ajuster le padding sur Google Pixel)
+        openedFromSearchRef.current = !!searchQuery.trim();
         setExpandedFriendId(friend.id); // Ouvrir le champ de saisie automatiquement
         // Fermer la recherche si active
         if (searchQuery.trim()) {
@@ -2391,6 +2394,8 @@ useEffect(() => {
       if (!isInputOpen) {
         // Si l'input n'est pas ouvert, ouvrir l'input en gardant les messages visibles
         pendingCenterScrollFriendIdRef.current = friend.id;
+        // Marquer si on vient de la recherche (pour ajuster le padding sur Google Pixel)
+        openedFromSearchRef.current = !!searchQuery.trim();
         setExpandedFriendId(friend.id);
         // Fermer la recherche si active
         if (searchQuery.trim()) {
@@ -2424,6 +2429,8 @@ useEffect(() => {
       }
     } else {
       pendingCenterScrollFriendIdRef.current = friend.id;
+      // Marquer si on vient de la recherche (pour ajuster le padding sur Google Pixel)
+      openedFromSearchRef.current = !!searchQuery.trim();
       // Si on ouvre un sticky et qu'on était en recherche, on ferme la barre de recherche proprement
       if (searchQuery.trim()) {
         onSearchChange?.(false);
@@ -3183,6 +3190,7 @@ useEffect(() => {
           setIsModalContentVisible(false);
           isClosingModalRef.current = false;
           closingCooldownUntilRef.current = null;
+          openedFromSearchRef.current = false; // Reset le flag
           // Fermer aussi la recherche si elle est active (au cas où elle n'a pas été fermée avant)
           if (isSearchVisible) {
             onSearchChange?.(false);
@@ -3211,7 +3219,9 @@ useEffect(() => {
               borderTopLeftRadius: 15,
               borderTopRightRadius: 15,
               padding: 10,
-              paddingBottom: Platform.OS === 'ios' ? 30 : 10,
+              paddingBottom: Platform.OS === 'ios' 
+                ? 30 
+                : (isPixelDevice && openedFromSearchRef.current ? -20 : 10), // -20 sur Google Pixel si ouvert depuis recherche
               opacity: isModalContentVisible ? 1 : 0, // Cache visuel instantané
             }}
           >
