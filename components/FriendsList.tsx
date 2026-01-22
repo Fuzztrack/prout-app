@@ -5,8 +5,9 @@ import { Audio } from 'expo-av';
 import * as Contacts from 'expo-contacts';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { Alert, AppState, DeviceEventEmitter, Dimensions, FlatList, Keyboard, Linking, NativeModules, Platform, Animated as RNAnimated, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { Alert, AppState, DeviceEventEmitter, Dimensions, FlatList, InteractionManager, Keyboard, KeyboardAvoidingView, Linking, NativeModules, Platform, Animated as RNAnimated, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { Gesture, GestureDetector, TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
+import Modal from 'react-native-modal';
 import Animated, {
   cancelAnimation,
   Extrapolation,
@@ -570,6 +571,20 @@ export function FriendsList({
   const [dismissedSilentWarning, setDismissedSilentWarning] = useState(dismissedSilentWarningSession); // reste à true pour toute la session après clic OK
   const [expandedFriendId, setExpandedFriendId] = useState<string | null>(null);
   const [keyboardVisible, setKeyboardVisible] = useState(false); // État local pour le clavier
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [isModalContentVisible, setIsModalContentVisible] = useState(false);
+  const [modalContentHeight, setModalContentHeight] = useState(0);
+  const [inputLayout, setInputLayout] = useState<{ y: number; height: number } | null>(null);
+  const [headerHeight, setHeaderHeight] = useState(0); // Hauteur du header pour ajuster la liste
+  const keyboardVisibleRef = useRef(false);
+  const lastFocusAttemptRef = useRef<{ friendId: string | null; at: number }>({ friendId: null, at: 0 });
+  const lastStickyOpenAtRef = useRef<number | null>(null);
+  const refocusOnHideAttemptedRef = useRef(false);
+  const refocusOnBlurAttemptedRef = useRef(false);
+  const lastSearchOpenAtRef = useRef<number | null>(null);
+  const refocusSearchOnBlurAttemptedRef = useRef(false);
+  const isClosingModalRef = useRef(false);
+  const closingCooldownUntilRef = useRef<number | null>(null);
   const [expandedUnreadId, setExpandedUnreadId] = useState<string | null>(null);
   const [unreadCache, setUnreadCache] = useState<Record<string, { id: string; message_content: string; created_at?: string }[]>>({});
   const [messageDrafts, setMessageDrafts] = useState<Record<string, string>>({});
@@ -669,6 +684,7 @@ export function FriendsList({
   const flatListRef = useRef<FlatList>(null);
   const rowRefs = useRef<Record<string, SwipeableFriendRowHandle | null>>({});
   const textInputRefs = useRef<Record<string, TextInput | null>>({});
+  const searchInputRef = useRef<TextInput | null>(null);
 
   const isHuaweiDevice =
     Platform.OS === 'android' &&
@@ -677,15 +693,32 @@ export function FriendsList({
         ((Platform as any).constants?.Manufacturer as string) ||
         ''
     );
+  const isSamsungDevice =
+    Platform.OS === 'android' &&
+    /samsung/i.test(
+      ((Platform as any).constants?.Brand as string) ||
+        ((Platform as any).constants?.Manufacturer as string) ||
+        ''
+    );
+  const isPixelDevice =
+    Platform.OS === 'android' &&
+    /google|pixel/i.test(
+      ((Platform as any).constants?.Brand as string) ||
+        ((Platform as any).constants?.Manufacturer as string) ||
+        ((Platform as any).constants?.Model as string) ||
+        ''
+    );
   const huaweiModel =
     ((Platform as any).constants?.Model as string) ||
     ((Platform as any).constants?.model as string) ||
     '';
   // Détection des vieux Android (Huawei P9, Android 8 et moins)
 const isOldAndroid = Platform.OS === 'android' && Platform.Version < 29;
+const isProblemAndroidDevice =
+  Platform.OS === 'android' && (isSamsungDevice || isHuaweiDevice || isOldAndroid);
 
-// Props de sécurité pour stabiliser le clavier sur les vieux appareils
-const oldAndroidInputProps = isOldAndroid ? {
+// Props de sécurité pour stabiliser le clavier sur les appareils problématiques
+const oldAndroidInputProps = (isOldAndroid || isSamsungDevice || isHuaweiDevice) ? {
   autoCorrect: false,           // Désactive la correction (cause majeure de sauts)
   autoComplete: 'off',          // Désactive les suggestions système
   importantForAutofill: 'no',   // Empêche Android de scanner le champ
@@ -699,17 +732,17 @@ const oldAndroidInputProps = isOldAndroid ? {
     appUsersRef.current = appUsers;
   }, [appUsers]);
 
-  // Focus automatique du TextInput quand le champ de message s'ouvre
+  // Focus automatique du TextInput quand le champ de message s'ouvre (iOS uniquement)
   useEffect(() => {
+    if (Platform.OS !== 'ios') return;
     if (expandedFriendId && textInputRefs.current[expandedFriendId]) {
       // Petit délai pour laisser le layout se stabiliser avant de focus
-      const focusDelay = isOldAndroid ? 500 : 100;
       const timer = setTimeout(() => {
         textInputRefs.current[expandedFriendId]?.focus();
-      }, focusDelay);
+      }, 100);
       return () => clearTimeout(timer);
     }
-  }, [expandedFriendId, isOldAndroid]);
+  }, [expandedFriendId]);
 
   // Marquer comme lu automatiquement les nouveaux messages si le sticky est déjà ouvert (mode chat en direct)
   useEffect(() => {
@@ -2179,6 +2212,8 @@ useEffect(() => {
   };
 
   const scrollToActiveFriend = (friendId: string, delay = 0) => {
+    // Samsung : éviter le scroll programmatique qui casse le focus clavier
+    if (isSamsungDevice) return;
     const visibleUsers = getVisibleUsers();
     const index = visibleUsers.findIndex(u => u.id === friendId);
     if (index < 0) return;
@@ -2227,8 +2262,15 @@ useEffect(() => {
   }, [expandedFriendId, keyboardVisible, appUsers, searchQuery]);
 
   useEffect(() => {
-    const onShow = () => {
+    const onShow = (event?: { endCoordinates?: { height?: number } }) => {
       setKeyboardVisible(true);
+      keyboardVisibleRef.current = true;
+      if (event?.endCoordinates?.height != null) {
+        setKeyboardHeight(event.endCoordinates.height);
+      }
+      if (Platform.OS === 'android') {
+        setIsModalContentVisible(true);
+      }
       // Si on vient juste d'ouvrir un contact, on centre après apparition clavier (viewport stabilisé)
       if (
         expandedFriendId &&
@@ -2241,6 +2283,9 @@ useEffect(() => {
 
     const onHide = () => {
       setKeyboardVisible(false);
+      keyboardVisibleRef.current = false;
+      setKeyboardHeight(0);
+      // Ne pas cacher la modale ici : Samsung peut fermer le clavier brièvement
     };
 
     // Sur iOS keyboardWillShow est plus fluide, sur Android keyboardDidShow est plus sûr pour le layout
@@ -2255,6 +2300,55 @@ useEffect(() => {
       subHide.remove();
     };
   }, [expandedFriendId, appUsers]);
+
+  useEffect(() => {
+    if (expandedFriendId) {
+      lastStickyOpenAtRef.current = Date.now();
+      refocusOnHideAttemptedRef.current = false;
+      refocusOnBlurAttemptedRef.current = false;
+    } else {
+      lastStickyOpenAtRef.current = null;
+    }
+  }, [expandedFriendId]);
+
+  useEffect(() => {
+    if (isSearchVisible) {
+      lastSearchOpenAtRef.current = Date.now();
+      refocusSearchOnBlurAttemptedRef.current = false;
+    } else {
+      lastSearchOpenAtRef.current = null;
+    }
+  }, [isSearchVisible]);
+
+  // Focus manuel différé pour la recherche (Samsung/Huawei)
+  useEffect(() => {
+    if (!isSearchVisible) return;
+    if (closingCooldownUntilRef.current && Date.now() < closingCooldownUntilRef.current) return;
+    const input = searchInputRef.current;
+    if (!input) return;
+
+    // Délai ULTRA-LONG pour Samsung : on attend que TOUT soit stabilisé
+    // Samsung OneUI est très lent à finir ses calculs de layout
+    const delay = Platform.OS === 'android' && isProblemAndroidDevice ? 800 : Platform.OS === 'android' ? 400 : 50;
+    
+    const timer = setTimeout(() => {
+      if (!isClosingModalRef.current) {
+        // Double vérification : on s'assure que l'input existe toujours
+        if (searchInputRef.current) {
+          searchInputRef.current.focus();
+        }
+      }
+    }, delay);
+
+    return () => clearTimeout(timer);
+  }, [isSearchVisible, isProblemAndroidDevice]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    if (!isSearchVisible && !expandedFriendId) {
+      Keyboard.dismiss();
+    }
+  }, [isSearchVisible, expandedFriendId]);
 
   const handlePressFriend = (friend: any) => {
     // Debounce pour éviter les doubles clics (fermeture puis réouverture immédiate)
@@ -2591,18 +2685,19 @@ useEffect(() => {
   };
 
   const renderSearchBar = () => {
-    if (!isSearchVisible) return null;
-    
+    // La barre de recherche REMPLACE le header, donc on la rend toujours (pas de condition)
+    // Elle sera affichée à la place du headerComponent quand isSearchVisible est true
+    // collapsable={false} empêche React Native d'optimiser le layout = stabilité maximale
     return (
-      <View style={styles.searchContainer}>
+      <View style={styles.searchContainer} collapsable={false}>
         <Ionicons name="search" size={20} color="#604a3e" style={styles.searchIcon} />
         <TextInput
+          ref={searchInputRef}
           style={styles.searchInput}
           placeholder={i18n.t('search_contact_placeholder')}
           placeholderTextColor="#999"
           value={searchQuery}
           onChangeText={onSearchQueryChange}
-          autoFocus
           returnKeyType="search"
           {...oldAndroidInputProps}
         />
@@ -2612,6 +2707,7 @@ useEffect(() => {
               onSearchQueryChange?.('');
             } else {
               onSearchChange?.(false);
+              Keyboard.dismiss();
             }
           }}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -2696,7 +2792,30 @@ useEffect(() => {
     ? '#8fb3a5' 
     : '#d4a88a';
 
-  const activeDraft = activeFriend ? (messageDrafts[activeFriend.id] || '') : '';
+  useEffect(() => {
+    if (!expandedFriendId) {
+      setIsModalContentVisible(false);
+      return;
+    }
+    if (Platform.OS === 'ios') {
+      setIsModalContentVisible(true);
+    } else {
+      setIsModalContentVisible(false);
+    }
+  }, [expandedFriendId]);
+
+  // Ghost input : conserver le dernier ami pour garder l'input monté
+  const lastActiveFriendRef = useRef<any>(null);
+  if (activeFriend) {
+    lastActiveFriendRef.current = activeFriend;
+  }
+  const displayFriend = activeFriend || lastActiveFriendRef.current;
+  const displayFriendId = displayFriend?.id ?? null;
+  const displayFriendIndex = displayFriend ? appUsers.findIndex(u => u.id === displayFriend.id) : -1;
+  const displayBackgroundColor = displayFriendIndex !== -1 
+    ? '#8fb3a5' 
+    : '#d4a88a';
+  const displayDraft = displayFriend ? (messageDrafts[displayFriend.id] || '') : '';
 
   const handlePressHeader = () => {
     Keyboard.dismiss();
@@ -2722,28 +2841,31 @@ useEffect(() => {
   const androidAnimatedStyle = useAnimatedStyle(() => {
     if (Platform.OS !== 'android' || !androidKeyboard) return {};
     
-    const isKeyboardOpen = androidKeyboard.height.value > 0;
+    // SUR ANDROID : 
+    // On arrête d'utiliser androidKeyboard.height.value
+    // On laisse le "softwareKeyboardLayoutMode": "resize" du app.json faire le travail.
+    // On garde juste un padding fixe pour la TabBar quand le clavier est fermé.
+    
     return {
-      // Padding en bas : 40px quand clavier ouvert (clarté/lisibilité), 70px quand fermé (TabBar)
-      paddingBottom: isKeyboardOpen ? 40 : 70,
-      // Coller le sticky au-dessus du clavier sans pousser la liste
-      transform: [{ translateY: isKeyboardOpen ? -androidKeyboard.height.value : 0 }],
+      // 0 quand ouvert (pour coller au clavier), 70 (hauteur TabBar) quand fermé
+      paddingBottom: 70, 
+      transform: [{ translateY: 0 }], // ⛔️ INTERDICTION de bouger Y sur Android
     };
   });
 
   // Optimisation Samsung : mémoriser le contenu interne pour éviter de recréer le TextInput
   // quand le clavier s'ouvre (changement de keyboardVisible dans le parent).
   const stickyInnerContent = useMemo(() => {
-    if (!activeFriend) return null;
+    if (!displayFriend) return null;
 
     // Calcul des messages
-    const activeUnreadMessages = pendingMessages.filter(m => m.from_user_id === activeFriend.id);
-    const cachedForFriend = unreadCache[activeFriend.id] || [];
+    const activeUnreadMessages = pendingMessages.filter(m => m.from_user_id === displayFriend.id);
+    const cachedForFriend = unreadCache[displayFriend.id] || [];
     const mergedMap = new Map<string, any>();
     cachedForFriend.forEach(m => mergedMap.set(m.id, m));
     activeUnreadMessages.forEach(m => mergedMap.set(m.id, m));
     const activeMessagesToShow = Array.from(mergedMap.values());
-    const myLastSent = lastSentMessages[activeFriend.id];
+    const myLastSent = lastSentMessages[displayFriend.id];
 
     // Fusion et tri
     const allMessages = [
@@ -2782,7 +2904,7 @@ useEffect(() => {
           activeOpacity={0.9}
         >
            <Text style={styles.stickyPseudo}>
-             {i18n.t('sticky_chat_with', { pseudo: activeFriend.pseudo })}
+             {i18n.t('sticky_chat_with', { pseudo: displayFriend.pseudo })}
            </Text>
            <TouchableOpacity onPress={() => handlePressHeaderRef.current()} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
              <Ionicons name="close-circle" size={24} color="#604a3e" />
@@ -2806,29 +2928,46 @@ useEffect(() => {
           ))}
         </ScrollView>
 
-        <View style={[styles.messageInputRow, { alignItems: 'flex-end' }]}>
+        <View style={[styles.messageInputRow, { alignItems: 'flex-end', marginBottom: 25 }]}>
           <TextInput
-            ref={(ref) => { textInputRefs.current[activeFriend.id] = ref; }}
+            ref={(ref) => { textInputRefs.current[displayFriend.id] = ref; }}
             style={styles.messageInput}
             placeholder={i18n.t('add_message_placeholder')}
             placeholderTextColor="#777"
-            value={activeDraft}
-            onChangeText={(text) => setMessageDrafts(prev => ({ ...prev, [activeFriend.id]: text }))}
+            value={displayDraft}
+            onChangeText={(text) => setMessageDrafts(prev => ({ ...prev, [displayFriend.id]: text }))}
             maxLength={140}
             multiline
-            autoFocus
+            
+            // --- CORRECTION CRITIQUE HUAWEI / SAMSUNG ---
+            keyboardType="default"
+            {...((isSamsungDevice || isHuaweiDevice || isOldAndroid) ? {
+               autoCorrect: false,
+               autoComplete: 'off',
+               importantForAutofill: 'no', 
+               spellCheck: false,
+               textContentType: 'none',
+            } : {})}
+            
+            onFocus={() => {
+              if (Platform.OS === 'android') {
+                refocusOnBlurAttemptedRef.current = false;
+              }
+            }}
+            // Plus de onBlur agressif qui ferme le clavier sur Samsung
+            onLayout={() => {}}
             {...oldAndroidInputProps}
           />
           <TouchableOpacity
-            onPress={() => activeDraft.trim() && handleSendProut(activeFriend)}
+            onPress={() => displayDraft.trim() && handleSendProut(displayFriend)}
             style={[
               styles.messageSendButton,
-              { backgroundColor: sendingFriendId === activeFriend.id ? '#a8d5ba' : activeBackgroundColor },
-              !activeDraft.trim() && styles.messageSendButtonDisabled,
+              { backgroundColor: sendingFriendId === displayFriend.id ? '#a8d5ba' : displayBackgroundColor },
+              !displayDraft.trim() && styles.messageSendButtonDisabled,
             ]}
             accessibilityLabel="Envoyer"
-            activeOpacity={activeDraft.trim() ? 0.8 : 1}
-            disabled={!activeDraft.trim()}
+            activeOpacity={displayDraft.trim() ? 0.8 : 1}
+            disabled={!displayDraft.trim()}
           >
             <Ionicons name="send" size={18} color="#604a3e" />
           </TouchableOpacity>
@@ -2836,13 +2975,13 @@ useEffect(() => {
       </>
     );
   }, [
-    activeFriend,
+    displayFriendId,
     pendingMessages,
     unreadCache,
     lastSentMessages,
-    activeDraft,
+    displayDraft,
     sendingFriendId,
-    activeBackgroundColor,
+    displayBackgroundColor,
     // PAS de keyboardVisible ici !
     // PAS de handlePressHeader ici ! (on utilise la Ref)
   ]);
@@ -2861,14 +3000,59 @@ useEffect(() => {
   // if (loading && appUsers.length === 0 && pendingRequests.length === 0) return <ActivityIndicator color="#007AFF" style={{margin: 20}} />;
 
   // Rendu différencié pour le conteneur principal pour éviter les bugs Android/iOS
-  // Note: Le KeyboardAvoidingView est déjà géré au niveau parent (index.tsx)
-  const Container = View;
-  const containerProps = { 
-    style: styles.container 
-  };
+  // On utilise KeyboardAvoidingView avec behavior="height" pour gérer manuellement (sans resize natif)
+  const Container = Platform.OS === 'android' ? KeyboardAvoidingView : View;
+  const containerProps = Platform.OS === 'android' 
+    ? { 
+        style: styles.container,
+        behavior: 'height' as const, // Gère manuellement sans resize natif
+        keyboardVerticalOffset: 0,
+      }
+    : { 
+        style: styles.container 
+      };
 
   const content = (
     <Container {...containerProps}>
+      {/* 
+        FIX SAMSUNG : Les deux sont TOUJOURS montés avec collapsable={false}.
+        On utilise KeyboardAvoidingView avec behavior="height" pour éviter le resize natif.
+      */}
+      <TouchableWithoutFeedback onPress={handlePressHeader} disabled={isSearchVisible}>
+        <View 
+          style={{ position: 'relative' }} 
+          collapsable={false} 
+          removeClippedSubviews={false}
+        >
+          {/* Header normal - toujours monté, mais height: 0 quand recherche active pour ne pas prendre d'espace */}
+          <View 
+            style={{ 
+              opacity: isSearchVisible ? 0 : 1, 
+              pointerEvents: isSearchVisible ? 'none' : 'auto', 
+              position: 'relative',
+              height: isSearchVisible ? 0 : undefined, // Ne prend pas d'espace quand caché
+              overflow: 'hidden', // Cache le contenu qui dépasse
+            }}
+            collapsable={false}
+          >
+            {headerComponent}
+          </View>
+          {/* Barre de recherche - toujours montée, en position relative pour prendre l'espace du header */}
+          <View 
+            style={{ 
+              opacity: isSearchVisible ? 1 : 0, 
+              pointerEvents: isSearchVisible ? 'auto' : 'none', 
+              position: 'relative', // Position relative pour prendre l'espace normalement
+              height: isSearchVisible ? undefined : 0, // Ne prend pas d'espace quand cachée
+              overflow: 'hidden',
+            }}
+            collapsable={false}
+          >
+            {renderSearchBar()}
+          </View>
+        </View>
+      </TouchableWithoutFeedback>
+
       <FlatList
         ref={flatListRef}
         data={getVisibleUsers()}
@@ -2876,11 +3060,21 @@ useEffect(() => {
         style={styles.list}
         // Android a besoin de 'always' pour bien gérer les clics quand le clavier est là
         keyboardShouldPersistTaps={Platform.OS === 'android' ? "always" : "handled"}
-        keyboardDismissMode={Platform.OS === 'ios' ? "interactive" : "on-drag"}
+        keyboardDismissMode={
+          Platform.OS === 'ios'
+            ? "interactive"
+            : isSamsungDevice
+              ? "none"
+              : "on-drag"
+        }
+        // Samsung/Huawei: éviter tout scroll de la liste qui vole le focus
+        scrollEnabled={
+          !(isSamsungDevice && activeFriend) &&
+          !(isProblemAndroidDevice && isSearchVisible)
+        }
         contentContainerStyle={[
           styles.listContent,
-          // Padding pour scroller au-dessus du sticky quand il est ouvert
-          activeFriend ? { paddingBottom: 300 } : null,
+          { paddingBottom: 300 },
         ]}
         onScrollToIndexFailed={(info) => {
           // Fallback : si l'index n'est pas mesurable immédiatement (virtualisation)
@@ -2897,10 +3091,9 @@ useEffect(() => {
           }, 80);
         }}
         ListHeaderComponent={
+          // Le Header et la Search sont sortis, il ne reste que les requêtes dans la liste
           <TouchableWithoutFeedback onPress={handlePressHeader}>
             <View>
-              {headerComponent}
-              {renderSearchBar()}
               {renderRequestsHeader()}
             </View>
           </TouchableWithoutFeedback>
@@ -2967,31 +3160,98 @@ useEffect(() => {
         }
       />
 
-      {/* 
-        STICKY CHAT - Séparation iOS/Android
-        - iOS : View classique avec padding conditionnel (logique d'origine qui fonctionne)
-        - Android : Animated.View avec Reanimated (Thread UI, pas de re-render)
-      */}
-      {activeFriend && (
-        Platform.OS === 'ios' ? (
-          // IOS : Logique originale avec padding ajusté
-          <View style={[
-            styles.stickyInputContainer,
-            { paddingBottom: keyboardVisible ? 40 : 70 }
-          ]}>
-            {stickyInnerContent}
+      <Modal
+        isVisible={!!expandedFriendId}
+        onBackdropPress={() => {
+          // 1. Cacher visuellement tout de suite
+          setIsModalContentVisible(false);
+          // 2. Fermer le clavier
+          Keyboard.dismiss();
+          // 3. Fermer aussi la recherche si elle est active
+          if (isSearchVisible) {
+            onSearchChange?.(false);
+            onSearchQueryChange?.('');
+          }
+          // 4. Attendre que le clavier soit parti avant de démonter la modale (Anti-Flash)
+          if (isPixelDevice) {
+            setTimeout(() => {
+              setExpandedFriendId(null);
+            }, 500);
+          } else {
+            setTimeout(() => {
+              setExpandedFriendId(null);
+            }, Platform.OS === 'android' ? 300 : 50);
+          }
+        }}
+        onBackButtonPress={() => {
+          setIsModalContentVisible(false);
+          Keyboard.dismiss();
+          // Fermer aussi la recherche si elle est active
+          if (isSearchVisible) {
+            onSearchChange?.(false);
+            onSearchQueryChange?.('');
+          }
+          if (isPixelDevice) {
+            setTimeout(() => {
+              setExpandedFriendId(null);
+            }, 500);
+          } else {
+            setTimeout(() => {
+              setExpandedFriendId(null);
+            }, Platform.OS === 'android' ? 300 : 50);
+          }
+        }}
+        onModalShow={() => {
+          setIsModalContentVisible(true);
+          const input = displayFriendId ? textInputRefs.current[displayFriendId] : null;
+          if (input) {
+            setTimeout(() => {
+              input.focus();
+            }, Platform.OS === 'android' ? 100 : 0);
+          }
+        }}
+        onModalHide={() => {
+          setKeyboardHeight(0);
+          setIsModalContentVisible(false);
+          isClosingModalRef.current = false;
+          closingCooldownUntilRef.current = null;
+          // Fermer aussi la recherche si elle est active (au cas où elle n'a pas été fermée avant)
+          if (isSearchVisible) {
+            onSearchChange?.(false);
+            onSearchQueryChange?.('');
+          }
+        }}
+        style={{ margin: 0, justifyContent: 'flex-end' }}
+        backdropOpacity={0.3}
+        useNativeDriver
+        useNativeDriverForBackdrop
+        hideModalContentWhileAnimating
+        animationIn="fadeIn"
+        animationOut="fadeOut"
+        animationInTiming={150}
+        animationOutTiming={1} // Instantané à la fermeture
+        backdropTransitionOutTiming={0}
+        avoidKeyboard={Platform.OS === 'ios'} // iOS gère nativement, Android via resize
+      >
+        <KeyboardAvoidingView
+          behavior="padding"
+          style={{ width: '100%' }}
+        >
+          <View
+            style={{
+              backgroundColor: '#ebb89b',
+              borderTopLeftRadius: 15,
+              borderTopRightRadius: 15,
+              padding: 10,
+              paddingBottom: Platform.OS === 'ios' ? 30 : 10,
+              opacity: isModalContentVisible ? 1 : 0, // Cache visuel instantané
+            }}
+          >
+            {/* Rendre le contenu uniquement si la modale est "ouverte" logiquement pour éviter flash */}
+            {expandedFriendId && !isClosingModalRef.current && stickyInnerContent}
           </View>
-        ) : (
-          // ANDROID : Reanimated pour Samsung/Xiaomi (Thread UI)
-          <Animated.View style={[
-            styles.stickyInputContainer,
-            androidAnimatedStyle,
-            { position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 100 }
-          ]}>
-            {stickyInnerContent}
-          </Animated.View>
-        )
-      )}
+        </KeyboardAvoidingView>
+      </Modal>
 
       {toastMessage && (
         <RNAnimated.View style={[styles.toast, { opacity: toastOpacity }]}>
@@ -3159,6 +3419,28 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     borderWidth: 1,
     borderColor: 'rgba(96, 74, 62, 0.2)',
+  },
+  // Version ABSOLUE : Complètement isolée du flux, ne bouge JAMAIS
+  searchContainerAbsolute: {
+    position: 'absolute',
+    top: 100, // Ajuste selon la hauteur réelle de ton header (logo + padding)
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    marginHorizontal: 15,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(96, 74, 62, 0.2)',
+    elevation: 10, // Android shadow
+    shadowColor: '#000', // iOS shadow
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
   },
   searchIcon: {
     marginRight: 8,

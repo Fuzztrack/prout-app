@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { Animated, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Image, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import i18n from '../lib/i18n';
 
 interface AppHeaderProps {
@@ -33,6 +33,9 @@ export function AppHeader({
   shakeY,
 }: AppHeaderProps) {
   const AnimatedContainer = shakeX && shakeY ? Animated.View : View;
+  const { height: screenHeight } = useWindowDimensions();
+  const logoHeight = Math.min(200, Math.max(80, Math.round(screenHeight * 0.17)));
+  const logoWidth = Math.round(logoHeight * (200 / 140));
   const animatedStyle = shakeX && shakeY ? {
     transform: [
       { translateX: shakeX },
@@ -51,7 +54,7 @@ export function AppHeader({
       >
         <Image 
           source={require('../assets/images/prout-meme.png')} 
-          style={styles.logo} 
+          style={[styles.logo, { height: logoHeight, width: logoWidth }]} 
           resizeMode="contain" 
         />
       </AnimatedContainer>
