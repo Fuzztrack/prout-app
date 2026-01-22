@@ -5,7 +5,7 @@ import { Audio } from 'expo-av';
 import * as Contacts from 'expo-contacts';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { Alert, AppState, DeviceEventEmitter, Dimensions, FlatList, InteractionManager, Keyboard, KeyboardAvoidingView, Linking, NativeModules, Platform, Animated as RNAnimated, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { Alert, AppState, DeviceEventEmitter, Dimensions, FlatList, Keyboard, KeyboardAvoidingView, Linking, NativeModules, Platform, Animated as RNAnimated, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View, useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector, TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
 import Modal from 'react-native-modal';
 import Animated, {
@@ -2685,11 +2685,8 @@ useEffect(() => {
   };
 
   const renderSearchBar = () => {
-    // La barre de recherche REMPLACE le header, donc on la rend toujours (pas de condition)
-    // Elle sera affichée à la place du headerComponent quand isSearchVisible est true
-    // collapsable={false} empêche React Native d'optimiser le layout = stabilité maximale
     return (
-      <View style={styles.searchContainer} collapsable={false}>
+      <View style={styles.searchContainer}>
         <Ionicons name="search" size={20} color="#604a3e" style={styles.searchIcon} />
         <TextInput
           ref={searchInputRef}
@@ -3015,41 +3012,13 @@ useEffect(() => {
   const content = (
     <Container {...containerProps}>
       {/* 
-        FIX SAMSUNG : Les deux sont TOUJOURS montés avec collapsable={false}.
-        On utilise KeyboardAvoidingView avec behavior="height" pour éviter le resize natif.
+        HEADER FIXE (Hors liste)
+        Il alterne entre le Header normal et la Barre de Recherche.
+        C'est stable visuellement et ne scrolle pas avec la liste.
       */}
       <TouchableWithoutFeedback onPress={handlePressHeader} disabled={isSearchVisible}>
-        <View 
-          style={{ position: 'relative' }} 
-          collapsable={false} 
-          removeClippedSubviews={false}
-        >
-          {/* Header normal - toujours monté, mais height: 0 quand recherche active pour ne pas prendre d'espace */}
-          <View 
-            style={{ 
-              opacity: isSearchVisible ? 0 : 1, 
-              pointerEvents: isSearchVisible ? 'none' : 'auto', 
-              position: 'relative',
-              height: isSearchVisible ? 0 : undefined, // Ne prend pas d'espace quand caché
-              overflow: 'hidden', // Cache le contenu qui dépasse
-            }}
-            collapsable={false}
-          >
-            {headerComponent}
-          </View>
-          {/* Barre de recherche - toujours montée, en position relative pour prendre l'espace du header */}
-          <View 
-            style={{ 
-              opacity: isSearchVisible ? 1 : 0, 
-              pointerEvents: isSearchVisible ? 'auto' : 'none', 
-              position: 'relative', // Position relative pour prendre l'espace normalement
-              height: isSearchVisible ? undefined : 0, // Ne prend pas d'espace quand cachée
-              overflow: 'hidden',
-            }}
-            collapsable={false}
-          >
-            {renderSearchBar()}
-          </View>
+        <View style={{ zIndex: 10 }}>
+          {isSearchVisible ? renderSearchBar() : headerComponent}
         </View>
       </TouchableWithoutFeedback>
 
@@ -3091,7 +3060,6 @@ useEffect(() => {
           }, 80);
         }}
         ListHeaderComponent={
-          // Le Header et la Search sont sortis, il ne reste que les requêtes dans la liste
           <TouchableWithoutFeedback onPress={handlePressHeader}>
             <View>
               {renderRequestsHeader()}
@@ -3407,6 +3375,19 @@ const styles = StyleSheet.create({
   },
   
   // Styles pour la recherche
+  searchContainerModal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    marginHorizontal: 15,
+    marginTop: 5,
+    marginBottom: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(96, 74, 62, 0.2)',
+  },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
