@@ -5,7 +5,7 @@ import { Audio } from 'expo-av';
 import * as Contacts from 'expo-contacts';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { Alert, AppState, DeviceEventEmitter, Dimensions, FlatList, Keyboard, KeyboardAvoidingView, Linking, NativeModules, Platform, Animated as RNAnimated, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View, useWindowDimensions } from 'react-native';
+import { Alert, AppState, DeviceEventEmitter, Dimensions, FlatList, Keyboard, KeyboardAvoidingView, Linking, NativeModules, Platform, Animated as RNAnimated, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { Gesture, GestureDetector, TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
 import Modal from 'react-native-modal';
 import Animated, {
@@ -26,10 +26,9 @@ import { ensureContactPermissionWithDisclosure } from '../lib/contactConsent';
 import { normalizePhone } from '../lib/normalizePhone';
 import { markMessageReadViaBackend, sendProutViaBackend } from '../lib/sendProutBackend';
 // Import supprimé : on utilise maintenant sync_contacts (fonction SQL Supabase)
-import { SearchBar } from './SearchBar';
-import { SearchEvents } from '../utils/searchEvent';
 import i18n from '../lib/i18n';
 import { supabase } from '../lib/supabase';
+import { SearchBar } from './SearchBar';
 const ANIM_IMAGES = [
   require('../assets/images/animprout1.png'),
   require('../assets/images/animprout2.png'),
