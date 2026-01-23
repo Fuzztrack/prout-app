@@ -19,7 +19,7 @@ class ProutMessagingService : FirebaseMessagingService() {
     companion object {
         private const val TAG = "ProutMessagingService"
         private const val CHANNEL_PREFIX = "prout-"
-        private const val CHANNEL_VERSION = "v3"
+        private const val CHANNEL_VERSION = "v5"
         private const val DEFAULT_CHANNEL_ID = "prout-default"
     }
 
@@ -71,9 +71,18 @@ class ProutMessagingService : FirebaseMessagingService() {
         val proutName = data["proutName"] ?: "Un prout surprise"
         val sender = data["sender"] ?: "Un ami"
         
+        // 🔍 DIAGNOSTIC EAS : Logs détaillés pour comprendre pourquoi message est vide
+        Log.d(TAG, "📋 [DIAGNOSTIC] Tous les champs data reçus:")
+        data.forEach { (key, value) ->
+            Log.d(TAG, "   - $key = $value")
+        }
+        Log.d(TAG, "📋 [DIAGNOSTIC] data[\"message\"] = ${data["message"]}")
+        Log.d(TAG, "📋 [DIAGNOSTIC] data[\"customMessage\"] = ${data["customMessage"]}")
+        
         // Utiliser le message complet envoyé par le backend s'il existe
         // Sinon, construire le message par défaut
         val body = data["message"] ?: (sender + " t'a envoyé : " + proutName)
+        Log.d(TAG, "📋 [DIAGNOSTIC] Body final utilisé: $body")
 
         val soundUri = resolveSoundUri(proutKey)
         val channelId = ensureChannel(proutKey, soundUri)
