@@ -137,24 +137,10 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
     loadData();
   }, []);
 
-  // Écouter les événements du clavier pour corriger le problème de marge sur Android
+  // Écouter les événements du clavier uniquement pour iOS si besoin, ou supprimer si inutile
+  // Sur Android, on évite absolument de provoquer des re-renders globaux quand le clavier bouge
   useEffect(() => {
-    if (Platform.OS === 'android') {
-      const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
-        setKeyboardVisible(true);
-      });
-      const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
-        // Forcer une mise à jour du layout après la fermeture du clavier
-        setTimeout(() => {
-          setKeyboardVisible(false);
-        }, 100);
-      });
-
-      return () => {
-        keyboardDidShowListener.remove();
-        keyboardDidHideListener.remove();
-      };
-    }
+    // Nettoyage de l'ancien listener Android qui causait des re-renders fatals pour le focus
   }, []);
 
   // Fonction pour vibrer le header quand un prout est envoyé - mouvement subtil (haut-bas, gauche-droite)
@@ -233,6 +219,16 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
       return next;
     });
   }, [triggerListIntro]);
+
+  const toggleSearchVisibility = useCallback(() => {
+    if (isSearchVisible) {
+      setIsSearchVisible(false);
+      setSearchQuery('');
+      Keyboard.dismiss();
+    } else {
+      setIsSearchVisible(true);
+    }
+  }, [isSearchVisible]);
 
   // --- MODE ZEN ---
   const clearZenAutoOff = useCallback(async () => {
@@ -555,107 +551,200 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
       )}
 
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.keyboardAvoid}
-          keyboardVerticalOffset={0}
-          enabled={(Platform.OS === 'android' ? keyboardVisible : true) && !isSearchVisible}
-        >
-          {/* CONTENU PRINCIPAL */}
-        <View style={[styles.listSection, Platform.OS === 'android' && !keyboardVisible && { paddingBottom: 0, marginBottom: 0 }]}>
-        {activeView === 'tutorial' ? (
-          <TutorialSwiper onClose={() => setActiveView('list')} />
-        ) : activeView === 'profile' ? (
-          <EditProfil onClose={() => setActiveView('list')} />
+        {Platform.OS === 'ios' ? (
+          <KeyboardAvoidingView 
+            behavior="padding"
+            style={styles.keyboardAvoid}
+            keyboardVerticalOffset={0}
+            enabled={!isSearchVisible}
+          >
+             <View style={styles.listSection}>
+               {/* Contenu iOS */}
+               {activeView === 'tutorial' ? (
+                 <TutorialSwiper onClose={() => setActiveView('list')} />
+               ) : activeView === 'profile' ? (
+                 <EditProfil 
+                   onClose={() => setActiveView('list')} 
+                   onProfileUpdated={(newPseudo) => {
+                     setCurrentPseudo(newPseudo);
+                     AsyncStorage.setItem(CACHE_PSEUDO_KEY, newPseudo).catch(() => {});
+                   }}
+                 />
+               ) : (
+                 <>
+                   <FriendsList 
+                     onProutSent={shakeHeader} 
+                     isZenMode={isZenMode}
+                     isSilentMode={isSilentMode}
+                     isSearchVisible={isSearchVisible}
+                     onSearchChange={setIsSearchVisible}
+                     searchQuery={searchQuery}
+                     onSearchQueryChange={setSearchQuery}
+                     listIntroTrigger={listIntroTrigger}
+                     headerComponent={
+                       <AppHeader
+                         currentPseudo={currentPseudo}
+                         isZenMode={isZenMode}
+                         isSilentMode={isSilentMode}
+                         isProfileMenuOpen={activeView === 'profileMenu'}
+                         isProfileOpen={activeView === 'profile'}
+                         isSearchVisible={isSearchVisible}
+                  onSearchToggle={toggleSearchVisibility}
+                         onProfileMenuPress={toggleProfileMenu}
+                         onZenModeToggle={disableZenMode}
+                         onSilentModeToggle={toggleSilentMode}
+                         shakeX={shakeX}
+                         shakeY={shakeY}
+                       />
+                     }
+                   />
+       
+                   {activeView === 'profileMenu' && (
+                     <View style={styles.menuOverlay}>
+                       <ScrollView 
+                         style={{ flex: 1 }} 
+                         contentContainerStyle={{ paddingBottom: 20 }}
+                         showsVerticalScrollIndicator={false}
+                       >
+                         <AppHeader
+                           currentPseudo={currentPseudo}
+                           isZenMode={isZenMode}
+                           isSilentMode={isSilentMode}
+                           isProfileMenuOpen={activeView === 'profileMenu'}
+                           isProfileOpen={activeView === 'profile'}
+                           onProfileMenuPress={toggleProfileMenu}
+                           onZenModeToggle={disableZenMode}
+                           onSilentModeToggle={toggleSilentMode}
+                           shakeX={shakeX}
+                           shakeY={shakeY}
+                         />
+                         
+                         <View style={styles.menuCard}>
+                           {[
+                             { label: i18n.t('search_friend'), icon: 'person-add-outline', onPress: () => { setShowSearch(true); setActiveView('list'); }, iconColor: '#604a3e' },
+                             { label: i18n.t('zen_mode'), icon: isZenMode ? 'moon' : 'moon-outline', onPress: toggleZenMode, iconColor: isZenMode ? '#ebb89b' : '#604a3e' },
+                             { label: i18n.t('silent_mode'), icon: isSilentMode ? 'volume-mute' : 'volume-mute-outline', onPress: toggleSilentMode, iconColor: isSilentMode ? '#ebb89b' : '#604a3e' },
+                             { label: i18n.t('manage_profile'), icon: 'person-circle-outline', onPress: () => setActiveView('profile'), iconColor: '#604a3e' },
+                             { label: i18n.t('invite_friend'), icon: 'share-social-outline', onPress: handleShare, iconColor: '#604a3e' },
+                             { label: i18n.t('review_app_functions'), icon: 'help-circle-outline', onPress: () => setActiveView('tutorial'), iconColor: '#604a3e' },
+                             { label: i18n.t('who_is_who'), icon: 'eye-outline', onPress: () => { setShowIdentity(true); setActiveView('list'); }, iconColor: '#604a3e' },
+                             { label: i18n.t('privacy_policy_menu'), icon: 'document-text-outline', onPress: () => { setShowPrivacy(true); setActiveView('list'); }, iconColor: '#604a3e' },
+                           ].map((item, index) => (
+                             <TouchableOpacity 
+                               key={index}
+                               style={[styles.menuItem, { backgroundColor: index % 2 === 0 ? '#d2f1ef' : '#baded7' }]} 
+                               onPress={item.onPress}
+                             >
+                               <Text style={styles.menuText}>{item.label}</Text>
+                               <Ionicons
+                                 name={item.icon as any}
+                                 size={item.label === i18n.t('silent_mode') ? 26 : 22}
+                                 color={item.iconColor}
+                               />
+                             </TouchableOpacity>
+                           ))}
+                         </View>
+                       </ScrollView>
+                     </View>
+                   )}
+                 </>
+               )}
+             </View>
+          </KeyboardAvoidingView>
         ) : (
-          <>
-            <FriendsList 
-              onProutSent={shakeHeader} 
-              isZenMode={isZenMode}
-              isSilentMode={isSilentMode}
-              isSearchVisible={isSearchVisible}
-              onSearchChange={setIsSearchVisible}
-              searchQuery={searchQuery}
-              onSearchQueryChange={setSearchQuery}
-              listIntroTrigger={listIntroTrigger}
-              headerComponent={
-                <AppHeader
-                  currentPseudo={currentPseudo}
+          <View style={styles.listSection}>
+            {/* Contenu Android - Pas de KeyboardAvoidingView global, pas de re-render sur clavier */}
+            {activeView === 'tutorial' ? (
+              <TutorialSwiper onClose={() => setActiveView('list')} />
+            ) : activeView === 'profile' ? (
+              <EditProfil 
+                onClose={() => setActiveView('list')} 
+                onProfileUpdated={(newPseudo) => {
+                  setCurrentPseudo(newPseudo);
+                  AsyncStorage.setItem(CACHE_PSEUDO_KEY, newPseudo).catch(() => {});
+                }}
+              />
+            ) : (
+              <>
+                <FriendsList 
+                  onProutSent={shakeHeader} 
                   isZenMode={isZenMode}
                   isSilentMode={isSilentMode}
-                  isProfileMenuOpen={activeView === 'profileMenu'}
-                  isProfileOpen={activeView === 'profile'}
                   isSearchVisible={isSearchVisible}
-                  onSearchToggle={() => {
-                    if (isSearchVisible) {
-                      setIsSearchVisible(false);
-                      setSearchQuery('');
-                    } else {
-                      setIsSearchVisible(true);
-                    }
-                  }}
-                  onProfileMenuPress={toggleProfileMenu}
-                  onZenModeToggle={disableZenMode}
-                  onSilentModeToggle={toggleSilentMode}
-                  shakeX={shakeX}
-                  shakeY={shakeY}
+                  onSearchChange={setIsSearchVisible}
+                  searchQuery={searchQuery}
+                  onSearchQueryChange={setSearchQuery}
+                  listIntroTrigger={listIntroTrigger}
+                  headerComponent={
+                    <AppHeader
+                      currentPseudo={currentPseudo}
+                      isZenMode={isZenMode}
+                      isSilentMode={isSilentMode}
+                      isProfileMenuOpen={activeView === 'profileMenu'}
+                      isProfileOpen={activeView === 'profile'}
+                      isSearchVisible={isSearchVisible}
+                      onSearchToggle={toggleSearchVisibility}
+                      onProfileMenuPress={toggleProfileMenu}
+                      onZenModeToggle={disableZenMode}
+                      onSilentModeToggle={toggleSilentMode}
+                      shakeX={shakeX}
+                      shakeY={shakeY}
+                    />
+                  }
                 />
-              }
-            />
-
-            {activeView === 'profileMenu' && (
-              <View style={styles.menuOverlay}>
-                <ScrollView 
-                  style={{ flex: 1 }} 
-                  contentContainerStyle={{ paddingBottom: 20 }}
-                  showsVerticalScrollIndicator={false}
-                >
-                  {/* Header synchronisé avec la liste */}
-                  <AppHeader
-                    currentPseudo={currentPseudo}
-                    isZenMode={isZenMode}
-                    isSilentMode={isSilentMode}
-                    isProfileMenuOpen={activeView === 'profileMenu'}
-                    isProfileOpen={activeView === 'profile'}
-                    onProfileMenuPress={toggleProfileMenu}
-                    onZenModeToggle={disableZenMode}
-                    onSilentModeToggle={toggleSilentMode}
-                    shakeX={shakeX}
-                    shakeY={shakeY}
-                  />
-                  
-                  <View style={styles.menuCard}>
-                    {[
-                      { label: i18n.t('search_friend'), icon: 'person-add-outline', onPress: () => { setShowSearch(true); setActiveView('list'); }, iconColor: '#604a3e' },
-                      { label: i18n.t('zen_mode'), icon: isZenMode ? 'moon' : 'moon-outline', onPress: toggleZenMode, iconColor: isZenMode ? '#ebb89b' : '#604a3e' },
-                      { label: i18n.t('silent_mode'), icon: isSilentMode ? 'volume-mute' : 'volume-mute-outline', onPress: toggleSilentMode, iconColor: isSilentMode ? '#ebb89b' : '#604a3e' },
-                      { label: i18n.t('manage_profile'), icon: 'person-circle-outline', onPress: () => setActiveView('profile'), iconColor: '#604a3e' },
-                      { label: i18n.t('invite_friend'), icon: 'share-social-outline', onPress: handleShare, iconColor: '#604a3e' },
-                      { label: i18n.t('review_app_functions'), icon: 'help-circle-outline', onPress: () => setActiveView('tutorial'), iconColor: '#604a3e' },
-                      { label: i18n.t('who_is_who'), icon: 'eye-outline', onPress: () => { setShowIdentity(true); setActiveView('list'); }, iconColor: '#604a3e' },
-                      { label: i18n.t('privacy_policy_menu'), icon: 'document-text-outline', onPress: () => { setShowPrivacy(true); setActiveView('list'); }, iconColor: '#604a3e' },
-                    ].map((item, index) => (
-                      <TouchableOpacity 
-                        key={index}
-                        style={[styles.menuItem, { backgroundColor: index % 2 === 0 ? '#d2f1ef' : '#baded7' }]} 
-                        onPress={item.onPress}
-                      >
-                        <Text style={styles.menuText}>{item.label}</Text>
-                        <Ionicons
-                          name={item.icon as any}
-                          size={item.label === i18n.t('silent_mode') ? 26 : 22}
-                          color={item.iconColor}
-                        />
-                      </TouchableOpacity>
-                    ))}
+    
+                {activeView === 'profileMenu' && (
+                  <View style={styles.menuOverlay}>
+                    <ScrollView 
+                      style={{ flex: 1 }} 
+                      contentContainerStyle={{ paddingBottom: 20 }}
+                      showsVerticalScrollIndicator={false}
+                    >
+                      <AppHeader
+                        currentPseudo={currentPseudo}
+                        isZenMode={isZenMode}
+                        isSilentMode={isSilentMode}
+                        isProfileMenuOpen={activeView === 'profileMenu'}
+                        isProfileOpen={activeView === 'profile'}
+                        onProfileMenuPress={toggleProfileMenu}
+                        onZenModeToggle={disableZenMode}
+                        onSilentModeToggle={toggleSilentMode}
+                        shakeX={shakeX}
+                        shakeY={shakeY}
+                      />
+                      
+                      <View style={styles.menuCard}>
+                        {[
+                          { label: i18n.t('search_friend'), icon: 'person-add-outline', onPress: () => { setShowSearch(true); setActiveView('list'); }, iconColor: '#604a3e' },
+                          { label: i18n.t('zen_mode'), icon: isZenMode ? 'moon' : 'moon-outline', onPress: toggleZenMode, iconColor: isZenMode ? '#ebb89b' : '#604a3e' },
+                          { label: i18n.t('silent_mode'), icon: isSilentMode ? 'volume-mute' : 'volume-mute-outline', onPress: toggleSilentMode, iconColor: isSilentMode ? '#ebb89b' : '#604a3e' },
+                          { label: i18n.t('manage_profile'), icon: 'person-circle-outline', onPress: () => setActiveView('profile'), iconColor: '#604a3e' },
+                          { label: i18n.t('invite_friend'), icon: 'share-social-outline', onPress: handleShare, iconColor: '#604a3e' },
+                          { label: i18n.t('review_app_functions'), icon: 'help-circle-outline', onPress: () => setActiveView('tutorial'), iconColor: '#604a3e' },
+                          { label: i18n.t('who_is_who'), icon: 'eye-outline', onPress: () => { setShowIdentity(true); setActiveView('list'); }, iconColor: '#604a3e' },
+                          { label: i18n.t('privacy_policy_menu'), icon: 'document-text-outline', onPress: () => { setShowPrivacy(true); setActiveView('list'); }, iconColor: '#604a3e' },
+                        ].map((item, index) => (
+                          <TouchableOpacity 
+                            key={index}
+                            style={[styles.menuItem, { backgroundColor: index % 2 === 0 ? '#d2f1ef' : '#baded7' }]} 
+                            onPress={item.onPress}
+                          >
+                            <Text style={styles.menuText}>{item.label}</Text>
+                            <Ionicons
+                              name={item.icon as any}
+                              size={item.label === i18n.t('silent_mode') ? 26 : 22}
+                              color={item.iconColor}
+                            />
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </ScrollView>
                   </View>
-                </ScrollView>
-              </View>
+                )}
+              </>
             )}
-          </>
+          </View>
         )}
-        </View>
-      </KeyboardAvoidingView>
       <PrivacyPolicyModal visible={showPrivacy} onClose={() => setShowPrivacy(false)} />
       <SearchUser visible={showSearch} onClose={() => setShowSearch(false)} />
       <IdentityList visible={showIdentity} onClose={() => setShowIdentity(false)} />

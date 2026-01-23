@@ -153,7 +153,7 @@ export default function ProfileScreen() {
       <TouchableOpacity onPress={handleContactSupport} style={styles.supportLink}>
         <Text style={styles.supportLinkText}>{i18n.t('contact_support')}</Text>
       </TouchableOpacity>
-      <Text style={styles.versionText}>Prout version 1.0.1</Text>
+      <Text style={styles.versionText}>Prout ! version 1.0.0</Text>
       </ScrollView>
     </View>
   );

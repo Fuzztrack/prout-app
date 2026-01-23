@@ -23,12 +23,11 @@
         "UIBackgroundModes": [
           "remote-notification"
         ],
-        "NSUserTrackingUsageDescription": "Used for notifications",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
-      "softwareKeyboardLayoutMode": "resize",
+      "softwareKeyboardLayoutMode": "pan",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive_icon.png",
         "backgroundColor": "#ebb89b"

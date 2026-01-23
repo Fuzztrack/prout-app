@@ -71,7 +71,7 @@ class ProutMessagingService : FirebaseMessagingService() {
         val proutName = data["proutName"] ?: "Un prout surprise"
         val sender = data["sender"] ?: "Un ami"
         
-        // CORRECTION : Utiliser le message complet envoyé par le backend s'il existe
+        // Utiliser le message complet envoyé par le backend s'il existe
         // Sinon, construire le message par défaut
         val body = data["message"] ?: (sender + " t'a envoyé : " + proutName)
 

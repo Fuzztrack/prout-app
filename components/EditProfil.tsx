@@ -7,7 +7,7 @@ import { useRouter } from 'expo-router';
 import { safeReplace } from '../lib/navigation';
 import i18n from '../lib/i18n';
 
-export function EditProfil({ onClose }: { onClose: () => void }) {
+export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void; onProfileUpdated?: (newPseudo: string) => void }) {
   const router = useRouter(); // Toujours nécessaire pour la déconnexion
   const [pseudo, setPseudo] = useState('');
   const [email, setEmail] = useState('');
@@ -189,6 +189,8 @@ export function EditProfil({ onClose }: { onClose: () => void }) {
         if (pseudoChanged) {
           setCurrentPseudo(trimmedPseudo);
           setPseudo(trimmedPseudo);
+          // Notifier le parent pour mettre à jour le greeting immédiatement
+          onProfileUpdated?.(trimmedPseudo);
         }
         if (phoneChanged) {
           setCurrentPhone(normalizedPhone || '');
@@ -437,7 +439,7 @@ export function EditProfil({ onClose }: { onClose: () => void }) {
                 <Ionicons name="mail-outline" size={20} color="#604a3e" />
                 <Text style={styles.supportText}>{i18n.t('contact_support')}</Text>
               </TouchableOpacity>
-              <Text style={styles.versionText}>Prout version 1.0.1</Text>
+              <Text style={styles.versionText}>Prout ! version 1.0.0</Text>
 
               <View style={styles.deleteButtonContainer}>
                 <TouchableOpacity 

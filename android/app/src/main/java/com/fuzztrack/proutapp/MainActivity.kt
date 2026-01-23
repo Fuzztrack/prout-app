@@ -3,6 +3,7 @@ import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
@@ -22,6 +23,9 @@ class MainActivity : ReactActivity() {
     // @generated end expo-splashscreen
     super.onCreate(null)
   }
+
+  // onResume supprimé pour laisser le système gérer le SoftInputMode
+
 
   /**
    * Returns the name of the main component registered from JavaScript. This is used to schedule

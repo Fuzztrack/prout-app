@@ -1,32 +1,20 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { Animated, Image, Platform, NativeModules, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Animated, Image, Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import i18n from '../lib/i18n';
 
-// Détection des appareils compatibles (iOS et Google Pixel uniquement)
-const getDeviceBrand = () => {
-  if (Platform.OS !== 'android') return null;
-  try {
-    return NativeModules.I18nManager?.localeIdentifier || '';
-  } catch {
-    return '';
-  }
-};
+// Détection Google Pixel
+const isPixelDevice =
+  Platform.OS === 'android' &&
+  /google|pixel/i.test(
+    ((Platform as any).constants?.Brand as string) ||
+      ((Platform as any).constants?.Manufacturer as string) ||
+      ((Platform as any).constants?.Model as string) ||
+      ''
+  );
 
-const isGooglePixelDevice = () => {
-  if (Platform.OS !== 'android') return false;
-  const brand = getDeviceBrand();
-  const platformBrand = NativeModules.PlatformConstants?.Brand?.toLowerCase() || '';
-  return brand.toLowerCase().includes('google') || 
-         brand.toLowerCase().includes('pixel') ||
-         platformBrand === 'google' ||
-         platformBrand === 'pixel';
-};
-
-const isSearchSupported = () => {
-  // Recherche supportée uniquement sur iOS et Google Pixel
-  return Platform.OS === 'ios' || isGooglePixelDevice();
-};
+// Afficher la recherche uniquement sur iOS et Google Pixel
+const isSearchSupported = Platform.OS === 'ios' || isPixelDevice;
 
 interface AppHeaderProps {
   currentPseudo?: string;
@@ -117,8 +105,8 @@ export function AppHeader({
           
           {/* Icônes à droite : Recherche + Profil */}
           <View style={styles.rightIconsContainer}>
-            {/* Recherche (visible seulement sur iOS et Google Pixel) */}
-            {onSearchToggle && isSearchSupported() && (
+            {/* Recherche - Uniquement sur iOS et Google Pixel */}
+            {isSearchSupported && onSearchToggle && (
               <TouchableOpacity 
                 onPress={onSearchToggle} 
                 style={[styles.iconButton, { justifyContent: 'center', alignItems: 'center', minHeight: 28, marginTop: 2 }]}

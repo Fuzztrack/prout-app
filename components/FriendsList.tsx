@@ -26,6 +26,8 @@ import { ensureContactPermissionWithDisclosure } from '../lib/contactConsent';
 import { normalizePhone } from '../lib/normalizePhone';
 import { markMessageReadViaBackend, sendProutViaBackend } from '../lib/sendProutBackend';
 // Import supprimé : on utilise maintenant sync_contacts (fonction SQL Supabase)
+import { SearchBar } from './SearchBar';
+import { SearchEvents } from '../utils/searchEvent';
 import i18n from '../lib/i18n';
 import { supabase } from '../lib/supabase';
 const ANIM_IMAGES = [
@@ -535,6 +537,47 @@ const SentMessageStatus = ({ message }: { message: { text: string; status?: 'rea
   );
 };
  
+const isHuaweiDevice =
+  Platform.OS === 'android' &&
+  /huawei/i.test(
+    ((Platform as any).constants?.Brand as string) ||
+      ((Platform as any).constants?.Manufacturer as string) ||
+      ''
+  );
+const isSamsungDevice =
+  Platform.OS === 'android' &&
+  /samsung/i.test(
+    ((Platform as any).constants?.Brand as string) ||
+      ((Platform as any).constants?.Manufacturer as string) ||
+      ''
+  );
+const isPixelDevice =
+  Platform.OS === 'android' &&
+  /google|pixel/i.test(
+    ((Platform as any).constants?.Brand as string) ||
+      ((Platform as any).constants?.Manufacturer as string) ||
+      ((Platform as any).constants?.Model as string) ||
+      ''
+  );
+const huaweiModel =
+  ((Platform as any).constants?.Model as string) ||
+  ((Platform as any).constants?.model as string) ||
+  '';
+// Détection des vieux Android (Huawei P9, Android 8 et moins)
+const isOldAndroid = Platform.OS === 'android' && Platform.Version < 29;
+const isProblemAndroidDevice =
+Platform.OS === 'android' && (isSamsungDevice || isHuaweiDevice || isOldAndroid);
+
+// Props de sécurité standard pour la recherche
+const oldAndroidInputProps = {
+  autoCorrect: false,
+  autoCapitalize: 'none' as const,
+  autoComplete: 'off' as const,
+  keyboardType: 'default' as const,
+  textContentType: 'none' as const,
+  importantForAutofill: 'no' as const,
+};
+
 export function FriendsList({ 
   onProutSent, 
   isZenMode, 
@@ -686,48 +729,6 @@ export function FriendsList({
   const rowRefs = useRef<Record<string, SwipeableFriendRowHandle | null>>({});
   const textInputRefs = useRef<Record<string, TextInput | null>>({});
   const searchInputRef = useRef<TextInput | null>(null);
-
-  const isHuaweiDevice =
-    Platform.OS === 'android' &&
-    /huawei/i.test(
-      ((Platform as any).constants?.Brand as string) ||
-        ((Platform as any).constants?.Manufacturer as string) ||
-        ''
-    );
-  const isSamsungDevice =
-    Platform.OS === 'android' &&
-    /samsung/i.test(
-      ((Platform as any).constants?.Brand as string) ||
-        ((Platform as any).constants?.Manufacturer as string) ||
-        ''
-    );
-  const isPixelDevice =
-    Platform.OS === 'android' &&
-    /google|pixel/i.test(
-      ((Platform as any).constants?.Brand as string) ||
-        ((Platform as any).constants?.Manufacturer as string) ||
-        ((Platform as any).constants?.Model as string) ||
-        ''
-    );
-  const huaweiModel =
-    ((Platform as any).constants?.Model as string) ||
-    ((Platform as any).constants?.model as string) ||
-    '';
-  // Détection des vieux Android (Huawei P9, Android 8 et moins)
-const isOldAndroid = Platform.OS === 'android' && Platform.Version < 29;
-const isProblemAndroidDevice =
-  Platform.OS === 'android' && (isSamsungDevice || isHuaweiDevice || isOldAndroid);
-
-// Props de sécurité pour stabiliser le clavier sur les appareils problématiques
-const oldAndroidInputProps = (isOldAndroid || isSamsungDevice || isHuaweiDevice) ? {
-  autoCorrect: false,           // Désactive la correction (cause majeure de sauts)
-  autoComplete: 'off',          // Désactive les suggestions système
-  importantForAutofill: 'no',   // Empêche Android de scanner le champ
-  spellCheck: false,            // Désactive le soulignement rouge
-  contextMenuHidden: true,      // Empêche le menu copier/coller qui vole le focus
-  textContentType: 'none',      // Désactive l'analyse de contenu
-  keyboardType: 'visible-password' // ⚠️ ASTUCE ULTIME : Force un clavier texte basique sans prédiction agressive, tout en acceptant les caractères
-} : {};
 
   useEffect(() => {
     appUsersRef.current = appUsers;
@@ -2321,35 +2322,39 @@ useEffect(() => {
     }
   }, [isSearchVisible]);
 
-  // Focus manuel différé pour la recherche (Samsung/Huawei)
+  // Focus automatique pour la recherche (simple, sans délai complexe)
+  // Sur Android, on désactive l'auto-focus pour éviter le cycle blur/hide
   useEffect(() => {
-    if (!isSearchVisible) return;
-    if (closingCooldownUntilRef.current && Date.now() < closingCooldownUntilRef.current) return;
-    const input = searchInputRef.current;
-    if (!input) return;
-
-    // Délai ULTRA-LONG pour Samsung : on attend que TOUT soit stabilisé
-    // Samsung OneUI est très lent à finir ses calculs de layout
-    const delay = Platform.OS === 'android' && isProblemAndroidDevice ? 800 : Platform.OS === 'android' ? 400 : 50;
-    
-    const timer = setTimeout(() => {
-      if (!isClosingModalRef.current) {
-        // Double vérification : on s'assure que l'input existe toujours
-        if (searchInputRef.current) {
-          searchInputRef.current.focus();
-        }
-      }
-    }, delay);
-
-    return () => clearTimeout(timer);
-  }, [isSearchVisible, isProblemAndroidDevice]);
-
-  useEffect(() => {
-    if (Platform.OS !== 'android') return;
-    if (!isSearchVisible && !expandedFriendId) {
-      Keyboard.dismiss();
+    if (!isSearchVisible) {
+      console.log('🔍 [SEARCH] isSearchVisible changed to false');
+      return;
     }
-  }, [isSearchVisible, expandedFriendId]);
+    console.log('🔍 [SEARCH] isSearchVisible changed to true - scheduling focus');
+
+    // Focus automatique sur Android et iOS
+    const timer = setTimeout(() => {
+      if (searchInputRef.current) {
+        console.log('🔍 [SEARCH] Attempting focus() after delay');
+        searchInputRef.current.focus();
+      } else {
+        console.log('🔍 [SEARCH] Input ref became null during delay');
+      }
+    }, 100);
+
+    return () => {
+      console.log('🔍 [SEARCH] Focus timer cleared');
+      clearTimeout(timer);
+    };
+  }, [isSearchVisible]);
+
+  // ❌ SUPPRIMÉ : L'auto-dismiss causait la fermeture du clavier sur la page dédiée /search
+  // useEffect(() => {
+  //   if (Platform.OS !== 'android') return;
+  //   if (!isSearchVisible && !expandedFriendId) {
+  //     console.log('🔴 [KEYBOARD] dismiss() - Auto-dismiss: search closed and no expanded friend');
+  //     Keyboard.dismiss();
+  //   }
+  // }, [isSearchVisible, expandedFriendId]);
 
   const handlePressFriend = (friend: any) => {
     // Debounce pour éviter les doubles clics (fermeture puis réouverture immédiate)
@@ -2691,36 +2696,6 @@ useEffect(() => {
     }
   };
 
-  const renderSearchBar = () => {
-    return (
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color="#604a3e" style={styles.searchIcon} />
-        <TextInput
-          ref={searchInputRef}
-          style={styles.searchInput}
-          placeholder={i18n.t('search_contact_placeholder')}
-          placeholderTextColor="#999"
-          value={searchQuery}
-          onChangeText={onSearchQueryChange}
-          returnKeyType="search"
-          {...oldAndroidInputProps}
-        />
-        <TouchableOpacity
-          onPress={() => {
-            if (searchQuery.trim()) {
-              onSearchQueryChange?.('');
-            } else {
-              onSearchChange?.(false);
-              Keyboard.dismiss();
-            }
-          }}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons name="close-circle" size={22} color="#604a3e" />
-        </TouchableOpacity>
-      </View>
-    );
-  };
 
   const renderRequestsHeader = () => {
     const hasRequests = pendingRequests.length > 0 || identityRequests.length > 0;
@@ -2822,9 +2797,9 @@ useEffect(() => {
   const displayDraft = displayFriend ? (messageDrafts[displayFriend.id] || '') : '';
 
   const handlePressHeader = () => {
+    console.log('🔴 [KEYBOARD] dismiss() - handlePressHeader');
     Keyboard.dismiss();
     setExpandedFriendId(null);
-    // Si on ferme le sticky par le header et qu'on était en recherche, on vide tout
     if (searchQuery.trim()) {
       onSearchQueryChange?.('');
       onSearchChange?.(false);
@@ -3003,31 +2978,51 @@ useEffect(() => {
   // On affiche toujours le contenu, même en chargement
   // if (loading && appUsers.length === 0 && pendingRequests.length === 0) return <ActivityIndicator color="#007AFF" style={{margin: 20}} />;
 
-  // Rendu différencié pour le conteneur principal pour éviter les bugs Android/iOS
-  // On utilise KeyboardAvoidingView avec behavior="height" pour gérer manuellement (sans resize natif)
-  const Container = Platform.OS === 'android' ? KeyboardAvoidingView : View;
-  const containerProps = Platform.OS === 'android' 
-    ? { 
+  // Rendu différencié pour le conteneur principal
+  // iOS garde KeyboardAvoidingView, Android reste en View pour éviter les blur forcés
+  // (on est en mode "pan", donc pas de resize natif, mais KAV Android peut déclencher un blur)
+  const Container = Platform.OS === 'ios' ? KeyboardAvoidingView : View;
+  const containerProps = Platform.OS === 'ios'
+    ? {
         style: styles.container,
-        behavior: 'height' as const, // Gère manuellement sans resize natif
+        behavior: 'padding' as const,
         keyboardVerticalOffset: 0,
       }
-    : { 
-        style: styles.container 
+    : {
+        style: styles.container,
       };
 
   const content = (
     <Container {...containerProps}>
       {/* 
-        HEADER FIXE (Hors liste)
-        Il alterne entre le Header normal et la Barre de Recherche.
-        C'est stable visuellement et ne scrolle pas avec la liste.
+        HEADER FIXE / SEARCHBAR FIXE
+        Pour stabiliser le clavier sur Android, on sort la SearchBar de la FlatList.
+        Elle devient un élément fixe au-dessus de la liste.
       */}
-      <TouchableWithoutFeedback onPress={handlePressHeader} disabled={isSearchVisible}>
-        <View style={{ zIndex: 10 }}>
-          {isSearchVisible ? renderSearchBar() : headerComponent}
+      <View style={styles.headerOverlayContainer}>
+        {/* 
+          STABILITÉ MAXIMALE : On garde les deux composants montés.
+          On joue sur display: 'none' pour basculer.
+          Cela évite le démontage/remontage de l'input qui tue le focus.
+        */}
+        <View style={{ display: isSearchVisible ? 'flex' : 'none', marginBottom: 10, paddingHorizontal: 0 }}>
+          <SearchBar
+            ref={searchInputRef}
+            searchQuery={searchQuery}
+            onSearchQueryChange={onSearchQueryChange}
+            onSearchChange={onSearchChange}
+            oldAndroidInputProps={oldAndroidInputProps}
+          />
         </View>
-      </TouchableWithoutFeedback>
+
+        <View style={{ display: !isSearchVisible ? 'flex' : 'none' }}>
+          <TouchableWithoutFeedback onPress={handlePressHeader}>
+            <View style={styles.headerOverlayContent}>
+              {headerComponent}
+            </View>
+          </TouchableWithoutFeedback>
+        </View>
+      </View>
 
       <FlatList
         ref={flatListRef}
@@ -3067,11 +3062,14 @@ useEffect(() => {
           }, 80);
         }}
         ListHeaderComponent={
-          <TouchableWithoutFeedback onPress={handlePressHeader}>
-            <View>
-              {renderRequestsHeader()}
-            </View>
-          </TouchableWithoutFeedback>
+          <View>
+            {/* SearchBar retirée d'ici pour être stable en haut */}
+            <TouchableWithoutFeedback onPress={handlePressHeader} disabled={isSearchVisible}>
+              <View>
+                {renderRequestsHeader()}
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
         }
         ListEmptyComponent={
           loading ? null : (
@@ -3247,6 +3245,27 @@ const styles = StyleSheet.create({
   keyboardAvoidingView: { flex: 1 },
   list: { flex: 1 },
   listContent: { paddingBottom: 20 },
+  headerOverlayContainer: {
+    position: 'relative',
+    zIndex: 10,
+  },
+  headerOverlayContent: {
+    zIndex: 10,
+  },
+  headerHidden: {
+    opacity: 0,
+  },
+  searchOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 20,
+  },
+  searchOverlayHidden: {
+    opacity: 0,
+    pointerEvents: 'none',
+  },
   // emptyContentPadding supprimé : évite de repousser le header vers le bas
   sectionTitle: { fontWeight: 'bold', color: '#604a3e', marginBottom: 10, fontSize: 16, marginLeft: 5 },
   requestsContainer: { marginBottom: 20 },
