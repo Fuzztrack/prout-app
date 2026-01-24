@@ -31,7 +31,7 @@ class ProutMessagingService : FirebaseMessagingService() {
     companion object {
         private const val TAG = "ProutMessagingService"
         private const val CHANNEL_PREFIX = "prout-"
-        private const val CHANNEL_VERSION = "v3"
+        private const val CHANNEL_VERSION = "v5"
         private const val DEFAULT_CHANNEL_ID = "prout-default"
     }
 
@@ -80,9 +80,12 @@ class ProutMessagingService : FirebaseMessagingService() {
 
         val proutKey = data["proutKey"]?.lowercase() ?: "prout1"
         val title = data["title"] ?: "PROUT ! 💨"
-        val proutName = data["proutName"] ?: data["message"] ?: "Un prout surprise"
+        val proutName = data["proutName"] ?: "Un prout surprise"
         val sender = data["sender"] ?: "Un ami"
-        val body = sender + " t'a envoyé : " + proutName
+        
+        // Utiliser le message complet envoyé par le backend s'il existe
+        // Sinon, construire le message par défaut
+        val body = data["message"] ?: (sender + " t'a envoyé : " + proutName)
 
         val soundUri = resolveSoundUri(proutKey)
         val channelId = ensureChannel(proutKey, soundUri)
@@ -293,7 +296,7 @@ const withAndroidProutMessaging = (config) => {
       }],
     });
 
-    // Définir le canal par défaut FCM sur le v3
+    // Définir le canal par défaut FCM sur le v5
     if (!mainApplication['meta-data']) {
       mainApplication['meta-data'] = [];
     }
@@ -303,7 +306,7 @@ const withAndroidProutMessaging = (config) => {
     mainApplication['meta-data'].push({
       $: {
         'android:name': 'com.google.firebase.messaging.default_notification_channel_id',
-        'android:value': 'prout-prout1-v3',
+        'android:value': 'prout-prout1-v5',
         'tools:replace': 'android:value',
       },
     });
