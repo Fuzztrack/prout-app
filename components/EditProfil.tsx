@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActionSheetIOS, ActivityIndicator, Alert, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../lib/supabase';
+import * as ImagePicker from 'expo-image-picker';
+import { supabase, supabaseAnonKey, supabaseUrl } from '../lib/supabase';
 import { normalizePhone } from '../lib/normalizePhone';
 import { useRouter } from 'expo-router';
 import { safeReplace } from '../lib/navigation';
@@ -12,6 +13,8 @@ export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void;
   const [pseudo, setPseudo] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [loading, setLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [currentPseudo, setCurrentPseudo] = useState<string>('');
@@ -28,6 +31,195 @@ export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void;
       Alert.alert(i18n.t('error'), i18n.t('connection_error_body'));
     } else {
       Alert.alert(i18n.t('error'), defaultMessage);
+    }
+  };
+
+  // Fonction pour uploader l'image sélectionnée
+  const uploadAvatarImage = async (imageUri: string) => {
+    if (!userId) return;
+
+    setUploadingAvatar(true);
+
+    try {
+      // Générer le nom de fichier : ${user.id}/${timestamp}.jpg
+      const timestamp = Date.now();
+      const fileName = `${userId}/${timestamp}.jpg`;
+
+      console.log('📸 Upload avatar - URI:', imageUri);
+      console.log('📸 Upload avatar - FileName:', fileName);
+
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session?.access_token) {
+        Alert.alert(i18n.t('error'), 'Impossible de récupérer la session');
+        setUploadingAvatar(false);
+        return;
+      }
+
+      // Uploader via REST (plus fiable sur React Native)
+      console.log('📤 Début upload vers Supabase Storage (REST)...');
+      const uploadUrl = `${supabaseUrl}/storage/v1/object/avatars/${fileName}`;
+      const formData = new FormData();
+      formData.append('file', {
+        uri: imageUri,
+        name: `${timestamp}.jpg`,
+        type: 'image/jpeg',
+      } as any);
+
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          apikey: supabaseAnonKey,
+          'x-upsert': 'true',
+        },
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        throw new Error(`Upload échoué (${uploadResponse.status}): ${errorText}`);
+      }
+
+      const uploadData = await uploadResponse.text();
+      console.log('✅ Upload réussi:', uploadData);
+
+      // Récupérer l'URL publique
+      const { data: urlData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName);
+
+      const publicUrl = urlData.publicUrl;
+
+      // Mettre à jour avatar_url dans user_profiles
+      const { error: updateError } = await supabase
+        .from('user_profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', userId);
+
+      if (updateError) {
+        console.error('Erreur mise à jour avatar:', updateError);
+        Alert.alert(i18n.t('error'), 'Impossible de mettre à jour l\'avatar');
+        setUploadingAvatar(false);
+        return;
+      }
+
+      // Mettre à jour l'état local pour affichage immédiat
+      setAvatarUrl(publicUrl);
+      Alert.alert(i18n.t('success'), 'Photo de profil mise à jour');
+    } catch (error: any) {
+      console.error('Erreur upload avatar:', error);
+      Alert.alert(
+        i18n.t('error'),
+        error?.message ? `Erreur lors de l'upload: ${error.message}` : 'Une erreur est survenue'
+      );
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  // Fonction pour sélectionner et uploader l'avatar
+  const handlePickAvatar = async () => {
+    if (!userId) return;
+
+    // Proposer le choix entre selfie et galerie
+    if (Platform.OS === 'ios') {
+      // Utiliser ActionSheet sur iOS
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: [i18n.t('cancel'), i18n.t('camera'), i18n.t('gallery')],
+          cancelButtonIndex: 0,
+        },
+        async (buttonIndex) => {
+          if (buttonIndex === 1) {
+            // Selfie (caméra)
+            await handleCameraPick();
+          } else if (buttonIndex === 2) {
+            // Galerie
+            await handleGalleryPick();
+          }
+        }
+      );
+    } else {
+      // Utiliser Alert sur Android
+      Alert.alert(
+        i18n.t('choose_photo_source'),
+        '',
+        [
+          { text: i18n.t('cancel'), style: 'cancel' },
+          { text: i18n.t('camera'), onPress: () => handleCameraPick() },
+          { text: i18n.t('gallery'), onPress: () => handleGalleryPick() },
+        ]
+      );
+    }
+  };
+
+  // Fonction pour prendre une photo avec la caméra
+  const handleCameraPick = async () => {
+    if (!userId) return;
+
+    try {
+      // Demander la permission d'accéder à la caméra
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(i18n.t('error'), 'Permission d\'accès à la caméra requise');
+        return;
+      }
+
+      // Ouvrir la caméra
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.5,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        return;
+      }
+
+      const imageUri = result.assets[0].uri;
+      await uploadAvatarImage(imageUri);
+    } catch (error: any) {
+      console.error('Erreur sélection caméra:', error);
+      Alert.alert(
+        i18n.t('error'),
+        error?.message || 'Une erreur est survenue lors de l\'accès à la caméra'
+      );
+    }
+  };
+
+  // Fonction pour sélectionner une photo depuis la galerie
+  const handleGalleryPick = async () => {
+    if (!userId) return;
+
+    try {
+      // Demander la permission d'accéder à la galerie
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(i18n.t('error'), 'Permission d\'accès à la galerie requise');
+        return;
+      }
+
+      // Ouvrir la galerie
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.5,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        return;
+      }
+
+      const imageUri = result.assets[0].uri;
+      await uploadAvatarImage(imageUri);
+    } catch (error: any) {
+      console.error('Erreur sélection galerie:', error);
+      Alert.alert(
+        i18n.t('error'),
+        error?.message || 'Une erreur est survenue lors de l\'accès à la galerie'
+      );
     }
   };
 
@@ -69,6 +261,7 @@ export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void;
         setCurrentEmail(normalizedEmail);
         setPhone(profile.phone || '');
         setCurrentPhone(profile.phone || '');
+        setAvatarUrl(profile.avatar_url || null);
       } catch (err) {
         console.error('Erreur lors du chargement:', err);
         if (err instanceof Error && (err.message.includes('network') || err.message.includes('fetch'))) {
@@ -370,6 +563,30 @@ export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void;
           </View>
 
           <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+            {/* Avatar */}
+            <View style={styles.avatarSection}>
+              <TouchableOpacity 
+                onPress={handlePickAvatar} 
+                disabled={uploadingAvatar || loading}
+                style={styles.avatarContainer}
+              >
+                {uploadingAvatar ? (
+                  <ActivityIndicator size="large" color="#604a3e" />
+                ) : avatarUrl ? (
+                  <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+                ) : (
+                  <View style={styles.avatarPlaceholder}>
+                    <Text style={styles.avatarPlaceholderText}>
+                      {pseudo ? pseudo.charAt(0).toUpperCase() : '?'}
+                    </Text>
+                  </View>
+                )}
+                <View style={styles.avatarEditOverlay}>
+                  <Ionicons name="camera" size={24} color="#fff" />
+                </View>
+              </TouchableOpacity>
+            </View>
+
             <View style={styles.section}>
               <Text style={styles.label}>{i18n.t('pseudo')}</Text>
               <TextInput 
@@ -586,6 +803,53 @@ const styles = StyleSheet.create({
     padding: 10, 
   },
   deleteText: { color: '#ff4444', fontWeight: 'bold', fontSize: 14, marginLeft: 8 },
+  
+  avatarSection: {
+    alignItems: 'center',
+    marginBottom: 30,
+    marginTop: 10,
+  },
+  avatarContainer: {
+    position: 'relative',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    overflow: 'hidden',
+    backgroundColor: '#d9d9d9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatar: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+  },
+  avatarPlaceholder: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#604a3e',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarPlaceholderText: {
+    fontSize: 40,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  avatarEditOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: '#604a3e',
+    borderRadius: 20,
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#ebb89b',
+  },
   
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { fontSize: 18, color: '#604a3e', marginTop: 10 },

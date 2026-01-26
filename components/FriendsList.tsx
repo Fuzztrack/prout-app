@@ -5,7 +5,7 @@ import { Audio } from 'expo-av';
 import * as Contacts from 'expo-contacts';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { Alert, AppState, DeviceEventEmitter, Dimensions, FlatList, Keyboard, KeyboardAvoidingView, Linking, NativeModules, Platform, Animated as RNAnimated, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { Alert, AppState, DeviceEventEmitter, Dimensions, FlatList, Image, Keyboard, KeyboardAvoidingView, Linking, NativeModules, Platform, Animated as RNAnimated, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { Gesture, GestureDetector, TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
 import Modal from 'react-native-modal';
 import Animated, {
@@ -74,8 +74,8 @@ const CACHE_KEY_LAST_SENT_MESSAGES = 'cached_last_sent_messages';
 const CACHE_KEY_DISMISSED_SILENT_WARNING = 'cached_dismissed_silent_warning';
 const CACHE_MAX_AGE = 24 * 60 * 60 * 1000; // 24 heures
 
-type LastSentMessage = { text: string; ts: string; id?: string; status?: 'read' };
-type LastSentMap = Record<string, LastSentMessage>;
+type LastSentMessage = { text: string; ts: string; id?: string; status?: 'read'; readAt?: number };
+type LastSentMap = Record<string, LastSentMessage[]>; // Tableau de messages pour accumulation
 
 // Mémoire de session (pas persistée) pour bloquer la bannière après clic OK
 let dismissedSilentWarningSession = false;
@@ -112,14 +112,44 @@ const loadCacheSafely = async (key: string) => {
   }
 };
 
-// Cache pour les derniers messages envoyés (map userId -> {text, ts, id?, status?})
+// Cache pour les derniers messages envoyés (map userId -> [{text, ts, id?, status?}])
+const LAST_SENT_TTL_MS = 24 * 60 * 60 * 1000;
+const TEMP_SENT_TTL_MS = 10 * 60 * 1000; // 10 min pour les messages sans ID (stale)
+const READ_ANIMATION_MS = 3000; // 3 secondes pour l'animation de disparition
+
+const isFreshSentMessage = (msg?: LastSentMessage) => {
+  if (!msg) return false;
+  if (!msg.ts) {
+    // Si pas de timestamp et pas d'ID, on considère stale
+    return !!msg.id;
+  }
+  const time = new Date(msg.ts).getTime();
+  if (Number.isNaN(time)) return true;
+  const age = Date.now() - time;
+  // Si pas d'ID, c'est un message temporaire: purge rapide
+  if (!msg.id) {
+    return age < TEMP_SENT_TTL_MS;
+  }
+  return age < LAST_SENT_TTL_MS;
+};
 const loadLastSentMessagesCache = async (): Promise<LastSentMap> => {
   try {
     const cached = await AsyncStorage.getItem(CACHE_KEY_LAST_SENT_MESSAGES);
     if (!cached) return {};
     const parsed = JSON.parse(cached);
     if (parsed && typeof parsed === 'object') {
-      return parsed;
+      // Migration : convertir l'ancien format (un seul message) vers le nouveau (tableau)
+      const migrated: LastSentMap = {};
+      Object.entries(parsed).forEach(([userId, value]: [string, any]) => {
+        if (Array.isArray(value)) {
+          // Déjà au bon format
+          migrated[userId] = value;
+        } else if (value && typeof value === 'object' && value.text) {
+          // Ancien format : convertir en tableau
+          migrated[userId] = [value];
+        }
+      });
+      return migrated;
     }
     return {};
   } catch {
@@ -129,7 +159,27 @@ const loadLastSentMessagesCache = async (): Promise<LastSentMap> => {
 
 const saveLastSentMessagesCache = async (map: LastSentMap) => {
   try {
-    await AsyncStorage.setItem(CACHE_KEY_LAST_SENT_MESSAGES, JSON.stringify(map));
+    // Ne jamais sauvegarder les messages lus dans le cache
+    const cleaned: LastSentMap = {};
+    Object.entries(map).forEach(([userId, messages]) => {
+      if (Array.isArray(messages)) {
+        const unreadMessages = messages.filter(
+          msg => msg.status !== 'read' && isFreshSentMessage(msg)
+        );
+        if (unreadMessages.length > 0) {
+          cleaned[userId] = unreadMessages;
+        }
+      } else if (
+        messages &&
+        typeof messages === 'object' &&
+        (messages as any).status !== 'read' &&
+        isFreshSentMessage(messages as LastSentMessage)
+      ) {
+        // Format ancien (un seul message) - migration
+        cleaned[userId] = [messages as LastSentMessage];
+      }
+    });
+    await AsyncStorage.setItem(CACHE_KEY_LAST_SENT_MESSAGES, JSON.stringify(cleaned));
   } catch {
     // ignorer
   }
@@ -464,6 +514,19 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
             style={[styles.userInfo, { flex: 1 }]}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {/* Avatar */}
+              {friend.avatar_url ? (
+                <Image 
+                  source={{ uri: friend.avatar_url }} 
+                  style={styles.friendAvatar} 
+                />
+              ) : (
+                <View style={styles.friendAvatarPlaceholder}>
+                  <Text style={styles.friendAvatarPlaceholderText}>
+                    {friend.pseudo ? friend.pseudo.charAt(0).toUpperCase() : '?'}
+                  </Text>
+                </View>
+              )}
               <Text style={styles.pseudo} numberOfLines={1}>{friend.pseudo}</Text>
               {friend.isZenMode && (
                 <Ionicons name="moon" size={20} color="#ebb89b" style={{ marginLeft: 5 }} />
@@ -632,17 +695,25 @@ export function FriendsList({
   const [unreadCache, setUnreadCache] = useState<Record<string, { id: string; message_content: string; created_at?: string }[]>>({});
   const [messageDrafts, setMessageDrafts] = useState<Record<string, string>>({});
   const [sendingFriendId, setSendingFriendId] = useState<string | null>(null);
+  const [identityModalVisible, setIdentityModalVisible] = useState(false);
+  const [identityModalFriend, setIdentityModalFriend] = useState<any>(null);
+  const [identityModalName, setIdentityModalName] = useState<string | null>(null);
   const toastOpacity = useRef(new RNAnimated.Value(0)).current;
   const lastSentByIdRef = useRef<Record<string, string>>({});
   const pendingReadIdsRef = useRef<Set<string>>(new Set());
+  const pendingReadRemovalTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const prevExpandedRef = useRef<string | null>(null);
   const stickyScrollViewRef = useRef<ScrollView>(null);
 
   const updateLastSentIndex = (map: LastSentMap) => {
     const index: Record<string, string> = {};
-    Object.entries(map).forEach(([userId, msg]) => {
-      if (msg?.id) {
-        index[msg.id] = userId;
+    Object.entries(map).forEach(([userId, messages]) => {
+      if (Array.isArray(messages)) {
+        messages.forEach(msg => {
+          if (msg?.id) {
+            index[msg.id] = userId;
+          }
+        });
       }
     });
     lastSentByIdRef.current = index;
@@ -652,14 +723,65 @@ export function FriendsList({
     let updated = false;
     const next = { ...input };
     pendingReadIdsRef.current.forEach((id) => {
-      const userId = Object.keys(next).find(uid => next[uid]?.id === id);
-      if (userId && next[userId]) {
-        next[userId] = { ...next[userId], status: 'read' };
-        pendingReadIdsRef.current.delete(id);
-        updated = true;
-      }
+      Object.keys(next).forEach(userId => {
+        const messages = next[userId];
+        if (Array.isArray(messages)) {
+          const msgIndex = messages.findIndex(msg => msg.id === id);
+          if (msgIndex !== -1) {
+            next[userId] = messages.map((msg, idx) => 
+              idx === msgIndex ? { ...msg, status: 'read' as const } : msg
+            );
+            pendingReadIdsRef.current.delete(id);
+            updated = true;
+          }
+        }
+      });
     });
     return { next, updated };
+  };
+
+  const scheduleReadRemoval = (messageId: string) => {
+    const existing = pendingReadRemovalTimersRef.current.get(messageId);
+    if (existing) {
+      clearTimeout(existing);
+    }
+    if (__DEV__) {
+      console.log('[CHAT][READ] schedule removal', { messageId, delay: READ_ANIMATION_MS + 100 });
+    }
+    const timer = setTimeout(() => {
+      if (__DEV__) {
+        console.log('[CHAT][READ] remove timer fired', { messageId });
+      }
+      setLastSentMessages(prev => {
+        const next: LastSentMap = {};
+        let changed = false;
+        Object.entries(prev).forEach(([userId, messages]) => {
+          if (Array.isArray(messages)) {
+            const kept = messages.filter(msg => msg.id !== messageId);
+            if (kept.length > 0) {
+              next[userId] = kept;
+            }
+            if (kept.length !== messages.length) {
+              changed = true;
+            }
+          }
+        });
+        if (changed) {
+          updateLastSentIndex(next);
+          saveLastSentMessagesCache(next);
+          if (__DEV__) {
+            console.log('[CHAT][READ] forced remove after animation', { messageId });
+          }
+          return next;
+        }
+        if (__DEV__) {
+          console.log('[CHAT][READ] forced remove no-op (not found)', { messageId });
+        }
+        return prev;
+      });
+      pendingReadRemovalTimersRef.current.delete(messageId);
+    }, READ_ANIMATION_MS + 100);
+    pendingReadRemovalTimersRef.current.set(messageId, timer);
   };
   
   // État pour le mode silencieux
@@ -780,27 +902,80 @@ export function FriendsList({
 
   // Nettoyage automatique des messages envoyés marqués comme 'read' (après animation)
   useEffect(() => {
-    const readMessages = Object.entries(lastSentMessages).filter(([_, msg]) => msg.status === 'read');
-    if (readMessages.length > 0) {
+    let hasReadMessages = false;
+    Object.entries(lastSentMessages).forEach(([_, messages]) => {
+      if (Array.isArray(messages) && messages.some(msg => msg.status === 'read')) {
+        hasReadMessages = true;
+      }
+    });
+    
+    if (hasReadMessages) {
+      let nextDelay = Infinity;
       const timer = setTimeout(() => {
         setLastSentMessages(prev => {
-          const next = { ...prev };
+          const next: LastSentMap = {};
           let changed = false;
-          readMessages.forEach(([userId]) => {
-            if (next[userId]?.status === 'read') {
-              delete next[userId];
-              changed = true;
+          let removedCount = 0;
+          let pendingReadCount = 0;
+          Object.entries(prev).forEach(([userId, messages]) => {
+            if (Array.isArray(messages)) {
+              const kept = messages.filter(msg => {
+                if (msg.status !== 'read') return true;
+                pendingReadCount += 1;
+                if (!msg.readAt) {
+                  removedCount += 1;
+                  return false;
+                }
+                const age = Date.now() - msg.readAt;
+                if (age >= READ_ANIMATION_MS) {
+                  removedCount += 1;
+                  return false;
+                }
+                nextDelay = Math.min(nextDelay, READ_ANIMATION_MS - age);
+                return true;
+              });
+              if (kept.length > 0) {
+                next[userId] = kept;
+                if (kept.length !== messages.length) changed = true;
+              } else if (messages.length > 0) {
+                changed = true;
+              }
+            } else {
+              // Format ancien (un seul message) - migration
+              if (messages && (messages as any).status !== 'read') {
+                next[userId] = [messages as LastSentMessage];
+              }
             }
           });
           if (changed) {
+            if (__DEV__) {
+              console.log('[CHAT][CLEANUP] removed read messages', {
+                removedCount,
+                pendingReadCount,
+              });
+            }
             updateLastSentIndex(next);
             saveLastSentMessagesCache(next);
             return next;
           }
+          if (__DEV__ && pendingReadCount > 0) {
+            console.log('[CHAT][CLEANUP] pending read messages', {
+              pendingReadCount,
+              nextDelay,
+            });
+          }
           return prev;
         });
-      }, 2000); // 2 secondes pour laisser l'animation 'Lu' se jouer
-      return () => clearTimeout(timer);
+      }, 0);
+      const followUpDelay = Number.isFinite(nextDelay) ? nextDelay : READ_ANIMATION_MS;
+      const followUp = setTimeout(() => {
+        // relancer le cleanup après la prochaine échéance
+        setLastSentMessages(prev => prev);
+      }, followUpDelay);
+      return () => {
+        clearTimeout(timer);
+        clearTimeout(followUp);
+      };
     }
   }, [lastSentMessages]);
 
@@ -862,6 +1037,14 @@ export function FriendsList({
 
   const markMessageAsRead = async (messageId: string) => {
     try {
+      if (__DEV__) {
+        const msg = pendingMessages.find(m => m.id === messageId);
+        console.log('[CHAT][READ] markMessageAsRead start', {
+          messageId,
+          senderId: msg?.from_user_id,
+          hasMsgInPending: !!msg,
+        });
+      }
       // 1. Ajouter à la liste noire locale pour empêcher la réapparition immédiate via polling
       deletedMessagesCache.add(messageId);
 
@@ -917,6 +1100,9 @@ export function FriendsList({
       } else {
         // Fallback si on a perdu l'info sender (rare)
         await supabase.from('pending_messages').delete().eq('id', messageId);
+      }
+      if (__DEV__) {
+        console.log('[CHAT][READ] markMessageAsRead done', { messageId, senderId });
       }
     } catch (e) {
       console.warn('Erreur markMessageAsRead:', e);
@@ -1037,10 +1223,11 @@ export function FriendsList({
       // ÉTAPE 3 : Configurer Realtime et polling
       setupRealtimeSubscription();
       
-      // Polling rapide pour garantir la réception même si le Realtime échoue
+      // Polling modéré pour garantir la réception même si le Realtime échoue
+      // Intervalle plus long pour réduire les logs en boucle
       pollingIntervalRef.current = setInterval(() => {
         loadData(false, false, false); 
-      }, 2000) as unknown as NodeJS.Timeout; // 2 secondes
+      }, 5000) as unknown as NodeJS.Timeout; // 5 secondes (réduit de 2s pour moins de logs)
     };
     
     initialize();
@@ -1066,9 +1253,60 @@ export function FriendsList({
 // Charger le cache des derniers messages envoyés
 useEffect(() => {
   const loadCache = async () => {
+    // Purge one-shot du cache local des messages envoyés (debug)
+    try {
+      const purgeFlag = await AsyncStorage.getItem('cache:last_sent_messages_purged_once_v2');
+      if (!purgeFlag) {
+        await AsyncStorage.removeItem(CACHE_KEY_LAST_SENT_MESSAGES);
+        await AsyncStorage.setItem('cache:last_sent_messages_purged_once_v2', '1');
+        if (__DEV__) {
+          console.log('[CHAT][CACHE] one-shot purge CACHE_KEY_LAST_SENT_MESSAGES');
+        }
+      }
+    } catch {
+      // ignorer
+    }
     const cached = await loadLastSentMessagesCache();
-    updateLastSentIndex(cached);
-    setLastSentMessages(cached);
+    // Filtrer les messages lus lors du chargement du cache
+    const filtered: LastSentMap = {};
+    let removedCount = 0;
+    let totalCount = 0;
+    Object.entries(cached).forEach(([userId, messages]) => {
+      if (Array.isArray(messages)) {
+        totalCount += messages.length;
+        const unreadMessages = messages.filter(msg => {
+          const keep = msg.status !== 'read' && isFreshSentMessage(msg);
+          if (!keep) removedCount += 1;
+          return keep;
+        });
+        if (unreadMessages.length > 0) {
+          filtered[userId] = unreadMessages;
+        }
+      } else if (
+        messages &&
+        typeof messages === 'object' &&
+        (messages as any).status !== 'read' &&
+        isFreshSentMessage(messages as LastSentMessage)
+      ) {
+        // Format ancien (un seul message) - migration
+        filtered[userId] = [messages as LastSentMessage];
+      } else if (messages) {
+        totalCount += 1;
+        removedCount += 1;
+      }
+    });
+    updateLastSentIndex(filtered);
+    setLastSentMessages(filtered);
+    // Sauvegarder le cache nettoyé
+    if (JSON.stringify(filtered) !== JSON.stringify(cached)) {
+      saveLastSentMessagesCache(filtered);
+    }
+    if (__DEV__) {
+      console.log(
+        '[CHAT][CACHE] loadLastSentMessagesCache',
+        { totalCount, removedCount, keptCount: totalCount - removedCount }
+      );
+    }
   };
   loadCache();
 }, []);
@@ -1452,7 +1690,7 @@ useEffect(() => {
           // IMPORTANT : Vérifier que le token est bien présent
           const { data: finalFriends } = await supabase
             .from('user_profiles')
-            .select('id, pseudo, phone, expo_push_token, push_platform, is_zen_mode')
+            .select('id, pseudo, phone, expo_push_token, push_platform, is_zen_mode, avatar_url')
             .in('id', allFriendIds)
             .not('expo_push_token', 'is', null)
             .neq('expo_push_token', '');
@@ -1585,56 +1823,177 @@ useEffect(() => {
           // Si null, c'est une erreur, on ne touche pas au cache local pour éviter les disparitions fantômes
           if (sentPendingMessagesResult !== null) {
             setLastSentMessages((prev) => {
-              // 1. Convertir le résultat serveur en map
+              // 1. Convertir le résultat serveur en map (tableau de messages par utilisateur)
+              // IMPORTANT : On ignore les messages avec "READ:" car ils sont en cours de suppression
+              // et ne doivent pas être affichés (ils sont déjà lus par B)
               const serverMap: LastSentMap = {};
+              let droppedStaleServer = 0;
               if (sentPendingMessagesResult.length > 0) {
                  sentPendingMessagesResult.forEach((m: any) => {
                     const rawText = m.message_content || '';
                     const isRead = rawText.startsWith('READ:');
-                    const text = isRead ? rawText.replace(/^READ:/, '') : rawText;
-                    serverMap[m.to_user_id] = { text, ts: m.created_at, id: m.id, status: isRead ? 'read' : undefined };
-                    if (isRead) {
+                    // Ne pas ajouter les messages lus (avec "READ:") car ils sont en cours de suppression
+                    if (isRead) return;
+                    
+                    const text = rawText;
+                    const message: LastSentMessage = { text, ts: m.created_at, id: m.id, status: undefined };
+                    // Purger les vieux messages côté serveur aussi
+                    if (!isFreshSentMessage(message)) {
+                      droppedStaleServer += 1;
+                      return;
                     }
+                    
+                    // Ajouter le message au tableau pour cet utilisateur
+                    if (!serverMap[m.to_user_id]) {
+                      serverMap[m.to_user_id] = [];
+                    }
+                    serverMap[m.to_user_id].push(message);
                  });
+              }
+              if (__DEV__ && droppedStaleServer > 0) {
+                console.log('[CHAT][SYNC] dropped stale server sent messages', {
+                  droppedStaleServer,
+                });
+              }
+              // Logs uniquement si changement ou cas spécial (évite les logs en boucle)
+              const serverTotal = Object.values(serverMap).reduce(
+                (acc, arr) => acc + (Array.isArray(arr) ? arr.length : 0),
+                0
+              );
+              const prevTotal = Object.values(prev).reduce(
+                (acc, arr) => acc + (Array.isArray(arr) ? arr.length : 0),
+                0
+              );
+              // Ne logger que si changement attendu ou cas spécial
+              const shouldLog = prevTotal !== serverTotal || prevTotal > 0;
+              if (__DEV__ && shouldLog) {
+                console.log('[CHAT][SYNC] loadData merge start', { serverTotal, prevTotal });
               }
 
               // 2. Fusionner avec le cache local pour préserver les messages 'read' (animation)
-              // et DÉDUIRE la lecture si un message disparaît du serveur
-              const next = { ...serverMap };
+              const next: LastSentMap = { ...serverMap };
               
-              Object.entries(prev).forEach(([uid, msg]) => {
-                // Cas 1: Déjà marqué lu localement -> on garde pour finir l'animation
-                if (msg.status === 'read') {
-                  // Toujours forcer la version "read" pour ne pas l'écraser par le serveur
-                  next[uid] = msg;
-                  return;
+              Object.entries(prev).forEach(([uid, prevMessages]) => {
+                if (!Array.isArray(prevMessages)) return; // Skip si format ancien
+                
+                const serverMessages = serverMap[uid] || [];
+                const serverMessageIds = new Set(serverMessages.map(m => m.id).filter(Boolean));
+                
+                // Cas 1: Messages lus localement (pour jouer l'animation sur une fenêtre courte)
+                const now = Date.now();
+                const readMessages = prevMessages.filter(msg => {
+                  if (msg.status !== 'read') return false;
+                  if (!msg.readAt) return false;
+                  return now - msg.readAt < READ_ANIMATION_MS;
+                });
+                const readIds = new Set(readMessages.map(m => m.id).filter(Boolean));
+
+                // Filtrer les messages serveur si on a déjà marqué localement "lu"
+                const filteredServerMessages = serverMessages.filter(m => !readIds.has(m.id));
+                if (__DEV__ && readIds.size > 0) {
+                  const filteredCount = serverMessages.length - filteredServerMessages.length;
+                  if (filteredCount > 0) {
+                    console.log('[CHAT][SYNC] filtered server messages already read locally', {
+                      uid,
+                      filteredCount,
+                    });
+                  }
                 }
 
-                // Cas 2: Message 'sent' localement mais absent du serveur
-                if (!next[uid]) {
-                   const now = Date.now();
-                   const msgTime = new Date(msg.ts).getTime();
-                   const age = now - msgTime;
+                // Cas 2: Messages NON LUS uniquement (on ignore complètement les messages lus)
+                const unreadMessages = prevMessages.filter(msg => msg.status !== 'read');
+                
+                // Cas 2: Messages 'sent' localement mais absents du serveur (temporaires, non lus)
+                // On garde UNIQUEMENT les messages sans ID (temporaires). Si un message a un ID
+                // mais n'est plus dans le serveur, il a été lu/supprimé => on ne le garde pas.
+                const droppedWithId = unreadMessages.filter(
+                  msg => msg.id && !serverMessageIds.has(msg.id)
+                ).length;
+                const staleLocal = unreadMessages.filter(
+                  msg => !msg.id && !isFreshSentMessage(msg)
+                ).length;
+                const localOnlyMessages = unreadMessages.filter(
+                  msg => !msg.id && isFreshSentMessage(msg)
+                );
+                if (__DEV__ && staleLocal > 0) {
+                  console.log('[CHAT][SYNC] dropped stale local temp messages', {
+                    uid,
+                    staleLocal,
+                  });
+                }
+                if (__DEV__ && droppedWithId > 0) {
+                  console.log('[CHAT][SYNC] dropped local sent messages not in server', {
+                    uid,
+                    droppedWithId,
+                  });
+                }
 
-                   if (age < 86400000) { // 24 heures de persistance locale si absent du serveur
-                      // Protection étendue : Le serveur ne renvoie pas le message (RLS ou suppression non confirmée)
-                      // On le garde en 'sent' en attendant le signal Broadcast 'message-read' ou UPDATE 'READ:'
-                      next[uid] = msg;
-                   }
-                   // Après 24h, on nettoie (disparition sans animation 'Lu')
-                   // pour éviter les messages fantômes éternels
+                const dedupedLocalOnlyMessages = localOnlyMessages.filter(localMsg => {
+                  const localTime = new Date(localMsg.ts).getTime();
+                  const isDuplicate = filteredServerMessages.some(serverMsg => {
+                    const serverTime = new Date(serverMsg.ts).getTime();
+                    return (
+                      serverMsg.text === localMsg.text &&
+                      Math.abs(serverTime - localTime) < 5000
+                    );
+                  });
+                  if (__DEV__ && isDuplicate) {
+                    console.log('[CHAT][SYNC] dropped duplicate local temp message', {
+                      uid,
+                      localMsgText: localMsg.text,
+                      localMsgTs: localMsg.ts,
+                    });
+                  }
+                  return !isDuplicate;
+                });
+                
+                // Fusionner : messages du serveur + messages locaux uniquement (temporaires, non lus)
+                const merged = [...filteredServerMessages, ...readMessages];
+                
+                // Ajouter les messages locaux uniquement (temporaires, non lus)
+                dedupedLocalOnlyMessages.forEach(localMsg => {
+                  const now = Date.now();
+                  const msgTime = new Date(localMsg.ts).getTime();
+                  const age = now - msgTime;
+                  if (age < 86400000) { // 24 heures
+                    merged.push(localMsg);
+                  }
+                });
+                
+                // Trier par timestamp
+                if (merged.length > 0) {
+                  merged.sort((a, b) => {
+                    const timeA = new Date(a.ts).getTime();
+                    const timeB = new Date(b.ts).getTime();
+                    return timeA - timeB;
+                  });
+                  next[uid] = merged;
+                } else if (serverMessages.length === 0 && dedupedLocalOnlyMessages.length === 0) {
+                  // Si aucun message, on supprime la clé
+                  delete next[uid];
                 }
               });
 
               // Réconcilier avec les broadcast reçus en avance
               const { next: reconciled, updated } = reconcilePendingReadIds(next);
               const finalNext = updated ? reconciled : next;
+              const finalTotal = Object.values(finalNext).reduce(
+                (acc, arr) => acc + (Array.isArray(arr) ? arr.length : 0),
+                0
+              );
+              // Ne logger que si changement ou cas spécial (évite les logs en boucle)
+              if (__DEV__ && (shouldLog || prevTotal !== finalTotal || updated)) {
+                console.log('[CHAT][SYNC] loadData merge done', { finalTotal, changed: prevTotal !== finalTotal });
+              }
 
               // Sauvegarder dans le cache
               updateLastSentIndex(finalNext);
               saveLastSentMessagesCache(finalNext);
               return finalNext;
             });
+          }
+          if (__DEV__ && sentPendingMessagesResult === null) {
+            console.log('[CHAT][SYNC] sentPendingMessagesResult is null (no merge)');
           }
     } catch (e) {
       // En cas d'erreur réseau, avertir l'utilisateur (avec anti-spam)
@@ -1776,7 +2135,16 @@ useEffect(() => {
               
               if (toUserId && text) {
                 setLastSentMessages((prev) => {
-                  const next = { ...prev, [toUserId]: { text, ts, id } };
+                  const existingMessages = prev[toUserId] || [];
+                  const newMessage: LastSentMessage = { text, ts, id };
+                  // Vérifier si le message n'existe pas déjà
+                  const exists = existingMessages.some(m => m.id === id);
+                  if (exists) return prev;
+                  
+                  const next = { 
+                    ...prev, 
+                    [toUserId]: [...existingMessages, newMessage] 
+                  };
                   lastSentSetAtRef.current = Date.now();
                   updateLastSentIndex(next);
                   saveLastSentMessagesCache(next);
@@ -1790,28 +2158,34 @@ useEffect(() => {
               const id = (payload.new as any)?.id;
 
               if (text && text.startsWith('READ:')) {
+                 if (__DEV__) {
+                   console.log('[CHAT][RT][UPDATE] READ received', { id, toUserId });
+                 }
                  setLastSentMessages((prev) => {
-                    const copy = { ...prev };
+                    const copy: LastSentMap = {};
                     let updated = false;
-
-                    if (toUserId && copy[toUserId] && copy[toUserId].id === id) {
-                        copy[toUserId] = { ...copy[toUserId], status: 'read' };
-                      updated = true;
-                    } else if (id) {
-                      const matchKey = Object.keys(copy).find(key => copy[key]?.id === id);
-                      if (matchKey) {
-                        copy[matchKey] = { ...copy[matchKey], status: 'read' };
-                        updated = true;
+                    
+                    Object.entries(prev).forEach(([userId, messages]) => {
+                      if (Array.isArray(messages)) {
+                        copy[userId] = messages.map(msg => {
+                          if (msg.id === id) {
+                            updated = true;
+                            return { ...msg, status: 'read' as const, readAt: Date.now() };
+                          }
+                          return msg;
+                        });
                       }
-                    }
+                    });
 
                     if (updated) {
                       updateLastSentIndex(copy);
                       saveLastSentMessagesCache(copy);
-                      return copy;
                     }
-                    return prev;
+                    return updated ? copy : prev;
                  });
+                 if (id) {
+                   scheduleReadRemoval(id);
+                 }
               }
             }
           }
@@ -1826,25 +2200,76 @@ useEffect(() => {
             table: 'pending_messages',
           },
           (payload) => {
-            const deletedId = (payload.old as any)?.id;
-            if (deletedId) {
-              // On cherche dans notre map locale quel ami correspond à ce message ID
-              setLastSentMessages((prev) => {
-                const targetUserId = Object.keys(prev).find(uid => prev[uid].id === deletedId);
-                if (targetUserId) {
-                  // Au lieu de supprimer tout de suite, on marque comme LU pour déclencher l'animation
-                  const copy = { ...prev };
-                  if (copy[targetUserId]) {
-                    copy[targetUserId] = { ...copy[targetUserId], status: 'read' };
-                  }
-                  updateLastSentIndex(copy);
-                  saveLastSentMessagesCache(copy);
-                  return copy;
+              const deletedId = (payload.old as any)?.id;
+              if (deletedId) {
+                if (__DEV__) {
+                  console.log('[CHAT][RT][DELETE] message deleted', { deletedId });
                 }
-                return prev;
-              });
-              lastSentSetAtRef.current = 0;
-            }
+                let shouldScheduleRemoval = false;
+                // On cherche dans notre map locale quel ami correspond à ce message ID
+                setLastSentMessages((prev) => {
+                  const copy: LastSentMap = {};
+                  let found = false;
+                  
+                  Object.entries(prev).forEach(([userId, messages]) => {
+                    if (Array.isArray(messages)) {
+                      const messageIndex = messages.findIndex(msg => msg.id === deletedId);
+                      if (messageIndex !== -1) {
+                        found = true;
+                        shouldScheduleRemoval = true;
+                        // Marquer ce message comme lu pour déclencher l'animation
+                        copy[userId] = messages.map((msg, idx) => 
+                          idx === messageIndex ? { ...msg, status: 'read' as const, readAt: Date.now() } : msg
+                        );
+                        return;
+                      }
+
+                      // Fallback : si on ne trouve pas l'ID, tenter de marquer le plus vieux temp
+                      let tempIndex = -1;
+                      let tempTime = Infinity;
+                      messages.forEach((msg, idx) => {
+                        if (!msg.id && msg.status !== 'read') {
+                          const t = new Date(msg.ts).getTime();
+                          if (t < tempTime) {
+                            tempTime = t;
+                            tempIndex = idx;
+                          }
+                        }
+                      });
+                      if (tempIndex !== -1) {
+                        found = true;
+                        copy[userId] = messages.map((msg, idx) => 
+                          idx === tempIndex ? { ...msg, status: 'read' as const, readAt: Date.now() } : msg
+                        );
+                        if (__DEV__) {
+                          console.log('[CHAT][RT][DELETE] fallback read temp message', {
+                            deletedId,
+                            userId,
+                            tempTs: messages[tempIndex]?.ts,
+                          });
+                        }
+                        return;
+                      }
+
+                      copy[userId] = messages;
+                    }
+                  });
+                  
+                  if (found) {
+                    if (__DEV__) {
+                      console.log('[CHAT][RT][DELETE] marked read in local cache', { deletedId });
+                    }
+                    updateLastSentIndex(copy);
+                    saveLastSentMessagesCache(copy);
+                    return copy;
+                  }
+                  return prev;
+                });
+                lastSentSetAtRef.current = 0;
+                if (shouldScheduleRemoval) {
+                  scheduleReadRemoval(deletedId);
+                }
+              }
           }
         )
         .subscribe(() => {
@@ -1860,25 +2285,96 @@ useEffect(() => {
             const deletedId = payload.payload?.id;
             const senderId = payload.payload?.senderId;
             const receiverId = payload.payload?.receiverId;
+            if (__DEV__) {
+              console.log('[CHAT][BROADCAST][message-read]', { deletedId, senderId, receiverId });
+            }
             if (deletedId) {
+              let shouldScheduleRemoval = false;
               setLastSentMessages((prev) => {
-                const targetUserId = Object.keys(prev).find(uid => prev[uid].id === deletedId)
-                  || lastSentByIdRef.current[deletedId]
-                  || receiverId;
-                if (targetUserId) {
-                  const copy = { ...prev };
-                  if (copy[targetUserId]) {
-                    copy[targetUserId] = { ...copy[targetUserId], status: 'read' };
+                // Chercher dans tous les tableaux de messages
+                let targetUserId: string | null = null;
+                Object.entries(prev).forEach(([userId, messages]) => {
+                  if (Array.isArray(messages) && messages.some(msg => msg.id === deletedId)) {
+                    targetUserId = userId;
                   }
-                  updateLastSentIndex(copy);
-                  saveLastSentMessagesCache(copy);
-                  return copy;
+                });
+                
+                // Fallback sur l'index ou receiverId
+                if (!targetUserId) {
+                  targetUserId = lastSentByIdRef.current[deletedId] || receiverId || null;
+                }
+                
+                if (targetUserId) {
+                  const copy: LastSentMap = {};
+                  let updated = false;
+                  let didFallbackTemp = false;
+                  Object.entries(prev).forEach(([userId, messages]) => {
+                    if (Array.isArray(messages)) {
+                      if (userId === targetUserId) {
+                        // Marquer le message correspondant comme lu
+                        const hasIdMatch = messages.some(msg => msg.id === deletedId);
+                        if (hasIdMatch) {
+                          updated = true;
+                          shouldScheduleRemoval = true;
+                          copy[userId] = messages.map(msg => 
+                            msg.id === deletedId ? { ...msg, status: 'read' as const, readAt: Date.now() } : msg
+                          );
+                        } else {
+                          // Fallback : marquer le plus vieux temp sans ID
+                          let tempIndex = -1;
+                          let tempTime = Infinity;
+                          messages.forEach((msg, idx) => {
+                            if (!msg.id && msg.status !== 'read') {
+                              const t = new Date(msg.ts).getTime();
+                              if (t < tempTime) {
+                                tempTime = t;
+                                tempIndex = idx;
+                              }
+                            }
+                          });
+                          if (tempIndex !== -1) {
+                            updated = true;
+                            didFallbackTemp = true;
+                            copy[userId] = messages.map((msg, idx) => 
+                              idx === tempIndex ? { ...msg, status: 'read' as const, readAt: Date.now() } : msg
+                            );
+                            if (__DEV__) {
+                              console.log('[CHAT][BROADCAST][message-read] fallback read temp message', {
+                                deletedId,
+                                targetUserId,
+                                tempTs: messages[tempIndex]?.ts,
+                              });
+                            }
+                          } else {
+                            copy[userId] = messages;
+                          }
+                        }
+                      } else {
+                        copy[userId] = messages;
+                      }
+                    }
+                  });
+                  if (updated) {
+                    if (__DEV__) {
+                      console.log('[CHAT][BROADCAST][message-read] marked read', { deletedId, targetUserId, didFallbackTemp });
+                    }
+                    updateLastSentIndex(copy);
+                    saveLastSentMessagesCache(copy);
+                    return copy;
+                  }
+                  return prev;
+                }
+                if (__DEV__) {
+                  console.log('[CHAT][BROADCAST][message-read] pendingReadIds', { deletedId });
                 }
                 pendingReadIdsRef.current.add(deletedId);
                 // Forcer un refresh pour tenter de retrouver l'ID via loadData
                 loadData(false, false, false);
                 return prev;
               });
+              if (shouldScheduleRemoval) {
+                scheduleReadRemoval(deletedId);
+              }
             }
         })
         .on('broadcast', { event: 'message-received' }, () => {
@@ -2094,25 +2590,26 @@ useEffect(() => {
   };
 
   const handleLongPressName = async (friend: any) => {
+    let revealedName: string | null = null;
+
+    // Cas 1 : Le vrai nom est déjà connu (identityAlias)
     if (friend.identityAlias) {
-      showToast(`✨ ${friend.identityAlias}`);
+      revealedName = friend.identityAlias;
+      setIdentityModalFriend(friend);
+      setIdentityModalName(revealedName);
+      setIdentityModalVisible(true);
       return;
     }
 
+    // Cas 2 : Demande déjà en cours - Afficher modal avec avatar + option de relancer
     if (friend.identityStatus === 'pending') {
-      Alert.alert(
-        i18n.t('already_asked_identity_title'),
-        i18n.t('already_asked_identity_body', { pseudo: friend.pseudo }),
-        [
-          { text: i18n.t('cancel'), style: 'cancel' },
-          { text: i18n.t('relaunch_btn'), onPress: () => requestIdentityReveal(friend, { force: true }) },
-        ],
-      );
+      setIdentityModalFriend({ ...friend, isPending: true });
+      setIdentityModalName(null);
+      setIdentityModalVisible(true);
       return;
     }
 
-    let contactRevealed = false;
-
+    // Cas 3 : Chercher dans les contacts
     if (friend.phone) {
       try {
         const status = await ensureContactPermissionWithDisclosure();
@@ -2133,9 +2630,11 @@ useEffect(() => {
             });
 
             if (matchingContact) {
-              const fullName = matchingContact.name || matchingContact.firstName || matchingContact.lastName || friend.pseudo;
-              showToast(fullName);
-              contactRevealed = true;
+              revealedName = matchingContact.name || matchingContact.firstName || matchingContact.lastName || friend.pseudo;
+              setIdentityModalFriend(friend);
+              setIdentityModalName(revealedName);
+              setIdentityModalVisible(true);
+              return;
             }
           }
         }
@@ -2144,21 +2643,10 @@ useEffect(() => {
       }
     }
 
-    if (contactRevealed) {
-      return;
-    }
-
-    Alert.alert(
-      i18n.t('ask_identity_title'),
-      i18n.t('ask_identity_body', { pseudo: friend.pseudo }),
-      [
-        { text: i18n.t('cancel'), style: 'cancel' },
-        {
-          text: i18n.t('ask_btn'),
-          onPress: () => requestIdentityReveal(friend),
-        },
-      ],
-    );
+    // Cas 4 : Le vrai nom n'est pas connu - Afficher modal avec demande d'identité
+    setIdentityModalFriend(friend);
+    setIdentityModalName(null);
+    setIdentityModalVisible(true);
   };
 
   const requestIdentityReveal = async (friend: any, options: { force?: boolean } = {}) => {
@@ -2641,7 +3129,13 @@ useEffect(() => {
       });
       if (customMessage) {
         setLastSentMessages(prev => {
-          const next = { ...prev, [recipient.id]: { text: customMessage, ts: now } };
+          const existingMessages = prev[recipient.id] || [];
+          const newMessage: LastSentMessage = { text: customMessage, ts: now };
+          // Ajouter le nouveau message au tableau (accumulation)
+          const next = { 
+            ...prev, 
+            [recipient.id]: [...existingMessages, newMessage] 
+          };
           lastSentSetAtRef.current = Date.now();
           saveLastSentMessagesCache(next);
           return next;
@@ -2843,24 +3337,24 @@ useEffect(() => {
     cachedForFriend.forEach(m => mergedMap.set(m.id, m));
     activeUnreadMessages.forEach(m => mergedMap.set(m.id, m));
     const activeMessagesToShow = Array.from(mergedMap.values());
-    const myLastSent = lastSentMessages[displayFriend.id];
+    const mySentMessages = lastSentMessages[displayFriend.id] || [];
 
     // Fusion et tri
     const allMessages = [
-        ...activeMessagesToShow.map(m => ({
-            id: m.id,
+        ...activeMessagesToShow.map((m, idx) => ({
+            id: m.id || `received-${idx}-${m.created_at}`,
             text: m.message_content,
             ts: m.created_at,
             isMe: false,
             original: undefined
         })),
-        ...(myLastSent ? [{
-            id: myLastSent.id || 'temp-sent',
-            text: myLastSent.text,
-            ts: myLastSent.ts,
+        ...(Array.isArray(mySentMessages) ? mySentMessages.map((msg, idx) => ({
+            id: msg.id || `temp-sent-${displayFriend.id}-${idx}-${msg.ts || Date.now()}`,
+            text: msg.text,
+            ts: msg.ts,
             isMe: true,
-            original: myLastSent
-        }] : [])
+            original: msg
+        })) : [])
     ].sort((a, b) => {
         const getTs = (d: string) => {
             if (!d) return 0;
@@ -3233,6 +3727,99 @@ useEffect(() => {
           <Text style={styles.toastText}>{toastMessage}</Text>
         </RNAnimated.View>
       )}
+
+      {/* Modal d'identité avec avatar en grand */}
+      <Modal
+        isVisible={identityModalVisible}
+        onBackdropPress={() => setIdentityModalVisible(false)}
+        onBackButtonPress={() => setIdentityModalVisible(false)}
+        style={styles.identityModal}
+        backdropOpacity={0.5}
+        animationIn="fadeIn"
+        animationOut="fadeOut"
+      >
+        <View style={styles.identityModalContent}>
+          {identityModalFriend && (
+            <>
+              {/* Avatar en grand */}
+              <View style={styles.identityAvatarContainer}>
+                {identityModalFriend.avatar_url ? (
+                  <Image 
+                    source={{ uri: identityModalFriend.avatar_url }} 
+                    style={styles.identityAvatar} 
+                  />
+                ) : (
+                  <View style={styles.identityAvatarPlaceholder}>
+                    <Text style={styles.identityAvatarPlaceholderText}>
+                      {identityModalFriend.pseudo ? identityModalFriend.pseudo.charAt(0).toUpperCase() : '?'}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Vrai nom connu */}
+              {identityModalName && (
+                <View style={styles.identityNameContainer}>
+                  <Text style={styles.identityNameValue}>✨ {identityModalName}</Text>
+                </View>
+              )}
+
+              {/* Demande d'identité si le nom n'est pas connu */}
+              {!identityModalName && (
+                <View style={styles.identityRequestContainer}>
+                  <Text style={styles.identityRequestTitle}>
+                    {identityModalFriend.isPending 
+                      ? i18n.t('already_asked_identity_title')
+                      : i18n.t('ask_identity_title')}
+                  </Text>
+                  <Text style={styles.identityRequestBody}>
+                    {identityModalFriend.isPending
+                      ? i18n.t('already_asked_identity_body', { pseudo: identityModalFriend.pseudo })
+                      : i18n.t('ask_identity_body', { pseudo: identityModalFriend.pseudo })}
+                  </Text>
+                  <View style={styles.identityRequestButtons}>
+                    <TouchableOpacity
+                      style={[styles.identityRequestButton, styles.identityRequestButtonCancel]}
+                      onPress={() => setIdentityModalVisible(false)}
+                    >
+                      <Text style={styles.identityRequestButtonTextCancel}>
+                        {i18n.t('cancel')}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.identityRequestButton, styles.identityRequestButtonAsk]}
+                      onPress={() => {
+                        setIdentityModalVisible(false);
+                        if (identityModalFriend.isPending) {
+                          requestIdentityReveal(identityModalFriend, { force: true });
+                        } else {
+                          requestIdentityReveal(identityModalFriend);
+                        }
+                      }}
+                    >
+                      <Text style={styles.identityRequestButtonTextAsk}>
+                        {identityModalFriend.isPending 
+                          ? i18n.t('relaunch_btn')
+                          : i18n.t('ask_btn')}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
+              {/* Bouton fermer si le nom est connu */}
+              {identityModalName && (
+                <TouchableOpacity
+                  style={styles.identityCloseButton}
+                  onPress={() => setIdentityModalVisible(false)}
+                >
+                  <Text style={styles.identityCloseButtonText}>{i18n.t('ok') || 'OK'}</Text>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
+        </View>
+      </Modal>
     </Container>
   );
 
@@ -3367,7 +3954,28 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   userInfo: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  pseudo: { fontSize: 18, fontWeight: '600', color: '#333', marginLeft: 10, flex: 1 },
+  friendAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 10,
+    backgroundColor: '#d9d9d9',
+  },
+  friendAvatarPlaceholder: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#604a3e',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  friendAvatarPlaceholderText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  pseudo: { fontSize: 18, fontWeight: '600', color: '#333', marginLeft: 0, flex: 1 },
   unreadInline: { flexDirection: 'row', alignItems: 'center', maxWidth: '55%', marginLeft: -60, gap: 6 },
   unreadMessage: { fontSize: 13, fontStyle: 'italic', color: '#7a5547', flexShrink: 1 },
   redDot: { width: 16, height: 16, borderRadius: 8, backgroundColor: '#ebb89b' },
@@ -3531,5 +4139,110 @@ const styles = StyleSheet.create({
   bubbleTextSent: {
     color: '#333',
     fontSize: 18,
+  },
+  identityModal: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    margin: 0,
+  },
+  identityModalContent: {
+    backgroundColor: '#ebb89b',
+    borderRadius: 20,
+    padding: 30,
+    alignItems: 'center',
+    width: '85%',
+    maxWidth: 400,
+  },
+  identityAvatarContainer: {
+    marginBottom: 20,
+  },
+  identityAvatar: {
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: '#d9d9d9',
+  },
+  identityAvatarPlaceholder: {
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: '#604a3e',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  identityAvatarPlaceholderText: {
+    fontSize: 60,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  identityNameContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  identityNameValue: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#604a3e',
+    textAlign: 'center',
+  },
+  identityRequestContainer: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  identityRequestTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#604a3e',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  identityRequestBody: {
+    fontSize: 16,
+    color: '#604a3e',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  identityRequestButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  identityRequestButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  identityRequestButtonCancel: {
+    backgroundColor: 'rgba(96, 74, 62, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(96, 74, 62, 0.3)',
+  },
+  identityRequestButtonAsk: {
+    backgroundColor: '#604a3e',
+  },
+  identityRequestButtonTextCancel: {
+    color: '#604a3e',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  identityRequestButtonTextAsk: {
+    color: '#ebb89b',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  identityCloseButton: {
+    backgroundColor: '#604a3e',
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 12,
+    marginTop: 10,
+  },
+  identityCloseButtonText: {
+    color: '#ebb89b',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });

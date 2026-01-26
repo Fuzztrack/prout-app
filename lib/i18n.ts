@@ -78,6 +78,7 @@ const i18n = new I18n({
     respond_btn: "Répondre",
     identity_request_sent: "Demande d'identité envoyée",
     friend_deleted_toast: "%{pseudo} a été supprimé de votre liste",
+    real_name: "Vrai nom",
     
     // Actions Prout
     zen_mode_active_me_title: "Mode Zen Actif 🧘‍♂️",
@@ -108,6 +109,9 @@ const i18n = new I18n({
     email: "Email",
     phone: "Téléphone",
     update_btn: "Enregistrer",
+    camera: "Caméra",
+    gallery: "Galerie",
+    choose_photo_source: "Choisir la source de la photo",
     logout: "Se déconnecter",
     logout_title: "Déconnexion",
     logout_confirm: "Voulez-vous vraiment vous déconnecter ?\n\nVous ne recevrez plus de prouts !",
@@ -506,6 +510,7 @@ const i18n = new I18n({
     respond_btn: "Reply",
     identity_request_sent: "Identity request sent",
     friend_deleted_toast: "%{pseudo} has been removed from your list",
+    real_name: "Real name",
     
     // Actions Prout
     zen_mode_active_me_title: "Zen Mode Active 🧘‍♂️",
@@ -536,6 +541,9 @@ const i18n = new I18n({
     email: "Email",
     phone: "Phone",
     update_btn: "Save",
+    camera: "Camera",
+    gallery: "Gallery",
+    choose_photo_source: "Choose photo source",
     logout: "Log Out",
     logout_title: "Log Out",
     logout_confirm: "Do you really want to log out?\n\nYou won't receive farts anymore!",
@@ -931,6 +939,7 @@ const i18n = new I18n({
     respond_btn: "Responder",
     identity_request_sent: "Solicitud de identidad enviada",
     friend_deleted_toast: "%{pseudo} ha sido eliminado de tu lista",
+    real_name: "Nombre real",
     
     // Actions Prout
     zen_mode_active_me_title: "Modo Zen Activo 🧘‍♂️",
@@ -961,6 +970,9 @@ const i18n = new I18n({
     email: "Correo electrónico",
     phone: "Teléfono",
     update_btn: "Guardar",
+    camera: "Cámara",
+    gallery: "Galería",
+    choose_photo_source: "Elegir fuente de la foto",
     logout: "Cerrar sesión",
     logout_title: "Cerrar sesión",
     logout_confirm: "¿Realmente quieres cerrar sesión?\n\n¡Ya no recibirás prouts!",
@@ -1359,6 +1371,7 @@ const i18n = new I18n({
     respond_btn: "Responder",
     identity_request_sent: "Pedido enviado",
     friend_deleted_toast: "%{pseudo} foi removido da lista",
+    real_name: "Nome real",
     
     // Actions Prout
     zen_mode_active_me_title: "Modo Zen Ativo 🧘‍♂️",
