@@ -8,6 +8,9 @@ const {
 
 // Attention : platformProjectRoot pointe déjà sur /android, ne pas le doubler
 const TARGET_SERVICE_PATH = 'app/src/main/java/com/fuzztrack/proutapp/ProutMessagingService.kt';
+const TARGET_HELPER_PATH = 'app/src/main/java/com/fuzztrack/proutapp/NotificationChannelHelper.kt';
+const TARGET_PROVIDER_PATH = 'app/src/main/java/com/fuzztrack/proutapp/ChannelInitProvider.kt';
+const TARGET_MAIN_APP_PATH = 'app/src/main/java/com/fuzztrack/proutapp/MainApplication.kt';
 
 // Contenu complet du fichier ProutMessagingService.kt
 const PROUT_SERVICE_CONTENT = `package com.fuzztrack.proutapp
@@ -241,6 +244,155 @@ class ProutMessagingService : FirebaseMessagingService() {
 }
 `;
 
+// Contenu complet du fichier NotificationChannelHelper.kt
+const NOTIFICATION_CHANNEL_HELPER_CONTENT = `package com.fuzztrack.proutapp
+
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
+import android.media.AudioAttributes
+import android.os.Build
+
+/**
+ * Crée les 20 canaux "prout-prout{i}-v5" au démarrage (idempotent).
+ *
+ * Objectif: éviter les "ratés de son" quand un prout arrive sur un canal non créé.
+ * Important: on référence explicitement R.raw.prout1..20 pour empêcher R8/shrinker
+ * de supprimer des ressources raw en release (AAB).
+ */
+object NotificationChannelHelper {
+    // Référence explicite aux ressources pour éviter le shrink en AAB
+    private val PROUT_RAW_RES = intArrayOf(
+        R.raw.prout1, R.raw.prout2, R.raw.prout3, R.raw.prout4, R.raw.prout5,
+        R.raw.prout6, R.raw.prout7, R.raw.prout8, R.raw.prout9, R.raw.prout10,
+        R.raw.prout11, R.raw.prout12, R.raw.prout13, R.raw.prout14, R.raw.prout15,
+        R.raw.prout16, R.raw.prout17, R.raw.prout18, R.raw.prout19, R.raw.prout20
+    )
+
+    private const val CHANNEL_PREFIX = "prout-"
+    private const val CHANNEL_VERSION = "v5"
+
+    fun createChannels(context: Context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            android.util.Log.d("NotificationChannelHelper", "⚠️ Android < O, pas de canaux")
+            return
+        }
+
+        val notificationManager =
+            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        val audioAttributes = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+
+        var createdCount = 0
+        var skippedCount = 0
+
+        for (i in 1..20) {
+            val proutKey = "prout$i"
+            // Doit correspondre EXACTEMENT à ProutMessagingService.kt (prefix + key + -v5)
+            val channelId = "$CHANNEL_PREFIX$proutKey-$CHANNEL_VERSION" // ex: prout-prout8-v5
+
+            // Idempotent: si déjà créé, on passe
+            if (notificationManager.getNotificationChannel(channelId) != null) {
+                skippedCount++
+                continue
+            }
+
+            val channelName = "Prout $proutKey"
+
+            // Résolution du son via res/raw + ref explicite pour éviter le shrink
+            val resId = PROUT_RAW_RES.getOrNull(i - 1) ?: 0
+            if (resId == 0) {
+                android.util.Log.e("NotificationChannelHelper", "❌ Ressource raw non trouvée pour $proutKey")
+            }
+            val resolvedName =
+                if (resId != 0) context.resources.getResourceEntryName(resId) else proutKey
+            val soundUri =
+                android.net.Uri.parse("android.resource://\${context.packageName}/raw/\${resolvedName}")
+
+            val channel = NotificationChannel(
+                channelId,
+                channelName,
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Notifications personnalisées pour $proutKey"
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 250, 250, 250)
+                enableLights(true)
+                // Couleur (approx #ebb89b)
+                lightColor = 0xFFEBB89B.toInt()
+                setBypassDnd(true)
+                setSound(soundUri, audioAttributes)
+                lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+            }
+
+            notificationManager.createNotificationChannel(channel)
+            createdCount++
+            android.util.Log.d("NotificationChannelHelper", "✅ Canal créé: $channelId (son: $soundUri)")
+        }
+
+        android.util.Log.d("NotificationChannelHelper", "📊 Canaux créés: $createdCount, ignorés: $skippedCount/20")
+    }
+}
+`;
+
+// Contenu complet du fichier ChannelInitProvider.kt
+const CHANNEL_INIT_PROVIDER_CONTENT = `package com.fuzztrack.proutapp
+
+import android.content.ContentProvider
+import android.content.ContentValues
+import android.database.Cursor
+import android.net.Uri
+import android.util.Log
+import androidx.annotation.Keep
+
+/**
+ * Provider d'initialisation ultra-tôt (avant Application.onCreate).
+ *
+ * Objectif: créer les 20 canaux au plus tôt possible après installation / au premier démarrage,
+ * pour éviter les notifications sans son quand un prout arrive sur un canal non créé.
+ */
+@Keep
+class ChannelInitProvider : ContentProvider() {
+    override fun onCreate(): Boolean {
+        return try {
+            context?.let {
+                NotificationChannelHelper.createChannels(it.applicationContext)
+                Log.d("ChannelInitProvider", "✅ Canaux prout initialisés (ContentProvider)")
+            }
+            true
+        } catch (e: Exception) {
+            Log.e("ChannelInitProvider", "❌ Échec init canaux via ContentProvider", e)
+            false
+        }
+    }
+
+    // Stubs requis par ContentProvider (non utilisés)
+    override fun query(
+        uri: Uri,
+        projection: Array<out String>?,
+        selection: String?,
+        selectionArgs: Array<out String>?,
+        sortOrder: String?
+    ): Cursor? = null
+
+    override fun getType(uri: Uri): String? = null
+
+    override fun insert(uri: Uri, values: ContentValues?): Uri? = null
+
+    override fun delete(uri: Uri, selection: String?, selectionArgs: Array<out String>?): Int = 0
+
+    override fun update(
+        uri: Uri,
+        values: ContentValues?,
+        selection: String?,
+        selectionArgs: Array<out String>?
+    ): Int = 0
+}
+`;
+
 const withAndroidProutMessaging = (config) => {
   // 1. Ajouter le service dans le manifest + métadonnées par défaut
   config = withAndroidManifest(config, async (config) => {
@@ -310,8 +462,26 @@ const withAndroidProutMessaging = (config) => {
         'tools:replace': 'android:value',
       },
     });
+
+    // Ajouter le ChannelInitProvider pour créer les canaux au démarrage
+    if (!mainApplication.provider) {
+      mainApplication.provider = [];
+    }
+    // Supprimer les doublons du provider
+    mainApplication.provider = mainApplication.provider.filter(
+      (provider) => !(provider.$ && provider.$['android:name'] === '.ChannelInitProvider')
+    );
+    // Ajouter le provider ChannelInitProvider
+    mainApplication.provider.push({
+      $: {
+        'android:name': '.ChannelInitProvider',
+        'android:authorities': '${applicationId}.channel-init',
+        'android:exported': 'false',
+        'android:initOrder': '100',
+      },
+    });
     
-    console.log('🔧 [withAndroidProutMessaging] Service ajouté au manifest');
+    console.log('🔧 [withAndroidProutMessaging] Service et Provider ajoutés au manifest');
     return config;
   });
 
@@ -331,8 +501,49 @@ const withAndroidProutMessaging = (config) => {
       // Écrire le fichier avec le contenu complet
       fs.writeFileSync(targetPath, PROUT_SERVICE_CONTENT, 'utf8');
       console.log(`✅ [withAndroidProutMessaging] ProutMessagingService.kt créé à ${targetPath}`);
+
+      // Créer NotificationChannelHelper.kt
+      const helperPath = path.join(config.modRequest.platformProjectRoot, TARGET_HELPER_PATH);
+      const helperDir = path.dirname(helperPath);
+      if (!fs.existsSync(helperDir)) {
+        fs.mkdirSync(helperDir, { recursive: true });
+      }
+      fs.writeFileSync(helperPath, NOTIFICATION_CHANNEL_HELPER_CONTENT, 'utf8');
+      console.log(`✅ [withAndroidProutMessaging] NotificationChannelHelper.kt créé à ${helperPath}`);
+
+      // Créer ChannelInitProvider.kt
+      const providerPath = path.join(config.modRequest.platformProjectRoot, TARGET_PROVIDER_PATH);
+      const providerDir = path.dirname(providerPath);
+      if (!fs.existsSync(providerDir)) {
+        fs.mkdirSync(providerDir, { recursive: true });
+      }
+      fs.writeFileSync(providerPath, CHANNEL_INIT_PROVIDER_CONTENT, 'utf8');
+      console.log(`✅ [withAndroidProutMessaging] ChannelInitProvider.kt créé à ${providerPath}`);
+
+      // Mettre à jour MainApplication.kt pour appeler NotificationChannelHelper.createChannels()
+      const mainAppPath = path.join(config.modRequest.platformProjectRoot, TARGET_MAIN_APP_PATH);
+      if (fs.existsSync(mainAppPath)) {
+        let mainAppContent = fs.readFileSync(mainAppPath, 'utf8');
+        // Vérifier si l'appel existe déjà
+        if (!mainAppContent.includes('NotificationChannelHelper.createChannels')) {
+          // Trouver onCreate() et ajouter l'appel après super.onCreate()
+          const onCreateMatch = mainAppContent.match(/override fun onCreate\(\)\s*\{[\s\S]*?super\.onCreate\(\)/);
+          if (onCreateMatch) {
+            const insertPos = onCreateMatch.index + onCreateMatch[0].length;
+            const insertion = `
+    // Créer les canaux de notification Android au démarrage natif (idempotent)
+    // (évite les notifs sans son si un canal n'existe pas encore)
+    NotificationChannelHelper.createChannels(this)`;
+            mainAppContent = mainAppContent.slice(0, insertPos) + insertion + mainAppContent.slice(insertPos);
+            fs.writeFileSync(mainAppPath, mainAppContent, 'utf8');
+            console.log(`✅ [withAndroidProutMessaging] MainApplication.kt mis à jour pour créer les canaux`);
+          }
+        }
+      } else {
+        console.warn(`⚠️ [withAndroidProutMessaging] MainApplication.kt non trouvé à ${mainAppPath}`);
+      }
       
-      // Ajouter un keep rule proguard pour éviter le strip du service en release
+      // Ajouter des keep rules proguard pour éviter le strip en release (EAS AAB)
       const proguardPath = path.join(config.modRequest.platformProjectRoot, 'app/proguard-rules.pro');
       let proguardContent = '';
       if (fs.existsSync(proguardPath)) {
@@ -340,10 +551,32 @@ const withAndroidProutMessaging = (config) => {
       } else {
         fs.mkdirSync(path.dirname(proguardPath), { recursive: true });
       }
+      
+      const keepRules = [
+        '# Keep custom FCM service',
+        '-keep class com.fuzztrack.proutapp.ProutMessagingService { *; }',
+        '',
+        '# Keep notification channel initialization classes (critical for EAS AAB builds)',
+        '-keep class com.fuzztrack.proutapp.ChannelInitProvider { *; }',
+        '-keep class com.fuzztrack.proutapp.NotificationChannelHelper { *; }',
+        '-keepclassmembers class com.fuzztrack.proutapp.NotificationChannelHelper { *; }',
+        '',
+        '# Keep ContentProvider for early initialization',
+        '-keep class * extends android.content.ContentProvider { *; }',
+        '',
+        '# Prevent R8 from removing raw sound resources (prout1..20.wav)',
+        '-keepclassmembers class **.R$raw { public static final int prout*; }',
+      ].join('\n');
+      
       if (!proguardContent.includes('com.fuzztrack.proutapp.ProutMessagingService')) {
-        proguardContent += `\n# Keep custom FCM service\n-keep class com.fuzztrack.proutapp.ProutMessagingService { *; }\n`;
+        proguardContent += `\n${keepRules}\n`;
         fs.writeFileSync(proguardPath, proguardContent, 'utf8');
-        console.log('✅ [withAndroidProutMessaging] Règle proguard ajoutée pour ProutMessagingService');
+        console.log('✅ [withAndroidProutMessaging] Règles proguard ajoutées pour ProutMessagingService, ChannelInitProvider, NotificationChannelHelper');
+      } else if (!proguardContent.includes('ChannelInitProvider')) {
+        // Mettre à jour si ProutMessagingService existe mais pas les autres
+        proguardContent += `\n${keepRules.replace('# Keep custom FCM service\n-keep class com.fuzztrack.proutapp.ProutMessagingService { *; }\n\n', '')}\n`;
+        fs.writeFileSync(proguardPath, proguardContent, 'utf8');
+        console.log('✅ [withAndroidProutMessaging] Règles proguard mises à jour pour ChannelInitProvider et NotificationChannelHelper');
       }
 
       return config;

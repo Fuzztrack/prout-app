@@ -15,3 +15,20 @@
 
 # Keep custom FCM service
 -keep class com.fuzztrack.proutapp.ProutMessagingService { *; }
+
+# Keep notification channel initialization classes (critical for EAS AAB builds)
+-keep class com.fuzztrack.proutapp.ChannelInitProvider { *; }
+-keep class com.fuzztrack.proutapp.NotificationChannelHelper { *; }
+-keepclassmembers class com.fuzztrack.proutapp.NotificationChannelHelper {
+    *;
+}
+
+# Keep ContentProvider for early initialization
+-keep class * extends android.content.ContentProvider {
+    *;
+}
+
+# Prevent R8 from removing raw sound resources (prout1..20.wav)
+-keepclassmembers class **.R$raw {
+    public static final int prout*;
+}

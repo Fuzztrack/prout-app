@@ -42,6 +42,9 @@ class MainApplication : Application(), ReactApplication {
 
   override fun onCreate() {
     super.onCreate()
+    // Créer les canaux de notification Android au démarrage natif (idempotent)
+    // (évite les notifs sans son si un canal n'existe pas encore)
+    NotificationChannelHelper.createChannels(this)
     DefaultNewArchitectureEntryPoint.releaseLevel = try {
       ReleaseLevel.valueOf(BuildConfig.REACT_NATIVE_RELEASE_LEVEL.uppercase())
     } catch (e: IllegalArgumentException) {
