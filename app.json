@@ -114,7 +114,7 @@
       [
         "expo-contacts",
         {
-          "contactsPermission": "Allow $(PRODUCT_NAME) to access your contacts."
+          "contactsPermission": "This app securely sends phone numbers from your contacts to our server solely to identify friends who are already using Prout! and allow you to send them requests. Your contacts are not stored for marketing purposes."
         }
       ],
       "expo-localization",
