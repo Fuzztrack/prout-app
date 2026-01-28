@@ -424,7 +424,7 @@ const i18n = new I18n({
     contact_permission_title: "Ça reste en nous !",
     contact_permission_message: "Cette appli synchronise vos contacts (noms et numéros) vers nos serveurs Supabase (utfwujyymaikraaigvuv.supabase.co) pour trouver vos amis et créer les liens. Aucune autre utilisation ni partage externe. Acceptez-vous cette synchronisation ?",
     contact_consent_title: "Contacts : utilisation et partage",
-    contact_consent_message: "Cette appli synchronise vos contacts (numéros et noms) vers nos serveurs Supabase (https://utfwujyymaikraaigvuv.supabase.co) pour trouver vos amis et créer les liens d'amitié. Aucune autre utilisation ni partage externe.\n\nAcceptez-vous cette synchronisation ?",
+    contact_consent_message: "Cette application envoie de manière sécurisée les numéros de téléphone de vos contacts vers notre serveur uniquement pour identifier vos amis utilisant déjà Prout! et vous permettre de les ajouter. Vos contacts ne sont pas utilisés à des fins commerciales.\n\nAcceptez-vous cette synchronisation ?",
     refuse: "Refuser",
     next: "Suivant",
     
@@ -853,7 +853,7 @@ const i18n = new I18n({
     contact_permission_title: "It stays with us!",
     contact_permission_message: "This app syncs your contacts (names and numbers) to our Supabase servers (utfwujyymaikraaigvuv.supabase.co) to find your friends and create links. No other use or external sharing. Do you accept this sync?",
     contact_consent_title: "Contacts: use and sharing",
-    contact_consent_message: "This app syncs your contacts (numbers and names) to our Supabase servers (https://utfwujyymaikraaigvuv.supabase.co) to find your friends and create friendship links. No other use or external sharing.\n\nDo you accept this sync?",
+    contact_consent_message: "This app securely sends phone numbers from your contacts to our server solely to identify friends who are already using Prout! and allow you to send them requests. Your contacts are not stored for marketing purposes.\n\nDo you accept this sync?",
     refuse: "Refuse",
     next: "Next",
     
@@ -1285,7 +1285,7 @@ const i18n = new I18n({
     contact_permission_title: "¡Se queda con nosotros!",
     contact_permission_message: "Esta app sincroniza tus contactos (nombres y números) a nuestros servidores Supabase (utfwujyymaikraaigvuv.supabase.co) para encontrar tus amigos y crear enlaces. Ningún otro uso ni compartir externo. ¿Aceptas esta sincronización?",
     contact_consent_title: "Contactos: uso y compartir",
-    contact_consent_message: "Esta app sincroniza tus contactos (números y nombres) a nuestros servidores Supabase (https://utfwujyymaikraaigvuv.supabase.co) para encontrar tus amigos y crear enlaces de amistad. Ningún otro uso ni compartir externo.\n\n¿Aceptas esta sincronización?",
+    contact_consent_message: "Esta aplicación envía de forma segura los números de teléfono de tus contactos a nuestro servidor únicamente para identificar a tus amigos que ya usan Prout! y permitirte agregarlos. Tus contactos no se utilizan con fines comerciales.\n\n¿Aceptas esta sincronización?",
     refuse: "Rechazar",
     next: "Siguiente",
     
@@ -1714,7 +1714,7 @@ const i18n = new I18n({
     contact_permission_title: "Fica só com a gente!",
     contact_permission_message: "O app sincroniza seus contatos pros nossos servidores Supabase pra achar seus amigos. Nada mais.",
     contact_consent_title: "Contatos: uso e compartilhamento",
-    contact_consent_message: "O app sincroniza seus contatos pros nossos servidores Supabase pra achar seus amigos. Nada mais.\n\nAceita essa sincronização?",
+    contact_consent_message: "Este app envia de forma segura os números de telefone dos seus contatos para nosso servidor apenas para identificar seus amigos que já usam o Prout! e permitir que você os adicione. Seus contatos não são usados para fins comerciais.\n\nAceita essa sincronização?",
     refuse: "Recusar",
     next: "Próximo",
     
@@ -2143,7 +2143,7 @@ const i18n = new I18n({
     contact_permission_title: "Bleib bei uns!",
     contact_permission_message: "Die App synchronisiert deine Kontakte mit unseren Supabase-Servern, um deine Freunde zu finden. Nichts weiter.",
     contact_consent_title: "Kontakte: Verwendung und Teilen",
-    contact_consent_message: "Die App synchronisiert deine Kontakte mit unseren Supabase-Servern, um deine Freunde zu finden. Nichts weiter.\n\nAkzeptierst du diese Synchronisation?",
+    contact_consent_message: "Diese App sendet sicher Telefonnummern aus Ihren Kontakten an unseren Server, nur um Freunde zu identifizieren, die bereits Prout! verwenden und Ihnen zu ermöglichen, sie hinzuzufügen. Ihre Kontakte werden nicht für Marketingzwecke verwendet.\n\nAkzeptierst du diese Synchronisation?",
     refuse: "Ablehnen",
     next: "Weiter",
     
@@ -2572,7 +2572,7 @@ const i18n = new I18n({
     contact_permission_title: "Resta con noi!",
     contact_permission_message: "L'app sincronizza i tuoi contatti con i nostri server Supabase per trovare i tuoi amici. Nient'altro.",
     contact_consent_title: "Contatti: uso e condivisione",
-    contact_consent_message: "L'app sincronizza i tuoi contatti con i nostri server Supabase per trovare i tuoi amici. Nient'altro.\n\nAccetti questa sincronizzazione?",
+    contact_consent_message: "Questa app invia in modo sicuro i numeri di telefono dei tuoi contatti al nostro server esclusivamente per identificare i tuoi amici che usano già Prout! e permetterti di aggiungerli. I tuoi contatti non vengono utilizzati per scopi commerciali.\n\nAccetti questa sincronizzazione?",
     refuse: "Rifiuta",
     next: "Avanti",
     
