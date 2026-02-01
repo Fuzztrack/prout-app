@@ -1,4 +1,4 @@
-import { getLocales, getCalendars } from 'expo-localization';
+import { getLocales } from 'expo-localization';
 import { I18n } from 'i18n-js';
 import { Platform } from 'react-native';
 
@@ -360,6 +360,7 @@ const i18n = new I18n({
     cannot_retrieve_pseudo: "Impossible de récupérer votre pseudo. Veuillez réessayer.",
     pseudo_not_defined: "Votre pseudo n'est pas défini. Veuillez compléter votre profil.",
     backend_error_ios: "Erreur serveur. Le backend ne peut pas traiter ce type de token.\n\nVérifiez que le backend est configuré pour iOS (Expo Push).",
+    token_updating_retry: "Votre compte est en cours de mise à jour sur le serveur. Réessayez l'envoi dans quelques instants.",
     pseudo_updated_success: "Pseudo mis à jour avec succès !",
     phone_updated_success: "Numéro de téléphone mis à jour avec succès !",
     pseudo_identical: "Le pseudo est identique à l'actuel",
@@ -809,6 +810,7 @@ const i18n = new I18n({
     cannot_retrieve_pseudo: "Unable to retrieve your username. Please try again.",
     pseudo_not_defined: "Your username is not defined. Please complete your profile.",
     backend_error_ios: "Server error. The backend cannot process this type of token.\n\nCheck that the backend is configured for iOS (Expo Push).",
+    token_updating_retry: "Your account is being updated on the server. Please try sending again in a moment.",
     pseudo_updated_success: "Username updated successfully!",
     phone_updated_success: "Phone number updated successfully!",
     pseudo_identical: "Username is identical to current",
@@ -1239,6 +1241,7 @@ const i18n = new I18n({
     cannot_retrieve_pseudo: "No se puede recuperar tu nombre de usuario. Por favor intenta de nuevo.",
     pseudo_not_defined: "Tu nombre de usuario no está definido. Por favor completa tu perfil.",
     backend_error_ios: "Error del servidor. El backend no puede procesar este tipo de token.\n\nVerifica que el backend esté configurado para iOS (Expo Push).",
+    token_updating_retry: "Tu cuenta se está actualizando en el servidor. Vuelve a intentar el envío en unos instantes.",
     pseudo_updated_success: "¡Nombre de usuario actualizado con éxito!",
     phone_updated_success: "¡Número de teléfono actualizado con éxito!",
     pseudo_identical: "El nombre de usuario es idéntico al actual",
@@ -1668,6 +1671,7 @@ const i18n = new I18n({
     cannot_retrieve_pseudo: "Erro ao pegar nome.",
     pseudo_not_defined: "Nome não definido.",
     backend_error_ios: "Erro no servidor (iOS).",
+    token_updating_retry: "Sua conta está sendo atualizada no servidor. Tente enviar novamente em alguns instantes.",
     pseudo_updated_success: "Nome atualizado!",
     phone_updated_success: "Telefone atualizado!",
     pseudo_identical: "Mesmo nome",
@@ -2097,6 +2101,7 @@ const i18n = new I18n({
     cannot_retrieve_pseudo: "Fehler beim Abrufen des Namens.",
     pseudo_not_defined: "Name nicht definiert.",
     backend_error_ios: "Serverfehler (iOS).",
+    token_updating_retry: "Dein Konto wird auf dem Server aktualisiert. Bitte versuche den Versand in wenigen Augenblicken erneut.",
     pseudo_updated_success: "Name aktualisiert!",
     phone_updated_success: "Telefonnummer aktualisiert!",
     pseudo_identical: "Gleicher Name",
@@ -2526,6 +2531,7 @@ const i18n = new I18n({
     cannot_retrieve_pseudo: "Errore durante il recupero del nome.",
     pseudo_not_defined: "Nome non definito.",
     backend_error_ios: "Errore del server (iOS).",
+    token_updating_retry: "Il tuo account è in fase di aggiornamento sul server. Riprova l'invio tra qualche istante.",
     pseudo_updated_success: "Nome aggiornato!",
     phone_updated_success: "Numero di telefono aggiornato!",
     pseudo_identical: "Stesso nome",

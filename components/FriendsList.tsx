@@ -9,17 +9,17 @@ import { Alert, AppState, DeviceEventEmitter, Dimensions, FlatList, Image, Keybo
 import { Gesture, GestureDetector, TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
 import Modal from 'react-native-modal';
 import Animated, {
-  cancelAnimation,
-  Extrapolation,
-  interpolate,
-  runOnJS,
-  useAnimatedKeyboard,
-  useAnimatedReaction,
-  useAnimatedStyle,
-  useSharedValue,
-  withDelay,
-  withSpring,
-  withTiming,
+    cancelAnimation,
+    Extrapolation,
+    interpolate,
+    runOnJS,
+    useAnimatedKeyboard,
+    useAnimatedReaction,
+    useAnimatedStyle,
+    useSharedValue,
+    withDelay,
+    withSpring,
+    withTiming,
 } from 'react-native-reanimated';
 import { RINGER_MODE, VolumeManager } from 'react-native-volume-manager';
 import { ensureContactPermissionWithDisclosure } from '../lib/contactConsent';
@@ -598,6 +598,40 @@ const SentMessageStatus = ({ message }: { message: { text: string; status?: 'rea
     </RNAnimated.View>
   );
 };
+
+// Composant pour gérer l'animation de disparition des messages reçus (quand A envoie un message)
+const ReceivedMessageFade = ({ message, shouldFadeOut, onFadeComplete }: { 
+  message: { id: string; text: string }; 
+  shouldFadeOut: boolean;
+  onFadeComplete: () => void;
+}) => {
+  const opacity = useRef(new RNAnimated.Value(1)).current;
+
+  useEffect(() => {
+    if (shouldFadeOut) {
+      RNAnimated.sequence([
+        RNAnimated.delay(500),
+        RNAnimated.timing(opacity, {
+          toValue: 0,
+          duration: 500,
+          useNativeDriver: true,
+        })
+      ]).start(() => {
+        onFadeComplete();
+      });
+    } else {
+      opacity.setValue(1);
+    }
+  }, [shouldFadeOut]);
+
+  return (
+    <RNAnimated.View style={{ alignSelf: 'flex-start', opacity, maxWidth: '100%' }}>
+      <View style={styles.bubbleReceived}>
+        <Text style={styles.bubbleTextReceived}>{message.text}</Text>
+      </View>
+    </RNAnimated.View>
+  );
+};
  
 const isHuaweiDevice =
   Platform.OS === 'android' &&
@@ -693,6 +727,7 @@ export function FriendsList({
   const openedFromSearchRef = useRef(false); // Track si le chat a été ouvert depuis la recherche
   const [expandedUnreadId, setExpandedUnreadId] = useState<string | null>(null);
   const [unreadCache, setUnreadCache] = useState<Record<string, { id: string; message_content: string; created_at?: string }[]>>({});
+  const [fadingOutReceivedMessages, setFadingOutReceivedMessages] = useState<Set<string>>(new Set());
   const [messageDrafts, setMessageDrafts] = useState<Record<string, string>>({});
   const [sendingFriendId, setSendingFriendId] = useState<string | null>(null);
   const [identityModalVisible, setIdentityModalVisible] = useState(false);
@@ -895,10 +930,19 @@ export function FriendsList({
   useEffect(() => {
     if (prevExpandedRef.current && !expandedFriendId) {
       const prevId = prevExpandedRef.current;
+      const cachedForPrev = unreadCache[prevId] || [];
       setUnreadCache(prev => ({ ...prev, [prevId]: [] }));
+      // Nettoyer aussi les messages en cours de disparition pour ce contact
+      if (cachedForPrev.length > 0) {
+        setFadingOutReceivedMessages(prev => {
+          const newSet = new Set(prev);
+          cachedForPrev.forEach(msg => newSet.delete(msg.id));
+          return newSet;
+        });
+      }
     }
     prevExpandedRef.current = expandedFriendId;
-  }, [expandedFriendId]);
+  }, [expandedFriendId, unreadCache]);
 
   // Nettoyage automatique des messages envoyés marqués comme 'read' (après animation)
   useEffect(() => {
@@ -1005,12 +1049,13 @@ export function FriendsList({
     };
   }, []);
 
-  // Messages éphémères (pending_messages)
+  // Messages éphémères (pending_messages) — tri chronologique pour affichage type WhatsApp (plus ancien en haut, plus récent en bas)
   const fetchPendingMessages = async (userId: string) => {
     const { data, error } = await supabase
       .from('pending_messages')
-      .select('id, from_user_id, sender_pseudo, message_content')
-      .eq('to_user_id', userId);
+      .select('id, from_user_id, sender_pseudo, message_content, created_at')
+      .eq('to_user_id', userId)
+      .order('created_at', { ascending: true });
     if (error) {
       return;
     }
@@ -1688,13 +1733,17 @@ useEffect(() => {
       if (allFriendIds.length > 0) {
           // Récupérer les amis avec leur token FCM (stocké dans expo_push_token)
           // IMPORTANT : Vérifier que le token est bien présent
-          const { data: finalFriends } = await supabase
+          const { data: finalFriends, error: profilesError } = await supabase
             .from('user_profiles')
             .select('id, pseudo, phone, expo_push_token, push_platform, is_zen_mode, avatar_url')
             .in('id', allFriendIds)
             .not('expo_push_token', 'is', null)
             .neq('expo_push_token', '');
           
+          // En cas d'erreur réseau sur user_profiles, ne pas toucher à la liste (garder en mémoire)
+          if (profilesError) {
+            if (__DEV__) console.warn('⚠️ Erreur chargement profils amis (liste conservée):', profilesError.message);
+          } else {
           let identityAliasMap: Record<string, { alias: string | null, status: string | null }> = {};
           let mutedMap: Record<string, boolean> = {};
           let mutedByMap: Record<string, boolean> = {};
@@ -1796,24 +1845,22 @@ useEffect(() => {
           
           // Trier la liste avant de la setter
           const sortedList = sortFriends(friendsList);
-          setAppUsers(sortedList);
-          
-          // Sauvegarder dans le cache (sans bloquer si ça échoue)
-          await saveCacheSafely(CACHE_KEY_FRIENDS, sortedList);
+          // Ne jamais remplacer une liste déjà affichée par une liste vide en cas de réponse vide
+          // (réseau flageolant, timeout, etc.) : on garde la liste en mémoire.
+          const shouldUpdate = sortedList.length > 0 || (appUsersRef.current?.length ?? 0) === 0;
+          if (shouldUpdate) {
+            setAppUsers(sortedList);
+            await saveCacheSafely(CACHE_KEY_FRIENDS, sortedList);
+          }
+          }
       } else {
-          // Si aucune donnée n'est renvoyée (ex: erreur réseau silencieuse ou déconnexion),
-          // on vérifie si on a déjà des données en local.
-          // Si on a déjà des amis, ON NE VIDE PAS la liste pour éviter l'effet "Aucun ami" lors des microcoupures.
-          // On ne vide que si c'est explicitement vide ET qu'on n'est pas en erreur.
-          // Mais ici 'finalFriends' est null en cas d'erreur dans le bloc try/catch du dessus ?
-          // Non, finalFriends est filtré.
-          
-          // Protection anti-vide : Si on a déjà des users et que la nouvelle liste est vide,
-          // c'est suspect (perte de connexion ?). On ne vide que si on est sûr.
-          // Pour l'instant, on vide seulement si on est connecté et qu'on a bien reçu une réponse vide valide.
-          if (friendsResult.data && friendsResult.data.length === 0) {
-             setAppUsers([]);
-             await saveCacheSafely(CACHE_KEY_FRIENDS, []);
+          // allFriendIds.length === 0 : soit l'utilisateur n'a vraiment aucun ami, soit erreur réseau.
+          // On ne vide la liste que si les requêtes ont réussi (pas d'erreur). En cas de perte de connexion,
+          // on garde la liste en mémoire affichée ; elle sera mise à jour à la prochaine connexion.
+          const hasNetworkError = addedFriendsResult.error != null || friendsWhereIAmFriendResult.error != null;
+          if (!hasNetworkError) {
+            setAppUsers([]);
+            await saveCacheSafely(CACHE_KEY_FRIENDS, []);
           }
       }
 
@@ -2902,11 +2949,20 @@ useEffect(() => {
       Keyboard.dismiss(); // Force la fermeture du clavier
       pendingCenterScrollFriendIdRef.current = null;
       // Nettoyer le cache pour ce contact
+      const cachedForFriend = unreadCache[friend.id] || [];
       setUnreadCache((prev) => {
         const newCache = { ...prev };
         delete newCache[friend.id];
         return newCache;
       });
+      // Nettoyer aussi les messages en cours de disparition pour ce contact
+      if (cachedForFriend.length > 0) {
+        setFadingOutReceivedMessages(prev => {
+          const newSet = new Set(prev);
+          cachedForFriend.forEach(msg => newSet.delete(msg.id));
+          return newSet;
+        });
+      }
       return;
     }
 
@@ -3130,7 +3186,10 @@ useEffect(() => {
       if (customMessage) {
         setLastSentMessages(prev => {
           const existingMessages = prev[recipient.id] || [];
-          const newMessage: LastSentMessage = { text: customMessage, ts: now };
+          // Ajouter 1ms au timestamp pour garantir que le message de A apparaît après les messages de B
+          const nowTime = new Date(now).getTime();
+          const messageTs = new Date(nowTime + 1).toISOString();
+          const newMessage: LastSentMessage = { text: customMessage, ts: messageTs };
           // Ajouter le nouveau message au tableau (accumulation)
           const next = { 
             ...prev, 
@@ -3148,8 +3207,30 @@ useEffect(() => {
 
       // Nettoyer le brouillon sans fermer le sticky
       setMessageDrafts(prev => ({ ...prev, [recipient.id]: '' }));
-      // Si A répond, on enlève les messages de B du sticky (on garde uniquement la réponse de A)
-      setUnreadCache(prev => ({ ...prev, [recipient.id]: [] }));
+      // Si A répond, marquer les messages de B comme "en cours de disparition" pour l'animation
+      // Inclure les messages du cache ET ceux qui sont encore dans pendingMessages
+      const cachedMessages = unreadCache[recipient.id] || [];
+      const activeMessages = pendingMessages.filter(m => m.from_user_id === recipient.id);
+      const allMessagesToFade = [...cachedMessages, ...activeMessages.map(m => ({ id: m.id, message_content: m.message_content, created_at: m.created_at }))];
+      // Dédupliquer par ID
+      const uniqueMessagesToFade = Array.from(new Map(allMessagesToFade.map(m => [m.id, m])).values());
+      
+      if (uniqueMessagesToFade.length > 0) {
+        setFadingOutReceivedMessages(prev => {
+          const newSet = new Set(prev);
+          uniqueMessagesToFade.forEach(msg => newSet.add(msg.id));
+          return newSet;
+        });
+        // Supprimer du cache après l'animation (500ms delay + 500ms fade = 1000ms)
+        setTimeout(() => {
+          setUnreadCache(prev => ({ ...prev, [recipient.id]: [] }));
+          setFadingOutReceivedMessages(prev => {
+            const newSet = new Set(prev);
+            uniqueMessagesToFade.forEach(msg => newSet.delete(msg.id));
+            return newSet;
+          });
+        }, 1000);
+      }
       // Laisser un feedback visuel court après envoi
       setTimeout(() => setSendingFriendId(null), 600);
 
@@ -3179,7 +3260,9 @@ useEffect(() => {
         // Message plus détaillé selon le type d'erreur
         let errorMessage = "Impossible d'envoyer le prout.";
         if (error?.message?.includes('Backend error')) {
-          errorMessage = i18n.t('backend_error_ios');
+          const msg = (error?.message ?? '').toLowerCase();
+          const isTokenError = msg.includes('token expo') || msg.includes('token fcm') || msg.includes('invalide') || msg.includes('expiré') || msg.includes('devicenotregistered') || msg.includes('erreur expo');
+          errorMessage = isTokenError ? i18n.t('token_updating_retry') : i18n.t('backend_error_ios');
         }
         Alert.alert(i18n.t('error'), errorMessage);
       }
@@ -3363,8 +3446,11 @@ useEffect(() => {
         };
         const timeA = getTs(a.ts);
         const timeB = getTs(b.ts);
-        if (timeA === timeB) return a.isMe ? -1 : 1;
-        if (timeA === 0 || timeB === 0) return a.isMe ? -1 : 1;
+        // Si timestamps égaux : placer les messages de B (isMe=false) avant ceux de A (isMe=true)
+        if (timeA === timeB) return a.isMe ? 1 : -1;
+        // Si timestamp manquant : placer les messages de B avant ceux de A
+        if (timeA === 0 || timeB === 0) return a.isMe ? 1 : -1;
+        // Tri chronologique normal : plus récent = après
         return timeA - timeB;
     });
 
@@ -3393,9 +3479,14 @@ useEffect(() => {
             msg.isMe ? (
               <SentMessageStatus key={msg.id} message={msg.original!} />
             ) : (
-              <View key={msg.id} style={styles.bubbleReceived}>
-                <Text style={styles.bubbleTextReceived}>{msg.text}</Text>
-              </View>
+              <ReceivedMessageFade
+                key={msg.id}
+                message={{ id: msg.id, text: msg.text }}
+                shouldFadeOut={fadingOutReceivedMessages.has(msg.id)}
+                onFadeComplete={() => {
+                  // L'animation est terminée, le message sera supprimé par le setTimeout dans handleSendProut
+                }}
+              />
             )
           ))}
         </ScrollView>
@@ -3454,6 +3545,7 @@ useEffect(() => {
     displayDraft,
     sendingFriendId,
     displayBackgroundColor,
+    fadingOutReceivedMessages,
     // PAS de keyboardVisible ici !
     // PAS de handlePressHeader ici ! (on utilise la Ref)
   ]);
