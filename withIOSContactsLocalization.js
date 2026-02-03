@@ -2,59 +2,52 @@ const fs = require('fs');
 const path = require('path');
 const { withDangerousMod } = require('@expo/config-plugins');
 
+/** Texte validé pour le popup système contacts - traductions par locale iOS */
+const NS_CONTACTS_BY_LOCALE = {
+  fr: 'Cette app envoie les numéros de vos contacts vers les serveurs sécurisés de Prout! pour retrouver automatiquement vos amis. Ces données ne sont pas partagées avec des tiers.',
+  es: 'Esta app sube los números de tus contactos a los servidores seguros de Prout! para encontrar automáticamente a tus amigos. Estos datos no se comparten con terceros.',
+  pt: 'Este app envia os números dos seus contatos para os servidores seguros do Prout! para encontrar seus amigos automaticamente. Esses dados não são compartilhados com terceiros.',
+  de: 'Diese App lädt Telefonnummern aus deinen Kontakten auf die sicheren Server von Prout! hoch, um deine Freunde automatisch zu finden. Diese Daten werden nicht an Dritte weitergegeben.',
+  it: "Questa app carica i numeri di telefono dei tuoi contatti sui server sicuri di Prout! per trovare automaticamente i tuoi amici. Questi dati non sono condivisi con terze parti.",
+};
+
 /**
- * Plugin Expo pour ajouter la traduction française de NSContactsUsageDescription
- * dans InfoPlist.strings pour iOS
+ * Plugin Expo pour ajouter les traductions de NSContactsUsageDescription
+ * dans InfoPlist.strings pour iOS (fr, es, pt, de, it)
  */
 const withIOSContactsLocalization = (config) => {
   return withDangerousMod(config, [
     'ios',
     async (config) => {
       const iosProjectRoot = config.modRequest.platformProjectRoot;
-      
-      // Trouver le nom de l'app (généralement le slug ou le dernier segment du bundleIdentifier)
-      const appName = config.slug || config.ios?.bundleIdentifier?.split('.').pop() || 'ProutApp';
-      
-      // Chercher le dossier de l'app dans ios/
-      // Expo génère généralement ios/[AppName]/ ou ios/[AppName]App/
-      const possiblePaths = [
-        path.join(iosProjectRoot, appName, 'fr.lproj'),
-        path.join(iosProjectRoot, `${appName}App`, 'fr.lproj'),
-        path.join(iosProjectRoot, 'ProutApp', 'fr.lproj'),
+      // Le bundle réel peut être "Prout" (expo.name) alors que slug = "ProutApp" ; priorité au dossier qui contient Info.plist
+      const possibleAppDirs = [
+        path.join(iosProjectRoot, config.name || 'Prout'),
+        path.join(iosProjectRoot, config.slug || 'ProutApp'),
+        path.join(iosProjectRoot, `${config.slug || 'ProutApp'}App`),
+        path.join(iosProjectRoot, 'ProutApp'),
+        path.join(iosProjectRoot, 'Prout'),
       ];
-      
-      // Trouver le premier chemin qui existe (ou utiliser le premier par défaut)
-      let stringsDir = possiblePaths[0];
-      for (const testPath of possiblePaths) {
-        const parentDir = path.dirname(testPath);
-        if (fs.existsSync(parentDir)) {
-          stringsDir = testPath;
+
+      let appDir = possibleAppDirs[0];
+      for (const dir of possibleAppDirs) {
+        if (fs.existsSync(dir) && fs.existsSync(path.join(dir, 'Info.plist'))) {
+          appDir = dir;
           break;
         }
       }
-      
-      const stringsPath = path.join(stringsDir, 'InfoPlist.strings');
-      
-      // Créer le dossier si nécessaire
-      if (!fs.existsSync(stringsDir)) {
-        fs.mkdirSync(stringsDir, { recursive: true });
-        console.log(`📁 [withIOSContactsLocalization] Dossier créé: ${stringsDir}`);
+
+      for (const [locale, text] of Object.entries(NS_CONTACTS_BY_LOCALE)) {
+        const stringsDir = path.join(appDir, `${locale}.lproj`);
+        if (!fs.existsSync(stringsDir)) {
+          fs.mkdirSync(stringsDir, { recursive: true });
+        }
+        const stringsPath = path.join(stringsDir, 'InfoPlist.strings');
+        const content = `/* NSContactsUsageDescription (${locale}) */\n"NSContactsUsageDescription" = "${text.replace(/"/g, '\\"')}";\n`;
+        fs.writeFileSync(stringsPath, content, 'utf8');
+        console.log(`✅ [withIOSContactsLocalization] InfoPlist.strings (${locale}) → ${stringsPath}`);
       }
-      
-      // Contenu du fichier InfoPlist.strings en français
-      const frenchContent = `/* 
- * InfoPlist.strings (Français)
- * Traduction française des descriptions d'utilisation des permissions iOS
- */
 
-/* NSContactsUsageDescription */
-"NSContactsUsageDescription" = "Cette application envoie de manière sécurisée les numéros de téléphone de vos contacts vers notre serveur uniquement pour identifier vos amis utilisant déjà Prout! et vous permettre de les ajouter. Vos contacts ne sont pas utilisés à des fins commerciales.";
-`;
-
-      // Écrire le fichier
-      fs.writeFileSync(stringsPath, frenchContent, 'utf8');
-      console.log(`✅ [withIOSContactsLocalization] InfoPlist.strings (fr) créé à ${stringsPath}`);
-      
       return config;
     },
   ]);

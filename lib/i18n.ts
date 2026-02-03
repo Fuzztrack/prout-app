@@ -191,11 +191,11 @@ const i18n = new I18n({
     tuto_4_desc: "En swipant à gauche le nom d'un contact, vous pouvez le mettre en sourdine.",
     
     // Onboarding
-    onboarding_welcome_title: "Bienvenue sur Prout !",
-    onboarding_welcome_subtitle: "",
-    onboarding_welcome_desc: "L'appli de notification de prout.",
+    onboarding_welcome_title: "Prout !",
+    onboarding_welcome_subtitle: "Dites bonjour... autrement !",
+    onboarding_welcome_desc: "",
     onboarding_notifications_title: "Le cœur du Prout",
-    onboarding_notifications_desc: "Tout l'intérêt réside dans la surprise ! Acceptez les notifications pour recevoir les prouts de vos amis.",
+    onboarding_notifications_desc: "Tout l'intérêt de communiquer avec vos amis sur Prout, ce sont les notifications. Acceptez-les pour jouer le jeu !",
     onboarding_sound_title: "Montez le volume",
     onboarding_sound_desc: "Pensez à vérifier que vous avez le son activé (et pas en silencieux) pour profiter de la mélodie.",
     onboarding_gesture_title: "À vous de jouer",
@@ -423,9 +423,9 @@ const i18n = new I18n({
     
     // Contact Permission
     contact_permission_title: "Ça reste en nous !",
-    contact_permission_message: "Cette appli synchronise vos contacts (noms et numéros) vers nos serveurs Supabase (utfwujyymaikraaigvuv.supabase.co) pour trouver vos amis et créer les liens. Aucune autre utilisation ni partage externe. Acceptez-vous cette synchronisation ?",
+    contact_permission_message: "Pour identifier automatiquement les amis qui utilisent déjà Prout!, l'app doit envoyer les numéros de vos contacts vers nos serveurs sécurisés.\n\nC'est optionnel : vous pourrez toujours ajouter des amis manuellement par leur pseudo plus tard.",
     contact_consent_title: "Contacts : utilisation et partage",
-    contact_consent_message: "Cette application envoie de manière sécurisée les numéros de téléphone de vos contacts vers notre serveur uniquement pour identifier vos amis utilisant déjà Prout! et vous permettre de les ajouter. Vos contacts ne sont pas utilisés à des fins commerciales.\n\nAcceptez-vous cette synchronisation ?",
+    contact_consent_message: "Pour identifier automatiquement les amis qui utilisent déjà Prout!, l'app doit envoyer les numéros de vos contacts vers nos serveurs sécurisés.\n\nC'est optionnel : vous pourrez toujours ajouter des amis manuellement par leur pseudo plus tard.",
     refuse: "Refuser",
     next: "Suivant",
     
@@ -641,11 +641,11 @@ const i18n = new I18n({
     tuto_4_desc: "By swiping left on a contact's name, you can mute them.",
     
     // Onboarding
-    onboarding_welcome_title: "Welcome",
-    onboarding_welcome_subtitle: "Prout ! The Art of French Fart",
-    onboarding_welcome_desc: "The fart notification app.",
+    onboarding_welcome_title: "Prout !",
+    onboarding_welcome_subtitle: "Say hello... differently!",
+    onboarding_welcome_desc: "",
     onboarding_notifications_title: "The Heart of Prout",
-    onboarding_notifications_desc: "The whole point is the surprise! Accept notifications to receive farts from your friends.",
+    onboarding_notifications_desc: "The whole point of communicating with your friends on Prout is the notifications. Please accept them to play the game!",
     onboarding_sound_title: "Turn up the volume",
     onboarding_sound_desc: "Make sure you have sound enabled (and not on silent) to enjoy the melody.",
     onboarding_gesture_title: "Your turn",
@@ -853,9 +853,9 @@ const i18n = new I18n({
     
     // Contact Permission
     contact_permission_title: "It stays with us!",
-    contact_permission_message: "This app syncs your contacts (names and numbers) to our Supabase servers (utfwujyymaikraaigvuv.supabase.co) to find your friends and create links. No other use or external sharing. Do you accept this sync?",
+    contact_permission_message: "To automatically identify friends already using Prout!, the app needs to upload phone numbers from your contacts to our secure servers.\n\nThis is optional: You can still add friends manually by their username later.",
     contact_consent_title: "Contacts: use and sharing",
-    contact_consent_message: "This app securely sends phone numbers from your contacts to our server solely to identify friends who are already using Prout! and allow you to send them requests. Your contacts are not stored for marketing purposes.\n\nDo you accept this sync?",
+    contact_consent_message: "To automatically identify friends already using Prout!, the app needs to upload phone numbers from your contacts to our secure servers.\n\nThis is optional: You can still add friends manually by their username later.",
     refuse: "Refuse",
     next: "Next",
     
@@ -1072,11 +1072,11 @@ const i18n = new I18n({
     tuto_4_desc: "Deslizando hacia la izquierda el nombre de un contacto, puedes silenciarlo.",
     
     // Onboarding
-    onboarding_welcome_title: "Bienvenido",
-    onboarding_welcome_subtitle: "Prout ! El arte del pedo a la francesa",
-    onboarding_welcome_desc: "La app de notificaciones de prout.",
+    onboarding_welcome_title: "Prout !",
+    onboarding_welcome_subtitle: "Di hola... ¡de otra manera!",
+    onboarding_welcome_desc: "",
     onboarding_notifications_title: "El corazón del Prout",
-    onboarding_notifications_desc: "¡Todo el interés está en la sorpresa! Acepta las notificaciones para recibir prouts de tus amigos.",
+    onboarding_notifications_desc: "Todo el interés de comunicarse con tus amigos en Prout son las notificaciones. ¡Acéptalas para jugar!",
     onboarding_sound_title: "Sube el volumen",
     onboarding_sound_desc: "Asegúrate de tener el sonido activado (y no en silencioso) para disfrutar de la melodía.",
     onboarding_gesture_title: "A ti te toca",
@@ -1286,9 +1286,9 @@ const i18n = new I18n({
     
     // Contact Permission
     contact_permission_title: "¡Se queda con nosotros!",
-    contact_permission_message: "Esta app sincroniza tus contactos (nombres y números) a nuestros servidores Supabase (utfwujyymaikraaigvuv.supabase.co) para encontrar tus amigos y crear enlaces. Ningún otro uso ni compartir externo. ¿Aceptas esta sincronización?",
+    contact_permission_message: "Para identificar automáticamente a los amigos que ya usan Prout!, la app debe subir los números de tus contactos a nuestros servidores seguros.\n\nEs opcional: podrás seguir añadiendo amigos manualmente por su nombre de usuario más tarde.",
     contact_consent_title: "Contactos: uso y compartir",
-    contact_consent_message: "Esta aplicación envía de forma segura los números de teléfono de tus contactos a nuestro servidor únicamente para identificar a tus amigos que ya usan Prout! y permitirte agregarlos. Tus contactos no se utilizan con fines comerciales.\n\n¿Aceptas esta sincronización?",
+    contact_consent_message: "Para identificar automáticamente a los amigos que ya usan Prout!, la app debe subir los números de tus contactos a nuestros servidores seguros.\n\nEs opcional: podrás seguir añadiendo amigos manualmente por su nombre de usuario más tarde.",
     refuse: "Rechazar",
     next: "Siguiente",
     
@@ -1502,11 +1502,11 @@ const i18n = new I18n({
     tuto_4_desc: "Arrasta pra esquerda pra calar a boca do amigo.",
     
     // Onboarding
-    onboarding_welcome_title: "Bem-vindo",
-    onboarding_welcome_subtitle: "Prout! A arte do peido francês",
-    onboarding_welcome_desc: "O app de notificação de peido.",
+    onboarding_welcome_title: "Prout !",
+    onboarding_welcome_subtitle: "Diga olá... de forma diferente!",
+    onboarding_welcome_desc: "",
     onboarding_notifications_title: "O coração do Prout",
-    onboarding_notifications_desc: "A graça é a surpresa! Aceita as notificações.",
+    onboarding_notifications_desc: "Todo o interesse de se comunicar com seus amigos no Prout são as notificações. Aceite-as para jogar!",
     onboarding_sound_title: "Aumenta o som",
     onboarding_sound_desc: "Deixa o som ligado pra curtir a melodia.",
     onboarding_gesture_title: "Sua vez",
@@ -1716,9 +1716,9 @@ const i18n = new I18n({
     
     // Contact Permission
     contact_permission_title: "Fica só com a gente!",
-    contact_permission_message: "O app sincroniza seus contatos pros nossos servidores Supabase pra achar seus amigos. Nada mais.",
+    contact_permission_message: "Para identificar automaticamente amigos que já usam o Prout!, o app precisa enviar os números dos seus contatos para nossos servidores seguros.\n\nÉ opcional: você ainda pode adicionar amigos manualmente pelo nome de usuário depois.",
     contact_consent_title: "Contatos: uso e compartilhamento",
-    contact_consent_message: "Este app envia de forma segura os números de telefone dos seus contatos para nosso servidor apenas para identificar seus amigos que já usam o Prout! e permitir que você os adicione. Seus contatos não são usados para fins comerciais.\n\nAceita essa sincronização?",
+    contact_consent_message: "Para identificar automaticamente amigos que já usam o Prout!, o app precisa enviar os números dos seus contatos para nossos servidores seguros.\n\nÉ opcional: você ainda pode adicionar amigos manualmente pelo nome de usuário depois.",
     refuse: "Recusar",
     next: "Próximo",
     
@@ -1932,11 +1932,11 @@ const i18n = new I18n({
     tuto_4_desc: "Ziehe nach links, um den Freund stummzuschalten.",
     
     // Onboarding
-    onboarding_welcome_title: "Willkommen",
-    onboarding_welcome_subtitle: "Prout! Die Kunst des französischen Fürzes",
-    onboarding_welcome_desc: "Die App für Fürz-Benachrichtigungen.",
+    onboarding_welcome_title: "Prout !",
+    onboarding_welcome_subtitle: "Sag hallo... anders!",
+    onboarding_welcome_desc: "",
     onboarding_notifications_title: "Das Herz von Prout",
-    onboarding_notifications_desc: "Der Spaß ist die Überraschung! Akzeptiere die Benachrichtigungen.",
+    onboarding_notifications_desc: "Der ganze Sinn der Kommunikation mit deinen Freunden auf Prout sind die Benachrichtigungen. Bitte akzeptiere sie, um das Spiel zu spielen!",
     onboarding_sound_title: "Drehe die Lautstärke auf",
     onboarding_sound_desc: "Lass den Ton an, um die Melodie zu genießen.",
     onboarding_gesture_title: "Du bist dran",
@@ -2146,9 +2146,9 @@ const i18n = new I18n({
     
     // Contact Permission
     contact_permission_title: "Bleib bei uns!",
-    contact_permission_message: "Die App synchronisiert deine Kontakte mit unseren Supabase-Servern, um deine Freunde zu finden. Nichts weiter.",
+    contact_permission_message: "Um Freunde, die Prout! bereits nutzen, automatisch zu erkennen, muss die App Telefonnummern aus deinen Kontakten auf unsere sicheren Server hochladen.\n\nDas ist optional: Du kannst später weiterhin Freunde manuell über ihren Benutzernamen hinzufügen.",
     contact_consent_title: "Kontakte: Verwendung und Teilen",
-    contact_consent_message: "Diese App sendet sicher Telefonnummern aus Ihren Kontakten an unseren Server, nur um Freunde zu identifizieren, die bereits Prout! verwenden und Ihnen zu ermöglichen, sie hinzuzufügen. Ihre Kontakte werden nicht für Marketingzwecke verwendet.\n\nAkzeptierst du diese Synchronisation?",
+    contact_consent_message: "Um Freunde, die Prout! bereits nutzen, automatisch zu erkennen, muss die App Telefonnummern aus deinen Kontakten auf unsere sicheren Server hochladen.\n\nDas ist optional: Du kannst später weiterhin Freunde manuell über ihren Benutzernamen hinzufügen.",
     refuse: "Ablehnen",
     next: "Weiter",
     
@@ -2362,11 +2362,11 @@ const i18n = new I18n({
     tuto_4_desc: "Trascina a sinistra per silenziare l'amico.",
     
     // Onboarding
-    onboarding_welcome_title: "Benvenuto",
-    onboarding_welcome_subtitle: "Prout! L'arte della scoreggia francese",
-    onboarding_welcome_desc: "L'app per le notifiche di scoregge.",
+    onboarding_welcome_title: "Prout !",
+    onboarding_welcome_subtitle: "Di ciao... diversamente!",
+    onboarding_welcome_desc: "",
     onboarding_notifications_title: "Il cuore di Prout",
-    onboarding_notifications_desc: "Il divertimento è la sorpresa! Accetta le notifiche.",
+    onboarding_notifications_desc: "Tutto il punto di comunicare con i tuoi amici su Prout sono le notifiche. Accettale per giocare!",
     onboarding_sound_title: "Alza il volume",
     onboarding_sound_desc: "Lascia il suono acceso per goderti la melodia.",
     onboarding_gesture_title: "Tocca a te",
@@ -2576,9 +2576,9 @@ const i18n = new I18n({
     
     // Contact Permission
     contact_permission_title: "Resta con noi!",
-    contact_permission_message: "L'app sincronizza i tuoi contatti con i nostri server Supabase per trovare i tuoi amici. Nient'altro.",
+    contact_permission_message: "Per identificare automaticamente gli amici che usano già Prout!, l'app deve caricare i numeri di telefono dei tuoi contatti sui nostri server sicuri.\n\nÈ facoltativo: potrai comunque aggiungere amici manualmente tramite il loro nome utente in seguito.",
     contact_consent_title: "Contatti: uso e condivisione",
-    contact_consent_message: "Questa app invia in modo sicuro i numeri di telefono dei tuoi contatti al nostro server esclusivamente per identificare i tuoi amici che usano già Prout! e permetterti di aggiungerli. I tuoi contatti non vengono utilizzati per scopi commerciali.\n\nAccetti questa sincronizzazione?",
+    contact_consent_message: "Per identificare automaticamente gli amici che usano già Prout!, l'app deve caricare i numeri di telefono dei tuoi contatti sui nostri server sicuri.\n\nÈ facoltativo: potrai comunque aggiungere amici manualmente tramite il loro nome utente in seguito.",
     refuse: "Rifiuta",
     next: "Avanti",
     

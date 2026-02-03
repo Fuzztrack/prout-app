@@ -24,7 +24,7 @@
           "remote-notification"
         ],
         "ITSAppUsesNonExemptEncryption": false,
-        "NSContactsUsageDescription": "This app securely sends phone numbers from your contacts to our server solely to identify friends who are already using Prout! and allow you to send them requests. Your contacts are not stored for marketing purposes.",
+        "NSContactsUsageDescription": "This app uploads phone numbers from your contacts to Prout!'s secure servers to automatically find your friends. This data is not shared with third parties.",
         "NSPhotoLibraryUsageDescription": "Cette application a besoin d'accéder à vos photos pour vous permettre de choisir une photo de profil.",
         "NSPhotoLibraryAddUsageDescription": "Cette application a besoin d'accéder à vos photos pour vous permettre de choisir une photo de profil.",
         "NSCameraUsageDescription": "Cette application a besoin d'accéder à votre caméra pour vous permettre de prendre une photo de profil."
@@ -114,7 +114,7 @@
       [
         "expo-contacts",
         {
-          "contactsPermission": "This app securely sends phone numbers from your contacts to our server solely to identify friends who are already using Prout! and allow you to send them requests. Your contacts are not stored for marketing purposes."
+          "contactsPermission": "This app uploads phone numbers from your contacts to Prout!'s secure servers to automatically find your friends. This data is not shared with third parties."
         }
       ],
       "expo-localization",
