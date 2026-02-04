@@ -7,19 +7,20 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { Alert, AppState, DeviceEventEmitter, Dimensions, FlatList, Image, Keyboard, KeyboardAvoidingView, Linking, NativeModules, Platform, Animated as RNAnimated, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { Gesture, GestureDetector, TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
+// 👇 AJOUT : Hook pour capturer la hauteur réelle du clavier (Texte OU Emoji)
+import { useKeyboardHandler } from 'react-native-keyboard-controller';
 import Modal from 'react-native-modal';
 import Animated, {
-    cancelAnimation,
-    Extrapolation,
-    interpolate,
-    runOnJS,
-    useAnimatedKeyboard,
-    useAnimatedReaction,
-    useAnimatedStyle,
-    useSharedValue,
-    withDelay,
-    withSpring,
-    withTiming,
+  cancelAnimation,
+  Extrapolation,
+  interpolate,
+  runOnJS,
+  useAnimatedReaction,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withSpring,
+  withTiming
 } from 'react-native-reanimated';
 import { RINGER_MODE, VolumeManager } from 'react-native-volume-manager';
 import { ensureContactPermissionWithDisclosure } from '../lib/contactConsent';
@@ -37,6 +38,7 @@ const ANIM_IMAGES = [
 ];
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
+const SCREEN_HEIGHT = Dimensions.get('window').height;
 const SWIPE_THRESHOLD = 150; // Seuil pour déclencher l'action
 const TAP_THRESHOLD = 12; // Distance max pour considérer un tap
 
@@ -710,7 +712,7 @@ export function FriendsList({
   const [dismissedSilentWarning, setDismissedSilentWarning] = useState(dismissedSilentWarningSession); // reste à true pour toute la session après clic OK
   const [expandedFriendId, setExpandedFriendId] = useState<string | null>(null);
   const [keyboardVisible, setKeyboardVisible] = useState(false); // État local pour le clavier
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  // const [keyboardHeight, setKeyboardHeight] = useState(0); // ❌ Supprimé : géré par Reanimated
   const [isModalContentVisible, setIsModalContentVisible] = useState(false);
   const [modalContentHeight, setModalContentHeight] = useState(0);
   const [inputLayout, setInputLayout] = useState<{ y: number; height: number } | null>(null);
@@ -723,6 +725,32 @@ export function FriendsList({
   const lastSearchOpenAtRef = useRef<number | null>(null);
   const refocusSearchOnBlurAttemptedRef = useRef(false);
   const isClosingModalRef = useRef(false);
+  
+  // 👇 AJOUT : Gestion Reanimated du clavier pour Android via react-native-keyboard-controller
+  const keyboardHeightSV = useSharedValue(0);
+  useKeyboardHandler({
+    onMove: (e: { height: number }) => {
+      'worklet';
+      keyboardHeightSV.value = e.height;
+    },
+    onInteractive: (e: { height: number }) => {
+      'worklet';
+      keyboardHeightSV.value = e.height;
+    },
+    onEnd: (e: { height: number }) => {
+      'worklet';
+      keyboardHeightSV.value = e.height; // Peut être 0 si fermé, ou la hauteur finale
+    },
+  });
+
+  // Style animé pour le padding Android (Fluide & Précis)
+  const androidChatStyle = useAnimatedStyle(() => {
+    if (Platform.OS !== 'android') return {};
+    return {
+      paddingBottom: keyboardHeightSV.value > 0 ? keyboardHeightSV.value + 10 : 10,
+    };
+  });
+
   const closingCooldownUntilRef = useRef<number | null>(null);
   const openedFromSearchRef = useRef(false); // Track si le chat a été ouvert depuis la recherche
   const [expandedUnreadId, setExpandedUnreadId] = useState<string | null>(null);
@@ -739,6 +767,7 @@ export function FriendsList({
   const pendingReadRemovalTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const prevExpandedRef = useRef<string | null>(null);
   const stickyScrollViewRef = useRef<ScrollView>(null);
+  const stickyScrollViewAnimatedRef = useRef<Animated.ScrollView>(null);
 
   const updateLastSentIndex = (map: LastSentMap) => {
     const index: Record<string, string> = {};
@@ -781,11 +810,9 @@ export function FriendsList({
       clearTimeout(existing);
     }
     if (__DEV__) {
-      console.log('[CHAT][READ] schedule removal', { messageId, delay: READ_ANIMATION_MS + 100 });
     }
     const timer = setTimeout(() => {
       if (__DEV__) {
-        console.log('[CHAT][READ] remove timer fired', { messageId });
       }
       setLastSentMessages(prev => {
         const next: LastSentMap = {};
@@ -805,12 +832,10 @@ export function FriendsList({
           updateLastSentIndex(next);
           saveLastSentMessagesCache(next);
           if (__DEV__) {
-            console.log('[CHAT][READ] forced remove after animation', { messageId });
           }
           return next;
         }
         if (__DEV__) {
-          console.log('[CHAT][READ] forced remove no-op (not found)', { messageId });
         }
         return prev;
       });
@@ -831,12 +856,8 @@ export function FriendsList({
       // Android : ouvrir les paramètres système son via module natif
       try {
         const { SoundSettingsModule } = NativeModules;
-        console.log('🔍 [SoundSettings] Module disponible?', !!SoundSettingsModule);
-        console.log('🔍 [SoundSettings] openSoundSettings disponible?', !!SoundSettingsModule?.openSoundSettings);
-        console.log('🔍 [SoundSettings] Tous les NativeModules:', Object.keys(NativeModules));
         
         if (SoundSettingsModule && typeof SoundSettingsModule.openSoundSettings === 'function') {
-          console.log('✅ [SoundSettings] Ouverture des paramètres son via module natif');
           SoundSettingsModule.openSoundSettings();
           return; // Succès, on sort
         } else {
@@ -992,21 +1013,13 @@ export function FriendsList({
             }
           });
           if (changed) {
-            if (__DEV__) {
-              console.log('[CHAT][CLEANUP] removed read messages', {
-                removedCount,
-                pendingReadCount,
-              });
-            }
+
             updateLastSentIndex(next);
             saveLastSentMessagesCache(next);
             return next;
           }
           if (__DEV__ && pendingReadCount > 0) {
-            console.log('[CHAT][CLEANUP] pending read messages', {
-              pendingReadCount,
-              nextDelay,
-            });
+            // Log cleaned
           }
           return prev;
         });
@@ -1084,11 +1097,6 @@ export function FriendsList({
     try {
       if (__DEV__) {
         const msg = pendingMessages.find(m => m.id === messageId);
-        console.log('[CHAT][READ] markMessageAsRead start', {
-          messageId,
-          senderId: msg?.from_user_id,
-          hasMsgInPending: !!msg,
-        });
       }
       // 1. Ajouter à la liste noire locale pour empêcher la réapparition immédiate via polling
       deletedMessagesCache.add(messageId);
@@ -1147,7 +1155,6 @@ export function FriendsList({
         await supabase.from('pending_messages').delete().eq('id', messageId);
       }
       if (__DEV__) {
-        console.log('[CHAT][READ] markMessageAsRead done', { messageId, senderId });
       }
     } catch (e) {
       console.warn('Erreur markMessageAsRead:', e);
@@ -1305,7 +1312,6 @@ useEffect(() => {
         await AsyncStorage.removeItem(CACHE_KEY_LAST_SENT_MESSAGES);
         await AsyncStorage.setItem('cache:last_sent_messages_purged_once_v2', '1');
         if (__DEV__) {
-          console.log('[CHAT][CACHE] one-shot purge CACHE_KEY_LAST_SENT_MESSAGES');
         }
       }
     } catch {
@@ -1347,10 +1353,7 @@ useEffect(() => {
       saveLastSentMessagesCache(filtered);
     }
     if (__DEV__) {
-      console.log(
-        '[CHAT][CACHE] loadLastSentMessagesCache',
-        { totalCount, removedCount, keptCount: totalCount - removedCount }
-      );
+      // Log removed
     }
   };
   loadCache();
@@ -1879,6 +1882,7 @@ useEffect(() => {
                  sentPendingMessagesResult.forEach((m: any) => {
                     const rawText = m.message_content || '';
                     const isRead = rawText.startsWith('READ:');
+
                     // Ne pas ajouter les messages lus (avec "READ:") car ils sont en cours de suppression
                     if (isRead) return;
                     
@@ -1898,9 +1902,7 @@ useEffect(() => {
                  });
               }
               if (__DEV__ && droppedStaleServer > 0) {
-                console.log('[CHAT][SYNC] dropped stale server sent messages', {
-                  droppedStaleServer,
-                });
+                // Log removed
               }
               // Logs uniquement si changement ou cas spécial (évite les logs en boucle)
               const serverTotal = Object.values(serverMap).reduce(
@@ -1914,7 +1916,6 @@ useEffect(() => {
               // Ne logger que si changement attendu ou cas spécial
               const shouldLog = prevTotal !== serverTotal || prevTotal > 0;
               if (__DEV__ && shouldLog) {
-                console.log('[CHAT][SYNC] loadData merge start', { serverTotal, prevTotal });
               }
 
               // 2. Fusionner avec le cache local pour préserver les messages 'read' (animation)
@@ -1940,10 +1941,7 @@ useEffect(() => {
                 if (__DEV__ && readIds.size > 0) {
                   const filteredCount = serverMessages.length - filteredServerMessages.length;
                   if (filteredCount > 0) {
-                    console.log('[CHAT][SYNC] filtered server messages already read locally', {
-                      uid,
-                      filteredCount,
-                    });
+                    // Log removed
                   }
                 }
 
@@ -1963,16 +1961,10 @@ useEffect(() => {
                   msg => !msg.id && isFreshSentMessage(msg)
                 );
                 if (__DEV__ && staleLocal > 0) {
-                  console.log('[CHAT][SYNC] dropped stale local temp messages', {
-                    uid,
-                    staleLocal,
-                  });
+                  // Log removed
                 }
                 if (__DEV__ && droppedWithId > 0) {
-                  console.log('[CHAT][SYNC] dropped local sent messages not in server', {
-                    uid,
-                    droppedWithId,
-                  });
+                  // Log removed
                 }
 
                 const dedupedLocalOnlyMessages = localOnlyMessages.filter(localMsg => {
@@ -1985,11 +1977,7 @@ useEffect(() => {
                     );
                   });
                   if (__DEV__ && isDuplicate) {
-                    console.log('[CHAT][SYNC] dropped duplicate local temp message', {
-                      uid,
-                      localMsgText: localMsg.text,
-                      localMsgTs: localMsg.ts,
-                    });
+                    // Log removed
                   }
                   return !isDuplicate;
                 });
@@ -2030,7 +2018,6 @@ useEffect(() => {
               );
               // Ne logger que si changement ou cas spécial (évite les logs en boucle)
               if (__DEV__ && (shouldLog || prevTotal !== finalTotal || updated)) {
-                console.log('[CHAT][SYNC] loadData merge done', { finalTotal, changed: prevTotal !== finalTotal });
               }
 
               // Sauvegarder dans le cache
@@ -2040,7 +2027,6 @@ useEffect(() => {
             });
           }
           if (__DEV__ && sentPendingMessagesResult === null) {
-            console.log('[CHAT][SYNC] sentPendingMessagesResult is null (no merge)');
           }
     } catch (e) {
       // En cas d'erreur réseau, avertir l'utilisateur (avec anti-spam)
@@ -2206,7 +2192,6 @@ useEffect(() => {
 
               if (text && text.startsWith('READ:')) {
                  if (__DEV__) {
-                   console.log('[CHAT][RT][UPDATE] READ received', { id, toUserId });
                  }
                  setLastSentMessages((prev) => {
                     const copy: LastSentMap = {};
@@ -2250,7 +2235,6 @@ useEffect(() => {
               const deletedId = (payload.old as any)?.id;
               if (deletedId) {
                 if (__DEV__) {
-                  console.log('[CHAT][RT][DELETE] message deleted', { deletedId });
                 }
                 let shouldScheduleRemoval = false;
                 // On cherche dans notre map locale quel ami correspond à ce message ID
@@ -2289,11 +2273,7 @@ useEffect(() => {
                           idx === tempIndex ? { ...msg, status: 'read' as const, readAt: Date.now() } : msg
                         );
                         if (__DEV__) {
-                          console.log('[CHAT][RT][DELETE] fallback read temp message', {
-                            deletedId,
-                            userId,
-                            tempTs: messages[tempIndex]?.ts,
-                          });
+                          // Log removed
                         }
                         return;
                       }
@@ -2304,7 +2284,6 @@ useEffect(() => {
                   
                   if (found) {
                     if (__DEV__) {
-                      console.log('[CHAT][RT][DELETE] marked read in local cache', { deletedId });
                     }
                     updateLastSentIndex(copy);
                     saveLastSentMessagesCache(copy);
@@ -2333,7 +2312,6 @@ useEffect(() => {
             const senderId = payload.payload?.senderId;
             const receiverId = payload.payload?.receiverId;
             if (__DEV__) {
-              console.log('[CHAT][BROADCAST][message-read]', { deletedId, senderId, receiverId });
             }
             if (deletedId) {
               let shouldScheduleRemoval = false;
@@ -2386,11 +2364,7 @@ useEffect(() => {
                               idx === tempIndex ? { ...msg, status: 'read' as const, readAt: Date.now() } : msg
                             );
                             if (__DEV__) {
-                              console.log('[CHAT][BROADCAST][message-read] fallback read temp message', {
-                                deletedId,
-                                targetUserId,
-                                tempTs: messages[tempIndex]?.ts,
-                              });
+                              // Log removed
                             }
                           } else {
                             copy[userId] = messages;
@@ -2403,7 +2377,6 @@ useEffect(() => {
                   });
                   if (updated) {
                     if (__DEV__) {
-                      console.log('[CHAT][BROADCAST][message-read] marked read', { deletedId, targetUserId, didFallbackTemp });
                     }
                     updateLastSentIndex(copy);
                     saveLastSentMessagesCache(copy);
@@ -2412,7 +2385,6 @@ useEffect(() => {
                   return prev;
                 }
                 if (__DEV__) {
-                  console.log('[CHAT][BROADCAST][message-read] pendingReadIds', { deletedId });
                 }
                 pendingReadIdsRef.current.add(deletedId);
                 // Forcer un refresh pour tenter de retrouver l'ID via loadData
@@ -2742,14 +2714,15 @@ useEffect(() => {
     // Filtrage local basé sur searchQuery (même logique que la FlatList)
     if (!searchQuery.trim()) return appUsers;
     const query = searchQuery.toLowerCase().trim();
-    return appUsers.filter(user =>
+    const filtered = appUsers.filter(user =>
       user.pseudo && user.pseudo.toLowerCase().includes(query)
     );
+    return filtered;
   };
 
   const scrollToActiveFriend = (friendId: string, delay = 0) => {
-    // Samsung : éviter le scroll programmatique qui casse le focus clavier
-    if (isSamsungDevice) return;
+    // ⏸️ TEST : Réactivé pour Samsung avec react-native-keyboard-controller
+    // if (isSamsungDevice) return;
     const visibleUsers = getVisibleUsers();
     const index = visibleUsers.findIndex(u => u.id === friendId);
     if (index < 0) return;
@@ -2801,9 +2774,7 @@ useEffect(() => {
     const onShow = (event?: { endCoordinates?: { height?: number } }) => {
       setKeyboardVisible(true);
       keyboardVisibleRef.current = true;
-      if (event?.endCoordinates?.height != null) {
-        setKeyboardHeight(event.endCoordinates.height);
-      }
+      // keyboardHeight géré par react-native-keyboard-controller (keyboardHeightSV)
       if (Platform.OS === 'android') {
         setIsModalContentVisible(true);
       }
@@ -2820,7 +2791,7 @@ useEffect(() => {
     const onHide = () => {
       setKeyboardVisible(false);
       keyboardVisibleRef.current = false;
-      setKeyboardHeight(0);
+      // keyboardHeight géré par react-native-keyboard-controller (keyboardHeightSV)
       // Ne pas cacher la modale ici : Samsung peut fermer le clavier brièvement
     };
 
@@ -2860,23 +2831,17 @@ useEffect(() => {
   // Sur Android, on désactive l'auto-focus pour éviter le cycle blur/hide
   useEffect(() => {
     if (!isSearchVisible) {
-      console.log('🔍 [SEARCH] isSearchVisible changed to false');
       return;
     }
-    console.log('🔍 [SEARCH] isSearchVisible changed to true - scheduling focus');
 
     // Focus automatique sur Android et iOS
     const timer = setTimeout(() => {
       if (searchInputRef.current) {
-        console.log('🔍 [SEARCH] Attempting focus() after delay');
         searchInputRef.current.focus();
-      } else {
-        console.log('🔍 [SEARCH] Input ref became null during delay');
       }
     }, 100);
 
     return () => {
-      console.log('🔍 [SEARCH] Focus timer cleared');
       clearTimeout(timer);
     };
   }, [isSearchVisible]);
@@ -2885,7 +2850,6 @@ useEffect(() => {
   // useEffect(() => {
   //   if (Platform.OS !== 'android') return;
   //   if (!isSearchVisible && !expandedFriendId) {
-  //     console.log('🔴 [KEYBOARD] dismiss() - Auto-dismiss: search closed and no expanded friend');
   //     Keyboard.dismiss();
   //   }
   // }, [isSearchVisible, expandedFriendId]);
@@ -3373,7 +3337,6 @@ useEffect(() => {
   const displayDraft = displayFriend ? (messageDrafts[displayFriend.id] || '') : '';
 
   const handlePressHeader = () => {
-    console.log('🔴 [KEYBOARD] dismiss() - handlePressHeader');
     Keyboard.dismiss();
     setExpandedFriendId(null);
     if (searchQuery.trim()) {
@@ -3388,23 +3351,16 @@ useEffect(() => {
     handlePressHeaderRef.current = handlePressHeader;
   }); // Update à chaque render pour avoir la dernière closure
 
-  // --- ANDROID UNIQUEMENT : Optimisation Reanimated pour Samsung/Xiaomi ---
-  // Récupère la hauteur du clavier sur le thread UI (pas de re-render React)
-  const androidKeyboard = Platform.OS === 'android' ? useAnimatedKeyboard() : null;
-  
-  // Style animé pour Android : évite le re-render qui ferme le clavier
-  const androidAnimatedStyle = useAnimatedStyle(() => {
-    if (Platform.OS !== 'android' || !androidKeyboard) return {};
-    
-    // SUR ANDROID : 
-    // On arrête d'utiliser androidKeyboard.height.value
-    // On laisse le "softwareKeyboardLayoutMode": "resize" du app.json faire le travail.
-    // On garde juste un padding fixe pour la TabBar quand le clavier est fermé.
-    
+  // 👇 AJOUT : Style animé basé sur la hauteur du clavier réelle (SharedValue)
+  // Cela permet de redimensionner le ScrollView même pour les Emojis
+  const stickyMessagesAnimatedStyle = useAnimatedStyle(() => {
+    if (Platform.OS !== 'android') return {};
+    const availableHeight = keyboardHeightSV.value > 0 
+      ? SCREEN_HEIGHT - keyboardHeightSV.value - 60 - 80 - 20
+      : 200; 
+
     return {
-      // 0 quand ouvert (pour coller au clavier), 70 (hauteur TabBar) quand fermé
-      paddingBottom: 70, 
-      transform: [{ translateY: 0 }], // ⛔️ INTERDICTION de bouger Y sur Android
+      maxHeight: Math.max(150, Math.min(availableHeight, 400)), 
     };
   });
 
@@ -3469,27 +3425,51 @@ useEffect(() => {
            </TouchableOpacity>
         </TouchableOpacity>
 
-        <ScrollView
-          ref={stickyScrollViewRef}
-          style={styles.stickyMessages}
-          onContentSizeChange={() => stickyScrollViewRef.current?.scrollToEnd({ animated: true })}
-          showsVerticalScrollIndicator={true}
-        >
-          {allMessages.map((msg) => (
-            msg.isMe ? (
-              <SentMessageStatus key={msg.id} message={msg.original!} />
-            ) : (
-              <ReceivedMessageFade
-                key={msg.id}
-                message={{ id: msg.id, text: msg.text }}
-                shouldFadeOut={fadingOutReceivedMessages.has(msg.id)}
-                onFadeComplete={() => {
-                  // L'animation est terminée, le message sera supprimé par le setTimeout dans handleSendProut
-                }}
-              />
-            )
-          ))}
-        </ScrollView>
+        {Platform.OS === 'android' ? (
+          <Animated.ScrollView
+            ref={stickyScrollViewAnimatedRef}
+            style={[styles.stickyMessages, stickyMessagesAnimatedStyle]}
+            onContentSizeChange={() => stickyScrollViewAnimatedRef.current?.scrollToEnd({ animated: true })}
+            showsVerticalScrollIndicator={true}
+          >
+            {allMessages.map((msg) => (
+              msg.isMe ? (
+                <SentMessageStatus key={msg.id} message={msg.original!} />
+              ) : (
+                <ReceivedMessageFade
+                  key={msg.id}
+                  message={{ id: msg.id, text: msg.text }}
+                  shouldFadeOut={fadingOutReceivedMessages.has(msg.id)}
+                  onFadeComplete={() => {
+                    // L'animation est terminée, le message sera supprimé par le setTimeout dans handleSendProut
+                  }}
+                />
+              )
+            ))}
+          </Animated.ScrollView>
+        ) : (
+          <ScrollView
+            ref={stickyScrollViewRef}
+            style={styles.stickyMessages}
+            onContentSizeChange={() => stickyScrollViewRef.current?.scrollToEnd({ animated: true })}
+            showsVerticalScrollIndicator={true}
+          >
+            {allMessages.map((msg) => (
+              msg.isMe ? (
+                <SentMessageStatus key={msg.id} message={msg.original!} />
+              ) : (
+                <ReceivedMessageFade
+                  key={msg.id}
+                  message={{ id: msg.id, text: msg.text }}
+                  shouldFadeOut={fadingOutReceivedMessages.has(msg.id)}
+                  onFadeComplete={() => {
+                    // L'animation est terminée, le message sera supprimé par le setTimeout dans handleSendProut
+                  }}
+                />
+              )
+            ))}
+          </ScrollView>
+        )}
 
         <View style={[styles.messageInputRow, { alignItems: 'flex-end', marginBottom: 25 }]}>
           <TextInput
@@ -3577,6 +3557,7 @@ useEffect(() => {
         style: styles.container,
       };
 
+
   const content = (
     <Container {...containerProps}>
       {/* 
@@ -3592,10 +3573,16 @@ useEffect(() => {
         */}
         <View style={{ display: isSearchVisible ? 'flex' : 'none', marginBottom: 10, paddingHorizontal: 0 }}>
           <SearchBar
-            ref={searchInputRef}
+            ref={(ref) => {
+              searchInputRef.current = ref;
+            }}
             searchQuery={searchQuery}
-            onSearchQueryChange={onSearchQueryChange}
-            onSearchChange={onSearchChange}
+            onSearchQueryChange={(text) => {
+              onSearchQueryChange?.(text);
+            }}
+            onSearchChange={(visible) => {
+              onSearchChange?.(visible);
+            }}
             oldAndroidInputProps={oldAndroidInputProps}
           />
         </View>
@@ -3619,14 +3606,14 @@ useEffect(() => {
         keyboardDismissMode={
           Platform.OS === 'ios'
             ? "interactive"
-            : isSamsungDevice
-              ? "none"
+            : isSearchVisible && isSamsungDevice
+              ? "none" // ⚠️ CRITIQUE : Empêcher la fermeture automatique pendant la recherche sur Samsung
               : "on-drag"
         }
-        // Samsung/Huawei: éviter tout scroll de la liste qui vole le focus
+        // ⏸️ TEST : Réactivation du scroll pour Samsung avec react-native-keyboard-controller
         scrollEnabled={
-          !(isSamsungDevice && activeFriend) &&
-          !(isProblemAndroidDevice && isSearchVisible)
+          !(isSamsungDevice && activeFriend)
+          // !(isProblemAndroidDevice && isSearchVisible) // ⏸️ PAUSÉ pour test
         }
         contentContainerStyle={[
           styles.listContent,
@@ -3769,7 +3756,7 @@ useEffect(() => {
           }
         }}
         onModalHide={() => {
-          setKeyboardHeight(0);
+          // keyboardHeight géré par react-native-keyboard-controller (keyboardHeightSV)
           setIsModalContentVisible(false);
           isClosingModalRef.current = false;
           closingCooldownUntilRef.current = null;
@@ -3790,28 +3777,44 @@ useEffect(() => {
         animationInTiming={150}
         animationOutTiming={1} // Instantané à la fermeture
         backdropTransitionOutTiming={0}
-        avoidKeyboard={Platform.OS === 'ios'} // iOS gère nativement, Android via resize
+        avoidKeyboard={Platform.OS === 'ios'} // iOS gère nativement, Android géré manuellement
       >
-        <KeyboardAvoidingView
-          behavior="padding"
-          style={{ width: '100%' }}
-        >
-          <View
-            style={{
-              backgroundColor: '#ebb89b',
-              borderTopLeftRadius: 15,
-              borderTopRightRadius: 15,
-              padding: 10,
-              paddingBottom: Platform.OS === 'ios' 
-                ? 30 
-                : (isPixelDevice && openedFromSearchRef.current ? -20 : 10), // -20 sur Google Pixel si ouvert depuis recherche
-              opacity: isModalContentVisible ? 1 : 0, // Cache visuel instantané
-            }}
+        {Platform.OS === 'android' ? (
+           <Animated.View
+            style={[
+              {
+                width: '100%',
+                backgroundColor: '#ebb89b',
+                borderTopLeftRadius: 15,
+                borderTopRightRadius: 15,
+                padding: 10,
+                opacity: isModalContentVisible ? 1 : 0,
+                // paddingBottom géré par androidChatStyle
+              },
+              androidChatStyle
+            ]}
           >
-            {/* Rendre le contenu uniquement si la modale est "ouverte" logiquement pour éviter flash */}
             {expandedFriendId && !isClosingModalRef.current && stickyInnerContent}
-          </View>
-        </KeyboardAvoidingView>
+          </Animated.View>
+        ) : (
+          <KeyboardAvoidingView
+            behavior="padding"
+            style={{ width: '100%' }}
+          >
+            <View
+              style={{
+                backgroundColor: '#ebb89b',
+                borderTopLeftRadius: 15,
+                borderTopRightRadius: 15,
+                padding: 10,
+                paddingBottom: 30,
+                opacity: isModalContentVisible ? 1 : 0,
+              }}
+            >
+              {expandedFriendId && !isClosingModalRef.current && stickyInnerContent}
+            </View>
+          </KeyboardAvoidingView>
+        )}
       </Modal>
 
       {toastMessage && (
