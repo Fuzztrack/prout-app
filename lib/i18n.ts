@@ -103,6 +103,14 @@ const i18n = new I18n({
     request_sent: "Demande d'ami envoyée !",
     already_linked: "Vous êtes déjà en lien avec cette personne.",
     
+    // Complicité
+    complicity_title: "L'Indice de Résonance",
+    complicity_subtitle: "Mesurer l'harmonie acoustique de votre lien social.",
+    complicity_level_1: "Souffle Initial",
+    complicity_level_2: "Accord Partagé",
+    complicity_level_3: "Sillage des Âmes",
+    complicity_level_elite: "Quintessence de l'Amitié",
+    
     // Profil
     edit_profile: "Modifier votre profil",
     pseudo: "Pseudo",
@@ -162,6 +170,7 @@ const i18n = new I18n({
     silent_mode: "Envois silencieux",
     silent_mode_title: "Envois silencieux 🤫",
     silent_mode_description: "Pour envoyer vos prouts en toute discrétion !",
+    haptic_feedback: "Retour haptique",
     
     // Identity Reveal
     who_are_you: "Qui es-tu ? 👀",
@@ -536,6 +545,14 @@ const i18n = new I18n({
     request_sent: "Friend request sent!",
     already_linked: "You are already linked with this person.",
     
+    // Complicity
+    complicity_title: "The Resonance Index",
+    complicity_subtitle: "Quantifying the acoustic frequency of your social bond.",
+    complicity_level_1: "First Breeze",
+    complicity_level_2: "Shared Accord",
+    complicity_level_3: "Sillage of Souls",
+    complicity_level_elite: "Quintessence of Friendship",
+    
     // Profil
     edit_profile: "Edit Profile",
     pseudo: "Username",
@@ -611,6 +628,7 @@ const i18n = new I18n({
     // Silent Mode
     silent_mode: "Silent sends",
     silent_mode_title: "Silent sends 🤫",
+    haptic_feedback: "Haptic feedback",
     silent_mode_description: "To send your farts discreetly!",
     
     // Identity Reveal
@@ -966,6 +984,14 @@ const i18n = new I18n({
     request_sent: "¡Solicitud de amistad enviada!",
     already_linked: "Ya estás vinculado con esta persona.",
     
+    // Complicidad
+    complicity_title: "El Índice de Resonancia",
+    complicity_subtitle: "Midiendo la armonía acústica de su vínculo social.",
+    complicity_level_1: "Soplo Inicial",
+    complicity_level_2: "Acorde Compartido",
+    complicity_level_3: "Estela de Almas",
+    complicity_level_elite: "Quintaesencia de la Amistad",
+    
     // Profil
     edit_profile: "Editar perfil",
     pseudo: "Nombre de usuario",
@@ -1042,6 +1068,7 @@ const i18n = new I18n({
     // Silent Mode
     silent_mode: "Envíos silenciosos",
     silent_mode_title: "Envíos silenciosos 🤫",
+    haptic_feedback: "Retroalimentación háptica",
     silent_mode_description: "¡Para enviar tus prouts con total discreción!",
     
     // Identity Reveal
@@ -1399,6 +1426,14 @@ const i18n = new I18n({
     request_sent: "Pedido enviado!",
     already_linked: "Vocês já tão conectados.",
     
+    // Complicidade
+    complicity_title: "O Índice de Ressonância",
+    complicity_subtitle: "Medindo a harmonia acústica do seu vínculo social.",
+    complicity_level_1: "Sopro Inicial",
+    complicity_level_2: "Acorde Compartilhado",
+    complicity_level_3: "Rastro de Almas",
+    complicity_level_elite: "Quintessência da Amizade",
+    
     // Profil
     edit_profile: "Editar Perfil",
     pseudo: "Nome de usuário",
@@ -1472,6 +1507,7 @@ const i18n = new I18n({
     // Silent Mode
     silent_mode: "Envio silencioso",
     silent_mode_title: "Envio silencioso 🤫",
+    haptic_feedback: "Feedback háptico",
     silent_mode_description: "Pra mandar na encolha!",
     
     // Identity Reveal
@@ -1829,6 +1865,14 @@ const i18n = new I18n({
     request_sent: "Anfrage gesendet!",
     already_linked: "Ihr seid bereits verbunden.",
     
+    // Komplizenschaft
+    complicity_title: "Der Resonanz-Index",
+    complicity_subtitle: "Messung der akustischen Harmonie Ihrer sozialen Bindung.",
+    complicity_level_1: "Erster Hauch",
+    complicity_level_2: "Geteilter Einklang",
+    complicity_level_3: "Seelen-Sillage",
+    complicity_level_elite: "Quintessenz der Freundschaft",
+    
     // Profil
     edit_profile: "Profil bearbeiten",
     pseudo: "Benutzername",
@@ -1902,6 +1946,7 @@ const i18n = new I18n({
     // Silent Mode
     silent_mode: "Leiser Versand",
     silent_mode_title: "Leiser Versand 🤫",
+    haptic_feedback: "Haptisches Feedback",
     silent_mode_description: "Um heimlich zu senden!",
     
     // Identity Reveal
@@ -2259,6 +2304,14 @@ const i18n = new I18n({
     request_sent: "Richiesta inviata!",
     already_linked: "Siete già collegati.",
     
+    // Complicità
+    complicity_title: "L'Indice di Risonanza",
+    complicity_subtitle: "Misurare l'armonia acustica del vostro legame sociale.",
+    complicity_level_1: "Soffio Iniziale",
+    complicity_level_2: "Accordo Condiviso",
+    complicity_level_3: "Scia d'Anime",
+    complicity_level_elite: "Quintessenza dell'Amicizia",
+    
     // Profil
     edit_profile: "Modifica Profilo",
     pseudo: "Nome utente",
@@ -2332,6 +2385,7 @@ const i18n = new I18n({
     // Silent Mode
     silent_mode: "Invio silenzioso",
     silent_mode_title: "Invio silenzioso 🤫",
+    haptic_feedback: "Feedback aptico",
     silent_mode_description: "Per inviare di nascosto!",
     
     // Identity Reveal
@@ -2593,6 +2647,12 @@ const i18n = new I18n({
 
 // Configuration
 i18n.enableFallback = true;
+
+// Handler pour les traductions manquantes (retourne la clé au lieu de "[missing ...]")
+i18n.missingTranslation = (scope: string) => {
+  console.warn(`[i18n] Traduction manquante: ${scope}`);
+  return scope; // Retourner la clé plutôt que "[missing ...]"
+};
 
 // Fonction pour détecter la langue de l'appareil de manière robuste
 function getDeviceLanguage(): string {

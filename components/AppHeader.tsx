@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
 import { Animated, Image, Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import i18n from '../lib/i18n';
 
@@ -13,8 +12,9 @@ const isPixelDevice =
       ''
   );
 
-// Afficher la recherche uniquement sur iOS et Google Pixel
-const isSearchSupported = Platform.OS === 'ios' || isPixelDevice;
+// ⏸️ PAUSÉ pour test : Afficher la recherche sur tous les appareils (test avec react-native-keyboard-controller)
+// const isSearchSupported = Platform.OS === 'ios' || isPixelDevice;
+const isSearchSupported = true; // Test : activer pour tous les appareils
 
 interface AppHeaderProps {
   currentPseudo?: string;
@@ -25,6 +25,7 @@ interface AppHeaderProps {
   isSearchVisible?: boolean;
   onProfileMenuPress?: () => void;
   onSearchToggle?: () => void;
+  onComplicityPress?: () => void;
   onZenModeToggle?: () => void;
   onSilentModeToggle?: () => void;
   shakeX?: Animated.Value;
@@ -40,6 +41,7 @@ export function AppHeader({
   isSearchVisible = false,
   onProfileMenuPress,
   onSearchToggle,
+  onComplicityPress,
   onZenModeToggle,
   onSilentModeToggle,
   shakeX,
@@ -103,8 +105,22 @@ export function AppHeader({
             </View>
           </View>
           
-          {/* Icônes à droite : Recherche + Profil */}
+          {/* Icônes à droite : Complicité + Recherche + Profil */}
           <View style={styles.rightIconsContainer}>
+            {/* Complicité - Coeur */}
+            {onComplicityPress && (
+              <TouchableOpacity
+                onPress={onComplicityPress}
+                style={[styles.iconButton, { justifyContent: 'center', alignItems: 'center', minHeight: 28, marginTop: 2 }]}
+              >
+                <Ionicons
+                  name="trophy"
+                  size={22}
+                  color="#ffffff"
+                />
+              </TouchableOpacity>
+            )}
+
             {/* Recherche - Uniquement sur iOS et Google Pixel */}
             {isSearchSupported && onSearchToggle && (
               <TouchableOpacity 

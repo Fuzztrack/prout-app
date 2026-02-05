@@ -10,11 +10,12 @@ import i18n from '@/lib/i18n';
 import { safeReplace } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, ActionSheetIOS, Animated, Image, Keyboard, KeyboardAvoidingView, Platform, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ActionSheetIOS, Animated, Image, Keyboard, KeyboardAvoidingView, Platform, ScrollView, Share, StyleSheet, Text, TouchableOpacity, Vibration, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
@@ -25,6 +26,7 @@ export default function HomeScreen() {
   const [activeView, setActiveView] = useState<'list' | 'tutorial' | 'profile' | 'profileMenu'>('list');
   const [isZenMode, setIsZenMode] = useState(false);
   const [isSilentMode, setIsSilentMode] = useState(false);
+  const [isHapticEnabled, setIsHapticEnabled] = useState(true);
   const [currentPseudo, setCurrentPseudo] = useState<string>('');
   const [userId, setUserId] = useState<string | null>(null);
   const [showPrivacy, setShowPrivacy] = useState(false);
@@ -47,6 +49,11 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
   // Animation de secousse pour le header
   const shakeX = useRef(new Animated.Value(0)).current;
   const shakeY = useRef(new Animated.Value(0)).current;
+
+  // --- NAVIGATION COMPLICITÉ ---
+  const handleComplicityPress = useCallback(() => {
+    router.push('/complicity');
+  }, [router]);
 
   // --- MISE À JOUR TOKEN FCM ---
   const updatePushToken = async (userId: string) => {
@@ -85,12 +92,22 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
       }
       setUserId(user.id);
 
-      // Charger l'état Zen et le pseudo
+      // Charger l'état Zen, le pseudo et le retour haptique
       const { data: profile } = await supabase
         .from('user_profiles')
         .select('is_zen_mode, pseudo')
         .eq('id', user.id)
         .single();
+      
+      // Charger la préférence de retour haptique depuis AsyncStorage (iOS uniquement)
+      if (Platform.OS === 'ios') {
+        const hapticEnabled = await AsyncStorage.getItem('haptic_feedback_enabled');
+        const isEnabled = hapticEnabled === null || hapticEnabled === 'true'; // Activé par défaut si non défini
+        setIsHapticEnabled(isEnabled);
+      } else {
+        // Sur Android, le retour haptique n'est pas disponible pour le moment
+        setIsHapticEnabled(false);
+      }
       
       if (profile) {
         setIsZenMode(profile.is_zen_mode || false);
@@ -484,6 +501,62 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
     await applyZenMode(false);
   };
 
+  const toggleHapticFeedback = async () => {
+    const newValue = !isHapticEnabled;
+    console.log('🔔 [HAPTIC] Toggle appelé, nouvelle valeur:', newValue, 'Platform:', Platform.OS);
+    setIsHapticEnabled(newValue);
+    try {
+      await AsyncStorage.setItem('haptic_feedback_enabled', String(newValue));
+      console.log('🔔 [HAPTIC] Préférence sauvegardée:', newValue);
+      
+      // Note: Sur Android, on ne gère plus le retour haptique pour le moment
+      // La vibration système des notifications reste activée
+      
+      // Tester le retour haptique immédiatement pour donner un feedback visuel
+      if (newValue && Platform.OS !== 'web') {
+        try {
+          console.log('🔔 [HAPTIC] Test retour haptique, Platform:', Platform.OS);
+          if (Platform.OS === 'ios') {
+            console.log('🔔 [HAPTIC] Déclenchement iOS test (Heavy + séquence)...');
+            // Utiliser Heavy pour une vibration plus forte
+            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            // Ajouter une deuxième vibration légère après un court délai pour prolonger l'effet
+            setTimeout(async () => {
+              await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }, 100);
+            console.log('🔔 [HAPTIC] iOS test réussi');
+          } else {
+            // Android : utiliser l'API Vibration native avec un pattern pour un retour plus fiable
+            console.log('🔔 [HAPTIC] Déclenchement Android test (Vibration native)...');
+            try {
+              // Essayer d'abord avec expo-haptics si disponible
+              try {
+                await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                console.log('🔔 [HAPTIC] expo-haptics réussi');
+              } catch (hapticError) {
+                console.log('🔔 [HAPTIC] expo-haptics échoué, utilisation Vibration native');
+                // Pattern : vibrer immédiatement pendant 200ms (plus long et perceptible)
+                Vibration.vibrate(200);
+                console.log('🔔 [HAPTIC] Vibration native déclenchée');
+              }
+            } catch (e) {
+              console.error('❌ [HAPTIC] Erreur toutes méthodes:', e);
+            }
+            console.log('🔔 [HAPTIC] Android test réussi');
+          }
+        } catch (e: any) {
+          console.error('❌ [HAPTIC] Erreur test retour haptique:', e?.message || e);
+          // Ne pas afficher d'alerte, juste logger l'erreur
+        }
+      } else {
+        console.log('🔔 [HAPTIC] Test ignoré (web ou désactivé)');
+      }
+    } catch (e) {
+      console.error('❌ [HAPTIC] Erreur sauvegarde retour haptique:', e);
+      setIsHapticEnabled(!newValue); // Rollback
+    }
+  };
+
   const toggleSilentMode = async () => {
     const newValue = !isSilentMode;
     setIsSilentMode(newValue);
@@ -589,8 +662,9 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
                          isProfileMenuOpen={activeView === 'profileMenu'}
                          isProfileOpen={activeView === 'profile'}
                          isSearchVisible={isSearchVisible}
-                  onSearchToggle={toggleSearchVisibility}
-                         onProfileMenuPress={toggleProfileMenu}
+                        onSearchToggle={toggleSearchVisibility}
+                        onComplicityPress={handleComplicityPress}
+                        onProfileMenuPress={toggleProfileMenu}
                          onZenModeToggle={disableZenMode}
                          onSilentModeToggle={toggleSilentMode}
                          shakeX={shakeX}
@@ -624,6 +698,8 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
                              { label: i18n.t('search_friend'), icon: 'person-add-outline', onPress: () => { setShowSearch(true); setActiveView('list'); }, iconColor: '#604a3e' },
                              { label: i18n.t('zen_mode'), icon: isZenMode ? 'moon' : 'moon-outline', onPress: toggleZenMode, iconColor: isZenMode ? '#ebb89b' : '#604a3e' },
                              { label: i18n.t('silent_mode'), icon: isSilentMode ? 'volume-mute' : 'volume-mute-outline', onPress: toggleSilentMode, iconColor: isSilentMode ? '#ebb89b' : '#604a3e' },
+                             // Retour haptique uniquement sur iOS
+                             ...(Platform.OS === 'ios' ? [{ label: i18n.t('haptic_feedback'), icon: isHapticEnabled ? 'phone-portrait' : 'phone-portrait-outline', onPress: toggleHapticFeedback, iconColor: isHapticEnabled ? '#ebb89b' : '#604a3e' }] : []),
                              { label: i18n.t('manage_profile'), icon: 'person-circle-outline', onPress: () => setActiveView('profile'), iconColor: '#604a3e' },
                              { label: i18n.t('invite_friend'), icon: 'share-social-outline', onPress: handleShare, iconColor: '#604a3e' },
                              { label: i18n.t('review_app_functions'), icon: 'help-circle-outline', onPress: () => setActiveView('tutorial'), iconColor: '#604a3e' },
@@ -683,8 +759,9 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
                       isProfileMenuOpen={activeView === 'profileMenu'}
                       isProfileOpen={activeView === 'profile'}
                       isSearchVisible={isSearchVisible}
-                      onSearchToggle={toggleSearchVisibility}
-                      onProfileMenuPress={toggleProfileMenu}
+                        onSearchToggle={toggleSearchVisibility}
+                        onComplicityPress={handleComplicityPress}
+                        onProfileMenuPress={toggleProfileMenu}
                       onZenModeToggle={disableZenMode}
                       onSilentModeToggle={toggleSilentMode}
                       shakeX={shakeX}
@@ -714,15 +791,17 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
                       />
                       
                       <View style={styles.menuCard}>
-                        {[
-                          { label: i18n.t('search_friend'), icon: 'person-add-outline', onPress: () => { setShowSearch(true); setActiveView('list'); }, iconColor: '#604a3e' },
-                          { label: i18n.t('zen_mode'), icon: isZenMode ? 'moon' : 'moon-outline', onPress: toggleZenMode, iconColor: isZenMode ? '#ebb89b' : '#604a3e' },
-                          { label: i18n.t('silent_mode'), icon: isSilentMode ? 'volume-mute' : 'volume-mute-outline', onPress: toggleSilentMode, iconColor: isSilentMode ? '#ebb89b' : '#604a3e' },
-                          { label: i18n.t('manage_profile'), icon: 'person-circle-outline', onPress: () => setActiveView('profile'), iconColor: '#604a3e' },
-                          { label: i18n.t('invite_friend'), icon: 'share-social-outline', onPress: handleShare, iconColor: '#604a3e' },
-                          { label: i18n.t('review_app_functions'), icon: 'help-circle-outline', onPress: () => setActiveView('tutorial'), iconColor: '#604a3e' },
-                          { label: i18n.t('who_is_who'), icon: 'eye-outline', onPress: () => { setShowIdentity(true); setActiveView('list'); }, iconColor: '#604a3e' },
-                          { label: i18n.t('privacy_policy_menu'), icon: 'document-text-outline', onPress: () => { setShowPrivacy(true); setActiveView('list'); }, iconColor: '#604a3e' },
+                          {[
+                            { label: i18n.t('search_friend'), icon: 'person-add-outline', onPress: () => { setShowSearch(true); setActiveView('list'); }, iconColor: '#604a3e' },
+                            { label: i18n.t('zen_mode'), icon: isZenMode ? 'moon' : 'moon-outline', onPress: toggleZenMode, iconColor: isZenMode ? '#ebb89b' : '#604a3e' },
+                            { label: i18n.t('silent_mode'), icon: isSilentMode ? 'volume-mute' : 'volume-mute-outline', onPress: toggleSilentMode, iconColor: isSilentMode ? '#ebb89b' : '#604a3e' },
+                            // Retour haptique uniquement sur iOS
+                            ...(Platform.OS === 'ios' ? [{ label: i18n.t('haptic_feedback'), icon: isHapticEnabled ? 'phone-portrait' : 'phone-portrait-outline', onPress: toggleHapticFeedback, iconColor: isHapticEnabled ? '#ebb89b' : '#604a3e' }] : []),
+                            { label: i18n.t('manage_profile'), icon: 'person-circle-outline', onPress: () => setActiveView('profile'), iconColor: '#604a3e' },
+                            { label: i18n.t('invite_friend'), icon: 'share-social-outline', onPress: handleShare, iconColor: '#604a3e' },
+                            { label: i18n.t('review_app_functions'), icon: 'help-circle-outline', onPress: () => setActiveView('tutorial'), iconColor: '#604a3e' },
+                            { label: i18n.t('who_is_who'), icon: 'eye-outline', onPress: () => { setShowIdentity(true); setActiveView('list'); }, iconColor: '#604a3e' },
+                            { label: i18n.t('privacy_policy_menu'), icon: 'document-text-outline', onPress: () => { setShowPrivacy(true); setActiveView('list'); }, iconColor: '#604a3e' },
                         ].map((item, index) => (
                           <TouchableOpacity 
                             key={index}

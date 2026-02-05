@@ -3,6 +3,7 @@ package com.fuzztrack.proutapp
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
 import android.net.Uri
@@ -71,18 +72,9 @@ class ProutMessagingService : FirebaseMessagingService() {
         val proutName = data["proutName"] ?: "Un prout surprise"
         val sender = data["sender"] ?: "Un ami"
         
-        // 🔍 DIAGNOSTIC EAS : Logs détaillés pour comprendre pourquoi message est vide
-        Log.d(TAG, "📋 [DIAGNOSTIC] Tous les champs data reçus:")
-        data.forEach { (key, value) ->
-            Log.d(TAG, "   - $key = $value")
-        }
-        Log.d(TAG, "📋 [DIAGNOSTIC] data[\"message\"] = ${data["message"]}")
-        Log.d(TAG, "📋 [DIAGNOSTIC] data[\"customMessage\"] = ${data["customMessage"]}")
-        
         // Utiliser le message complet envoyé par le backend s'il existe
         // Sinon, construire le message par défaut
         val body = data["message"] ?: (sender + " t'a envoyé : " + proutName)
-        Log.d(TAG, "📋 [DIAGNOSTIC] Body final utilisé: $body")
 
         val soundUri = resolveSoundUri(proutKey)
         val channelId = ensureChannel(proutKey, soundUri)

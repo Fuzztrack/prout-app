@@ -1,13 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
 import * as Notifications from 'expo-notifications';
 import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import * as SystemUI from 'expo-system-ui'; // ← Solution native pour fond StatusBar
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Animated, AppState, DeviceEventEmitter, Platform, StatusBar, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { ActivityIndicator, Alert, Animated, AppState, DeviceEventEmitter, Platform, StatusBar, StyleSheet, Text, Vibration, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+// 👇 AJOUT : Provider indispensable pour gérer le clavier Android (Emoji vs Texte)
+import { KeyboardProvider } from 'react-native-keyboard-controller';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 // Empêcher le splash screen de disparaître automatiquement
 SplashScreen.preventAutoHideAsync().catch(() => {
@@ -211,12 +214,41 @@ export default function RootLayout() {
       }
     });
 
-    const notificationListener = Notifications.addNotificationReceivedListener(notification => {
+    const notificationListener = Notifications.addNotificationReceivedListener(async (notification) => {
       // Émettre un événement global pour dire à FriendsList de se rafraîchir
       DeviceEventEmitter.emit('REFRESH_DATA');
 
-      // Sur iOS, la notification système s'affiche déjà (shouldShowAlert: true), donc pas de toast doublon
-      if (Platform.OS === 'ios') return;
+      // Vérifier si le retour haptique est activé (iOS uniquement)
+      if (Platform.OS === 'ios') {
+        try {
+          const hapticEnabled = await AsyncStorage.getItem('haptic_feedback_enabled');
+          // Vérifier explicitement : activé seulement si 'true' ou non défini (par défaut activé)
+          const shouldTriggerHaptic = hapticEnabled === null || hapticEnabled === 'true';
+          
+          console.log('🔔 [HAPTIC] Notification reçue, hapticEnabled:', hapticEnabled, 'shouldTrigger:', shouldTriggerHaptic);
+          
+          if (shouldTriggerHaptic) {
+            try {
+              // Retour haptique pour les notifications (iOS uniquement)
+              console.log('🔔 [HAPTIC] Déclenchement iOS (Heavy + séquence)...');
+              // Utiliser Heavy pour une vibration plus forte
+              await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+              // Ajouter une deuxième vibration légère après un court délai pour prolonger l'effet
+              setTimeout(async () => {
+                await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }, 100);
+              console.log('🔔 [HAPTIC] iOS déclenché avec succès');
+            } catch (hapticError: any) {
+              console.error('❌ [HAPTIC] Erreur lors du déclenchement:', hapticError?.message || hapticError);
+            }
+          }
+        } catch (e) {
+          console.error('❌ [HAPTIC] Erreur vérification AsyncStorage:', e);
+        }
+        
+        // Sur iOS, la notification système s'affiche déjà, donc on peut retourner ici
+        return;
+      }
 
       const { title, body, data } = notification.request.content;
       
@@ -267,7 +299,6 @@ export default function RootLayout() {
   useEffect(() => {
     const handleUrl = async (url: string) => {
       if (!url) return;
-      console.log('🔗 Deep link reçu:', url);
 
       // Regex flexible pour capturer les tokens dans query string (?) ou fragment (#)
       const accessTokenMatch = url.match(/[?&#]access_token=([^&]+)/);
@@ -413,8 +444,10 @@ export default function RootLayout() {
 
   return (
     <AppErrorBoundary>
-      <SafeAreaProvider>
-        <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#ebb89b' }}>
+      {/* 👇 AJOUT : KeyboardProvider enveloppe tout pour gérer les events clavier Android */}
+      <KeyboardProvider statusBarTranslucent>
+        <SafeAreaProvider>
+          <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#ebb89b' }}>
           {/* StatusBar Edge-to-Edge : transparente pour permettre aux overlays de couvrir tout l'écran */}
           <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
         {!checkingOnboarding && showOnboarding ? (
@@ -434,6 +467,7 @@ export default function RootLayout() {
               <Stack.Screen name="confirm-email" options={{ presentation: 'modal' }} />
               <Stack.Screen name="reset-password" options={{ presentation: 'modal' }} />
               <Stack.Screen name="edit-profile" options={{ presentation: 'transparentModal', animation: 'fade', headerShown: false }} />
+              <Stack.Screen name="complicity" />
             </Stack>
 
             {toastMessage && (
@@ -445,7 +479,8 @@ export default function RootLayout() {
           </>
         )}
         </GestureHandlerRootView>
-      </SafeAreaProvider>
+        </SafeAreaProvider>
+      </KeyboardProvider>
     </AppErrorBoundary>
   );
 }
