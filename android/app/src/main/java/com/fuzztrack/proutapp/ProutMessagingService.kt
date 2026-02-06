@@ -3,7 +3,6 @@ package com.fuzztrack.proutapp
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
 import android.net.Uri
@@ -28,14 +27,14 @@ class ProutMessagingService : FirebaseMessagingService() {
         super.onMessageReceived(remoteMessage)
         Log.d(TAG, "🔥🔥🔥 ProutMessagingService.onMessageReceived appelé !")
         Log.d(TAG, "📨 Message reçu: " + remoteMessage.data)
-
+        
         val data = remoteMessage.data.toMutableMap()
         if (data.isEmpty()) {
             Log.d(TAG, "Payload data is empty, checking notification field.")
             remoteMessage.notification?.let {
                 showNotification(
                     ensureChannel(DEFAULT_CHANNEL_ID, Uri.EMPTY),
-                    it.title ?: "PROUT ! 💨",
+                    it.title ?: "Message",
                     it.body ?: "Tu as reçu un prout !",
                     Uri.EMPTY,
                     null,
@@ -55,12 +54,12 @@ class ProutMessagingService : FirebaseMessagingService() {
 
         if (data["proutKey"].isNullOrEmpty() && !data["body"].isNullOrEmpty()) {
             try {
-                val json = JSONObject(data["body"])
-                data["proutKey"] = json.optString("proutKey", data["proutKey"])
-                data["title"] = json.optString("title", data["title"])
-                data["message"] = json.optString("message", data["message"])
-                data["sender"] = json.optString("sender", data["sender"])
-                data["proutName"] = json.optString("proutName", data["proutName"])
+                val json = JSONObject(data["body"] ?: "{}")
+                data["proutKey"] = json.optString("proutKey", data["proutKey"] ?: "")
+                data["title"] = json.optString("title", data["title"] ?: "")
+                data["message"] = json.optString("message", data["message"] ?: "")
+                data["sender"] = json.optString("sender", data["sender"] ?: "")
+                data["proutName"] = json.optString("proutName", data["proutName"] ?: "")
                 Log.d(TAG, "Parsed proutKey from body: " + data["proutKey"])
             } catch (e: Exception) {
                 Log.e(TAG, "❌ Erreur parsing body JSON: " + e.message)
@@ -68,9 +67,18 @@ class ProutMessagingService : FirebaseMessagingService() {
         }
 
         val proutKey = data["proutKey"]?.lowercase() ?: "prout1"
-        val title = data["title"] ?: "PROUT ! 💨"
+        val rawTitle = data["title"] ?: "Message"
         val proutName = data["proutName"] ?: "Un prout surprise"
         val sender = data["sender"] ?: "Un ami"
+
+        // ✅ FIX: Remplacer "PROUT !" par "Prrt!" (le nouveau nom)
+        val title = if (rawTitle.isBlank() || rawTitle.equals("PROUT !", ignoreCase = true) || rawTitle.startsWith("PROUT !", ignoreCase = true))
+            "Prrt!"
+        else
+            rawTitle
+
+        // Log pour confirmer le fix dans les prochains logs
+        Log.d(TAG, "🚀 [FIX] Title calculé: " + title + " (raw: " + rawTitle + ")")
         
         // Utiliser le message complet envoyé par le backend s'il existe
         // Sinon, construire le message par défaut

@@ -4,13 +4,13 @@
     "slug": "ProutApp",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./asset/images/Prrt_icon.png",
     "scheme": "proutapp",
     "userInterfaceStyle": "automatic",
     "backgroundColor": "#ebb89b",
     "newArchEnabled": false,
     "splash": {
-      "image": "./assets/images/adaptive_icon.png",
+      "image": "./Assets/Images/Prrt.png",
       "resizeMode": "contain",
       "backgroundColor": "#ebb89b"
     },
@@ -20,11 +20,12 @@
       "buildNumber": "8",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
+        "CFBundleDisplayName": "Prrt!",
         "UIBackgroundModes": [
           "remote-notification"
         ],
         "ITSAppUsesNonExemptEncryption": false,
-        "NSContactsUsageDescription": "This app uploads phone numbers from your contacts to Prout!'s secure servers to automatically find your friends. This data is not shared with third parties.",
+        "NSContactsUsageDescription": "This app uploads phone numbers from your contacts to Prrt!'s secure servers to automatically find your friends. This data is not shared with third parties.",
         "NSPhotoLibraryUsageDescription": "Cette application a besoin d'accéder à vos photos pour vous permettre de choisir une photo de profil.",
         "NSPhotoLibraryAddUsageDescription": "Cette application a besoin d'accéder à vos photos pour vous permettre de choisir une photo de profil.",
         "NSCameraUsageDescription": "Cette application a besoin d'accéder à votre caméra pour vous permettre de prendre une photo de profil."
@@ -33,7 +34,7 @@
     "android": {
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive_icon.png",
+        "foregroundImage": "./asset/images/Prrt_icon.png",
         "backgroundColor": "#ebb89b"
       },
       "package": "com.fuzztrack.proutapp",
@@ -63,7 +64,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/adaptive_icon.png",
+          "image": "./Assets/Images/Prrt.png",
           "resizeMode": "contain",
           "backgroundColor": "#ebb89b"
         }
@@ -71,7 +72,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/icon.png",
+          "icon": "./asset/images/Prrt_icon.png",
           "color": "#ffffff",
           "sounds": [
             "./assets/sounds/prout1.wav",
@@ -114,7 +115,7 @@
       [
         "expo-contacts",
         {
-          "contactsPermission": "This app uploads phone numbers from your contacts to Prout!'s secure servers to automatically find your friends. This data is not shared with third parties."
+          "contactsPermission": "This app uploads phone numbers from your contacts to Prrt!'s secure servers to automatically find your friends. This data is not shared with third parties."
         }
       ],
       "expo-localization",

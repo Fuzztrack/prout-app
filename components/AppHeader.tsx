@@ -49,7 +49,7 @@ export function AppHeader({
 }: AppHeaderProps) {
   const AnimatedContainer = shakeX && shakeY ? Animated.View : View;
   const { height: screenHeight } = useWindowDimensions();
-  const logoHeight = Math.min(200, Math.max(80, Math.round(screenHeight * 0.17)));
+  const logoHeight = Math.min(140, Math.max(60, Math.round(screenHeight * 0.12)));
   const logoWidth = Math.round(logoHeight * (200 / 140));
   const animatedStyle = shakeX && shakeY ? {
     transform: [
@@ -68,7 +68,7 @@ export function AppHeader({
         ]}
       >
         <Image 
-          source={require('../assets/images/prout-meme.png')} 
+          source={require('../assets/images/Prrt.png')} 
           style={[styles.logo, { height: logoHeight, width: logoWidth }]} 
           resizeMode="contain" 
         />
@@ -167,20 +167,20 @@ const styles = StyleSheet.create({
   headerSection: {
     paddingTop: 0,
     paddingHorizontal: 20,
-    paddingBottom: 5,
+    paddingBottom: 0,
   },
   logoContainer: {
     alignItems: 'center',
-    marginTop: 0,
-    marginBottom: -10,
+    marginTop: -5,
+    marginBottom: -8,
   },
   logo: {
-    width: 200,
-    height: 140,
+    width: 120,
+    height: 84,
   },
   navBar: {
     backgroundColor: 'transparent',
-    marginBottom: 10,
+    marginBottom: 5,
   },
   navBarContent: {
     flexDirection: 'row',

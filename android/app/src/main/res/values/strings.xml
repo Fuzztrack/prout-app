@@ -1,7 +1,5 @@
 <resources>
   <string name="app_name">Prout</string>
-  <!-- Message affiché dans l\'alerte de consentement avant la demande de permission contacts (le popup système Android ne peut pas être personnalisé) -->
-  <string name="contacts_permission_rationale">This app uploads phone numbers from your contacts to Prout!\'s secure servers to automatically find your friends. This data is not shared with third parties.</string>
   <string name="expo_system_ui_user_interface_style" translatable="false">automatic</string>
   <string name="expo_splash_screen_resize_mode" translatable="false">contain</string>
   <string name="expo_splash_screen_status_bar_translucent" translatable="false">false</string>
