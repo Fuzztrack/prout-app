@@ -4,11 +4,11 @@ const { withDangerousMod } = require('@expo/config-plugins');
 
 /** Texte validé pour le popup système contacts - traductions par locale iOS */
 const NS_CONTACTS_BY_LOCALE = {
-  fr: 'Cette app envoie les numéros de vos contacts vers les serveurs sécurisés de Prout! pour retrouver automatiquement vos amis. Ces données ne sont pas partagées avec des tiers.',
-  es: 'Esta app sube los números de tus contactos a los servidores seguros de Prout! para encontrar automáticamente a tus amigos. Estos datos no se comparten con terceros.',
-  pt: 'Este app envia os números dos seus contatos para os servidores seguros do Prout! para encontrar seus amigos automaticamente. Esses dados não são compartilhados com terceiros.',
-  de: 'Diese App lädt Telefonnummern aus deinen Kontakten auf die sicheren Server von Prout! hoch, um deine Freunde automatisch zu finden. Diese Daten werden nicht an Dritte weitergegeben.',
-  it: "Questa app carica i numeri di telefono dei tuoi contatti sui server sicuri di Prout! per trovare automaticamente i tuoi amici. Questi dati non sono condivisi con terze parti.",
+  fr: 'Cette app envoie les numéros de vos contacts vers les serveurs sécurisés de Prrt! pour retrouver automatiquement vos amis. Ces données ne sont pas partagées avec des tiers.',
+  es: 'Esta app sube los números de tus contactos a los servidores seguros de Prrt! para encontrar automáticamente a tus amigos. Estos datos no se comparten con terceros.',
+  pt: 'Este app envia os números dos seus contatos para os servidores seguros do Prrt! para encontrar seus amigos automaticamente. Esses dados não são compartilhados com terceiros.',
+  de: 'Diese App lädt Telefonnummern aus deinen Kontakten auf die sicheren Server von Prrt! hoch, um deine Freunde automatisch zu finden. Diese Daten werden nicht an Dritte weitergegeben.',
+  it: "Questa app carica i numeri di telefono dei tuoi contatti sui server sicuri di Prrt! per trovare automaticamente i tuoi amici. Questi dati non sono condivisi con terze parti.",
 };
 
 /**
