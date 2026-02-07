@@ -1864,39 +1864,41 @@ useEffect(() => {
                   if (msg.status !== 'read') return false;
                   
                   // Si le chat est ouvert avec cet ami, on garde TOUS les messages lus tant qu'il est ouvert
-                  if (expandedFriendIdRef.current === uid) return true;
+                  if (expandedFriendIdRef.current === uid) {
+                    if (__DEV__) console.log('[CHAT_DEBUG] keeping read message (chat open):', msg.id, msg.text);
+                    return true;
+                  }
 
                   if (!msg.readAt) return false;
                   return now - msg.readAt < READ_ANIMATION_MS;
                 });
-                const readIds = new Set(readMessages.map(m => m.id).filter(Boolean));
-
-                // Filtrer les messages serveur si on a déjà marqué localement "lu"
-                const filteredServerMessages = serverMessages.filter(m => !readIds.has(m.id));
-                if (__DEV__ && readIds.size > 0) {
-                  const filteredCount = serverMessages.length - filteredServerMessages.length;
-                  if (filteredCount > 0) {
-                    // Log removed
-                  }
-                }
-
-                // Cas 2: Messages NON LUS uniquement (on ignore complètement les messages lus)
-                const unreadMessages = prevMessages.filter(msg => msg.status !== 'read');
                 
+                // ... (suite)
+
                 // Cas 2: Messages 'sent' localement mais absents du serveur (temporaires, non lus ou lus récemment)
                 // Si un message a un ID mais n'est plus dans le serveur, il a été lu/supprimé.
+                
+                const unreadMessages = prevMessages.filter(msg => msg.status !== 'read');
                 
                 const droppedWithIdMessages = unreadMessages.filter(
                   msg => msg.id && !serverMessageIds.has(msg.id)
                 );
 
+                if (droppedWithIdMessages.length > 0 && __DEV__) {
+                    console.log('[CHAT_DEBUG] dropped messages from server:', droppedWithIdMessages.map(m => m.id));
+                    console.log('[CHAT_DEBUG] chat open with:', expandedFriendIdRef.current, 'target:', uid);
+                }
+
                 // Si le chat est ouvert, on considère les messages disparus comme LUS et on les garde
                 if (expandedFriendIdRef.current === uid) {
                    droppedWithIdMessages.forEach(msg => {
                      // On le transforme en message lu pour le garder affiché
+                     console.log('[CHAT_DEBUG] converting dropped message to read (chat open):', msg.id);
                      const readMsg = { ...msg, status: 'read' as const, readAt: Date.now() };
                      readMessages.push(readMsg);
                    });
+                } else if (droppedWithIdMessages.length > 0) {
+                    console.log('[CHAT_DEBUG] deleting dropped messages (chat closed)');
                 }
                 
                 const staleLocal = unreadMessages.filter(
@@ -2234,6 +2236,7 @@ useEffect(() => {
         .on('broadcast', { event: 'message-read' }, (payload) => {
             const deletedId = payload.payload?.id;
             const receiverId = payload.payload?.receiverId;
+            console.log('[CHAT_DEBUG] broadcast message-read received:', deletedId);
             if (!deletedId) return;
             setLastSentMessages((prev) => {
               let targetUserId: string | null = null;
@@ -2245,11 +2248,14 @@ useEffect(() => {
               if (!targetUserId) {
                 targetUserId = lastSentByIdRef.current[deletedId] || receiverId || null;
               }
+              console.log('[CHAT_DEBUG] target user for read:', targetUserId, 'expanded:', expandedFriendIdRef.current);
+              
               if (targetUserId) {
                 const next: LastSentMap = {};
                 let changed = false;
                 
                 const isChatOpen = expandedFriendIdRef.current === targetUserId;
+                console.log('[CHAT_DEBUG] isChatOpen:', isChatOpen);
 
                 Object.entries(prev).forEach(([userId, messages]) => {
                   if (Array.isArray(messages)) {
