@@ -1024,8 +1024,10 @@ export function FriendsList({
     }
     
     // Filtrer les messages qui sont dans la liste noire locale (supprimés mais pas encore sync)
-    // MAIS : Si le chat est ouvert, on doit peut-être garder certains messages même s'ils ne sont plus dans 'data' (car supprimés du serveur après lecture)
-    const validMessages = (data || []).filter(m => !deletedMessagesCache.has(m.id));
+    // Et filtrer les messages techniques "READ:" qui ne doivent pas être affichés
+    const validMessages = (data || [])
+      .filter(m => !deletedMessagesCache.has(m.id))
+      .filter(m => !m.message_content?.startsWith('READ:'));
     
     // Si un chat est ouvert, réintégrer les messages qu'on a décidé de garder (keptReadMessagesRef)
     // même s'ils ont disparu du serveur.
@@ -1134,12 +1136,25 @@ export function FriendsList({
 
       // On demande au BACKEND de faire le travail (Delete DB + Broadcast signal de secours)
       // C'est beaucoup plus fiable car le backend a tous les droits
-      if (senderId) {
-        await markMessageReadViaBackend(messageId, senderId);
-      } else {
-        // Fallback si on a perdu l'info sender (rare)
-        await supabase.from('pending_messages').delete().eq('id', messageId);
-      }
+      // Retry automatique en cas d'erreur 429 ou autre
+      const attemptMarkRead = async (retryCount = 0) => {
+         try {
+              if (senderId) {
+                await markMessageReadViaBackend(messageId, senderId);
+              } else {
+                // Fallback si on a perdu l'info sender (rare)
+                await supabase.from('pending_messages').delete().eq('id', messageId);
+              }
+         } catch (e) {
+             console.warn(`Attempt ${retryCount + 1} failed for markMessageAsRead:`, e);
+             if (retryCount < 3) {
+                 setTimeout(() => attemptMarkRead(retryCount + 1), 1000 * (retryCount + 1));
+             }
+         }
+      };
+      
+      attemptMarkRead();
+      
       if (__DEV__) {
       }
     } catch (e) {
@@ -1156,7 +1171,8 @@ export function FriendsList({
     if (error) {
       return null;
     }
-    return data || [];
+    // Filtrer les messages "READ:" qui traînent (erreur 429 backend qui empêche delete)
+    return (data || []).filter(m => !m.message_content?.startsWith('READ:'));
   };
 
   const pickLatestTimestamp = (a?: string | null, b?: string | null) => {
@@ -3328,8 +3344,12 @@ useEffect(() => {
     const mergedMap = new Map<string, any>();
     cachedForFriend.forEach(m => mergedMap.set(m.id, m));
     activeUnreadMessages.forEach(m => mergedMap.set(m.id, m));
-    const activeMessagesToShow = Array.from(mergedMap.values());
-    const mySentMessages = lastSentMessages[displayFriend.id] || [];
+    // Filtrage ultime pour ne jamais afficher "READ:"
+    const activeMessagesToShow = Array.from(mergedMap.values())
+        .filter(m => !m.message_content?.startsWith('READ:'));
+    
+    const mySentMessages = (lastSentMessages[displayFriend.id] || [])
+        .filter(m => !m.text?.startsWith('READ:'));
 
     // Fusion et tri
     const allMessages = [
