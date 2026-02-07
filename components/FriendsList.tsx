@@ -976,6 +976,11 @@ export function FriendsList({
         }
         return prev;
       });
+      
+      // PRRT! Protocol : Force sync à la fermeture pour être sûr que l'état local correspond au serveur
+      // (supprime les messages qui ont été lus/supprimés sur le serveur mais dont on aurait raté le broadcast)
+      // Comme expandedFriendIdRef est maintenant null (ou changé), loadData va nettoyer les messages absents du serveur.
+      loadData(false, false, false);
     }
     prevExpandedRef.current = expandedFriendId;
   }, [expandedFriendId, unreadCache]);
