@@ -1,7 +1,7 @@
-const { withAndroidStrings } = require('@expo/config-plugins');
+const { withStringsXml } = require('@expo/config-plugins');
 
 const withAndroidAppName = (config) => {
-  return withAndroidStrings(config, async (config) => {
+  return withStringsXml(config, (config) => {
     config.modResults = setStringItem(
       [
         { $: { name: 'app_name', translatable: 'false' }, _: 'Prrt!' },
