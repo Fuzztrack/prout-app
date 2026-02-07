@@ -949,6 +949,10 @@ export function FriendsList({
     if (prevExpandedRef.current && !expandedFriendId) {
       const prevId = prevExpandedRef.current;
       
+      // IMPORTANT : Mettre à jour la ref IMMÉDIATEMENT pour que loadData sache que le chat est fermé
+      // Sinon loadData croit qu'il est encore ouvert et garde les messages !
+      expandedFriendIdRef.current = null;
+      
       // 1. Nettoyer les messages reçus gardés (keptReadMessagesRef)
       const kept = keptReadMessagesRef.current.get(prevId) || [];
       keptReadMessagesRef.current.delete(prevId);
