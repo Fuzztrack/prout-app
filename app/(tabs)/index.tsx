@@ -874,11 +874,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 10, // Un peu plus d'air vertical mais fixe
+    paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 10,
-    marginBottom: 4, // Réduit de 6 à 4
+    marginBottom: 6,
     minHeight: 44,
+    // Ombre projetée vers la gauche (comme lignes contact FriendList)
+    ...Platform.select({
+      ios: {
+        shadowColor: '#5c4a3d',
+        shadowOffset: { width: -5, height: 3 },
+        shadowOpacity: 0.22,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   menuText: {
     fontSize: 15,

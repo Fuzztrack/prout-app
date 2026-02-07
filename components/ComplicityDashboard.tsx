@@ -13,7 +13,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { 
-  FadeInDown
+  FadeInDown,
+  SlideInDown
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -100,6 +101,22 @@ const COLORS = {
   gold: '#D4AF37', // Gardé pour les médailles/scores élevés
   border: '#baded7',
   modalOverlay: 'rgba(96, 74, 62, 0.6)', // Marron transparent
+};
+// Modale score : couleurs alignées avec l'app (fond #ebb89b, boutons #604a3e, accents #baded7)
+const MODAL_COLORS = {
+  bg: '#fdf5f0',           // Crème chaud (proche fond app)
+  headerStart: '#f8ebe4',   // Beige très clair
+  headerEnd: '#ebb89b',     // Fond principal app
+  scoreStart: '#ebb89b',    // Bouton contact FriendList (messageSendButton)
+  scoreEnd: '#d4a088',      // Beige un peu plus foncé pour le dégradé
+  progressBg: '#eed9cf',     // Beige clair
+  progressFill: '#baded7',   // Menthe (bordures / accents app)
+  scoreText: '#baded7',      // Couleur champs contact FriendList (lignes alternées)
+  white: '#ffffff',
+  dark: '#604a3e',          // textMain app
+  statIcon: '#604a3e',
+  badgeUnlocked: ['#baded7', '#d2f1ef'], // Mint app
+  badgeLockedBg: '#e8d5d0',  // Beige gris
 };
 
 export default function ComplicityDashboard() {
@@ -271,7 +288,7 @@ export default function ComplicityDashboard() {
         }
       />
 
-      {/* Modal Détail & Badges */}
+      {/* Modal Détail & Badges — style paper.io */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -279,58 +296,121 @@ export default function ComplicityDashboard() {
         onRequestClose={() => setModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <Animated.View 
+            entering={SlideInDown.duration(320).springify().damping(18)} 
+            style={styles.modalContent}
+          >
             <TouchableOpacity 
-              style={styles.closeButton} 
+              style={styles.modalCloseButton} 
               onPress={() => setModalVisible(false)}
+              activeOpacity={0.8}
             >
-              <Ionicons name="close" size={24} color={COLORS.textMain} />
+              <Ionicons name="close" size={22} color={MODAL_COLORS.dark} />
             </TouchableOpacity>
 
-            {selectedFriend && (
-              <ScrollView contentContainerStyle={styles.modalScroll}>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalPseudo}>{selectedFriend.pseudo}</Text>
-                  <Text style={styles.modalLevel}>{translateComplicityLevel(selectedFriend.complicity_level)}</Text>
-                  <Text style={styles.modalScore}>{selectedFriend.complicity_score} pts</Text>
-                </View>
-
-                {/* Stats Grid */}
-                <View style={styles.statsGrid}>
-                  <View style={styles.statItem}>
-                    <Text style={styles.statValue}>{selectedFriend.interaction_count}</Text>
-                    <Text style={styles.statLabel}>Total</Text>
-                  </View>
-                  <View style={styles.statItem}>
-                    <Text style={styles.statValue}>{selectedFriend.rapid_response_count}</Text>
-                    <Text style={styles.statLabel}>Rapides</Text>
-                  </View>
-                </View>
-
-                {/* Section Badges */}
-                <Text style={styles.sectionTitle}>Trophées & Badges</Text>
-                <View style={styles.badgesGrid}>
-                  {BADGES_CONFIG.map((badge) => {
-                    // Simulation : Badge débloqué si...
-                    const isUnlocked = 
-                      (badge.id === 'legend' && selectedFriend.complicity_score > 1000) ||
-                      (badge.id === 'sniper' && selectedFriend.rapid_response_count > 5) ||
-                      (badge.id === 'night_owl' && Math.random() > 0.7); // Simulation
-
-                    return (
-                      <View key={badge.id} style={[styles.badgeItem, !isUnlocked && styles.badgeLocked]}>
-                        <View style={[styles.badgeIconBg, isUnlocked ? styles.badgeUnlockedBg : {}]}>
-                          <Ionicons name={badge.icon as any} size={20} color={isUnlocked ? '#FFF' : COLORS.textSecondary} />
+            {selectedFriend && (() => {
+              const nextScore = (() => {
+                const s = selectedFriend.complicity_score;
+                if (s < 50) return 50;
+                if (s < 200) return 200;
+                if (s < 500) return 500;
+                return 1000;
+              })();
+              const progress = Math.min(selectedFriend.complicity_score / nextScore, 1);
+              return (
+                <ScrollView 
+                  contentContainerStyle={styles.modalScroll} 
+                  showsVerticalScrollIndicator={false}
+                >
+                  {/* Bandeau header type paper.io */}
+                  <LinearGradient
+                    colors={[MODAL_COLORS.headerStart, MODAL_COLORS.headerEnd]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.modalHeaderGradient}
+                  >
+                    <View style={styles.modalAvatarRing}>
+                      {selectedFriend.avatar_url ? (
+                        <Image source={{ uri: selectedFriend.avatar_url }} style={styles.modalAvatar} />
+                      ) : (
+                        <View style={[styles.modalAvatar, styles.modalAvatarPlaceholder]}>
+                          <Text style={styles.modalAvatarLetter}>{selectedFriend.pseudo.charAt(0).toUpperCase()}</Text>
                         </View>
-                        <Text style={[styles.badgeLabel, !isUnlocked && styles.textLocked]}>{badge.label}</Text>
-                      </View>
-                    );
-                  })}
-                </View>
+                      )}
+                    </View>
+                    <Text style={styles.modalPseudo}>{selectedFriend.pseudo}</Text>
+                    <View style={styles.modalLevelPill}>
+                      <Text style={styles.modalLevelPillText}>{translateComplicityLevel(selectedFriend.complicity_level)}</Text>
+                    </View>
+                  </LinearGradient>
 
-              </ScrollView>
-            )}
-          </View>
+                  {/* Score géant type jeu */}
+                  <View style={styles.modalScoreBlock}>
+                    <LinearGradient
+                      colors={[MODAL_COLORS.scoreStart, MODAL_COLORS.scoreEnd]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.modalScoreGradient}
+                    >
+                      <Text style={styles.modalScoreValue}>{selectedFriend.complicity_score}</Text>
+                      <Text style={styles.modalScoreUnit}>pts</Text>
+                    </LinearGradient>
+                    <View style={styles.modalProgressBarBg}>
+                      <LinearGradient
+                        colors={[MODAL_COLORS.progressFill, MODAL_COLORS.scoreEnd]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={[styles.modalProgressBarFill, { width: `${progress * 100}%` }]}
+                      />
+                    </View>
+                    <Text style={styles.modalProgressLabel}>Prochain palier : {nextScore} pts</Text>
+                  </View>
+
+                  {/* Stats en pills */}
+                  <View style={styles.modalStatsRow}>
+                    <View style={styles.modalStatPill}>
+                      <Ionicons name="chatbubbles" size={24} color={MODAL_COLORS.statIcon} />
+                      <Text style={styles.modalStatValue}>{selectedFriend.interaction_count}</Text>
+                      <Text style={styles.modalStatLabel}>Total</Text>
+                    </View>
+                    <View style={styles.modalStatPill}>
+                      <Ionicons name="flash" size={24} color={MODAL_COLORS.statIcon} />
+                      <Text style={styles.modalStatValue}>{selectedFriend.rapid_response_count}</Text>
+                      <Text style={styles.modalStatLabel}>Rapides</Text>
+                    </View>
+                  </View>
+
+                  {/* Badges type paper.io — bulles */}
+                  <Text style={styles.modalSectionTitle}>Trophées & Badges</Text>
+                  <View style={styles.modalBadgesRow}>
+                    {BADGES_CONFIG.map((badge) => {
+                      const isUnlocked = 
+                        (badge.id === 'legend' && selectedFriend.complicity_score > 1000) ||
+                        (badge.id === 'sniper' && selectedFriend.rapid_response_count > 5) ||
+                        (badge.id === 'night_owl' && Math.random() > 0.7);
+                      return (
+                        <View key={badge.id} style={[styles.modalBadgeBubble, !isUnlocked && styles.modalBadgeLocked]}>
+                          {isUnlocked ? (
+                            <LinearGradient
+                              colors={MODAL_COLORS.badgeUnlocked}
+                              style={styles.modalBadgeBubbleInner}
+                            >
+                              <Ionicons name={badge.icon as any} size={22} color={MODAL_COLORS.white} />
+                            </LinearGradient>
+                          ) : (
+                            <View style={styles.modalBadgeBubbleInnerLocked}>
+                              <Ionicons name="lock-closed" size={18} color={COLORS.textSecondary} />
+                            </View>
+                          )}
+                          <Text style={[styles.modalBadgeLabel, !isUnlocked && styles.modalBadgeLabelLocked]} numberOfLines={1}>{badge.label}</Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                </ScrollView>
+              );
+            })()}
+          </Animated.View>
         </View>
       </Modal>
 
@@ -451,12 +531,18 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.cardBg,
     borderRadius: 12,
     padding: 12,
-    // Ombre douce
-    shadowColor: COLORS.textMain,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    // Ombre projetée vers la gauche (lumière venant de la droite)
+    ...Platform.select({
+      ios: {
+        shadowColor: '#5c4a3d',
+        shadowOffset: { width: -5, height: 3 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
   },
   rankContainer: {
     width: 30,
@@ -543,120 +629,229 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: 14,
   },
-  // Modal Styles
+  // Modal Styles — style paper.io
   modalOverlay: {
     flex: 1,
     backgroundColor: COLORS.modalOverlay,
     justifyContent: 'flex-end',
   },
   modalContent: {
-    height: '85%',
-    backgroundColor: COLORS.cardBg, // Fond blanc
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
+    height: '88%',
+    backgroundColor: MODAL_COLORS.bg,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 20,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.12, shadowRadius: 12 },
+      android: { elevation: 8 },
+    }),
   },
-  closeButton: {
-    alignSelf: 'flex-end',
-    padding: 10,
+  modalCloseButton: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: MODAL_COLORS.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 4 },
+      android: { elevation: 2 },
+    }),
   },
   modalScroll: {
     alignItems: 'center',
-    paddingBottom: 40,
+    paddingBottom: 48,
+    paddingTop: 8,
   },
-  modalHeader: {
+  modalHeaderGradient: {
+    width: '100%',
     alignItems: 'center',
-    marginBottom: 30,
+    paddingVertical: 24,
+    paddingTop: 28,
+    borderRadius: 24,
+    marginBottom: 16,
+  },
+  modalAvatarRing: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: MODAL_COLORS.white,
+    padding: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    ...Platform.select({
+      ios: { shadowColor: MODAL_COLORS.dark, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8 },
+      android: { elevation: 4 },
+    }),
+  },
+  modalAvatar: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+  },
+  modalAvatarPlaceholder: {
+    backgroundColor: MODAL_COLORS.progressFill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalAvatarLetter: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: MODAL_COLORS.dark,
   },
   modalPseudo: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: COLORS.textMain,
-    marginBottom: 5,
-  },
-  modalLevel: {
-    fontSize: 16,
-    color: COLORS.textSecondary,
-    fontStyle: 'italic',
-    marginBottom: 15,
-  },
-  modalScore: {
-    fontSize: 48,
-    fontWeight: '900',
-    color: COLORS.textMain,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    width: '100%',
-    justifyContent: 'space-around',
-    marginBottom: 30,
-    paddingVertical: 15,
-    backgroundColor: COLORS.background, // Bleu clair
-    borderRadius: 16,
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statValue: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: COLORS.textMain,
+    fontWeight: '800',
+    color: MODAL_COLORS.dark,
+    marginBottom: 8,
   },
-  statLabel: {
+  modalLevelPill: {
+    backgroundColor: MODAL_COLORS.dark,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  modalLevelPillText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: MODAL_COLORS.white,
+  },
+  modalScoreBlock: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalScoreGradient: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: 20,
+    marginBottom: 10,
+    ...Platform.select({
+      ios: { shadowColor: MODAL_COLORS.dark, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 8 },
+      android: { elevation: 4 },
+    }),
+  },
+  modalScoreValue: {
+    fontSize: 42,
+    fontWeight: '900',
+    color: MODAL_COLORS.scoreText,
+  },
+  modalScoreUnit: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: MODAL_COLORS.scoreText,
+    marginLeft: 4,
+  },
+  modalProgressBarBg: {
+    width: '100%',
+    height: 8,
+    backgroundColor: MODAL_COLORS.progressBg,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  modalProgressBarFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  modalProgressLabel: {
     fontSize: 12,
     color: COLORS.textSecondary,
-    textTransform: 'uppercase',
-    marginTop: 4,
+    fontWeight: '600',
   },
-  sectionTitle: {
+  modalStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 24,
+    gap: 12,
+  },
+  modalStatPill: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: MODAL_COLORS.white,
+    paddingVertical: 18,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6 },
+      android: { elevation: 2 },
+    }),
+  },
+  modalStatValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: MODAL_COLORS.dark,
+    marginTop: 6,
+  },
+  modalStatLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  modalSectionTitle: {
     alignSelf: 'flex-start',
     fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.textMain,
-    marginBottom: 15,
-    marginTop: 10,
+    fontWeight: '800',
+    color: MODAL_COLORS.dark,
+    marginBottom: 14,
   },
-  badgesGrid: {
+  modalBadgesRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     width: '100%',
-    marginBottom: 30,
+    gap: 12,
   },
-  badgeItem: {
+  modalBadgeBubble: {
     width: '48%',
-    backgroundColor: COLORS.background, // Bleu clair
-    borderRadius: 12,
-    padding: 12,
-    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 4,
   },
-  badgeLocked: {
-    opacity: 0.5,
+  modalBadgeLocked: {
+    opacity: 0.7,
   },
-  badgeIconBg: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.border, // Bleu un peu plus foncé
+  modalBadgeBubbleInner: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    marginBottom: 6,
   },
-  badgeUnlockedBg: {
-    backgroundColor: COLORS.textMain, // Marron pour débloqué
+  modalBadgeBubbleInnerLocked: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: MODAL_COLORS.badgeLockedBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
   },
-  badgeLabel: {
-    color: COLORS.textMain,
-    fontSize: 13,
-    fontWeight: '600',
-    flex: 1,
+  modalBadgeLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: MODAL_COLORS.dark,
   },
-  textLocked: {
+  modalBadgeLabelLocked: {
     color: COLORS.textSecondary,
   },
   // Help Modal Styles
+  closeButton: {
+    alignSelf: 'flex-end',
+    padding: 10,
+  },
   helpModalContent: {
     height: '90%',
     backgroundColor: COLORS.background,

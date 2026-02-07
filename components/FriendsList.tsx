@@ -474,7 +474,8 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
   });
 
   return (
-    <View style={[styles.swipeableRow, { backgroundColor }]} collapsable={false}>
+    <View style={[styles.swipeableRowShadowWrapper, Platform.OS === 'ios' && { backgroundColor }]}>
+      <View style={[styles.swipeableRow, { backgroundColor }]} collapsable={false}>
       {/* Background gauche : Fond rouge pour suppression */}
       <Animated.View 
         style={[
@@ -573,6 +574,7 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
           </GHTouchableOpacity>
         </Animated.View>
       </GestureDetector>
+      </View>
     </View>
   );
 });
@@ -4076,6 +4078,24 @@ const styles = StyleSheet.create({
   silentWarningButton: { backgroundColor: '#ebb89b', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
   silentWarningButtonOk: { backgroundColor: '#4CAF50', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
   silentWarningButtonText: { color: 'white', fontWeight: 'bold', fontSize: 14 },
+  // Wrapper sans overflow pour que l'ombre iOS soit visible (overflow: hidden coupe l'ombre).
+  // iOS : backgroundColor est appliqué dynamiquement (couleur de la ligne) pour que l'ombre se projette.
+  swipeableRowShadowWrapper: {
+    marginBottom: 6,
+    borderRadius: 15,
+    ...Platform.select({
+      ios: {
+        overflow: 'visible',
+        shadowColor: '#5c4a3d',
+        shadowOffset: { width: -5, height: 3 },
+        shadowOpacity: 0.22,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
+  },
   swipeableRow: {
     position: 'relative',
     borderRadius: 15,

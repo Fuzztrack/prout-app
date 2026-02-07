@@ -1,0 +1,83 @@
+{
+  "expo": {
+    "name": "Prout",
+    "slug": "ProutApp",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./asset/images/Prrt_icon.png",
+    "scheme": "proutapp",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#ebb89b",
+    "newArchEnabled": false,
+    "splash": {
+      "image": "./Assets/Images/Prrt.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ebb89b"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.fuzztrack.proutapp",
+      "buildNumber": "8",
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "infoPlist": {
+        "CFBundleDisplayName": "Prout",
+        "UIBackgroundModes": ["remote-notification"],
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSContactsUsageDescription": "This app uploads phone numbers from your contacts to Prrt!'s secure servers to automatically find your friends. This data is not shared with third parties.",
+        "NSPhotoLibraryUsageDescription": "Cette application a besoin d'accéder à vos photos pour vous permettre de choisir une photo de profil.",
+        "NSPhotoLibraryAddUsageDescription": "Cette application a besoin d'accéder à vos photos pour vous permettre de choisir une photo de profil.",
+        "NSCameraUsageDescription": "Cette application a besoin d'accéder à votre caméra pour vous permettre de prendre une photo de profil."
+      }
+    },
+    "android": {
+      "softwareKeyboardLayoutMode": "resize",
+      "adaptiveIcon": {
+        "foregroundImage": "./asset/images/Prrt_icon.png",
+        "backgroundColor": "#ebb89b"
+      },
+      "package": "com.fuzztrack.proutapp",
+      "versionCode": 6,
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.CAMERA"
+      ],
+      "newArchEnabled": false
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "./withAndroidNotificationMetadata",
+      "./withAndroidProutMessaging",
+      "./withAndroidAppName",
+      "./withIOSAppName",
+      "./withIOSContactsLocalization",
+      "./withVolumeManager",
+      "./withSoundSettings",
+      "expo-router",
+      "expo-secure-store",
+      "expo-apple-authentication",
+      ["expo-splash-screen", { "image": "./Assets/Images/Prrt.png", "resizeMode": "contain", "backgroundColor": "#ebb89b" }],
+      ["expo-notifications", { "icon": "./asset/images/Prrt_icon.png", "color": "#ffffff", "sounds": ["./assets/sounds/prout1.wav", "./assets/sounds/prout2.wav", "./assets/sounds/prout3.wav", "./assets/sounds/prout4.wav", "./assets/sounds/prout5.wav", "./assets/sounds/prout6.wav", "./assets/sounds/prout7.wav", "./assets/sounds/prout8.wav", "./assets/sounds/prout9.wav", "./assets/sounds/prout10.wav", "./assets/sounds/prout11.wav", "./assets/sounds/prout12.wav", "./assets/sounds/prout13.wav", "./assets/sounds/prout14.wav", "./assets/sounds/prout15.wav", "./assets/sounds/prout16.wav", "./assets/sounds/prout17.wav", "./assets/sounds/prout18.wav", "./assets/sounds/prout19.wav", "./assets/sounds/prout20.wav"] }],
+      ["expo-build-properties", { "ios": { "useFrameworks": "static" } }],
+      ["expo-av", { "microphonePermission": false }],
+      ["expo-contacts", { "contactsPermission": "This app uploads phone numbers from your contacts to Prrt!'s secure servers to automatically find your friends. This data is not shared with third parties." }],
+      "expo-localization",
+      "expo-asset",
+      "./withRemoveLocationPermission"
+    ],
+    "assetBundlePatterns": ["assets/**/*"],
+    "experiments": { "typedRoutes": true, "reactCompiler": true },
+    "jsEngine": "hermes",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "f2545544-14d4-4739-96a1-1fb75515e1e9"
+      }
+    }
+  }
+}

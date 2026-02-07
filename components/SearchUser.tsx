@@ -5,7 +5,11 @@ import { Ionicons } from '@expo/vector-icons';
 import i18n from '../lib/i18n';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const MODAL_HEIGHT = SCREEN_HEIGHT * 0.85;
+const MODAL_MAX_HEIGHT = SCREEN_HEIGHT * 0.85;
+// Hauteur de base : header + champ recherche + bouton + peu d'espace (liste courte ou vide)
+const MODAL_MIN_HEIGHT = Math.min(SCREEN_HEIGHT * 0.48, 380);
+const ROW_HEIGHT_ESTIMATE = 62;
+const MAX_VISIBLE_ROWS = 12; // au-delà, la liste scroll à l'intérieur
 
 export function SearchUser({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const [query, setQuery] = useState('');
@@ -140,6 +144,12 @@ export function SearchUser({ visible, onClose }: { visible: boolean; onClose: ()
     }
   };
 
+  // Hauteur modale : petite par défaut, s'allonge avec la liste (jusqu'à max)
+  const modalHeight = Math.min(
+    MODAL_MAX_HEIGHT,
+    MODAL_MIN_HEIGHT + Math.min(results.length, MAX_VISIBLE_ROWS) * ROW_HEIGHT_ESTIMATE
+  );
+
   return (
     <Modal
       visible={visible}
@@ -148,7 +158,7 @@ export function SearchUser({ visible, onClose }: { visible: boolean; onClose: ()
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
+        <View style={[styles.modalContent, { height: modalHeight, maxHeight: MODAL_MAX_HEIGHT }]}>
           <View style={styles.header}>
             <Text style={styles.headerTitle}>{i18n.t('search_title')}</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
@@ -254,12 +264,11 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '96%',
-    maxHeight: MODAL_HEIGHT,
-    height: MODAL_HEIGHT,
-    backgroundColor: '#fff5eb', // Crème clair comme PrivacyPolicy
+    backgroundColor: '#fff5eb',
     borderRadius: 20,
     overflow: 'hidden',
     flexDirection: 'column',
+    // height et maxHeight appliqués dynamiquement
   },
   header: {
     flexDirection: 'row',
@@ -282,7 +291,9 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
-    padding: 20,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 16,
   },
   subtitle: {
     color: '#604a3e',
@@ -292,7 +303,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   searchBox: { 
-    marginBottom: 15,
+    marginBottom: 10,
     borderRadius: 15,
     overflow: 'hidden',
     backgroundColor: 'white',
@@ -312,7 +323,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#604a3e',
     padding: 12,
     borderRadius: 15,
-    marginBottom: 10,
+    marginBottom: 8,
     opacity: 1
   },
   searchButtonDisabled: {
