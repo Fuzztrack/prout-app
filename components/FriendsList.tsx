@@ -1171,8 +1171,6 @@ export function FriendsList({
       
       attemptMarkRead();
       
-      if (__DEV__) {
-      }
     } catch (e) {
       console.warn('Erreur markMessageAsRead:', e);
     }
@@ -1953,7 +1951,6 @@ useEffect(() => {
                   
                   // Si le chat est ouvert avec cet ami, on garde TOUS les messages lus tant qu'il est ouvert
                   if (expandedFriendIdRef.current === uid) {
-                    console.log('[CHAT_DEBUG] keeping read message (chat open):', msg.id, msg.text);
                     return true;
                   }
 
@@ -1980,24 +1977,19 @@ useEffect(() => {
                   msg => msg.id && !serverMessageIds.has(msg.id)
                 );
 
-                if (droppedWithIdMessages.length > 0) {
-                    console.log('[CHAT_DEBUG] dropped messages from server:', droppedWithIdMessages.map(m => m.id));
-                    console.log('[CHAT_DEBUG] chat open with:', expandedFriendIdRef.current, 'target:', uid);
+                if (droppedWithIdMessages.length > 0 && expandedFriendIdRef.current === uid) {
+                    // console.log('[CHAT_DEBUG] dropped messages from server:', droppedWithIdMessages.map(m => m.id));
                 }
 
                 // Si le chat est ouvert, on considère les messages disparus comme LUS et on les garde
-                if (__DEV__) {
-                    console.log('[CHAT_DEBUG] Check keep messages. Chat Open:', expandedFriendIdRef.current, 'Current UID:', uid, 'Equal:', expandedFriendIdRef.current === uid);
-                }
                 if (expandedFriendIdRef.current === uid) {
                    droppedWithIdMessages.forEach(msg => {
                      // On le transforme en message lu pour le garder affiché
-                     console.log('[CHAT_DEBUG] converting dropped message to read (chat open):', msg.id);
                      const readMsg = { ...msg, status: 'read' as const, readAt: Date.now() };
                      readMessages.push(readMsg);
                    });
                 } else if (droppedWithIdMessages.length > 0) {
-                    console.log('[CHAT_DEBUG] deleting dropped messages (chat closed)');
+                    // Chat fermé : on laisse tomber les messages disparus du serveur (purge)
                 }
                 
                 const staleLocal = unreadMessages.filter(
