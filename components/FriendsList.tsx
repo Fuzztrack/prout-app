@@ -134,6 +134,7 @@ const loadCacheSafely = async (key: string) => {
 const LAST_SENT_TTL_MS = 24 * 60 * 60 * 1000;
 const TEMP_SENT_TTL_MS = 10 * 60 * 1000; // 10 min pour les messages sans ID (stale)
 const READ_ANIMATION_MS = 3000; // 3 secondes pour l'animation de disparition
+const MARK_READ_DELAY_MS = 900; // Délai entre chaque appel markRead pour éviter 429 (rate limit backend)
 
 const isFreshSentMessage = (msg?: LastSentMessage) => {
   if (!msg) return false;
@@ -577,9 +578,11 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
 });
 
 // Composant pour gérer l'animation du message envoyé (PRRT! : opacité réduite quand lu)
+const DIMMED_OPACITY_READ = 0.72; // Grisé léger pour messages envoyés et lus par l'autre (reste lisible)
+
 const SentMessageStatus = ({ message }: { message: { text: string; status?: 'read'; id?: string } | undefined }) => {
   const [displayedMessage, setDisplayedMessage] = useState(message);
-  const opacity = useRef(new RNAnimated.Value(message?.status === 'read' ? 0.3 : 1)).current;
+  const opacity = useRef(new RNAnimated.Value(message?.status === 'read' ? DIMMED_OPACITY_READ : 1)).current;
   const [isRead, setIsRead] = useState(message?.status === 'read');
 
   useEffect(() => {
@@ -590,9 +593,9 @@ const SentMessageStatus = ({ message }: { message: { text: string; status?: 'rea
     } else if (displayedMessage && (message?.status === 'read' || !message)) {
       if (!isRead) {
           setIsRead(true);
-          // PRRT! : opacité réduite sur la bulle quand lu (reste affiché tant que le chat est ouvert)
+          // PRRT! : grisé léger quand lu (reste lisible)
           RNAnimated.timing(opacity, {
-            toValue: 0.3,
+            toValue: DIMMED_OPACITY_READ,
             duration: 300,
             useNativeDriver: true,
           }).start();
@@ -936,8 +939,10 @@ export function FriendsList({
       });
       
       // 3. Dire au backend de supprimer (marquer lu) mais SANS supprimer localement via deletedMessagesCache ici
-      // Utiliser markMessageAsRead pour bénéficier du verrou anti-spam et du retry
-      unreadFromFriend.forEach(msg => markMessageAsRead(msg.id));
+      // Espacer les appels pour éviter 429 (rate limit backend)
+      unreadFromFriend.forEach((msg, i) => {
+        setTimeout(() => markMessageAsRead(msg.id), i * MARK_READ_DELAY_MS);
+      });
     }
   }, [expandedFriendId, currentUserId, pendingMessages]);
 
@@ -954,7 +959,9 @@ export function FriendsList({
           return { ...prev, [expandedFriendId]: [...currentCache, ...newMsgs] };
         });
         timer = setTimeout(() => {
-          unreadForActive.forEach(msg => markMessageAsRead(msg.id));
+          unreadForActive.forEach((msg, i) => {
+            setTimeout(() => markMessageAsRead(msg.id), i * MARK_READ_DELAY_MS);
+          });
         }, 1500);
       }
     }
@@ -2107,10 +2114,21 @@ useEffect(() => {
               if (__DEV__ && (shouldLog || prevTotal !== finalTotal || updated)) {
               }
 
-              // Sauvegarder dans le cache
-              updateLastSentIndex(finalNext);
-              saveLastSentMessagesCache(finalNext);
-              return finalNext;
+              // Purge des anciens messages : garder seulement les messages récents (TTL) et les "lus" uniquement pour le chat ouvert
+              const activeId = expandedFriendIdRef.current;
+              const pruned: LastSentMap = {};
+              Object.entries(finalNext).forEach(([uid, arr]) => {
+                if (!Array.isArray(arr)) return;
+                const kept = arr.filter(
+                  (msg) =>
+                    isFreshSentMessage(msg) &&
+                    (msg.status !== 'read' || activeId === uid)
+                );
+                if (kept.length > 0) pruned[uid] = kept;
+              });
+              updateLastSentIndex(pruned);
+              saveLastSentMessagesCache(pruned);
+              return pruned;
             });
           }
           if (__DEV__ && sentPendingMessagesResult === null) {
@@ -2264,18 +2282,27 @@ useEffect(() => {
               const ts = (payload.new as any)?.created_at || new Date().toISOString();
               const id = (payload.new as any)?.id;
               
-              if (toUserId && text) {
+              if (toUserId && text && id) {
                 setLastSentMessages((prev) => {
                   const existingMessages = prev[toUserId] || [];
-                  const newMessage: LastSentMessage = { text, ts, id };
-                  // Vérifier si le message n'existe pas déjà
                   const exists = existingMessages.some(m => m.id === id);
                   if (exists) return prev;
-                  
-                  const next = { 
-                    ...prev, 
-                    [toUserId]: [...existingMessages, newMessage] 
-                  };
+
+                  const rawText = text.startsWith('READ:') ? text.slice('READ:'.length) : text;
+                  const replaceIdx = [...existingMessages].reverse().findIndex(
+                    m => !m.id && (m.text === rawText || m.text === text)
+                  );
+                  const idx = replaceIdx === -1 ? -1 : existingMessages.length - 1 - replaceIdx;
+
+                  let nextList: LastSentMessage[];
+                  if (idx >= 0) {
+                    nextList = [...existingMessages];
+                    nextList[idx] = { ...nextList[idx], id, text: rawText, ts };
+                  } else {
+                    nextList = [...existingMessages, { text: rawText, ts, id }];
+                  }
+
+                  const next = { ...prev, [toUserId]: nextList };
                   lastSentSetAtRef.current = Date.now();
                   updateLastSentIndex(next);
                   saveLastSentMessagesCache(next);
@@ -2288,41 +2315,60 @@ useEffect(() => {
               const text = (payload.new as any)?.message_content;
               const id = (payload.new as any)?.id;
 
-              if (text && text.startsWith('READ:')) {
+              if (text && text.startsWith('READ:') && toUserId) {
                  setLastSentMessages((prev) => {
-                    const copy: LastSentMap = {};
-                    let updated = false;
-                    
-                    Object.entries(prev).forEach(([userId, messages]) => {
-                      if (Array.isArray(messages)) {
-                        const isChatOpen = expandedFriendIdRef.current === userId;
-                        
-                        if (!isChatOpen) {
-                             const kept = messages.filter(msg => msg.id !== id);
-                             if (kept.length !== messages.length) {
-                               updated = true;
-                               if (kept.length > 0) copy[userId] = kept;
-                             } else {
-                               copy[userId] = messages;
-                             }
-                        } else {
-                             copy[userId] = messages.map(msg => {
-                               if (msg.id === id) {
-                                 updated = true;
-                                 return { ...msg, status: 'read' as const, readAt: Date.now() };
-                               }
-                               return msg;
-                             });
-                        }
-                      }
-                    });
+                    const messages = prev[toUserId];
+                    if (!Array.isArray(messages)) return prev;
 
-                    if (updated) {
-                      updateLastSentIndex(copy);
-                      saveLastSentMessagesCache(copy);
-                      return copy;
+                    const isChatOpen = expandedFriendIdRef.current === toUserId;
+                    const readAt = Date.now();
+                    const strippedText = text.slice('READ:'.length);
+
+                    // Trouver le message à mettre à jour : par id, sinon dernier sans id ou texte correspondant
+                    let matchIndex = messages.findIndex(msg => msg.id === id);
+                    if (matchIndex === -1) {
+                      const lastWithoutId = messages.map((msg, i) => ({ msg, i })).reverse().find(
+                        ({ msg }) => !msg.id && (msg.text === strippedText || msg.text === text)
+                      );
+                      if (lastWithoutId) matchIndex = lastWithoutId.i;
                     }
-                    return prev;
+                    if (matchIndex === -1) {
+                      const lastUnread = messages.map((msg, i) => ({ msg, i })).reverse().find(
+                        ({ msg }) => msg.status !== 'read'
+                      );
+                      if (lastUnread) matchIndex = lastUnread.i;
+                    }
+
+                    if (matchIndex === -1) return prev;
+
+                    const updatedMsg = {
+                      ...messages[matchIndex],
+                      id: messages[matchIndex].id || id,
+                      status: 'read' as const,
+                      readAt,
+                    };
+
+                    if (!isChatOpen) {
+                      const kept = messages.filter((_, i) => i !== matchIndex);
+                      if (kept.length === 0) {
+                        const next = { ...prev };
+                        delete next[toUserId];
+                        updateLastSentIndex(next);
+                        saveLastSentMessagesCache(next);
+                        return next;
+                      }
+                      const next = { ...prev, [toUserId]: kept };
+                      updateLastSentIndex(next);
+                      saveLastSentMessagesCache(next);
+                      return next;
+                    }
+
+                    const nextList = [...messages];
+                    nextList[matchIndex] = updatedMsg;
+                    const next = { ...prev, [toUserId]: nextList };
+                    updateLastSentIndex(next);
+                    saveLastSentMessagesCache(next);
+                    return next;
                  });
               }
             }
@@ -2402,26 +2448,39 @@ useEffect(() => {
               if (targetUserId) {
                 const next: LastSentMap = {};
                 let changed = false;
-                
                 const isChatOpen = expandedFriendIdRef.current === targetUserId;
+                const messages = prev[targetUserId];
+                const hasMatchById = Array.isArray(messages) && messages.some(msg => msg.id === deletedId);
+                const lastUnreadIdx = Array.isArray(messages)
+                  ? messages.map((msg, i) => ({ msg, i })).reverse().findIndex(({ msg }) => msg.status !== 'read')
+                  : -1;
+                const fallbackIdx = lastUnreadIdx === -1 ? -1 : messages!.length - 1 - lastUnreadIdx;
 
-                Object.entries(prev).forEach(([userId, messages]) => {
-                  if (Array.isArray(messages)) {
-                      if (userId === targetUserId) {
-                          if (!isChatOpen) {
-                              const kept = messages.filter(msg => msg.id !== deletedId);
-                              if (kept.length !== messages.length) changed = true;
-                              if (kept.length > 0) next[userId] = kept;
-                          } else {
-                              next[userId] = messages.map(msg => 
-                                  msg.id === deletedId ? { ...msg, status: 'read', readAt: Date.now() } : msg
-                              );
-                              changed = true;
-                          }
-                      } else {
-                          next[userId] = messages;
-                      }
+                Object.entries(prev).forEach(([userId, msgs]) => {
+                  if (!Array.isArray(msgs)) return;
+                  if (userId !== targetUserId) {
+                    next[userId] = msgs;
+                    return;
                   }
+                  if (!isChatOpen) {
+                    const kept = msgs.filter(msg => msg.id !== deletedId);
+                    if (kept.length !== msgs.length) changed = true;
+                    if (kept.length > 0) next[userId] = kept;
+                    return;
+                  }
+                  const readAt = Date.now();
+                  const updated = msgs.map((msg, i) => {
+                    if (msg.id === deletedId) {
+                      changed = true;
+                      return { ...msg, status: 'read' as const, readAt };
+                    }
+                    if (!hasMatchById && fallbackIdx === i) {
+                      changed = true;
+                      return { ...msg, id: msg.id || deletedId, status: 'read' as const, readAt };
+                    }
+                    return msg;
+                  });
+                  next[userId] = updated;
                 });
                 if (changed) {
                   updateLastSentIndex(next);
@@ -2921,9 +2980,11 @@ useEffect(() => {
             created_at: m.created_at,
           })),
         }));
-        // Marquer lu avec un délai pour laisser le temps de voir
+        // Marquer lu avec un délai pour laisser le temps de voir (espacés pour éviter 429)
         setTimeout(() => {
-          unreadMessages.forEach(msg => markMessageAsRead(msg.id));
+          unreadMessages.forEach((msg, i) => {
+            setTimeout(() => markMessageAsRead(msg.id), i * MARK_READ_DELAY_MS);
+          });
         }, 1000);
         pendingCenterScrollFriendIdRef.current = friend.id;
         // Marquer si on vient de la recherche (pour ajuster le padding sur Google Pixel)
@@ -3410,7 +3471,7 @@ useEffect(() => {
             text: stripReadPrefix(m.message_content),
             ts: m.created_at,
             isMe: false,
-            dimmed: !!m.isPendingDelete || (m.message_content?.startsWith('READ:') ?? false),
+            dimmed: false,
             original: undefined
         })),
         ...(Array.isArray(mySentMessages) ? mySentMessages.map((msg, idx) => ({
