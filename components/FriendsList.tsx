@@ -956,11 +956,12 @@ export function FriendsList({
       const kept = keptReadMessagesRef.current.get(prevId) || [];
       keptReadMessagesRef.current.delete(prevId);
       
-      // 2. PURGE locale : supprimer TOUS les messages reçus de cet ami quand le chat est fermé
+      // 2. PURGE locale : supprimer uniquement les messages reçus "lus" (kept)
+      // (si B n'a pas affiché le message, il doit rester vivant sur le serveur)
       // et les blacklister pour éviter qu'ils réapparaissent via loadData/polling.
       setPendingMessages(prev => {
         return prev.filter(m => {
-          const shouldDrop = m.from_user_id === prevId || kept.some(k => k.id === m.id);
+          const shouldDrop = kept.some(k => k.id === m.id);
           if (shouldDrop && m.id) {
             deletedMessagesCache.add(m.id);
           }
@@ -980,17 +981,19 @@ export function FriendsList({
       // Retirer de l'affichage les messages reçus déjà marqués READ: (lu puis supprimés côté backend)
       setPendingMessages(prev => prev.filter(m => !m.message_content?.startsWith('READ:')));
 
-      // PURGE locale : supprimer TOUS les messages envoyés dans ce chat à la fermeture
-      // (Snap-style : quand on ferme, on ne doit plus les revoir)
+      // PURGE locale : supprimer uniquement les messages envoyés déjà "lus"
+      // Si B n'a pas lu, A doit revoir son message en rouvrant le chat.
       setLastSentMessages(prev => {
         const msgs = prev[prevId];
-        if (Array.isArray(msgs)) {
-          msgs.forEach(m => {
-            if (m?.id) hiddenSentIdsRef.current.add(m.id);
-          });
-        }
+        if (!Array.isArray(msgs)) return prev;
+
+        const keptSent = msgs.filter(m => m?.status !== 'read');
         const next = { ...prev };
-        delete next[prevId];
+        if (keptSent.length > 0) {
+          next[prevId] = keptSent;
+        } else {
+          delete next[prevId];
+        }
         updateLastSentIndex(next);
         saveLastSentMessagesCache(next);
         return next;
@@ -1000,15 +1003,12 @@ export function FriendsList({
       // (supprime les messages qui ont été lus/supprimés sur le serveur mais dont on aurait raté le broadcast)
       // Comme expandedFriendIdRef est maintenant null (ou changé), loadData va nettoyer les messages absents du serveur.
       void (async () => {
-        // PURGE serveur : supprimer tous les pending_messages de ce chat (dans les 2 sens)
-        // pour éviter que les anciens messages réapparaissent après redémarrage.
-        const ok = currentUserId ? await purgeChatViaBackend(currentUserId, prevId) : true;
-
-        // Si la purge serveur a échoué (backend pas à jour, 404, etc.), on évite loadData ici
-        // pour ne pas réinjecter les anciens messages depuis le serveur.
-        if (ok) {
-          loadData(false, false, false);
+        // PURGE serveur : supprimer uniquement les messages déjà marqués READ:
+        // (la règle d'or: un message non lu doit rester vivant)
+        if (currentUserId) {
+          await purgeChatViaBackend(currentUserId, prevId);
         }
+        loadData(false, false, false);
       })();
     }
     prevExpandedRef.current = expandedFriendId;
