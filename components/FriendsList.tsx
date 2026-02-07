@@ -25,7 +25,7 @@ import Animated, {
 import { RINGER_MODE, VolumeManager } from 'react-native-volume-manager';
 import { ensureContactPermissionWithDisclosure } from '../lib/contactConsent';
 import { normalizePhone } from '../lib/normalizePhone';
-import { markMessageReadViaBackend, purgeChatViaBackend, sendProutViaBackend } from '../lib/sendProutBackend';
+import { markMessageReadViaBackend, sendProutViaBackend } from '../lib/sendProutBackend';
 // Import supprimé : on utilise maintenant sync_contacts (fonction SQL Supabase)
 import i18n from '../lib/i18n';
 import { supabase } from '../lib/supabase';
@@ -78,6 +78,22 @@ const CACHE_MAX_AGE = 24 * 60 * 60 * 1000; // 24 heures
 
 type LastSentMessage = { text: string; ts: string; id?: string; status?: 'read'; readAt?: number };
 type LastSentMap = Record<string, LastSentMessage[]>; // Tableau de messages pour accumulation
+
+type PendingMessage = {
+  id: string;
+  from_user_id: string;
+  to_user_id?: string;
+  sender_pseudo?: string | null;
+  message_content?: string | null;
+  created_at: string;
+  // Marqué localement quand Supabase DELETE arrive pendant une session ouverte
+  isPendingDelete?: boolean;
+};
+
+const stripReadPrefix = (text?: string | null) => {
+  if (!text) return '';
+  return text.startsWith('READ:') ? text.slice('READ:'.length) : text;
+};
 
 // Mémoire de session (pas persistée) pour bloquer la bannière après clic OK
 let dismissedSilentWarningSession = false;
@@ -563,7 +579,7 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
 // Composant pour gérer l'animation du message envoyé (PRRT! : opacité réduite quand lu)
 const SentMessageStatus = ({ message }: { message: { text: string; status?: 'read'; id?: string } | undefined }) => {
   const [displayedMessage, setDisplayedMessage] = useState(message);
-  const opacity = useRef(new RNAnimated.Value(message?.status === 'read' ? 0.5 : 1)).current;
+  const opacity = useRef(new RNAnimated.Value(message?.status === 'read' ? 0.3 : 1)).current;
   const [isRead, setIsRead] = useState(message?.status === 'read');
 
   useEffect(() => {
@@ -576,7 +592,7 @@ const SentMessageStatus = ({ message }: { message: { text: string; status?: 'rea
           setIsRead(true);
           // PRRT! : opacité réduite sur la bulle quand lu (reste affiché tant que le chat est ouvert)
           RNAnimated.timing(opacity, {
-            toValue: 0.5,
+            toValue: 0.3,
             duration: 300,
             useNativeDriver: true,
           }).start();
@@ -589,7 +605,7 @@ const SentMessageStatus = ({ message }: { message: { text: string; status?: 'rea
   return (
     <RNAnimated.View style={{ alignSelf: 'flex-end', opacity, maxWidth: '100%', alignItems: 'flex-end' }}>
       <View style={styles.bubbleSent}>
-        <Text style={styles.bubbleTextSent}>{displayedMessage.text}</Text>
+        <Text style={styles.bubbleTextSent}>{stripReadPrefix(displayedMessage.text)}</Text>
       </View>
       {isRead && (
         <Text style={{ fontSize: 12, color: '#604a3e', marginRight: 12, marginBottom: 4, fontStyle: 'italic', opacity: 0.9 }}>
@@ -601,19 +617,21 @@ const SentMessageStatus = ({ message }: { message: { text: string; status?: 'rea
 };
 
 // Composant pour gérer l'animation de disparition des messages reçus (quand A envoie un message)
-const ReceivedMessageFade = ({ message, shouldFadeOut, onFadeComplete }: { 
+const ReceivedMessageFade = ({ message, dimmed, shouldFadeOut, onFadeComplete }: { 
   message: { id: string; text: string }; 
+  dimmed?: boolean;
   shouldFadeOut: boolean;
   onFadeComplete: () => void;
 }) => {
-  const opacity = useRef(new RNAnimated.Value(1)).current;
+  const opacity = useRef(new RNAnimated.Value(dimmed ? 0.3 : 1)).current;
 
   useEffect(() => {
     if (shouldFadeOut) {
       RNAnimated.sequence([
         RNAnimated.delay(500),
         RNAnimated.timing(opacity, {
-          toValue: 0,
+          // Session gelée: ne jamais disparaître complètement
+          toValue: 0.3,
           duration: 500,
           useNativeDriver: true,
         })
@@ -621,14 +639,14 @@ const ReceivedMessageFade = ({ message, shouldFadeOut, onFadeComplete }: {
         onFadeComplete();
       });
     } else {
-      opacity.setValue(1);
+      opacity.setValue(dimmed ? 0.3 : 1);
     }
-  }, [shouldFadeOut]);
+  }, [shouldFadeOut, dimmed]);
 
   return (
     <RNAnimated.View style={{ alignSelf: 'flex-start', opacity, maxWidth: '100%' }}>
       <View style={styles.bubbleReceived}>
-        <Text style={styles.bubbleTextReceived}>{message.text}</Text>
+        <Text style={styles.bubbleTextReceived}>{stripReadPrefix(message.text)}</Text>
       </View>
     </RNAnimated.View>
   );
@@ -705,7 +723,7 @@ export function FriendsList({
   const [currentPseudo, setCurrentPseudo] = useState<string>("Un ami");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [pendingMessages, setPendingMessages] = useState<any[]>([]);
+  const [pendingMessages, setPendingMessages] = useState<PendingMessage[]>([]);
   const [lastSentMessages, setLastSentMessages] = useState<LastSentMap>({});
   const [showSilentWarning, setShowSilentWarning] = useState(false);
   const [dismissedSilentWarning, setDismissedSilentWarning] = useState(dismissedSilentWarningSession); // reste à true pour toute la session après clic OK
@@ -952,22 +970,20 @@ export function FriendsList({
       // Sinon loadData croit qu'il est encore ouvert et garde les messages !
       expandedFriendIdRef.current = null;
       
-      // 1. Nettoyer les messages reçus gardés (keptReadMessagesRef)
-      const kept = keptReadMessagesRef.current.get(prevId) || [];
+      // Nettoyer le buffer local (legacy) et appliquer la règle "session gelée"
+      // À la fermeture: on supprime définitivement UNIQUEMENT les messages de cette conversation
+      // qui sont en sursis (READ: ou isPendingDelete).
       keptReadMessagesRef.current.delete(prevId);
-      
-      // 2. PURGE locale : supprimer uniquement les messages reçus "lus" (kept)
-      // (si B n'a pas affiché le message, il doit rester vivant sur le serveur)
-      // et les blacklister pour éviter qu'ils réapparaissent via loadData/polling.
-      setPendingMessages(prev => {
-        return prev.filter(m => {
-          const shouldDrop = kept.some(k => k.id === m.id);
-          if (shouldDrop && m.id) {
-            deletedMessagesCache.add(m.id);
-          }
+
+      setPendingMessages(prev =>
+        prev.filter(m => {
+          if (m.from_user_id !== prevId) return true;
+          const isRead = m.message_content?.startsWith('READ:') ?? false;
+          const shouldDrop = isRead || !!m.isPendingDelete;
+          if (shouldDrop && m.id) deletedMessagesCache.add(m.id);
           return !shouldDrop;
-        });
-      });
+        })
+      );
 
       const cachedForPrev = unreadCache[prevId] || [];
       setUnreadCache(prev => ({ ...prev, [prevId]: [] }));
@@ -978,8 +994,7 @@ export function FriendsList({
           return newSet;
         });
       }
-      // Retirer de l'affichage les messages reçus déjà marqués READ: (lu puis supprimés côté backend)
-      setPendingMessages(prev => prev.filter(m => !m.message_content?.startsWith('READ:')));
+      // Ne pas faire de purge globale READ: ici (session gelée).
 
       // PURGE locale : supprimer uniquement les messages envoyés déjà "lus"
       // Si B n'a pas lu, A doit revoir son message en rouvrant le chat.
@@ -1002,14 +1017,7 @@ export function FriendsList({
       // PRRT! Protocol : Force sync à la fermeture pour être sûr que l'état local correspond au serveur
       // (supprime les messages qui ont été lus/supprimés sur le serveur mais dont on aurait raté le broadcast)
       // Comme expandedFriendIdRef est maintenant null (ou changé), loadData va nettoyer les messages absents du serveur.
-      void (async () => {
-        // PURGE serveur : supprimer uniquement les messages déjà marqués READ:
-        // (la règle d'or: un message non lu doit rester vivant)
-        if (currentUserId) {
-          await purgeChatViaBackend(currentUserId, prevId);
-        }
-        loadData(false, false, false);
-      })();
+      loadData(false, false, false);
     }
     prevExpandedRef.current = expandedFriendId;
   }, [expandedFriendId, unreadCache]);
@@ -1053,32 +1061,48 @@ export function FriendsList({
     }
     
     // Filtrer les messages qui sont dans la liste noire locale (supprimés mais pas encore sync)
-    // Et filtrer les messages techniques "READ:" qui ne doivent pas être affichés
-    const validMessages = (data || [])
+    // NOTE: On NE filtre PAS "READ:" (session gelée). Ils seront affichés en opacité réduite.
+    const serverMessages = (data || [])
       .filter(m => !deletedMessagesCache.has(m.id))
-      .filter(m => !m.message_content?.startsWith('READ:'));
-    
-    // Si un chat est ouvert, réintégrer les messages qu'on a décidé de garder (keptReadMessagesRef)
-    // même s'ils ont disparu du serveur.
-    if (expandedFriendIdRef.current) {
-        const kept = keptReadMessagesRef.current.get(expandedFriendIdRef.current) || [];
-        const currentIds = new Set(validMessages.map(m => m.id));
-        kept.forEach(msg => {
-            if (!currentIds.has(msg.id)) {
-                // On réintègre le message gardé
-                validMessages.push(msg);
-            }
-        });
-        // On trie à nouveau pour être sûr
-        validMessages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-    }
+      .map((m: any) => ({ ...m, isPendingDelete: false })) as PendingMessage[];
 
-    setPendingMessages(validMessages);
+    // Session gelée: merge serveur + état local pour éviter toute disparition pendant chat ouvert
+    setPendingMessages((prev) => {
+      const prevById = new Map(prev.map(m => [m.id, m]));
+      const mergedById = new Map<string, PendingMessage>();
+
+      serverMessages.forEach((m) => {
+        const prevMsg = prevById.get(m.id);
+        mergedById.set(m.id, { ...m, isPendingDelete: prevMsg?.isPendingDelete ?? false });
+      });
+
+      // Compat: conserver les messages déjà gardés (ancienne logique)
+      const activeId = expandedFriendIdRef.current;
+      if (activeId) {
+        const kept = keptReadMessagesRef.current.get(activeId) || [];
+        kept.forEach((m) => {
+          if (!mergedById.has(m.id)) mergedById.set(m.id, m);
+        });
+
+        prev.forEach((m) => {
+          const isActiveConversation = m.from_user_id === activeId;
+          const isReadOrPending =
+            !!m.isPendingDelete || (m.message_content?.startsWith('READ:') ?? false);
+          if (isActiveConversation && isReadOrPending && !mergedById.has(m.id)) {
+            mergedById.set(m.id, m);
+          }
+        });
+      }
+
+      const next = Array.from(mergedById.values());
+      next.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      return next;
+    });
 
     // Mise à jour optimiste locale pour remonter les expéditeurs (messages reçus)
-    if (validMessages.length > 0) {
+    if (serverMessages.length > 0) {
       const now = new Date().toISOString();
-      const uniqueSenderIds = [...new Set(validMessages.map(m => m.from_user_id))];
+      const uniqueSenderIds = [...new Set(serverMessages.map(m => m.from_user_id))];
       setAppUsers(prev => {
         const updated = prev.map(friend =>
           uniqueSenderIds.includes(friend.id)
@@ -1206,8 +1230,8 @@ export function FriendsList({
     if (error) {
       return null;
     }
-    // Filtrer les messages "READ:" qui traînent (erreur 429 backend qui empêche delete)
-    return (data || []).filter(m => !m.message_content?.startsWith('READ:'));
+    // Session gelée: on ne filtre pas READ ici (affichage grisé côté UI)
+    return data || [];
   };
 
   const pickLatestTimestamp = (a?: string | null, b?: string | null) => {
@@ -2193,7 +2217,7 @@ useEffect(() => {
 
               setPendingMessages((prev) => {
                 const filtered = prev.filter(m => m.id !== payload.new.id);
-                return [...filtered, payload.new as any];
+                return [...filtered, { ...(payload.new as any), isPendingDelete: false } as PendingMessage];
               });
 
               // Mise à jour optimiste : remonter l'expéditeur immédiatement
@@ -2209,21 +2233,15 @@ useEffect(() => {
               // Rechargement pour synchroniser avec Supabase
               loadData(false, false, false);
             } else if (payload.eventType === 'DELETE') {
-              // PRRT! Protocol : Si le message est supprimé (parce que lu), on le garde si le chat est ouvert
+              // Session gelée : Si le message est supprimé (lu), on ne le retire PAS si le chat est ouvert.
+              // On le marque "en sursis" (isPendingDelete) pour l'afficher grisé.
               const deletedId = payload.old.id;
               setPendingMessages((prev) => {
-                // Vérifier si on doit garder ce message
-                const senderId = prev.find(m => m.id === deletedId)?.from_user_id;
-                if (senderId && senderId === expandedFriendIdRef.current) {
-                   // Le chat est ouvert avec cet ami, on garde le message !
-                   // On s'assure qu'il est dans keptReadMessagesRef
-                   const currentKept = keptReadMessagesRef.current.get(senderId) || [];
-                   const msgToKeep = prev.find(m => m.id === deletedId);
-                   if (msgToKeep && !currentKept.some(k => k.id === deletedId)) {
-                       keptReadMessagesRef.current.set(senderId, [...currentKept, msgToKeep]);
-                   }
-                   // On ne filtre PAS, on retourne prev tel quel (ou on update status si on avait un champ status)
-                   return prev;
+                const msg = prev.find(m => m.id === deletedId);
+                const senderId = msg?.from_user_id;
+                const isChatOpen = senderId && senderId === expandedFriendIdRef.current;
+                if (isChatOpen) {
+                  return prev.map(m => (m.id === deletedId ? { ...m, isPendingDelete: true } : m));
                 }
                 return prev.filter(m => m.id !== deletedId);
               });
@@ -2880,7 +2898,12 @@ useEffect(() => {
     if (now - lastPressTime.current < 500) return;
     lastPressTime.current = now;
 
-    const unreadMessages = pendingMessages.filter(m => m.from_user_id === friend.id);
+    const unreadMessages = pendingMessages.filter(
+      m =>
+        m.from_user_id === friend.id &&
+        !m.isPendingDelete &&
+        !(m.message_content?.startsWith('READ:') ?? false)
+    );
     const alreadyUnreadOpen = expandedUnreadId === friend.id;
     const isInputOpen = expandedFriendId === friend.id;
     const hasCachedMessages = unreadCache[friend.id] && unreadCache[friend.id].length > 0;
@@ -3376,20 +3399,18 @@ useEffect(() => {
     const mergedMap = new Map<string, any>();
     cachedForFriend.forEach(m => mergedMap.set(m.id, m));
     activeUnreadMessages.forEach(m => mergedMap.set(m.id, m));
-    // Filtrage ultime pour ne jamais afficher "READ:"
-    const activeMessagesToShow = Array.from(mergedMap.values())
-        .filter(m => !m.message_content?.startsWith('READ:'));
+    const activeMessagesToShow = Array.from(mergedMap.values()) as PendingMessage[];
     
-    const mySentMessages = (lastSentMessages[displayFriend.id] || [])
-        .filter(m => !m.text?.startsWith('READ:'));
+    const mySentMessages = (lastSentMessages[displayFriend.id] || []);
 
     // Fusion et tri
     const allMessages = [
         ...activeMessagesToShow.map((m, idx) => ({
             id: m.id || `received-${idx}-${m.created_at}`,
-            text: m.message_content,
+            text: stripReadPrefix(m.message_content),
             ts: m.created_at,
             isMe: false,
+            dimmed: !!m.isPendingDelete || (m.message_content?.startsWith('READ:') ?? false),
             original: undefined
         })),
         ...(Array.isArray(mySentMessages) ? mySentMessages.map((msg, idx) => ({
@@ -3444,6 +3465,7 @@ useEffect(() => {
                 <ReceivedMessageFade
                   key={msg.id}
                   message={{ id: msg.id, text: msg.text }}
+                  dimmed={(msg as any).dimmed}
                   shouldFadeOut={fadingOutReceivedMessages.has(msg.id)}
                   onFadeComplete={() => {
                     // L'animation est terminée, le message sera supprimé par le setTimeout dans handleSendProut
@@ -3466,6 +3488,7 @@ useEffect(() => {
                 <ReceivedMessageFade
                   key={msg.id}
                   message={{ id: msg.id, text: msg.text }}
+                  dimmed={(msg as any).dimmed}
                   shouldFadeOut={fadingOutReceivedMessages.has(msg.id)}
                   onFadeComplete={() => {
                     // L'animation est terminée, le message sera supprimé par le setTimeout dans handleSendProut
@@ -3665,7 +3688,12 @@ useEffect(() => {
           )
         }
         renderItem={({ item, index }) => {
-          const unreadMessages = pendingMessages.filter(m => m.from_user_id === item.id);
+          const unreadMessages = pendingMessages.filter(
+            m =>
+              m.from_user_id === item.id &&
+              !m.isPendingDelete &&
+              !(m.message_content?.startsWith('READ:') ?? false)
+          );
           const hasUnread = unreadMessages.length > 0;
           const lastUnread = unreadMessages.length > 0 ? unreadMessages[unreadMessages.length - 1] : null;
           const isUnreadExpanded = expandedUnreadId === item.id;
@@ -3687,7 +3715,7 @@ useEffect(() => {
                 onLongPressName={() => handleLongPressName(item)}
                 onPressName={() => handlePressFriend(item)}
                 hasUnread={hasUnread}
-                unreadMessage={lastUnread?.message_content || (hasUnread && unreadMessages.length > 1 ? `${unreadMessages.length} messages` : null)}
+                unreadMessage={stripReadPrefix(lastUnread?.message_content) || (hasUnread && unreadMessages.length > 1 ? `${unreadMessages.length} messages` : null)}
                 onDeleteFriend={() => handleDeleteFriend(item)}
                 onMuteFriend={() => handleMuteFriend(item)}
                 onUnmuteFriend={() => handleUnmuteFriend(item)}
