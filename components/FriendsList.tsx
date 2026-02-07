@@ -768,7 +768,10 @@ export function FriendsList({
   const toastOpacity = useRef(new RNAnimated.Value(0)).current;
   const lastSentByIdRef = useRef<Record<string, string>>({});
   const pendingReadIdsRef = useRef<Set<string>>(new Set());
-  const processingReadIdsRef = useRef<Set<string>>(new Set());
+  // Anti-spam markRead (backoff) : Map<messageId, lastAttemptAtMs>
+  const processingReadIdsRef = useRef<Map<string, number>>(new Map());
+  // Messages envoyés masqués après fermeture de chat (purge locale)
+  const hiddenSentIdsRef = useRef<Set<string>>(new Set());
   const pendingReadRemovalTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const prevExpandedRef = useRef<string | null>(null);
   const stickyScrollViewRef = useRef<ScrollView>(null);
@@ -933,11 +936,7 @@ export function FriendsList({
           return { ...prev, [expandedFriendId]: [...currentCache, ...newMsgs] };
         });
         timer = setTimeout(() => {
-          unreadForActive.forEach(msg => {
-             if (!processingReadIdsRef.current.has(msg.id)) {
-                 markMessageAsRead(msg.id);
-             }
-          });
+          unreadForActive.forEach(msg => markMessageAsRead(msg.id));
         }, 1500);
       }
     }
@@ -957,8 +956,17 @@ export function FriendsList({
       const kept = keptReadMessagesRef.current.get(prevId) || [];
       keptReadMessagesRef.current.delete(prevId);
       
-      // 2. Supprimer ces messages reçus de l'état local (pendingMessages)
-      setPendingMessages(prev => prev.filter(m => !kept.some(k => k.id === m.id)));
+      // 2. PURGE locale : supprimer TOUS les messages reçus de cet ami quand le chat est fermé
+      // et les blacklister pour éviter qu'ils réapparaissent via loadData/polling.
+      setPendingMessages(prev => {
+        return prev.filter(m => {
+          const shouldDrop = m.from_user_id === prevId || kept.some(k => k.id === m.id);
+          if (shouldDrop && m.id) {
+            deletedMessagesCache.add(m.id);
+          }
+          return !shouldDrop;
+        });
+      });
 
       const cachedForPrev = unreadCache[prevId] || [];
       setUnreadCache(prev => ({ ...prev, [prevId]: [] }));
@@ -972,19 +980,20 @@ export function FriendsList({
       // Retirer de l'affichage les messages reçus déjà marqués READ: (lu puis supprimés côté backend)
       setPendingMessages(prev => prev.filter(m => !m.message_content?.startsWith('READ:')));
 
-      // Nettoyer les messages envoyés marqués comme 'read' pour cet ami
+      // PURGE locale : supprimer TOUS les messages envoyés dans ce chat à la fermeture
+      // (Snap-style : quand on ferme, on ne doit plus les revoir)
       setLastSentMessages(prev => {
         const msgs = prev[prevId];
         if (Array.isArray(msgs)) {
-          const kept = msgs.filter(msg => msg.status !== 'read');
-          if (kept.length !== msgs.length) {
-             const next = { ...prev, [prevId]: kept };
-             updateLastSentIndex(next);
-             saveLastSentMessagesCache(next);
-             return next;
-          }
+          msgs.forEach(m => {
+            if (m?.id) hiddenSentIdsRef.current.add(m.id);
+          });
         }
-        return prev;
+        const next = { ...prev };
+        delete next[prevId];
+        updateLastSentIndex(next);
+        saveLastSentMessagesCache(next);
+        return next;
       });
       
       // PRRT! Protocol : Force sync à la fermeture pour être sûr que l'état local correspond au serveur
@@ -1073,11 +1082,13 @@ export function FriendsList({
   };
 
   const markMessageAsRead = async (messageId: string) => {
-    // Éviter le spam de requêtes pour le même message (cause 429)
-    if (processingReadIdsRef.current.has(messageId)) {
+    // Backoff anti-spam (évite 429) : max 1 tentative / 15s / message
+    const now = Date.now();
+    const lastAttempt = processingReadIdsRef.current.get(messageId);
+    if (lastAttempt && now - lastAttempt < 15000) {
       return;
     }
-    processingReadIdsRef.current.add(messageId);
+    processingReadIdsRef.current.set(messageId, now);
 
     try {
       if (__DEV__) {
@@ -1897,6 +1908,9 @@ useEffect(() => {
               let droppedStaleServer = 0;
               if (sentPendingMessagesResult.length > 0) {
                  sentPendingMessagesResult.forEach((m: any) => {
+                    if (m?.id && hiddenSentIdsRef.current.has(m.id)) {
+                      return;
+                    }
                     const rawText = m.message_content || '';
                     const isRead = rawText.startsWith('READ:');
 
