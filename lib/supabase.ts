@@ -25,6 +25,7 @@ export const getRedirectUrl = () => {
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     return window.location.origin;
   }
-  // Cela doit correspondre à votre fichier app/confirm-email.tsx
-  return 'proutapp://confirm-email';
+  // iOS : app Prrt! (com.prrt.app) avec scheme prrtapp. Android : scheme proutapp inchangé.
+  const scheme = Platform.OS === 'ios' ? 'prrtapp' : 'proutapp';
+  return `${scheme}://confirm-email`;
 };

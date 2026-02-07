@@ -359,7 +359,7 @@ export default function AuthChoiceScreen() {
           console.log('🍏 3. Simulateur détecté, utilisation OAuth Web directement');
           // Si non disponible (simulateur ou appareil non compatible), utiliser OAuth Web
           console.log('⚠️ Apple Authentication non disponible, utilisation du flux OAuth Web');
-          const redirectUrl = 'proutapp://login-callback';
+          const redirectUrl = Platform.OS === 'ios' ? 'prrtapp://login-callback' : 'proutapp://login-callback';
           
           console.log('🍏 4. Début OAuth Web Apple...');
           const { data, error } = await supabase.auth.signInWithOAuth({
@@ -408,7 +408,7 @@ export default function AuthChoiceScreen() {
         if (!isAvailable) {
           // Si non disponible, utiliser OAuth Web
           console.log('⚠️ Apple Authentication non disponible, utilisation du flux OAuth Web');
-          const redirectUrl = 'proutapp://login-callback';
+          const redirectUrl = Platform.OS === 'ios' ? 'prrtapp://login-callback' : 'proutapp://login-callback';
           
           console.log('🍏 5. Début OAuth Web Apple...');
           const { data, error } = await supabase.auth.signInWithOAuth({
@@ -521,7 +521,7 @@ export default function AuthChoiceScreen() {
           console.error('❌ Erreur authentification native Apple:', nativeError);
           console.log('⚠️ Fallback sur OAuth Web...');
           
-          const redirectUrl = 'proutapp://login-callback';
+          const redirectUrl = Platform.OS === 'ios' ? 'prrtapp://login-callback' : 'proutapp://login-callback';
           
           const { data, error } = await supabase.auth.signInWithOAuth({
             provider: 'apple',
@@ -562,7 +562,7 @@ export default function AuthChoiceScreen() {
       } else {
         // Android - OAuth Web
         console.log('🍏 2. Android - Début OAuth Web Apple...');
-        const redirectUrl = 'proutapp://login-callback';
+        const redirectUrl = Platform.OS === 'ios' ? 'prrtapp://login-callback' : 'proutapp://login-callback';
         
         const { data, error } = await supabase.auth.signInWithOAuth({
           provider: 'apple',

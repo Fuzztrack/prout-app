@@ -112,13 +112,13 @@ export default function Onboarding({ onFinish }: OnboardingProps) {
   const renderItem = ({ item }: { item: Slide }) => (
     <View style={[styles.slide, { width }]}>
       {item.key === 'welcome' ? (
-        <Image source={require('../assets/images/adaptive_icon.png')} style={styles.image} />
+        <Image source={require('../assets/images/Prrt.png')} style={styles.image} />
       ) : item.icon && item.color ? (
         <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
           <Ionicons name={item.icon as any} size={64} color="white" />
         </View>
       ) : null}
-      <Text style={styles.title}>{item.title}</Text>
+      {item.key !== 'welcome' ? <Text style={styles.title}>{item.title}</Text> : null}
       {item.key === 'welcome' && i18n.t('onboarding_welcome_subtitle') ? (
         <Text style={styles.subtitle}>{i18n.t('onboarding_welcome_subtitle')}</Text>
       ) : null}

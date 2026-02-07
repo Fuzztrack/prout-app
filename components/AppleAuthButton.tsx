@@ -71,10 +71,10 @@ export function AppleAuthButton({ onSuccess, onError }: AppleAuthButtonProps) {
   const handleAppleLogin = async () => {
     setLoading(true);
     try {
-      // Utiliser proutapp://login-callback spécifiquement pour Apple sur Android
+      // iOS : prrtapp (app Prrt!), Android : proutapp (inchangé)
       const redirectUrl = Platform.OS === 'web' 
         ? (typeof window !== 'undefined' ? window.location.origin : '')
-        : 'proutapp://login-callback';
+        : (Platform.OS === 'ios' ? 'prrtapp://login-callback' : 'proutapp://login-callback');
       
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'apple',
