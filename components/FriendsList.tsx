@@ -716,6 +716,11 @@ export function FriendsList({
   const [showSilentWarning, setShowSilentWarning] = useState(false);
   const [dismissedSilentWarning, setDismissedSilentWarning] = useState(dismissedSilentWarningSession); // reste à true pour toute la session après clic OK
   const [expandedFriendId, setExpandedFriendId] = useState<string | null>(null);
+  const expandedFriendIdRef = useRef<string | null>(null);
+  
+  useEffect(() => {
+    expandedFriendIdRef.current = expandedFriendId;
+  }, [expandedFriendId]);
   const [keyboardVisible, setKeyboardVisible] = useState(false); // État local pour le clavier
   // const [keyboardHeight, setKeyboardHeight] = useState(0); // ❌ Supprimé : géré par Reanimated
   const [isModalContentVisible, setIsModalContentVisible] = useState(false);
@@ -809,45 +814,6 @@ export function FriendsList({
     return { next, updated };
   };
 
-  const scheduleReadRemoval = (messageId: string) => {
-    const existing = pendingReadRemovalTimersRef.current.get(messageId);
-    if (existing) {
-      clearTimeout(existing);
-    }
-    if (__DEV__) {
-    }
-    const timer = setTimeout(() => {
-      if (__DEV__) {
-      }
-      setLastSentMessages(prev => {
-        const next: LastSentMap = {};
-        let changed = false;
-        Object.entries(prev).forEach(([userId, messages]) => {
-          if (Array.isArray(messages)) {
-            const kept = messages.filter(msg => msg.id !== messageId);
-            if (kept.length > 0) {
-              next[userId] = kept;
-            }
-            if (kept.length !== messages.length) {
-              changed = true;
-            }
-          }
-        });
-        if (changed) {
-          updateLastSentIndex(next);
-          saveLastSentMessagesCache(next);
-          if (__DEV__) {
-          }
-          return next;
-        }
-        if (__DEV__) {
-        }
-        return prev;
-      });
-      pendingReadRemovalTimersRef.current.delete(messageId);
-    }, READ_ANIMATION_MS + 100);
-    pendingReadRemovalTimersRef.current.set(messageId, timer);
-  };
   
   // État pour le mode silencieux
   const [volume, setVolume] = useState<number | undefined>(undefined);
@@ -966,7 +932,7 @@ export function FriendsList({
     return () => clearTimeout(timer);
   }, [pendingMessages, expandedFriendId]);
 
-  // PRRT! Protocol : au démontage du chat (fermeture ou changement d'ami), nettoyer l'état local des messages lus
+  // PRRT! Protocol : au démontage du chat (fermeture ou changement d'ami), nettoyer l'état local des messages lus et envoyés
   useEffect(() => {
     if (prevExpandedRef.current && !expandedFriendId) {
       const prevId = prevExpandedRef.current;
@@ -979,82 +945,27 @@ export function FriendsList({
           return newSet;
         });
       }
-      // Retirer de l'affichage les messages déjà marqués READ: (lu puis supprimés côté backend)
+      // Retirer de l'affichage les messages reçus déjà marqués READ: (lu puis supprimés côté backend)
       setPendingMessages(prev => prev.filter(m => !m.message_content?.startsWith('READ:')));
+
+      // Nettoyer les messages envoyés marqués comme 'read' pour cet ami
+      setLastSentMessages(prev => {
+        const msgs = prev[prevId];
+        if (Array.isArray(msgs)) {
+          const kept = msgs.filter(msg => msg.status !== 'read');
+          if (kept.length !== msgs.length) {
+             const next = { ...prev, [prevId]: kept };
+             updateLastSentIndex(next);
+             saveLastSentMessagesCache(next);
+             return next;
+          }
+        }
+        return prev;
+      });
     }
     prevExpandedRef.current = expandedFriendId;
   }, [expandedFriendId, unreadCache]);
 
-  // Nettoyage automatique des messages envoyés marqués comme 'read' (après animation)
-  useEffect(() => {
-    let hasReadMessages = false;
-    Object.entries(lastSentMessages).forEach(([_, messages]) => {
-      if (Array.isArray(messages) && messages.some(msg => msg.status === 'read')) {
-        hasReadMessages = true;
-      }
-    });
-    
-    if (hasReadMessages) {
-      let nextDelay = Infinity;
-      const timer = setTimeout(() => {
-        setLastSentMessages(prev => {
-          const next: LastSentMap = {};
-          let changed = false;
-          let removedCount = 0;
-          let pendingReadCount = 0;
-          Object.entries(prev).forEach(([userId, messages]) => {
-            if (Array.isArray(messages)) {
-              const kept = messages.filter(msg => {
-                if (msg.status !== 'read') return true;
-                pendingReadCount += 1;
-                if (!msg.readAt) {
-                  removedCount += 1;
-                  return false;
-                }
-                const age = Date.now() - msg.readAt;
-                if (age >= READ_ANIMATION_MS) {
-                  removedCount += 1;
-                  return false;
-                }
-                nextDelay = Math.min(nextDelay, READ_ANIMATION_MS - age);
-                return true;
-              });
-              if (kept.length > 0) {
-                next[userId] = kept;
-                if (kept.length !== messages.length) changed = true;
-              } else if (messages.length > 0) {
-                changed = true;
-              }
-            } else {
-              // Format ancien (un seul message) - migration
-              if (messages && (messages as any).status !== 'read') {
-                next[userId] = [messages as LastSentMessage];
-              }
-            }
-          });
-          if (changed) {
-
-            updateLastSentIndex(next);
-            saveLastSentMessagesCache(next);
-            return next;
-          }
-          if (__DEV__ && pendingReadCount > 0) {
-            // Log cleaned
-          }
-          return prev;
-        });
-      }, 0);
-      const followUpDelay = Number.isFinite(nextDelay) ? nextDelay : READ_ANIMATION_MS;
-      const followUp = setTimeout(() => {
-        // relancer le cleanup après la prochaine échéance
-        setLastSentMessages(prev => prev);
-      }, followUpDelay);
-      return () => {
-        clearTimeout(timer);
-        clearTimeout(followUp);
-      };
-    }
-  }, [lastSentMessages]);
 
   // Animation "Lu" immédiate côté A dès que B lit (pas besoin d'ouvrir le sticky)
 
@@ -2211,39 +2122,46 @@ useEffect(() => {
               const id = (payload.new as any)?.id;
 
               if (text && text.startsWith('READ:')) {
-                 if (__DEV__) {
-                 }
                  setLastSentMessages((prev) => {
                     const copy: LastSentMap = {};
                     let updated = false;
                     
                     Object.entries(prev).forEach(([userId, messages]) => {
                       if (Array.isArray(messages)) {
-                        copy[userId] = messages.map(msg => {
-                          if (msg.id === id) {
-                            updated = true;
-                            return { ...msg, status: 'read' as const, readAt: Date.now() };
-                          }
-                          return msg;
-                        });
+                        const isChatOpen = expandedFriendIdRef.current === userId;
+                        
+                        if (!isChatOpen) {
+                             const kept = messages.filter(msg => msg.id !== id);
+                             if (kept.length !== messages.length) {
+                               updated = true;
+                               if (kept.length > 0) copy[userId] = kept;
+                             } else {
+                               copy[userId] = messages;
+                             }
+                        } else {
+                             copy[userId] = messages.map(msg => {
+                               if (msg.id === id) {
+                                 updated = true;
+                                 return { ...msg, status: 'read' as const, readAt: Date.now() };
+                               }
+                               return msg;
+                             });
+                        }
                       }
                     });
 
                     if (updated) {
                       updateLastSentIndex(copy);
                       saveLastSentMessagesCache(copy);
+                      return copy;
                     }
-                    return updated ? copy : prev;
+                    return prev;
                  });
-                 if (id) {
-                   scheduleReadRemoval(id);
-                 }
               }
             }
           }
         )
-        // Écouter TOUS les DELETE sur pending_messages (pour savoir quand mon message est lu/supprimé)
-        // On ne filtre PAS par from_user_id car le payload DELETE ne contient souvent pas cette info (Replica Identity Default)
+        // Écouter TOUS les DELETE sur pending_messages
         .on(
           'postgres_changes',
           {
@@ -2254,10 +2172,6 @@ useEffect(() => {
           (payload) => {
               const deletedId = (payload.old as any)?.id;
               if (deletedId) {
-                if (__DEV__) {
-                }
-                let shouldScheduleRemoval = false;
-                // On cherche dans notre map locale quel ami correspond à ce message ID
                 setLastSentMessages((prev) => {
                   const copy: LastSentMap = {};
                   let found = false;
@@ -2267,44 +2181,23 @@ useEffect(() => {
                       const messageIndex = messages.findIndex(msg => msg.id === deletedId);
                       if (messageIndex !== -1) {
                         found = true;
-                        shouldScheduleRemoval = true;
-                        // Marquer ce message comme lu pour déclencher l'animation
-                        copy[userId] = messages.map((msg, idx) => 
-                          idx === messageIndex ? { ...msg, status: 'read' as const, readAt: Date.now() } : msg
-                        );
-                        return;
-                      }
-
-                      // Fallback : si on ne trouve pas l'ID, tenter de marquer le plus vieux temp
-                      let tempIndex = -1;
-                      let tempTime = Infinity;
-                      messages.forEach((msg, idx) => {
-                        if (!msg.id && msg.status !== 'read') {
-                          const t = new Date(msg.ts).getTime();
-                          if (t < tempTime) {
-                            tempTime = t;
-                            tempIndex = idx;
-                          }
-                        }
-                      });
-                      if (tempIndex !== -1) {
-                        found = true;
-                        copy[userId] = messages.map((msg, idx) => 
-                          idx === tempIndex ? { ...msg, status: 'read' as const, readAt: Date.now() } : msg
-                        );
-                        if (__DEV__) {
-                          // Log removed
+                        const isChatOpen = expandedFriendIdRef.current === userId;
+                        
+                        if (!isChatOpen) {
+                            const kept = messages.filter(msg => msg.id !== deletedId);
+                            if (kept.length > 0) copy[userId] = kept;
+                        } else {
+                            copy[userId] = messages.map((msg, idx) => 
+                              idx === messageIndex ? { ...msg, status: 'read' as const, readAt: Date.now() } : msg
+                            );
                         }
                         return;
                       }
-
                       copy[userId] = messages;
                     }
                   });
                   
                   if (found) {
-                    if (__DEV__) {
-                    }
                     updateLastSentIndex(copy);
                     saveLastSentMessagesCache(copy);
                     return copy;
@@ -2312,19 +2205,16 @@ useEffect(() => {
                   return prev;
                 });
                 lastSentSetAtRef.current = 0;
-                if (shouldScheduleRemoval) {
-                  scheduleReadRemoval(deletedId);
-                }
               }
           }
         )
         .subscribe(() => {
-          // Subscription active, pas besoin de log
+          // Subscription active
         });
 
       subscriptionRef.current = channel;
 
-      // PRRT! Protocol : à réception de message-read, suppression visuelle immédiate côté expéditeur
+      // PRRT! Protocol : à réception de message-read
       const broadcastChannel = supabase
         .channel(`room-${user.id}`)
         .on('broadcast', { event: 'message-read' }, (payload) => {
@@ -2344,11 +2234,25 @@ useEffect(() => {
               if (targetUserId) {
                 const next: LastSentMap = {};
                 let changed = false;
+                
+                const isChatOpen = expandedFriendIdRef.current === targetUserId;
+
                 Object.entries(prev).forEach(([userId, messages]) => {
                   if (Array.isArray(messages)) {
-                    const kept = messages.filter(msg => msg.id !== deletedId);
-                    if (kept.length > 0) next[userId] = kept;
-                    if (kept.length !== messages.length) changed = true;
+                      if (userId === targetUserId) {
+                          if (!isChatOpen) {
+                              const kept = messages.filter(msg => msg.id !== deletedId);
+                              if (kept.length !== messages.length) changed = true;
+                              if (kept.length > 0) next[userId] = kept;
+                          } else {
+                              next[userId] = messages.map(msg => 
+                                  msg.id === deletedId ? { ...msg, status: 'read', readAt: Date.now() } : msg
+                              );
+                              changed = true;
+                          }
+                      } else {
+                          next[userId] = messages;
+                      }
                   }
                 });
                 if (changed) {

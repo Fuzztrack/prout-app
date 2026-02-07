@@ -69,7 +69,8 @@ class ProutMessagingService : FirebaseMessagingService() {
         }
 
         val proutKey = data["proutKey"]?.lowercase() ?: "prout1"
-        val title = data["title"] ?: "Message"
+        val rawTitle = data["title"] ?: "Message"
+        val title = if (rawTitle.isBlank() || rawTitle.equals("PROUT !", ignoreCase = true) || rawTitle.startsWith("PROUT !", ignoreCase = true)) "Prrt!" else rawTitle
         val proutName = data["proutName"] ?: "Un prout surprise"
         val sender = data["sender"] ?: "Un ami"
         
