@@ -128,7 +128,7 @@ export default function RegisterEmailScreen() {
         
         <View style={styles.header}>
             <Image 
-                source={require('../assets/images/prout-meme.png')} 
+                source={require('../assets/images/Prrt.png')} 
                 style={styles.headerImage} 
                 resizeMode="contain" 
             />

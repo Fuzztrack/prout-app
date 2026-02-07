@@ -119,6 +119,19 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
+      {/* Avatar */}
+      <View style={styles.avatarContainer}>
+        {profile?.avatar_url ? (
+          <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
+        ) : (
+          <View style={styles.avatarPlaceholder}>
+            <Text style={styles.avatarPlaceholderText}>
+              {profile?.pseudo ? profile.pseudo.charAt(0).toUpperCase() : '?'}
+            </Text>
+          </View>
+        )}
+      </View>
+
       <View style={styles.infoContainer}>
         <Text style={styles.pseudo}>
           <Text style={styles.label}>{i18n.t('pseudo')}: </Text>
@@ -171,6 +184,29 @@ const styles = StyleSheet.create({
   backText: { color: '#604a3e', fontWeight: 'bold', fontSize: 16, marginLeft: 10 },
   header: { alignItems: 'center', marginBottom: 20 },
   headerImage: { width: 180, height: 140, marginBottom: 10 },
+  avatarContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  avatar: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#d9d9d9',
+  },
+  avatarPlaceholder: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#604a3e',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarPlaceholderText: {
+    fontSize: 40,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
   infoContainer: { alignItems: 'center', marginBottom: 30 },
   pseudo: { fontSize: 14, color: '#604a3e', marginTop: 5, opacity: 0.8 },
   email: { fontSize: 14, color: '#604a3e', marginTop: 5, opacity: 0.8 },

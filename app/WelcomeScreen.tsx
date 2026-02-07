@@ -29,12 +29,12 @@ export default function WelcomeScreen() {
       >
         <View style={styles.header}>
           <Image 
-            source={require('../assets/images/prout-meme.png')} 
+            source={require('../assets/images/Prrt.png')} 
             style={styles.headerImage}
             resizeMode="contain"
           />
         </View>
-        <Text style={styles.title}>Bienvenue sur ProutApp ! 💨</Text>
+        <Text style={styles.title}>Bienvenue sur Prrt! 💨</Text>
         <Text style={styles.text}>
           Pour fonctionner, nous avons besoin de vos contacts (noms et numéros) pour trouver vos amis. Ces données sont synchronisées sur nos serveurs Supabase (utfwujyymaikraaigvuv.supabase.co) et ne sont pas partagées en dehors de l’app.
         </Text>

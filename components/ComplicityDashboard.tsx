@@ -88,7 +88,7 @@ const BADGES_CONFIG = [
   { id: 'ping_pong', icon: 'sync', label: 'Ping Pong', description: '5 échanges alternés en 2 min' },
 ];
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Couleurs de l'application
 const COLORS = {
@@ -108,6 +108,7 @@ export default function ComplicityDashboard() {
   const [loading, setLoading] = useState(true);
   const [selectedFriend, setSelectedFriend] = useState<FriendComplicity | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [helpModalVisible, setHelpModalVisible] = useState(false);
 
   // Charger les données depuis Supabase
   useEffect(() => {
@@ -234,10 +235,25 @@ export default function ComplicityDashboard() {
           <Ionicons name="arrow-back" size={24} color={COLORS.textMain} />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>{i18n.t('complicity_title')}</Text>
+          <Image 
+            source={require('../assets/images/resonance.png')} 
+            style={styles.headerImage}
+            resizeMode="contain"
+          />
           <Text style={styles.headerSubtitle}>{i18n.t('complicity_subtitle')}</Text>
         </View>
         <View style={{ width: 40 }} /> 
+      </View>
+
+      {/* Icône d'aide */}
+      <View style={styles.helpContainer}>
+        <TouchableOpacity 
+          style={styles.helpButton}
+          onPress={() => setHelpModalVisible(true)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="help-circle-outline" size={24} color="#ffffff" />
+        </TouchableOpacity>
       </View>
 
       <FlatList
@@ -317,6 +333,58 @@ export default function ComplicityDashboard() {
           </View>
         </View>
       </Modal>
+
+      {/* Modal Aide - Comment ça marche */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={helpModalVisible}
+        onRequestClose={() => setHelpModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.helpModalContent}>
+            <TouchableOpacity 
+              style={styles.closeButton} 
+              onPress={() => setHelpModalVisible(false)}
+            >
+              <Ionicons name="close" size={24} color={COLORS.textMain} />
+            </TouchableOpacity>
+
+            <ScrollView contentContainerStyle={styles.helpModalScroll}>
+              
+              <Text style={styles.helpTitle}>{i18n.t('complicity_help_title')}</Text>
+              
+              <View style={styles.helpSection}>
+                <Text style={styles.helpSectionTitle}>{i18n.t('complicity_help_score_title')}</Text>
+                <Text style={styles.helpText}>
+                  {i18n.t('complicity_help_score_text')}
+                </Text>
+              </View>
+
+              <View style={styles.helpSection}>
+                <Text style={styles.helpSectionTitle}>{i18n.t('complicity_help_rapid_title')}</Text>
+                <Text style={styles.helpText}>
+                  {i18n.t('complicity_help_rapid_text')}
+                </Text>
+              </View>
+
+              <View style={styles.helpSection}>
+                <Text style={styles.helpSectionTitle}>{i18n.t('complicity_help_levels_title')}</Text>
+                <Text style={styles.helpText}>
+                  {i18n.t('complicity_help_levels_text')}
+                </Text>
+              </View>
+
+              <View style={styles.helpSection}>
+                <Text style={styles.helpSectionTitle}>{i18n.t('complicity_help_tip_title')}</Text>
+                <Text style={styles.helpText}>
+                  {i18n.t('complicity_help_tip_text')}
+                </Text>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -332,7 +400,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: 50,
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 0, // Réduit de 5 à 0
     // borderBottomWidth: 1,
     // borderBottomColor: COLORS.border,
   },
@@ -343,18 +411,33 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: COLORS.textMain,
-    textAlign: 'center',
+  headerImage: {
+    width: 310,
+    height: 75,
+    marginBottom: 12,
   },
   headerSubtitle: {
     color: COLORS.textSecondary,
-    fontSize: 11,
+    fontSize: 14,
     fontStyle: 'italic',
-    marginTop: 4,
+    marginTop: 0,
     textAlign: 'center',
+  },
+  helpContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 0, // Réduit de 10 à 0
+    paddingBottom: 5,
+    alignItems: 'flex-end',
+  },
+  helpButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: COLORS.background,
+    shadowColor: COLORS.textMain,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   listContent: {
     padding: 16,
@@ -572,5 +655,41 @@ const styles = StyleSheet.create({
   },
   textLocked: {
     color: COLORS.textSecondary,
+  },
+  // Help Modal Styles
+  helpModalContent: {
+    height: '90%',
+    backgroundColor: COLORS.background,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    marginTop: 'auto',
+  },
+  helpModalScroll: {
+    paddingBottom: 40,
+  },
+  helpTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: COLORS.textMain,
+    textAlign: 'center',
+    marginBottom: 30,
+  },
+  helpSection: {
+    marginBottom: 25,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)', // Blanc semi-transparent pour un effet subtil
+    padding: 16,
+    borderRadius: 12,
+  },
+  helpSectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.textMain,
+    marginBottom: 10,
+  },
+  helpText: {
+    fontSize: 15,
+    color: COLORS.textMain,
+    lineHeight: 22,
   },
 });

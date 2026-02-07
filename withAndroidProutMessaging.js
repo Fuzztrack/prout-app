@@ -42,6 +42,8 @@ class ProutMessagingService : FirebaseMessagingService() {
         super.onMessageReceived(remoteMessage)
         Log.d(TAG, "🔥🔥🔥 ProutMessagingService.onMessageReceived appelé !")
         Log.d(TAG, "📨 Message reçu: " + remoteMessage.data)
+        Log.d(TAG, "📨 [DEBUG] Data title dans payload: " + remoteMessage.data["title"])
+        Log.d(TAG, "📨 [DEBUG] Data sender dans payload: " + remoteMessage.data["sender"])
 
         val data = remoteMessage.data.toMutableMap()
         if (data.isEmpty()) {
@@ -49,7 +51,7 @@ class ProutMessagingService : FirebaseMessagingService() {
             remoteMessage.notification?.let {
                 showNotification(
                     ensureChannel(DEFAULT_CHANNEL_ID, Uri.EMPTY),
-                    it.title ?: "PROUT ! 💨",
+                    it.title ?: "Message",
                     it.body ?: "Tu as reçu un prout !",
                     Uri.EMPTY,
                     null,
@@ -82,9 +84,15 @@ class ProutMessagingService : FirebaseMessagingService() {
         }
 
         val proutKey = data["proutKey"]?.lowercase() ?: "prout1"
-        val title = data["title"] ?: "PROUT ! 💨"
+        val title = data["title"] ?: "Message"
         val proutName = data["proutName"] ?: "Un prout surprise"
         val sender = data["sender"] ?: "Un ami"
+        
+        // 🔍 DEBUG : Log pour vérifier ce qui est reçu
+        Log.d(TAG, "📥 [DEBUG] Title reçu: " + title)
+        Log.d(TAG, "📥 [DEBUG] Sender reçu: " + sender)
+        Log.d(TAG, "📥 [DEBUG] Data title: " + data["title"])
+        Log.d(TAG, "📥 [DEBUG] Data keys: " + data.keys.joinToString())
         
         // Utiliser le message complet envoyé par le backend s'il existe
         // Sinon, construire le message par défaut

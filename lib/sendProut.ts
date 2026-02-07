@@ -12,7 +12,7 @@ export async function sendProutPush(
   const message = {
     to: recipientExpoPushToken,
     title: `${senderPseudo} t'envoie un prout`,
-    body: '💨',
+    body: 'Un nouveau prout !',
     sound: 'default', // iOS
     android: { channelId }, // ⚡ canal dynamique selon le son
     data: { type: 'prout', key: soundKey }

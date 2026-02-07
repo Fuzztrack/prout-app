@@ -27,7 +27,9 @@ class ProutMessagingService : FirebaseMessagingService() {
         super.onMessageReceived(remoteMessage)
         Log.d(TAG, "🔥🔥🔥 ProutMessagingService.onMessageReceived appelé !")
         Log.d(TAG, "📨 Message reçu: " + remoteMessage.data)
-        
+        Log.d(TAG, "📨 [DEBUG] Data title dans payload: " + remoteMessage.data["title"])
+        Log.d(TAG, "📨 [DEBUG] Data sender dans payload: " + remoteMessage.data["sender"])
+
         val data = remoteMessage.data.toMutableMap()
         if (data.isEmpty()) {
             Log.d(TAG, "Payload data is empty, checking notification field.")
@@ -54,12 +56,12 @@ class ProutMessagingService : FirebaseMessagingService() {
 
         if (data["proutKey"].isNullOrEmpty() && !data["body"].isNullOrEmpty()) {
             try {
-                val json = JSONObject(data["body"] ?: "{}")
-                data["proutKey"] = json.optString("proutKey", data["proutKey"] ?: "")
-                data["title"] = json.optString("title", data["title"] ?: "")
-                data["message"] = json.optString("message", data["message"] ?: "")
-                data["sender"] = json.optString("sender", data["sender"] ?: "")
-                data["proutName"] = json.optString("proutName", data["proutName"] ?: "")
+                val json = JSONObject(data["body"])
+                data["proutKey"] = json.optString("proutKey", data["proutKey"])
+                data["title"] = json.optString("title", data["title"])
+                data["message"] = json.optString("message", data["message"])
+                data["sender"] = json.optString("sender", data["sender"])
+                data["proutName"] = json.optString("proutName", data["proutName"])
                 Log.d(TAG, "Parsed proutKey from body: " + data["proutKey"])
             } catch (e: Exception) {
                 Log.e(TAG, "❌ Erreur parsing body JSON: " + e.message)
@@ -67,18 +69,15 @@ class ProutMessagingService : FirebaseMessagingService() {
         }
 
         val proutKey = data["proutKey"]?.lowercase() ?: "prout1"
-        val rawTitle = data["title"] ?: "Message"
+        val title = data["title"] ?: "Message"
         val proutName = data["proutName"] ?: "Un prout surprise"
         val sender = data["sender"] ?: "Un ami"
-
-        // ✅ FIX: Remplacer "PROUT !" par "Prrt!" (le nouveau nom)
-        val title = if (rawTitle.isBlank() || rawTitle.equals("PROUT !", ignoreCase = true) || rawTitle.startsWith("PROUT !", ignoreCase = true))
-            "Prrt!"
-        else
-            rawTitle
-
-        // Log pour confirmer le fix dans les prochains logs
-        Log.d(TAG, "🚀 [FIX] Title calculé: " + title + " (raw: " + rawTitle + ")")
+        
+        // 🔍 DEBUG : Log pour vérifier ce qui est reçu
+        Log.d(TAG, "📥 [DEBUG] Title reçu: " + title)
+        Log.d(TAG, "📥 [DEBUG] Sender reçu: " + sender)
+        Log.d(TAG, "📥 [DEBUG] Data title: " + data["title"])
+        Log.d(TAG, "📥 [DEBUG] Data keys: " + data.keys.joinToString())
         
         // Utiliser le message complet envoyé par le backend s'il existe
         // Sinon, construire le message par défaut

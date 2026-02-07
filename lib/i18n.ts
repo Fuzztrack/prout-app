@@ -16,7 +16,7 @@ const i18n = new I18n({
     confirm: "Confirmer",
     info: "Information",
     
-    // Prout Names
+    // Prrt! Names
     prout_names: {
       prout1: "La Petite Bourrasque",
       prout2: "Le Crépitant",
@@ -56,7 +56,7 @@ const i18n = new I18n({
     password_label: "Mot de passe",
     
     // Home & Navigation
-    share_message: "Rejoins-moi sur l'appli \"Prout !\", mon pseudo est %{pseudo} : http://theproutapp.com",
+    share_message: "Rejoins moi sur \"Prrt!\", mon pseudo est %{pseudo}",
     tab_list: "Amis",
     
     // Friends List
@@ -80,15 +80,15 @@ const i18n = new I18n({
     friend_deleted_toast: "%{pseudo} a été supprimé de votre liste",
     real_name: "Vrai nom",
     
-    // Actions Prout
+    // Actions Prrt!
     zen_mode_active_me_title: "Mode Zen Actif 🧘‍♂️",
-    zen_mode_active_me_body: "Vous ne pouvez pas prouter en mode Zen. Désactivez-le dans votre profil pour reprendre les hostilités.",
+    zen_mode_active_me_body: "Vous ne pouvez pas envoyer de notifications en mode Zen. Désactivez-le dans votre profil pour reprendre les hostilités.",
     zen_mode_active_friend_title: "Chut ! 🤫",
     zen_mode_active_friend_body: "%{pseudo} est en mode Zen. Impossible de le déranger.",
     mute_mode_active_title: "Mode sourdine actif",
     mute_mode_active_body: "%{pseudo} vous a mis en sourdine. Vous ne pouvez pas lui envoyer de message.",
     cooldown_alert: "Trop rapide !",
-    cooldown_message: "Attendez un peu avant d'envoyer un autre prout.",
+    cooldown_message: "Attendez un peu avant d'envoyer une autre notification.",
     not_connected: "Vous n'êtes pas connecté.",
     
     // Search
@@ -99,17 +99,27 @@ const i18n = new I18n({
     add_btn: "Ajouter",
     pending_btn: "En attente",
     already_friend: "Déjà ami ✅",
-    no_results: "Aucun prouteur trouvé.",
+    no_results: "Aucun utilisateur trouvé.",
     request_sent: "Demande d'ami envoyée !",
     already_linked: "Vous êtes déjà en lien avec cette personne.",
     
     // Complicité
     complicity_title: "L'Indice de Résonance",
-    complicity_subtitle: "Mesurer l'harmonie acoustique de votre lien social.",
+    complicity_subtitle: "Mesurer l'harmonie acoustique de votre lien social !",
+    complicity_description: "Votre score augmente à chaque notification envoyée ou reçue. Les réponses rapides (moins d'1 minute) rapportent 10 fois plus de points ! Plus vous échangez, plus votre complicité grandit.",
     complicity_level_1: "Souffle Initial",
     complicity_level_2: "Accord Partagé",
     complicity_level_3: "Sillage des Âmes",
     complicity_level_elite: "Quintessence de l'Amitié",
+    complicity_help_title: "Comment ça marche ?",
+    complicity_help_score_title: "📊 Le Score de Complicité",
+    complicity_help_score_text: "Chaque fois que vous échangez avec un ami, vous gagnez des points de complicité. Plus vous échangez, plus votre score augmente !",
+    complicity_help_rapid_title: "⚡ Réponses Rapides",
+    complicity_help_rapid_text: "Répondez rapidement (en moins de quelques minutes) pour gagner encore plus de points et montrer votre complicité !",
+    complicity_help_levels_title: "🏆 Les Niveaux",
+    complicity_help_levels_text: "Votre niveau de complicité évolue avec votre score :\n• Souffle Initial (0-49 pts)\n• Accord Partagé (50-199 pts)\n• Sillage des Âmes (200-499 pts)\n• Quintessence de l'Amitié (500+ pts)",
+    complicity_help_tip_title: "💡 Astuce",
+    complicity_help_tip_text: "Plus vous échangez régulièrement avec vos amis, plus votre complicité grandit.",
     
     // Profil
     edit_profile: "Modifier votre profil",
@@ -122,28 +132,28 @@ const i18n = new I18n({
     choose_photo_source: "Choisir la source de la photo",
     logout: "Se déconnecter",
     logout_title: "Déconnexion",
-    logout_confirm: "Voulez-vous vraiment vous déconnecter ?\n\nVous ne recevrez plus de prouts !",
+    logout_confirm: "Voulez-vous vraiment vous déconnecter ?\n\nVous ne recevrez plus de notifications !",
     delete_account: "Supprimer le compte",
     delete_account_confirm_title: "Confirmer",
     delete_account_confirm_body: "Êtes-vous sûr de vouloir supprimer votre compte ? Cette action est irréversible.",
     contact_support: "Contacter le support",
     privacy_policy: "Politique de confidentialité",
     privacy_policy_title: "Politique de Confidentialité",
-    privacy_policy_app_title: "Politique de Confidentialité de l'application Prout",
+    privacy_policy_app_title: "Politique de Confidentialité de l'application Prrt!",
     privacy_policy_last_update: "Dernière mise à jour : 8 Décembre 2025",
-    privacy_policy_intro: "Bienvenue sur Prout (ci-après \"l'Application\"). Nous prenons la confidentialité de vos données très au sérieux. Cette politique décrit quelles données nous collectons, comment nous les utilisons et quels sont vos droits, en conformité avec le Règlement Général sur la Protection des Données (RGPD).",
+    privacy_policy_intro: "Bienvenue sur Prrt! (ci-après \"l'Application\"). Nous prenons la confidentialité de vos données très au sérieux. Cette politique décrit quelles données nous collectons, comment nous les utilisons et quels sont vos droits, en conformité avec le Règlement Général sur la Protection des Données (RGPD).",
     privacy_policy_section1_title: "1. Responsable du traitement",
-    privacy_policy_section1_content: "L'Application est éditée par The Prout Corporation (ci-après \"Nous\"). Pour toute question relative à vos données, vous pouvez nous contacter à : hello@theproutapp.com",
+    privacy_policy_section1_content: "L'Application est éditée par The Prrt! Corporation (ci-après \"Nous\"). Pour toute question relative à vos données, vous pouvez nous contacter à : hello@theproutapp.com",
     privacy_policy_section2_title: "2. Les données que nous collectons",
     privacy_policy_section2_intro: "Nous collectons uniquement les données strictement nécessaires au fonctionnement du service d'envoi de notifications sonores entre amis.",
     privacy_policy_section2a_title: "A. Données que vous nous fournissez",
     privacy_policy_section2a_content: "- Pseudo (Obligatoire) : Votre nom d'utilisateur public visible par vos amis.\n- Adresse Email (Obligatoire) : Utilisée uniquement pour l'authentification (création de compte, connexion) et la récupération de mot de passe.\n- Numéro de téléphone (Optionnel) : Utilisé pour vous permettre d'être retrouvé par vos amis présents dans votre carnet de contacts.\n- Nom complet (Optionnel) : Si vous choisissez de le renseigner, il peut être partagé avec vos amis pour confirmer votre identité.",
     privacy_policy_section2b_title: "B. Données collectées automatiquement",
-    privacy_policy_section2b_content: "- Identifiant de l'appareil (Device ID) et Token de Notification (Push Token) : Nécessaires pour acheminer les notifications sonores (\"Prouts\") sur votre téléphone via les services d'Apple (APNs) et Google (FCM).\n- Données techniques : Modèle de téléphone, version du système d'exploitation (iOS/Android) pour le débogage technique.",
+    privacy_policy_section2b_content: "- Identifiant de l'appareil (Device ID) et Token de Notification (Push Token) : Nécessaires pour acheminer les notifications sonores sur votre téléphone via les services d'Apple (APNs) et Google (FCM).\n- Données techniques : Modèle de téléphone, version du système d'exploitation (iOS/Android) pour le débogage technique.",
     privacy_policy_section2c_title: "C. Accès aux Contacts (Carnet d'adresses)",
-    privacy_policy_section2c_content: "L'Application vous demande l'autorisation d'accéder à vos contacts téléphoniques.\n- But : Cet accès sert uniquement à vérifier si vos contacts utilisent déjà l'Application \"Prout\" afin de les ajouter automatiquement à votre liste d'amis.\n- Confidentialité : Nous ne stockons pas votre carnet d'adresses complet sur nos serveurs. Nous envoyons les numéros de téléphone de manière sécurisée (hashée ou chiffrée lors du transit) pour effectuer une comparaison (\"matching\") avec notre base d'utilisateurs, puis le résultat est renvoyé. Les contacts qui n'utilisent pas l'application ne sont ni contactés, ni enregistrés.",
+    privacy_policy_section2c_content: "L'Application vous demande l'autorisation d'accéder à vos contacts téléphoniques.\n- But : Cet accès sert uniquement à vérifier si vos contacts utilisent déjà l'Application \"Prrt!\" afin de les ajouter automatiquement à votre liste d'amis.\n- Confidentialité : Nous ne stockons pas votre carnet d'adresses complet sur nos serveurs. Nous envoyons les numéros de téléphone de manière sécurisée (hashée ou chiffrée lors du transit) pour effectuer une comparaison (\"matching\") avec notre base d'utilisateurs, puis le résultat est renvoyé. Les contacts qui n'utilisent pas l'application ne sont ni contactés, ni enregistrés.",
     privacy_policy_section3_title: "3. Comment nous utilisons vos données",
-    privacy_policy_section3_content: "Vos données sont utilisées exclusivement pour :\n- Vous connecter : Gestion de votre compte sécurisé via Supabase.\n- Le service \"Prout\" : Envoyer et recevoir des notifications sonores instantanées.\n- La mise en relation : Vous permettre de trouver vos amis et d'être trouvé.\n- Le support : Répondre à vos demandes via email.\nNous ne vendons, ne louons et ne partageons jamais vos données personnelles à des tiers à des fins commerciales ou publicitaires.",
+    privacy_policy_section3_content: "Vos données sont utilisées exclusivement pour :\n- Vous connecter : Gestion de votre compte sécurisé via Supabase.\n- Le service \"Prrt!\" : Envoyer et recevoir des notifications sonores instantanées.\n- La mise en relation : Vous permettre de trouver vos amis et d'être trouvé.\n- Le support : Répondre à vos demandes via email.\nNous ne vendons, ne louons et ne partageons jamais vos données personnelles à des tiers à des fins commerciales ou publicitaires.",
     privacy_policy_section4_title: "4. Partage et Sous-traitants",
     privacy_policy_section4_content: "Pour faire fonctionner l'Application, nous utilisons des services tiers de confiance. Vos données peuvent transiter par leurs serveurs :\n- Supabase (Base de données & Auth) : Hébergement sécurisé des comptes utilisateurs.\n- Expo (Infrastructure mobile) : Service technique pour l'envoi des notifications Push.\n- Google Firebase (FCM) : Acheminement des notifications sur Android.\n- Apple (APNs) : Acheminement des notifications sur iOS.\n- Render : Hébergement de notre serveur backend.\nCes prestataires sont soumis à des obligations strictes de sécurité et de confidentialité.",
     privacy_policy_section5_title: "5. Suppression des données et Vos Droits",
@@ -163,13 +173,13 @@ const i18n = new I18n({
     zen_mode: "Mode Zen",
     zen_description: "Activez le mode Zen pour ne plus recevoir de notifications (ni pouvoir en envoyer). Idéal pour dormir ! 😴",
     zen_confirm_title: "Mode Zen 🌙",
-    zen_confirm_body: "Vous ne recevrez plus de prouts, et ne pourrez plus en envoyer.",
+    zen_confirm_body: "Vous ne recevrez plus de notifications, et ne pourrez plus en envoyer.",
     activate: "Activer",
     
     // Silent Mode
     silent_mode: "Envois silencieux",
     silent_mode_title: "Envois silencieux 🤫",
-    silent_mode_description: "Pour envoyer vos prouts en toute discrétion !",
+    silent_mode_description: "Pour envoyer vos notifications en toute discrétion !",
     haptic_feedback: "Retour haptique",
     
     // Identity Reveal
@@ -188,27 +198,27 @@ const i18n = new I18n({
     tuto_notif_desc: "Vérifiez que les notifications sont autorisées pour l'app dans les réglages de votre téléphone.",
     tuto_sound_title: "Pas de son ?",
     tuto_sound_desc: "Vérifiez le mode silencieux et le volume des notifications.",
-    tuto_1_title: "Envoyer un Prout",
-    tuto_1_desc: "Pour envoyer un prout, swipez vers la droite sur le nom de votre ami ! Comme dans la vie, on ne sait pas toujours ce qui vient. Ce sera une surprise à chaque envoi !",
+    tuto_1_title: "A vous de jouer",
+    tuto_1_desc: "Pour lui envoyer une notification, swipez vers la droite sur le nom de votre ami ! Comme dans la vie, on ne sait pas toujours ce qui vient. Ce sera une surprise à chaque envoi !",
     tuto_2_title: "Messages éphémères",
     tuto_2_desc: "Cliquez sur le nom de votre ami pour ajouter un message avec le chat éphémère !",
     tuto_3_title: "Mode Zen",
-    tuto_3_desc: "Besoin de calme ? Activez le mode Zen pour ne plus recevoir (ni envoyer) de prouts.",
+    tuto_3_desc: "Besoin de calme ? Activez le mode Zen pour ne plus recevoir (ni envoyer) de notifications.",
     tuto_silent_title: "Envois silencieux",
-    tuto_silent_desc: "Vous pouvez activer ce mode pour envoyer vos prouts en toute discrétion !",
+    tuto_silent_desc: "Vous pouvez activer ce mode pour envoyer vos notifications en toute discrétion !",
     tuto_4_title: "Sourdine",
     tuto_4_desc: "En swipant à gauche le nom d'un contact, vous pouvez le mettre en sourdine.",
     
     // Onboarding
-    onboarding_welcome_title: "Prout !",
+    onboarding_welcome_title: "Prrt!",
     onboarding_welcome_subtitle: "Dites bonjour... autrement !",
     onboarding_welcome_desc: "",
-    onboarding_notifications_title: "Le cœur du Prout",
-    onboarding_notifications_desc: "Tout l'intérêt de communiquer avec vos amis sur Prout, ce sont les notifications. Acceptez-les pour jouer le jeu !",
+    onboarding_notifications_title: "Le cœur du Prrt!",
+    onboarding_notifications_desc: "Tout l'intérêt de communiquer avec vos amis sur Prrt!, ce sont les notifications. Acceptez-les pour jouer le jeu !",
     onboarding_sound_title: "Montez le volume",
     onboarding_sound_desc: "Pensez à vérifier que vous avez le son activé (et pas en silencieux) pour profiter de la mélodie.",
     onboarding_gesture_title: "À vous de jouer",
-    onboarding_gesture_desc: "Dès que vous avez un ami, swipez simplement sur son nom vers la droite pour lui envoyer un prout. Surprise garantie !",
+    onboarding_gesture_desc: "Dès que vous avez un ami, swipez simplement sur son nom vers la droite pour lui envoyer une notification. Surprise garantie !",
     onboarding_message_title: "Messages éphémères",
     onboarding_message_desc: "Cliquez sur le nom de votre ami pour ajouter un message avec le chat éphémère !",
     sticky_chat_with: "Chat 👻 avec %{pseudo}",
@@ -228,7 +238,7 @@ const i18n = new I18n({
     phone_format_placeholder: "06 12 34 56 78",
     
     // Footer & Help
-    footer_help_text: "Swipez vers la droite pour envoyer un prout, cliquez avant de swiper pour ajouter un message !",
+    footer_help_text: "Swipez vers la droite pour envoyer une notification, cliquez avant de swiper pour ajouter un message !",
     
     // Notifications & Errors
     notifications_not_enabled: "%{pseudo} n'a pas activé les notifications. Le token n'est pas disponible dans la base de données.",
@@ -256,7 +266,7 @@ const i18n = new I18n({
 
     // Logout & Account
     logout_success_title: "Déconnexion réussie",
-    logout_success_body: "Vous ne recevrez plus de prout !",
+    logout_success_body: "Vous ne recevrez plus de notifications !",
     logout_disconnect: "Se déconnecter",
     cannot_logout: "Impossible de se déconnecter",
     logout_error: "Une erreur est survenue lors de la déconnexion",
@@ -327,7 +337,7 @@ const i18n = new I18n({
     select_contact: "Sélectionnez un contact",
     no_contact_found: "Aucun contact trouvé",
     search_contact_placeholder: "Rechercher un contact...",
-    no_farter_found: "Aucun prouteur trouvé.",
+    no_farter_found: "Aucun utilisateur trouvé.",
     already_friend_status: "Déjà ami ✅",
     create_account_title: "Créer un compte",
     join_community: "Rejoignez la communauté du bruit !",
@@ -403,8 +413,8 @@ const i18n = new I18n({
     already_have_account: "J'ai déjà un compte (Email)",
     
     // Invitation Share
-    invite_message_with_pseudo: "Rejoins-moi sur l'appli \"Prout !\", mon pseudo est %{pseudo}\n\nTéléchargez l'appli : http://www.theproutapp.com",
-    invite_message: "Rejoins-moi sur l'appli \"Prout !\"\n\nTéléchargez l'appli : http://www.theproutapp.com",
+    invite_message_with_pseudo: "Rejoins moi sur \"Prrt!\", mon pseudo est %{pseudo}",
+    invite_message: "Rejoins moi sur \"Prrt!\"",
     
     // Login
     session_invalid: "Session invalide après connexion",
@@ -426,15 +436,15 @@ const i18n = new I18n({
     permission_denied_title: "Permission refusée",
     permission_denied_body: "Les notifications push nécessitent la permission de notifications. Vous pourrez l'activer plus tard dans les paramètres.",
     notification_permission_title: "Autorisation de notifications",
-    notification_permission_message: "Prout est une application de notifications. Pour recevoir et envoyer des prouts à vos amis, vous devez autoriser les notifications.",
+    notification_permission_message: "Prrt! est une application de notifications. Pour recevoir et envoyer des notifications à vos amis, vous devez autoriser les notifications.",
     accept_notifications_message: "Acceptez les notifications pour jouer le jeu ! 😊",
     authorize_notifications: "Autoriser les notifications",
     
     // Contact Permission
     contact_permission_title: "Ça reste en nous !",
-    contact_permission_message: "Pour identifier automatiquement les amis qui utilisent déjà Prout!, l'app doit envoyer les numéros de vos contacts vers nos serveurs sécurisés.\n\nC'est optionnel : vous pourrez toujours ajouter des amis manuellement par leur pseudo plus tard.",
+    contact_permission_message: "Pour identifier automatiquement les amis qui utilisent déjà Prrt!, l'app doit envoyer les numéros de vos contacts vers nos serveurs sécurisés.\n\nC'est optionnel : vous pourrez toujours ajouter des amis manuellement par leur pseudo plus tard.",
     contact_consent_title: "Contacts : utilisation et partage",
-    contact_consent_message: "Pour identifier automatiquement les amis qui utilisent déjà Prout!, l'app doit envoyer les numéros de vos contacts vers nos serveurs sécurisés.\n\nC'est optionnel : vous pourrez toujours ajouter des amis manuellement par leur pseudo plus tard.",
+    contact_consent_message: "Pour identifier automatiquement les amis qui utilisent déjà Prrt!, l'app doit envoyer les numéros de vos contacts vers nos serveurs sécurisés.\n\nC'est optionnel : vous pourrez toujours ajouter des amis manuellement par leur pseudo plus tard.",
     refuse: "Refuser",
     next: "Suivant",
     
@@ -458,7 +468,7 @@ const i18n = new I18n({
     confirm: "Confirm",
     info: "Info",
     
-    // Prout Names
+    // Prrt! Names
     prout_names: {
       prout1: "The Little Gust",
       prout2: "The Crackling",
@@ -498,7 +508,7 @@ const i18n = new I18n({
     password_label: "Password",
     
     // Home & Navigation
-    share_message: "Join me on \"Prout App\", my username is %{pseudo}: http://theproutapp.com",
+    share_message: "Join me on \"Prrt!\", my username is %{pseudo}",
     tab_list: "Friends",
     
     // Friends List
@@ -522,15 +532,15 @@ const i18n = new I18n({
     friend_deleted_toast: "%{pseudo} has been removed from your list",
     real_name: "Real name",
     
-    // Actions Prout
+    // Actions Prrt!
     zen_mode_active_me_title: "Zen Mode Active 🧘‍♂️",
-    zen_mode_active_me_body: "You cannot fart in Zen mode. Disable it in your profile to resume hostilities.",
+    zen_mode_active_me_body: "You cannot send notifications in Zen mode. Disable it in your profile to resume hostilities.",
     zen_mode_active_friend_title: "Hush! 🤫",
     zen_mode_active_friend_body: "%{pseudo} is in Zen mode. Cannot disturb them.",
     mute_mode_active_title: "Mute mode active",
     mute_mode_active_body: "%{pseudo} has muted you. You cannot send them a message.",
     cooldown_alert: "Too fast!",
-    cooldown_message: "Wait a bit before sending another fart.",
+    cooldown_message: "Wait a bit before sending another notification.",
     not_connected: "You are not connected.",
     
     // Search
@@ -541,17 +551,26 @@ const i18n = new I18n({
     add_btn: "Add",
     pending_btn: "Pending",
     already_friend: "Already friends ✅",
-    no_results: "No farter found.",
+    no_results: "No user found.",
     request_sent: "Friend request sent!",
     already_linked: "You are already linked with this person.",
     
     // Complicity
     complicity_title: "The Resonance Index",
-    complicity_subtitle: "Quantifying the acoustic frequency of your social bond.",
+    complicity_subtitle: "Quantifying the acoustic frequency of your social bond!",
     complicity_level_1: "First Breeze",
     complicity_level_2: "Shared Accord",
     complicity_level_3: "Sillage of Souls",
     complicity_level_elite: "Quintessence of Friendship",
+    complicity_help_title: "How does it work?",
+    complicity_help_score_title: "📊 Complicity Score",
+    complicity_help_score_text: "Every time you exchange with a friend, you earn complicity points. The more you exchange, the more your score increases!",
+    complicity_help_rapid_title: "⚡ Rapid Responses",
+    complicity_help_rapid_text: "Respond quickly (within a few minutes) to earn even more points and show your complicity!",
+    complicity_help_levels_title: "🏆 Levels",
+    complicity_help_levels_text: "Your complicity level evolves with your score:\n• First Breeze (0-49 pts)\n• Shared Accord (50-199 pts)\n• Sillage of Souls (200-499 pts)\n• Quintessence of Friendship (500+ pts)",
+    complicity_help_tip_title: "💡 Tip",
+    complicity_help_tip_text: "The more you regularly exchange with your friends, the more your complicity grows.",
     
     // Profil
     edit_profile: "Edit Profile",
@@ -564,7 +583,7 @@ const i18n = new I18n({
     choose_photo_source: "Choose photo source",
     logout: "Log Out",
     logout_title: "Log Out",
-    logout_confirm: "Do you really want to log out?\n\nYou won't receive farts anymore!",
+    logout_confirm: "Do you really want to log out?\n\nYou won't receive notifications anymore!",
     delete_account: "Delete Account",
     delete_account_confirm_title: "Confirm",
     delete_account_confirm_body: "Are you sure you want to delete your account? This action is irreversible.",
@@ -588,21 +607,21 @@ const i18n = new I18n({
     contact_support: "Contact Support",
     privacy_policy: "Privacy Policy",
     privacy_policy_title: "Privacy Policy",
-    privacy_policy_app_title: "Privacy Policy of the Prout application",
+    privacy_policy_app_title: "Privacy Policy of the Prrt! application",
     privacy_policy_last_update: "Last updated: December 8, 2025",
-    privacy_policy_intro: "Welcome to Prout (hereinafter \"the Application\"). We take the privacy of your data very seriously. This policy describes what data we collect, how we use it, and what your rights are, in compliance with the General Data Protection Regulation (GDPR).",
+    privacy_policy_intro: "Welcome to Prrt! (hereinafter \"the Application\"). We take the privacy of your data very seriously. This policy describes what data we collect, how we use it, and what your rights are, in compliance with the General Data Protection Regulation (GDPR).",
     privacy_policy_section1_title: "1. Data Controller",
-    privacy_policy_section1_content: "The Application is published by The Prout Corporation (hereinafter \"We\"). For any questions regarding your data, you can contact us at: hello@theproutapp.com",
+    privacy_policy_section1_content: "The Application is published by The Prrt! Corporation (hereinafter \"We\"). For any questions regarding your data, you can contact us at: hello@theproutapp.com",
     privacy_policy_section2_title: "2. Data We Collect",
     privacy_policy_section2_intro: "We collect only the data strictly necessary for the operation of the sound notification service between friends.",
     privacy_policy_section2a_title: "A. Data You Provide",
     privacy_policy_section2a_content: "- Username (Required): Your public username visible to your friends.\n- Email Address (Required): Used only for authentication (account creation, login) and password recovery.\n- Phone Number (Optional): Used to allow you to be found by your friends in your contact list.\n- Full Name (Optional): If you choose to provide it, it may be shared with your friends to confirm your identity.",
     privacy_policy_section2b_title: "B. Automatically Collected Data",
-    privacy_policy_section2b_content: "- Device ID and Push Notification Token: Necessary to route sound notifications (\"Farts\") to your phone via Apple (APNs) and Google (FCM) services.\n- Technical Data: Phone model, operating system version (iOS/Android) for technical debugging.",
+    privacy_policy_section2b_content: "- Device ID and Push Notification Token: Necessary to route sound notifications to your phone via Apple (APNs) and Google (FCM) services.\n- Technical Data: Phone model, operating system version (iOS/Android) for technical debugging.",
     privacy_policy_section2c_title: "C. Contact Access (Address Book)",
-    privacy_policy_section2c_content: "The Application requests permission to access your phone contacts.\n- Purpose: This access is used solely to check if your contacts already use the \"Prout\" Application to automatically add them to your friends list.\n- Privacy: We do not store your complete address book on our servers. We send phone numbers securely (hashed or encrypted in transit) to perform a comparison (\"matching\") with our user database, then the result is returned. Contacts who do not use the application are neither contacted nor recorded.",
+    privacy_policy_section2c_content: "The Application requests permission to access your phone contacts.\n- Purpose: This access is used solely to check if your contacts already use the \"Prrt!\" Application to automatically add them to your friends list.\n- Privacy: We do not store your complete address book on our servers. We send phone numbers securely (hashed or encrypted in transit) to perform a comparison (\"matching\") with our user database, then the result is returned. Contacts who do not use the application are neither contacted nor recorded.",
     privacy_policy_section3_title: "3. How We Use Your Data",
-    privacy_policy_section3_content: "Your data is used exclusively for:\n- Logging in: Management of your secure account via Supabase.\n- The \"Prout\" service: Sending and receiving instant sound notifications.\n- Matching: Allowing you to find your friends and be found.\n- Support: Responding to your requests via email.\nWe never sell, rent, or share your personal data with third parties for commercial or advertising purposes.",
+    privacy_policy_section3_content: "Your data is used exclusively for:\n- Logging in: Management of your secure account via Supabase.\n- The \"Prrt!\" service: Sending and receiving instant sound notifications.\n- Matching: Allowing you to find your friends and be found.\n- Support: Responding to your requests via email.\nWe never sell, rent, or share your personal data with third parties for commercial or advertising purposes.",
     privacy_policy_section4_title: "4. Sharing and Subcontractors",
     privacy_policy_section4_content: "To operate the Application, we use trusted third-party services. Your data may transit through their servers:\n- Supabase (Database & Auth): Secure hosting of user accounts.\n- Expo (Mobile Infrastructure): Technical service for sending Push notifications.\n- Google Firebase (FCM): Routing notifications on Android.\n- Apple (APNs): Routing notifications on iOS.\n- Render: Hosting of our backend server.\nThese providers are subject to strict security and confidentiality obligations.",
     privacy_policy_section5_title: "5. Data Deletion and Your Rights",
@@ -622,14 +641,14 @@ const i18n = new I18n({
     zen_mode: "Zen Mode",
     zen_description: "Enable Zen Mode to stop receiving notifications (and sending them). Ideal for sleeping! 😴",
     zen_confirm_title: "Zen Mode 🌙",
-    zen_confirm_body: "You will no longer receive farts, and won't be able to send any.",
+    zen_confirm_body: "You will no longer receive notifications, and won't be able to send any.",
     activate: "Activate",
     
     // Silent Mode
     silent_mode: "Silent sends",
     silent_mode_title: "Silent sends 🤫",
     haptic_feedback: "Haptic feedback",
-    silent_mode_description: "To send your farts discreetly!",
+    silent_mode_description: "To send your notifications discreetly!",
     
     // Identity Reveal
     who_are_you: "Who are you? 👀",
@@ -647,27 +666,27 @@ const i18n = new I18n({
     tuto_notif_desc: "Check that app notifications are allowed in system settings.",
     tuto_sound_title: "No sound?",
     tuto_sound_desc: "Check silent mode and notification volume.",
-    tuto_1_title: "Send a Fart",
-    tuto_1_desc: "To send a fart, swipe right on your friend's name! Just like in real life, you never know what's going to happen! It will be a surprise every time!",
+    tuto_1_title: "Send a Notification",
+    tuto_1_desc: "To send a notification, swipe right on your friend's name! Just like in real life, you never know what's going to happen! It will be a surprise every time!",
     tuto_2_title: "Ephemeral messages",
     tuto_2_desc: "Tap your friend's name to add a message with the ephemeral chat!",
     tuto_3_title: "Zen Mode",
-    tuto_3_desc: "Need some quiet? Enable Zen Mode to stop receiving (and sending) farts.",
+    tuto_3_desc: "Need some quiet? Enable Zen Mode to stop receiving (and sending) notifications.",
     tuto_silent_title: "Silent sends",
-    tuto_silent_desc: "You can enable this mode to send your farts discreetly!",
+    tuto_silent_desc: "You can enable this mode to send your notifications discreetly!",
     tuto_4_title: "Mute",
     tuto_4_desc: "By swiping left on a contact's name, you can mute them.",
     
     // Onboarding
-    onboarding_welcome_title: "Prout !",
+    onboarding_welcome_title: "Prrt!",
     onboarding_welcome_subtitle: "Say hello... differently!",
     onboarding_welcome_desc: "",
-    onboarding_notifications_title: "The Heart of Prout",
-    onboarding_notifications_desc: "The whole point of communicating with your friends on Prout is the notifications. Please accept them to play the game!",
+    onboarding_notifications_title: "The Heart of Prrt!",
+    onboarding_notifications_desc: "The whole point of communicating with your friends on Prrt! is the notifications. Please accept them to play the game!",
     onboarding_sound_title: "Turn up the volume",
     onboarding_sound_desc: "Make sure you have sound enabled (and not on silent) to enjoy the melody.",
     onboarding_gesture_title: "Your turn",
-    onboarding_gesture_desc: "Once you have a friend, simply swipe right on their name to send them a fart. Guaranteed surprise!",
+    onboarding_gesture_desc: "Once you have a friend, simply swipe right on their name to send them a notification. Guaranteed surprise!",
     onboarding_message_title: "Ephemeral messages",
     onboarding_message_desc: "Tap your friend's name to add a message with the ephemeral chat!",
     sticky_chat_with: "Chat 👻 with %{pseudo}",
@@ -687,7 +706,7 @@ const i18n = new I18n({
     phone_format_placeholder: "+1 234 567 8900",
     
     // Footer & Help
-    footer_help_text: "Swipe right to send a fart, tap before swiping to add a message!",
+    footer_help_text: "Swipe right to send a notification, tap before swiping to add a message!",
     
     // Notifications & Errors
     notifications_not_enabled: "%{pseudo} has not enabled notifications. The token is not available in the database.",
@@ -715,7 +734,7 @@ const i18n = new I18n({
 
     // Logout & Account
     logout_success_title: "Logout successful",
-    logout_success_body: "You won't receive farts anymore!",
+    logout_success_body: "You won't receive notifications anymore!",
     logout_disconnect: "Log Out",
     cannot_logout: "Unable to log out",
     logout_error: "An error occurred during logout",
@@ -842,8 +861,8 @@ const i18n = new I18n({
     already_have_account: "I already have an account (Email)",
     
     // Invitation Share
-    invite_message_with_pseudo: "Join me on the \"Prout!\" app, my username is %{pseudo}\n\nDownload the app: http://www.theproutapp.com",
-    invite_message: "Join me on the \"Prout!\" app\n\nDownload the app: http://www.theproutapp.com",
+    invite_message_with_pseudo: "Join me on \"Prrt!\", my username is %{pseudo}",
+    invite_message: "Join me on \"Prrt!\"",
     
     // Login
     session_invalid: "Invalid session after login",
@@ -865,15 +884,15 @@ const i18n = new I18n({
     permission_denied_title: "Permission denied",
     permission_denied_body: "Push notifications require notification permission. You can enable it later in settings.",
     notification_permission_title: "Notification Authorization",
-    notification_permission_message: "Prout is a notification app. To receive and send farts to your friends, you must authorize notifications.",
+    notification_permission_message: "Prrt! is a notification app. To receive and send notifications to your friends, you must authorize notifications.",
     accept_notifications_message: "Accept notifications to play the game! 😊",
     authorize_notifications: "Authorize notifications",
     
     // Contact Permission
     contact_permission_title: "It stays with us!",
-    contact_permission_message: "To automatically identify friends already using Prout!, the app needs to upload phone numbers from your contacts to our secure servers.\n\nThis is optional: You can still add friends manually by their username later.",
+    contact_permission_message: "To automatically identify friends already using Prrt!, the app needs to upload phone numbers from your contacts to our secure servers.\n\nThis is optional: You can still add friends manually by their username later.",
     contact_consent_title: "Contacts: use and sharing",
-    contact_consent_message: "To automatically identify friends already using Prout!, the app needs to upload phone numbers from your contacts to our secure servers.\n\nThis is optional: You can still add friends manually by their username later.",
+    contact_consent_message: "To automatically identify friends already using Prrt!, the app needs to upload phone numbers from your contacts to our secure servers.\n\nThis is optional: You can still add friends manually by their username later.",
     refuse: "Refuse",
     next: "Next",
     
@@ -897,7 +916,7 @@ const i18n = new I18n({
     confirm: "Confirmar",
     info: "Información",
     
-    // Prout Names
+    // Prrt! Names
     prout_names: {
       prout1: "La Pequeña Ráfaga",
       prout2: "El Crepitante",
@@ -937,7 +956,7 @@ const i18n = new I18n({
     password_label: "Contraseña",
     
     // Home & Navigation
-    share_message: "Únete a mí en la app \"Prout!\", mi nombre de usuario es %{pseudo}: http://theproutapp.com",
+    share_message: "Únete a mí en \"Prrt!\", mi nombre de usuario es %{pseudo}",
     tab_list: "Amigos",
     
     // Friends List
@@ -961,15 +980,15 @@ const i18n = new I18n({
     friend_deleted_toast: "%{pseudo} ha sido eliminado de tu lista",
     real_name: "Nombre real",
     
-    // Actions Prout
+    // Actions Prrt!
     zen_mode_active_me_title: "Modo Zen Activo 🧘‍♂️",
-    zen_mode_active_me_body: "No puedes hacer prout en modo Zen. Desactívalo en tu perfil para reanudar las hostilidades.",
+    zen_mode_active_me_body: "No puedes enviar notificaciones en modo Zen. Desactívalo en tu perfil para reanudar las hostilidades.",
     zen_mode_active_friend_title: "¡Chis! 🤫",
     zen_mode_active_friend_body: "%{pseudo} está en modo Zen. No se puede molestar.",
     mute_mode_active_title: "Modo silencioso activo",
     mute_mode_active_body: "%{pseudo} te ha silenciado. No puedes enviarle un mensaje.",
     cooldown_alert: "¡Demasiado rápido!",
-    cooldown_message: "Espera un poco antes de enviar otro prout.",
+    cooldown_message: "Espera un poco antes de enviar otra notificación.",
     not_connected: "No estás conectado.",
     
     // Search
@@ -980,17 +999,26 @@ const i18n = new I18n({
     add_btn: "Agregar",
     pending_btn: "Pendiente",
     already_friend: "Ya son amigos ✅",
-    no_results: "No se encontró ningún prouteador.",
+    no_results: "No se encontró ningún usuario.",
     request_sent: "¡Solicitud de amistad enviada!",
     already_linked: "Ya estás vinculado con esta persona.",
     
     // Complicidad
     complicity_title: "El Índice de Resonancia",
-    complicity_subtitle: "Midiendo la armonía acústica de su vínculo social.",
+    complicity_subtitle: "Midiendo la armonía acústica de su vínculo social !",
     complicity_level_1: "Soplo Inicial",
     complicity_level_2: "Acorde Compartido",
     complicity_level_3: "Estela de Almas",
     complicity_level_elite: "Quintaesencia de la Amistad",
+    complicity_help_title: "¿Cómo funciona?",
+    complicity_help_score_title: "📊 Puntuación de Complicidad",
+    complicity_help_score_text: "Cada vez que intercambias con un amigo, ganas puntos de complicidad. ¡Cuanto más intercambies, más aumentará tu puntuación!",
+    complicity_help_rapid_title: "⚡ Respuestas Rápidas",
+    complicity_help_rapid_text: "¡Responde rápidamente (en menos de unos minutos) para ganar aún más puntos y mostrar tu complicidad!",
+    complicity_help_levels_title: "🏆 Los Niveles",
+    complicity_help_levels_text: "Tu nivel de complicidad evoluciona con tu puntuación:\n• Soplo Inicial (0-49 pts)\n• Acorde Compartido (50-199 pts)\n• Estela de Almas (200-499 pts)\n• Quintaesencia de la Amistad (500+ pts)",
+    complicity_help_tip_title: "💡 Consejo",
+    complicity_help_tip_text: "Cuanto más intercambies regularmente con tus amigos, más crecerá tu complicidad.",
     
     // Profil
     edit_profile: "Editar perfil",
@@ -1003,7 +1031,7 @@ const i18n = new I18n({
     choose_photo_source: "Elegir fuente de la foto",
     logout: "Cerrar sesión",
     logout_title: "Cerrar sesión",
-    logout_confirm: "¿Realmente quieres cerrar sesión?\n\n¡Ya no recibirás prouts!",
+    logout_confirm: "¿Realmente quieres cerrar sesión?\n\n¡Ya no recibirás notificaciones!",
     delete_account: "Eliminar cuenta",
     delete_account_confirm_title: "Confirmar",
     delete_account_confirm_body: "¿Estás seguro de que quieres eliminar tu cuenta? Esta acción es irreversible.",
@@ -1028,21 +1056,21 @@ const i18n = new I18n({
     contact_support: "Contactar soporte",
     privacy_policy: "Política de privacidad",
     privacy_policy_title: "Política de Privacidad",
-    privacy_policy_app_title: "Política de Privacidad de la aplicación Prout",
+    privacy_policy_app_title: "Política de Privacidad de la aplicación Prrt!",
     privacy_policy_last_update: "Última actualización: 8 de Diciembre de 2025",
-    privacy_policy_intro: "Bienvenido a Prout (en adelante \"la Aplicación\"). Nos tomamos muy en serio la privacidad de tus datos. Esta política describe qué datos recopilamos, cómo los utilizamos y cuáles son tus derechos, en cumplimiento del Reglamento General de Protección de Datos (RGPD).",
+    privacy_policy_intro: "Bienvenido a Prrt! (en adelante \"la Aplicación\"). Nos tomamos muy en serio la privacidad de tus datos. Esta política describe qué datos recopilamos, cómo los utilizamos y cuáles son tus derechos, en cumplimiento del Reglamento General de Protección de Datos (RGPD).",
     privacy_policy_section1_title: "1. Responsable del tratamiento",
-    privacy_policy_section1_content: "La Aplicación es editada por The Prout Corporation (en adelante \"Nosotros\"). Para cualquier pregunta relacionada con tus datos, puedes contactarnos en: hello@theproutapp.com",
+    privacy_policy_section1_content: "La Aplicación es editada por The Prrt! Corporation (en adelante \"Nosotros\"). Para cualquier pregunta relacionada con tus datos, puedes contactarnos en: hello@theproutapp.com",
     privacy_policy_section2_title: "2. Los datos que recopilamos",
     privacy_policy_section2_intro: "Recopilamos únicamente los datos estrictamente necesarios para el funcionamiento del servicio de envío de notificaciones sonoras entre amigos.",
     privacy_policy_section2a_title: "A. Datos que nos proporcionas",
     privacy_policy_section2a_content: "- Nombre de usuario (Obligatorio): Tu nombre de usuario público visible para tus amigos.\n- Dirección de correo electrónico (Obligatorio): Utilizada únicamente para la autenticación (creación de cuenta, inicio de sesión) y la recuperación de contraseña.\n- Número de teléfono (Opcional): Utilizado para permitir que tus amigos te encuentren en tu libreta de contactos.\n- Nombre completo (Opcional): Si decides proporcionarlo, puede ser compartido con tus amigos para confirmar tu identidad.",
     privacy_policy_section2b_title: "B. Datos recopilados automáticamente",
-    privacy_policy_section2b_content: "- Identificador del dispositivo (Device ID) y Token de Notificación (Push Token): Necesarios para enrutar las notificaciones sonoras (\"Prouts\") a tu teléfono a través de los servicios de Apple (APNs) y Google (FCM).\n- Datos técnicos: Modelo de teléfono, versión del sistema operativo (iOS/Android) para depuración técnica.",
+    privacy_policy_section2b_content: "- Identificador del dispositivo (Device ID) y Token de Notificación (Push Token): Necesarios para enrutar las notificaciones sonoras a tu teléfono a través de los servicios de Apple (APNs) y Google (FCM).\n- Datos técnicos: Modelo de teléfono, versión del sistema operativo (iOS/Android) para depuración técnica.",
     privacy_policy_section2c_title: "C. Acceso a Contactos (Libreta de direcciones)",
-    privacy_policy_section2c_content: "La Aplicación solicita permiso para acceder a tus contactos telefónicos.\n- Propósito: Este acceso se utiliza únicamente para verificar si tus contactos ya utilizan la Aplicación \"Prout\" para agregarlos automáticamente a tu lista de amigos.\n- Privacidad: No almacenamos tu libreta de direcciones completa en nuestros servidores. Enviamos los números de teléfono de forma segura (hasheados o cifrados durante el tránsito) para realizar una comparación (\"matching\") con nuestra base de datos de usuarios, luego se devuelve el resultado. Los contactos que no utilizan la aplicación no son contactados ni registrados.",
+    privacy_policy_section2c_content: "La Aplicación solicita permiso para acceder a tus contactos telefónicos.\n- Propósito: Este acceso se utiliza únicamente para verificar si tus contactos ya utilizan la Aplicación \"Prrt!\" para agregarlos automáticamente a tu lista de amigos.\n- Privacidad: No almacenamos tu libreta de direcciones completa en nuestros servidores. Enviamos los números de teléfono de forma segura (hasheados o cifrados durante el tránsito) para realizar una comparación (\"matching\") con nuestra base de datos de usuarios, luego se devuelve el resultado. Los contactos que no utilizan la aplicación no son contactados ni registrados.",
     privacy_policy_section3_title: "3. Cómo utilizamos tus datos",
-    privacy_policy_section3_content: "Tus datos se utilizan exclusivamente para:\n- Iniciar sesión: Gestión de tu cuenta segura a través de Supabase.\n- El servicio \"Prout\": Enviar y recibir notificaciones sonoras instantáneas.\n- La conexión: Permitirte encontrar a tus amigos y ser encontrado.\n- El soporte: Responder a tus solicitudes por correo electrónico.\nNunca vendemos, alquilamos ni compartimos tus datos personales con terceros con fines comerciales o publicitarios.",
+    privacy_policy_section3_content: "Tus datos se utilizan exclusivamente para:\n- Iniciar sesión: Gestión de tu cuenta segura a través de Supabase.\n- El servicio \"Prrt!\": Enviar y recibir notificaciones sonoras instantáneas.\n- La conexión: Permitirte encontrar a tus amigos y ser encontrado.\n- El soporte: Responder a tus solicitudes por correo electrónico.\nNunca vendemos, alquilamos ni compartimos tus datos personales con terceros con fines comerciales o publicitarios.",
     privacy_policy_section4_title: "4. Compartir y Subcontratistas",
     privacy_policy_section4_content: "Para hacer funcionar la Aplicación, utilizamos servicios de terceros de confianza. Tus datos pueden transitar por sus servidores:\n- Supabase (Base de datos y Auth): Alojamiento seguro de cuentas de usuario.\n- Expo (Infraestructura móvil): Servicio técnico para el envío de notificaciones Push.\n- Google Firebase (FCM): Enrutamiento de notificaciones en Android.\n- Apple (APNs): Enrutamiento de notificaciones en iOS.\n- Render: Alojamiento de nuestro servidor backend.\nEstos proveedores están sujetos a obligaciones estrictas de seguridad y confidencialidad.",
     privacy_policy_section5_title: "5. Eliminación de datos y Tus Derechos",
@@ -1062,14 +1090,14 @@ const i18n = new I18n({
     zen_mode: "Modo Zen",
     zen_description: "Activa el modo Zen para dejar de recibir notificaciones (y poder enviarlas). ¡Ideal para dormir! 😴",
     zen_confirm_title: "Modo Zen 🌙",
-    zen_confirm_body: "Ya no recibirás prouts y no podrás enviar ninguno.",
+    zen_confirm_body: "Ya no recibirás notificaciones y no podrás enviar ninguna.",
     activate: "Activar",
     
     // Silent Mode
     silent_mode: "Envíos silenciosos",
     silent_mode_title: "Envíos silenciosos 🤫",
     haptic_feedback: "Retroalimentación háptica",
-    silent_mode_description: "¡Para enviar tus prouts con total discreción!",
+    silent_mode_description: "¡Para enviar tus notificaciones con total discreción!",
     
     // Identity Reveal
     who_are_you: "¿Quién eres? 👀",
@@ -1087,27 +1115,27 @@ const i18n = new I18n({
     tuto_notif_desc: "Verifica que las notificaciones de la app estén permitidas en la configuración de tu teléfono.",
     tuto_sound_title: "¿No hay sonido?",
     tuto_sound_desc: "Verifica el modo silencioso y el volumen de las notificaciones.",
-    tuto_1_title: "Enviar un Prout",
-    tuto_1_desc: "¡Para enviar un prout, desliza hacia la derecha sobre el nombre de tu amigo! Como en la vida real, nunca sabes qué va a pasar. ¡Será una sorpresa cada vez!",
+    tuto_1_title: "Enviar una Notificación",
+    tuto_1_desc: "¡Para enviar una notificación, desliza hacia la derecha sobre el nombre de tu amigo! Como en la vida real, nunca sabes qué va a pasar. ¡Será una sorpresa cada vez!",
     tuto_2_title: "Mensajes efímeros",
     tuto_2_desc: "Toca el nombre de tu amigo para añadir un mensaje con el chat efímero.",
     tuto_3_title: "Modo Zen",
-    tuto_3_desc: "¿Necesitas tranquilidad? Activa el modo Zen para dejar de recibir (y enviar) prouts.",
+    tuto_3_desc: "¿Necesitas tranquilidad? Activa el modo Zen para dejar de recibir (y enviar) notificaciones.",
     tuto_silent_title: "Envíos silenciosos",
-    tuto_silent_desc: "¡Puedes activar este modo para enviar tus prouts con total discreción!",
+    tuto_silent_desc: "¡Puedes activar este modo para enviar tus notificaciones con total discreción!",
     tuto_4_title: "Silenciar",
     tuto_4_desc: "Deslizando hacia la izquierda el nombre de un contacto, puedes silenciarlo.",
     
     // Onboarding
-    onboarding_welcome_title: "Prout !",
+    onboarding_welcome_title: "Prrt!",
     onboarding_welcome_subtitle: "Di hola... ¡de otra manera!",
     onboarding_welcome_desc: "",
-    onboarding_notifications_title: "El corazón del Prout",
-    onboarding_notifications_desc: "Todo el interés de comunicarse con tus amigos en Prout son las notificaciones. ¡Acéptalas para jugar!",
+    onboarding_notifications_title: "El corazón del Prrt!",
+    onboarding_notifications_desc: "Todo el interés de comunicarse con tus amigos en Prrt! son las notificaciones. ¡Acéptalas para jugar!",
     onboarding_sound_title: "Sube el volumen",
     onboarding_sound_desc: "Asegúrate de tener el sonido activado (y no en silencioso) para disfrutar de la melodía.",
     onboarding_gesture_title: "A ti te toca",
-    onboarding_gesture_desc: "Una vez que tengas un amigo, simplemente desliza hacia la derecha sobre su nombre para enviarle un prout. ¡Sorpresa garantizada!",
+    onboarding_gesture_desc: "Una vez que tengas un amigo, simplemente desliza hacia la derecha sobre su nombre para enviarle una notificación. ¡Sorpresa garantizada!",
     onboarding_message_title: "Mensajes efímeros",
     onboarding_message_desc: "Toca el nombre de tu amigo para añadir un mensaje con el chat efímero.",
     sticky_chat_with: "Chat 👻 con %{pseudo}",
@@ -1127,7 +1155,7 @@ const i18n = new I18n({
     phone_format_placeholder: "+34 612 34 56 78",
     
     // Footer & Help
-    footer_help_text: "Desliza hacia la derecha para enviar un prout, toca antes de deslizar para agregar un mensaje!",
+    footer_help_text: "Desliza hacia la derecha para enviar una notificación, toca antes de deslizar para agregar un mensaje!",
     
     // Notifications & Errors
     notifications_not_enabled: "%{pseudo} no ha activado las notificaciones. El token no está disponible en la base de datos.",
@@ -1155,7 +1183,7 @@ const i18n = new I18n({
     
     // Logout & Account
     logout_success_title: "Desconexión exitosa",
-    logout_success_body: "¡Ya no recibirás prouts!",
+    logout_success_body: "¡Ya no recibirás notificaciones!",
     logout_disconnect: "Cerrar sesión",
     cannot_logout: "No se puede cerrar sesión",
     logout_error: "Ocurrió un error durante la desconexión",
@@ -1226,7 +1254,7 @@ const i18n = new I18n({
     select_contact: "Selecciona un contacto",
     no_contact_found: "No se encontró ningún contacto",
     search_contact_placeholder: "Buscar un contacto...",
-    no_farter_found: "No se encontró ningún prouteador.",
+    no_farter_found: "No se encontró ningún usuario.",
     already_friend_status: "Ya son amigos ✅",
     create_account_title: "Crear cuenta",
     join_community: "¡Únete a la comunidad del ruido!",
@@ -1284,8 +1312,8 @@ const i18n = new I18n({
     already_have_account: "Ya tengo una cuenta (Email)",
     
     // Invitation Share
-    invite_message_with_pseudo: "Únete a mí en la app \"Prout!\", mi nombre de usuario es %{pseudo}\n\nDescarga la app: http://www.theproutapp.com",
-    invite_message: "Únete a mí en la app \"Prout!\"\n\nDescarga la app: http://www.theproutapp.com",
+    invite_message_with_pseudo: "Únete a mí en \"Prrt!\", mi nombre de usuario es %{pseudo}",
+    invite_message: "Únete a mí en \"Prrt!\"",
     
     // Login
     session_invalid: "Sesión inválida después del inicio de sesión",
@@ -1307,15 +1335,15 @@ const i18n = new I18n({
     permission_denied_title: "Permiso denegado",
     permission_denied_body: "Las notificaciones push requieren permiso de notificaciones. Puedes activarlo más tarde en la configuración.",
     notification_permission_title: "Autorización de notificaciones",
-    notification_permission_message: "Prout es una aplicación de notificaciones. Para recibir y enviar prouts a tus amigos, debes autorizar las notificaciones.",
+    notification_permission_message: "Prrt! es una aplicación de notificaciones. Para recibir y enviar notificaciones a tus amigos, debes autorizar las notificaciones.",
     accept_notifications_message: "¡Acepta las notificaciones para jugar! 😊",
     authorize_notifications: "Autorizar notificaciones",
     
     // Contact Permission
     contact_permission_title: "¡Se queda con nosotros!",
-    contact_permission_message: "Para identificar automáticamente a los amigos que ya usan Prout!, la app debe subir los números de tus contactos a nuestros servidores seguros.\n\nEs opcional: podrás seguir añadiendo amigos manualmente por su nombre de usuario más tarde.",
+    contact_permission_message: "Para identificar automáticamente a los amigos que ya usan Prrt!, la app debe subir los números de tus contactos a nuestros servidores seguros.\n\nEs opcional: podrás seguir añadiendo amigos manualmente por su nombre de usuario más tarde.",
     contact_consent_title: "Contactos: uso y compartir",
-    contact_consent_message: "Para identificar automáticamente a los amigos que ya usan Prout!, la app debe subir los números de tus contactos a nuestros servidores seguros.\n\nEs opcional: podrás seguir añadiendo amigos manualmente por su nombre de usuario más tarde.",
+    contact_consent_message: "Para identificar automáticamente a los amigos que ya usan Prrt!, la app debe subir los números de tus contactos a nuestros servidores seguros.\n\nEs opcional: podrás seguir añadiendo amigos manualmente por su nombre de usuario más tarde.",
     refuse: "Rechazar",
     next: "Siguiente",
     
@@ -1339,7 +1367,7 @@ const i18n = new I18n({
     confirm: "Confirmar",
     info: "Informação",
     
-    // Prout Names (Zueira mode)
+    // Prrt! Names (Zueira mode)
     prout_names: {
       prout1: "A Brisa Leve",
       prout2: "O Pipoco",
@@ -1379,7 +1407,7 @@ const i18n = new I18n({
     password_label: "Senha",
     
     // Home & Navigation
-    share_message: "Vem pro app \"Prout!\", meu user é %{pseudo}: http://theproutapp.com",
+    share_message: "Vem pro \"Prrt!\", meu usuário é %{pseudo}",
     tab_list: "Amigos",
     
     // Friends List
@@ -1403,7 +1431,7 @@ const i18n = new I18n({
     friend_deleted_toast: "%{pseudo} foi removido da lista",
     real_name: "Nome real",
     
-    // Actions Prout
+    // Actions Prrt!
     zen_mode_active_me_title: "Modo Zen Ativo 🧘‍♂️",
     zen_mode_active_me_body: "Sem peidos no modo Zen. Desative no perfil pra voltar à guerra.",
     zen_mode_active_friend_title: "Xiu! 🤫",
@@ -1428,11 +1456,20 @@ const i18n = new I18n({
     
     // Complicidade
     complicity_title: "O Índice de Ressonância",
-    complicity_subtitle: "Medindo a harmonia acústica do seu vínculo social.",
+    complicity_subtitle: "Medindo a harmonia acústica do seu vínculo social !",
     complicity_level_1: "Sopro Inicial",
     complicity_level_2: "Acorde Compartilhado",
     complicity_level_3: "Rastro de Almas",
     complicity_level_elite: "Quintessência da Amizade",
+    complicity_help_title: "Como funciona?",
+    complicity_help_score_title: "📊 Pontuação de Complicidade",
+    complicity_help_score_text: "Cada vez que você troca com um amigo, ganha pontos de complicidade. Quanto mais você troca, mais sua pontuação aumenta!",
+    complicity_help_rapid_title: "⚡ Respostas Rápidas",
+    complicity_help_rapid_text: "Responda rapidamente (em menos de alguns minutos) para ganhar ainda mais pontos e mostrar sua complicidade!",
+    complicity_help_levels_title: "🏆 Os Níveis",
+    complicity_help_levels_text: "Seu nível de complicidade evolui com sua pontuação:\n• Sopro Inicial (0-49 pts)\n• Acorde Compartilhado (50-199 pts)\n• Rastro de Almas (200-499 pts)\n• Quintessência da Amizade (500+ pts)",
+    complicity_help_tip_title: "💡 Dica",
+    complicity_help_tip_text: "Quanto mais você troca regularmente com seus amigos, mais sua complicidade cresce.",
     
     // Profil
     edit_profile: "Editar Perfil",
@@ -1467,11 +1504,11 @@ const i18n = new I18n({
     contact_support: "Falar com suporte",
     privacy_policy: "Política de Privacidade",
     privacy_policy_title: "Política de Privacidade",
-    privacy_policy_app_title: "Política de Privacidade do Prout",
+    privacy_policy_app_title: "Política de Privacidade do Prrt!",
     privacy_policy_last_update: "Última atualização: 8 de Dezembro de 2025",
-    privacy_policy_intro: "Bem-vindo ao Prout. Levamos seus dados a sério. Aqui tá explicado o que a gente pega e o que faz com isso.",
+    privacy_policy_intro: "Bem-vindo ao Prrt!. Levamos seus dados a sério. Aqui tá explicado o que a gente pega e o que faz com isso.",
     privacy_policy_section1_title: "1. Quem manda",
-    privacy_policy_section1_content: "App feito pela The Prout Corporation. Dúvidas? Manda email: hello@theproutapp.com",
+    privacy_policy_section1_content: "App feito pela The Prrt! Corporation. Dúvidas? Manda email: hello@theproutapp.com",
     privacy_policy_section2_title: "2. O que a gente pega",
     privacy_policy_section2_intro: "Só o básico pra funcionar.",
     privacy_policy_section2a_title: "A. Dados que você dá",
@@ -1526,7 +1563,7 @@ const i18n = new I18n({
     tuto_notif_desc: "Vê se tá liberado nas configurações.",
     tuto_sound_title: "Sem som?",
     tuto_sound_desc: "Vê se não tá no mudo.",
-    tuto_1_title: "Mandar um Prout",
+    tuto_1_title: "Mandar um Prrt!",
     tuto_1_desc: "Arrasta o nome do amigo pra direita! É surpresa, nunca se sabe o que vem!",
     tuto_2_title: "Mensagens efêmeras",
     tuto_2_desc: "Clica no nome do amigo pra mandar um recado no chat efêmero!",
@@ -1538,11 +1575,11 @@ const i18n = new I18n({
     tuto_4_desc: "Arrasta pra esquerda pra calar a boca do amigo.",
     
     // Onboarding
-    onboarding_welcome_title: "Prout !",
+    onboarding_welcome_title: "Prrt!",
     onboarding_welcome_subtitle: "Diga olá... de forma diferente!",
     onboarding_welcome_desc: "",
-    onboarding_notifications_title: "O coração do Prout",
-    onboarding_notifications_desc: "Todo o interesse de se comunicar com seus amigos no Prout são as notificações. Aceite-as para jogar!",
+    onboarding_notifications_title: "O coração do Prrt!",
+    onboarding_notifications_desc: "Todo o interesse de se comunicar com seus amigos no Prrt! são as notificações. Aceite-as para jogar!",
     onboarding_sound_title: "Aumenta o som",
     onboarding_sound_desc: "Deixa o som ligado pra curtir a melodia.",
     onboarding_gesture_title: "Sua vez",
@@ -1723,8 +1760,8 @@ const i18n = new I18n({
     already_have_account: "Já tenho conta (Email)",
     
     // Invitation Share
-    invite_message_with_pseudo: "Vem pro app \"Prout!\", sou %{pseudo}\n\nBaixa aí: http://www.theproutapp.com",
-    invite_message: "Vem pro app \"Prout!\"\n\nBaixa aí: http://www.theproutapp.com",
+    invite_message_with_pseudo: "Vem pro \"Prrt!\", meu usuário é %{pseudo}",
+    invite_message: "Vem pro \"Prrt!\"",
     
     // Login
     session_invalid: "Sessão inválida",
@@ -1746,15 +1783,15 @@ const i18n = new I18n({
     permission_denied_title: "Permissão negada",
     permission_denied_body: "Precisa de permissão de notificação.",
     notification_permission_title: "Autorização de notificações",
-    notification_permission_message: "Prout é app de notificação. Pra receber e enviar peidos, precisa autorizar.",
+    notification_permission_message: "Prrt! é app de notificação. Pra receber e enviar peidos, precisa autorizar.",
     accept_notifications_message: "Aceita as notificações pra jogar! 😊",
     authorize_notifications: "Autorizar notificações",
     
     // Contact Permission
     contact_permission_title: "Fica só com a gente!",
-    contact_permission_message: "Para identificar automaticamente amigos que já usam o Prout!, o app precisa enviar os números dos seus contatos para nossos servidores seguros.\n\nÉ opcional: você ainda pode adicionar amigos manualmente pelo nome de usuário depois.",
+    contact_permission_message: "Para identificar automaticamente amigos que já usam o Prrt!, o app precisa enviar os números dos seus contatos para nossos servidores seguros.\n\nÉ opcional: você ainda pode adicionar amigos manualmente pelo nome de usuário depois.",
     contact_consent_title: "Contatos: uso e compartilhamento",
-    contact_consent_message: "Para identificar automaticamente amigos que já usam o Prout!, o app precisa enviar os números dos seus contatos para nossos servidores seguros.\n\nÉ opcional: você ainda pode adicionar amigos manualmente pelo nome de usuário depois.",
+    contact_consent_message: "Para identificar automaticamente amigos que já usam o Prrt!, o app precisa enviar os números dos seus contatos para nossos servidores seguros.\n\nÉ opcional: você ainda pode adicionar amigos manualmente pelo nome de usuário depois.",
     refuse: "Recusar",
     next: "Próximo",
     
@@ -1778,7 +1815,7 @@ const i18n = new I18n({
     confirm: "Bestätigen",
     info: "Information",
     
-    // Prout Names
+    // Prrt! Names
     prout_names: {
       prout1: "Das kleine Lüftchen",
       prout2: "Der Knusperer",
@@ -1818,7 +1855,7 @@ const i18n = new I18n({
     password_label: "Passwort",
     
     // Home & Navigation
-    share_message: "Tritt mir auf \"Prout App\" bei, mein Benutzername ist %{pseudo}: http://theproutapp.com",
+    share_message: "Tritt mir auf \"Prrt!\" bei, mein Benutzername ist %{pseudo}",
     tab_list: "Freunde",
     
     // Friends List
@@ -1842,7 +1879,7 @@ const i18n = new I18n({
     friend_deleted_toast: "%{pseudo} wurde von der Liste entfernt",
     real_name: "Echter Name",
     
-    // Actions Prout
+    // Actions Prrt!
     zen_mode_active_me_title: "Zen-Modus aktiv 🧘‍♂️",
     zen_mode_active_me_body: "Keine Fürze im Zen-Modus. Deaktiviere im Profil, um zurück zur Schlacht zu gehen.",
     zen_mode_active_friend_title: "Psst! 🤫",
@@ -1867,11 +1904,20 @@ const i18n = new I18n({
     
     // Komplizenschaft
     complicity_title: "Der Resonanz-Index",
-    complicity_subtitle: "Messung der akustischen Harmonie Ihrer sozialen Bindung.",
+    complicity_subtitle: "Messung der akustischen Harmonie Ihrer sozialen Bindung!",
     complicity_level_1: "Erster Hauch",
     complicity_level_2: "Geteilter Einklang",
     complicity_level_3: "Seelen-Sillage",
     complicity_level_elite: "Quintessenz der Freundschaft",
+    complicity_help_title: "Wie funktioniert es?",
+    complicity_help_score_title: "📊 Komplizenschafts-Punktzahl",
+    complicity_help_score_text: "Jedes Mal, wenn du mit einem Freund interagierst, verdienst du Komplizenschafts-Punkte. Je mehr du interagierst, desto mehr steigt deine Punktzahl!",
+    complicity_help_rapid_title: "⚡ Schnelle Antworten",
+    complicity_help_rapid_text: "Antworte schnell (innerhalb weniger Minuten), um noch mehr Punkte zu verdienen und deine Komplizenschaft zu zeigen!",
+    complicity_help_levels_title: "🏆 Die Stufen",
+    complicity_help_levels_text: "Deine Komplizenschafts-Stufe entwickelt sich mit deiner Punktzahl:\n• Erster Hauch (0-49 Pkt)\n• Geteilter Einklang (50-199 Pkt)\n• Seelen-Sillage (200-499 Pkt)\n• Quintessenz der Freundschaft (500+ Pkt)",
+    complicity_help_tip_title: "💡 Tipp",
+    complicity_help_tip_text: "Je regelmäßiger du mit deinen Freunden interagierst, desto mehr wächst eure Komplizenschaft.",
     
     // Profil
     edit_profile: "Profil bearbeiten",
@@ -1906,11 +1952,11 @@ const i18n = new I18n({
     contact_support: "Support kontaktieren",
     privacy_policy: "Datenschutzerklärung",
     privacy_policy_title: "Datenschutzerklärung",
-    privacy_policy_app_title: "Datenschutzerklärung von Prout",
+    privacy_policy_app_title: "Datenschutzerklärung von Prrt!",
     privacy_policy_last_update: "Letzte Aktualisierung: 8. Dezember 2025",
-    privacy_policy_intro: "Willkommen bei Prout. Wir nehmen deine Daten ernst. Hier ist erklärt, was wir sammeln und was wir damit machen.",
+    privacy_policy_intro: "Willkommen bei Prrt!. Wir nehmen deine Daten ernst. Hier ist erklärt, was wir sammeln und was wir damit machen.",
     privacy_policy_section1_title: "1. Wer wir sind",
-    privacy_policy_section1_content: "App von The Prout Corporation. Fragen? E-Mail: hello@theproutapp.com",
+    privacy_policy_section1_content: "App von The Prrt! Corporation. Fragen? E-Mail: hello@theproutapp.com",
     privacy_policy_section2_title: "2. Was wir sammeln",
     privacy_policy_section2_intro: "Nur das Nötige zum Funktionieren.",
     privacy_policy_section2a_title: "A. Daten, die du gibst",
@@ -1965,7 +2011,7 @@ const i18n = new I18n({
     tuto_notif_desc: "Prüfe, ob es in den Einstellungen aktiviert ist.",
     tuto_sound_title: "Kein Ton?",
     tuto_sound_desc: "Prüfe, ob es nicht stummgeschaltet ist.",
-    tuto_1_title: "Einen Prout senden",
+    tuto_1_title: "Einen Prrt! senden",
     tuto_1_desc: "Ziehe den Namen des Freundes nach rechts! Es ist eine Überraschung, man weiß nie, was kommt!",
     tuto_2_title: "Vergängliche Nachrichten",
     tuto_2_desc: "Klicke auf den Namen des Freundes, um eine Nachricht im vergänglichen Chat zu senden!",
@@ -1977,11 +2023,11 @@ const i18n = new I18n({
     tuto_4_desc: "Ziehe nach links, um den Freund stummzuschalten.",
     
     // Onboarding
-    onboarding_welcome_title: "Prout !",
+    onboarding_welcome_title: "Prrt!",
     onboarding_welcome_subtitle: "Sag hallo... anders!",
     onboarding_welcome_desc: "",
-    onboarding_notifications_title: "Das Herz von Prout",
-    onboarding_notifications_desc: "Der ganze Sinn der Kommunikation mit deinen Freunden auf Prout sind die Benachrichtigungen. Bitte akzeptiere sie, um das Spiel zu spielen!",
+    onboarding_notifications_title: "Das Herz von Prrt!",
+    onboarding_notifications_desc: "Der ganze Sinn der Kommunikation mit deinen Freunden auf Prrt! sind die Benachrichtigungen. Bitte akzeptiere sie, um das Spiel zu spielen!",
     onboarding_sound_title: "Drehe die Lautstärke auf",
     onboarding_sound_desc: "Lass den Ton an, um die Melodie zu genießen.",
     onboarding_gesture_title: "Du bist dran",
@@ -2162,8 +2208,8 @@ const i18n = new I18n({
     already_have_account: "Ich habe bereits ein Konto (E-Mail)",
     
     // Invitation Share
-    invite_message_with_pseudo: "Tritt mir auf \"Prout App\" bei, ich bin %{pseudo}\n\nLade hier herunter: http://www.theproutapp.com",
-    invite_message: "Tritt mir auf \"Prout App\" bei\n\nLade hier herunter: http://www.theproutapp.com",
+    invite_message_with_pseudo: "Tritt mir auf \"Prrt!\" bei, mein Benutzername ist %{pseudo}",
+    invite_message: "Tritt mir auf \"Prrt!\" bei",
     
     // Login
     session_invalid: "Sitzung ungültig",
@@ -2185,15 +2231,15 @@ const i18n = new I18n({
     permission_denied_title: "Berechtigung verweigert",
     permission_denied_body: "Benachrichtigungsberechtigung erforderlich.",
     notification_permission_title: "Benachrichtigungsberechtigung",
-    notification_permission_message: "Prout ist eine Benachrichtigungs-App. Um Fürze zu erhalten und zu senden, musst du autorisieren.",
+    notification_permission_message: "Prrt! ist eine Benachrichtigungs-App. Um Fürze zu erhalten und zu senden, musst du autorisieren.",
     accept_notifications_message: "Akzeptiere die Benachrichtigungen zum Spielen! 😊",
     authorize_notifications: "Benachrichtigungen autorisieren",
     
     // Contact Permission
     contact_permission_title: "Bleib bei uns!",
-    contact_permission_message: "Um Freunde, die Prout! bereits nutzen, automatisch zu erkennen, muss die App Telefonnummern aus deinen Kontakten auf unsere sicheren Server hochladen.\n\nDas ist optional: Du kannst später weiterhin Freunde manuell über ihren Benutzernamen hinzufügen.",
+    contact_permission_message: "Um Freunde, die Prrt! bereits nutzen, automatisch zu erkennen, muss die App Telefonnummern aus deinen Kontakten auf unsere sicheren Server hochladen.\n\nDas ist optional: Du kannst später weiterhin Freunde manuell über ihren Benutzernamen hinzufügen.",
     contact_consent_title: "Kontakte: Verwendung und Teilen",
-    contact_consent_message: "Um Freunde, die Prout! bereits nutzen, automatisch zu erkennen, muss die App Telefonnummern aus deinen Kontakten auf unsere sicheren Server hochladen.\n\nDas ist optional: Du kannst später weiterhin Freunde manuell über ihren Benutzernamen hinzufügen.",
+    contact_consent_message: "Um Freunde, die Prrt! bereits nutzen, automatisch zu erkennen, muss die App Telefonnummern aus deinen Kontakten auf unsere sicheren Server hochladen.\n\nDas ist optional: Du kannst später weiterhin Freunde manuell über ihren Benutzernamen hinzufügen.",
     refuse: "Ablehnen",
     next: "Weiter",
     
@@ -2217,7 +2263,7 @@ const i18n = new I18n({
     confirm: "Conferma",
     info: "Informazione",
     
-    // Prout Names
+    // Prrt! Names
     prout_names: {
       prout1: "La Brezza Leggera",
       prout2: "Il Crepitio",
@@ -2257,7 +2303,7 @@ const i18n = new I18n({
     password_label: "Password",
     
     // Home & Navigation
-    share_message: "Unisciti a me su \"Prout App\", il mio username è %{pseudo}: http://theproutapp.com",
+    share_message: "Unisciti a me su \"Prrt!\", il mio username è %{pseudo}",
     tab_list: "Amici",
     
     // Friends List
@@ -2281,7 +2327,7 @@ const i18n = new I18n({
     friend_deleted_toast: "%{pseudo} è stato rimosso dalla lista",
     real_name: "Nome reale",
     
-    // Actions Prout
+    // Actions Prrt!
     zen_mode_active_me_title: "Modalità Zen Attiva 🧘‍♂️",
     zen_mode_active_me_body: "Niente scoregge in modalità Zen. Disattiva nel profilo per tornare alla battaglia.",
     zen_mode_active_friend_title: "Zitto! 🤫",
@@ -2306,11 +2352,20 @@ const i18n = new I18n({
     
     // Complicità
     complicity_title: "L'Indice di Risonanza",
-    complicity_subtitle: "Misurare l'armonia acustica del vostro legame sociale.",
+    complicity_subtitle: "Misurare l'armonia acustica del vostro legame sociale !",
     complicity_level_1: "Soffio Iniziale",
     complicity_level_2: "Accordo Condiviso",
     complicity_level_3: "Scia d'Anime",
     complicity_level_elite: "Quintessenza dell'Amicizia",
+    complicity_help_title: "Come funziona?",
+    complicity_help_score_title: "📊 Punteggio di Complicità",
+    complicity_help_score_text: "Ogni volta che scambi con un amico, guadagni punti di complicità. Più scambi, più il tuo punteggio aumenta!",
+    complicity_help_rapid_title: "⚡ Risposte Rapide",
+    complicity_help_rapid_text: "Rispondi rapidamente (in meno di pochi minuti) per guadagnare ancora più punti e mostrare la tua complicità!",
+    complicity_help_levels_title: "🏆 I Livelli",
+    complicity_help_levels_text: "Il tuo livello di complicità evolve con il tuo punteggio:\n• Soffio Iniziale (0-49 pts)\n• Accordo Condiviso (50-199 pts)\n• Scia d'Anime (200-499 pts)\n• Quintessenza dell'Amicizia (500+ pts)",
+    complicity_help_tip_title: "💡 Consiglio",
+    complicity_help_tip_text: "Più scambi regolarmente con i tuoi amici, più la tua complicità cresce.",
     
     // Profil
     edit_profile: "Modifica Profilo",
@@ -2345,11 +2400,11 @@ const i18n = new I18n({
     contact_support: "Contatta il supporto",
     privacy_policy: "Privacy Policy",
     privacy_policy_title: "Privacy Policy",
-    privacy_policy_app_title: "Privacy Policy di Prout",
+    privacy_policy_app_title: "Privacy Policy di Prrt!",
     privacy_policy_last_update: "Ultimo aggiornamento: 8 Dicembre 2025",
-    privacy_policy_intro: "Benvenuto su Prout. Prendiamo seriamente i tuoi dati. Qui è spiegato cosa raccogliamo e cosa ne facciamo.",
+    privacy_policy_intro: "Benvenuto su Prrt!. Prendiamo seriamente i tuoi dati. Qui è spiegato cosa raccogliamo e cosa ne facciamo.",
     privacy_policy_section1_title: "1. Chi siamo",
-    privacy_policy_section1_content: "App di The Prout Corporation. Domande? Email: hello@theproutapp.com",
+    privacy_policy_section1_content: "App di The Prrt! Corporation. Domande? Email: hello@theproutapp.com",
     privacy_policy_section2_title: "2. Cosa raccogliamo",
     privacy_policy_section2_intro: "Solo il necessario per funzionare.",
     privacy_policy_section2a_title: "A. Dati che fornisci",
@@ -2404,7 +2459,7 @@ const i18n = new I18n({
     tuto_notif_desc: "Controlla se è abilitato nelle impostazioni.",
     tuto_sound_title: "Nessun suono?",
     tuto_sound_desc: "Controlla se non è silenziato.",
-    tuto_1_title: "Inviare un Prout",
+    tuto_1_title: "Inviare un Prrt!",
     tuto_1_desc: "Trascina il nome dell'amico a destra! È una sorpresa, non si sa mai cosa viene!",
     tuto_2_title: "Messaggi effimeri",
     tuto_2_desc: "Clicca sul nome dell'amico per inviare un messaggio nella chat effimera!",
@@ -2416,11 +2471,11 @@ const i18n = new I18n({
     tuto_4_desc: "Trascina a sinistra per silenziare l'amico.",
     
     // Onboarding
-    onboarding_welcome_title: "Prout !",
+    onboarding_welcome_title: "Prrt!",
     onboarding_welcome_subtitle: "Di ciao... diversamente!",
     onboarding_welcome_desc: "",
-    onboarding_notifications_title: "Il cuore di Prout",
-    onboarding_notifications_desc: "Tutto il punto di comunicare con i tuoi amici su Prout sono le notifiche. Accettale per giocare!",
+    onboarding_notifications_title: "Il cuore di Prrt!",
+    onboarding_notifications_desc: "Tutto il punto di comunicare con i tuoi amici su Prrt! sono le notifiche. Accettale per giocare!",
     onboarding_sound_title: "Alza il volume",
     onboarding_sound_desc: "Lascia il suono acceso per goderti la melodia.",
     onboarding_gesture_title: "Tocca a te",
@@ -2601,8 +2656,8 @@ const i18n = new I18n({
     already_have_account: "Ho già un account (Email)",
     
     // Invitation Share
-    invite_message_with_pseudo: "Unisciti a me su \"Prout App\", sono %{pseudo}\n\nScarica qui: http://www.theproutapp.com",
-    invite_message: "Unisciti a me su \"Prout App\"\n\nScarica qui: http://www.theproutapp.com",
+    invite_message_with_pseudo: "Unisciti a me su \"Prrt!\", il mio username è %{pseudo}",
+    invite_message: "Unisciti a me su \"Prrt!\"",
     
     // Login
     session_invalid: "Sessione non valida",
@@ -2624,15 +2679,15 @@ const i18n = new I18n({
     permission_denied_title: "Autorizzazione negata",
     permission_denied_body: "Autorizzazione alle notifiche richiesta.",
     notification_permission_title: "Autorizzazione alle notifiche",
-    notification_permission_message: "Prout è un'app di notifiche. Per ricevere e inviare scoregge, devi autorizzare.",
+    notification_permission_message: "Prrt! è un'app di notifiche. Per ricevere e inviare scoregge, devi autorizzare.",
     accept_notifications_message: "Accetta le notifiche per giocare! 😊",
     authorize_notifications: "Autorizza notifiche",
     
     // Contact Permission
     contact_permission_title: "Resta con noi!",
-    contact_permission_message: "Per identificare automaticamente gli amici che usano già Prout!, l'app deve caricare i numeri di telefono dei tuoi contatti sui nostri server sicuri.\n\nÈ facoltativo: potrai comunque aggiungere amici manualmente tramite il loro nome utente in seguito.",
+    contact_permission_message: "Per identificare automaticamente gli amici che usano già Prrt!, l'app deve caricare i numeri di telefono dei tuoi contatti sui nostri server sicuri.\n\nÈ facoltativo: potrai comunque aggiungere amici manualmente tramite il loro nome utente in seguito.",
     contact_consent_title: "Contatti: uso e condivisione",
-    contact_consent_message: "Per identificare automaticamente gli amici che usano già Prout!, l'app deve caricare i numeri di telefono dei tuoi contatti sui nostri server sicuri.\n\nÈ facoltativo: potrai comunque aggiungere amici manualmente tramite il loro nome utente in seguito.",
+    contact_consent_message: "Per identificare automaticamente gli amici che usano già Prrt!, l'app deve caricare i numeri di telefono dei tuoi contatti sui nostri server sicuri.\n\nÈ facoltativo: potrai comunque aggiungere amici manualmente tramite il loro nome utente in seguito.",
     refuse: "Rifiuta",
     next: "Avanti",
     

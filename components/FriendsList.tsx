@@ -469,33 +469,35 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
         <Text style={styles.deleteText}>{i18n.t('delete_or_mute')}</Text>
       </Animated.View>
 
-      {/* Background droite : Image d'animation avec fond clair */}
-      <View style={styles.swipeBackground} collapsable={false}>
-        {/* Image finale (animprout4) après l'envoi du prout */}
-        {showFinalImage ? (
-          <View style={styles.finalImageContainer} collapsable={false}>
-            <Animated.Image 
-              source={ANIM_IMAGES[3]} 
-              style={[
-                styles.animImage,
-                {
-                  transform: [{ scale: 4.0 }], // Même taille que la fin du zoom
-                },
-              ]}
-              resizeMode="contain"
+      {/* Background droite : Image d'animation avec fond clair (cachée sur iOS) */}
+      {Platform.OS !== 'ios' && (
+        <View style={styles.swipeBackground} collapsable={false}>
+          {/* Image finale (animprout4) après l'envoi du prout */}
+          {showFinalImage ? (
+            <View style={styles.finalImageContainer} collapsable={false}>
+              <Animated.Image 
+                source={ANIM_IMAGES[3]} 
+                style={[
+                  styles.animImage,
+                  {
+                    transform: [{ scale: 4.0 }], // Même taille que la fin du zoom
+                  },
+                ]}
+                resizeMode="contain"
+                />
+            </View>
+          ) : (
+            /* Image normale pendant le swipe */
+            currentImageIndex >= 0 && currentImageIndex < 3 && (
+              <Animated.Image 
+                source={ANIM_IMAGES[currentImageIndex]} 
+                style={[styles.animImage, animatedImageScale]}
+                resizeMode="contain"
               />
-          </View>
-        ) : (
-          /* Image normale pendant le swipe */
-          currentImageIndex >= 0 && currentImageIndex < 3 && (
-            <Animated.Image 
-              source={ANIM_IMAGES[currentImageIndex]} 
-              style={[styles.animImage, animatedImageScale]}
-              resizeMode="contain"
-            />
-          )
-        )}
-      </View>
+            )
+          )}
+        </View>
+      )}
 
       {/* Foreground : Ligne de contact */}
       <GestureDetector gesture={gesture}>
@@ -558,7 +560,7 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
   );
 });
 
-// Composant pour gérer l'animation du message envoyé
+// Composant pour gérer l'animation du message envoyé (PRRT! : opacité réduite quand lu)
 const SentMessageStatus = ({ message }: { message: { text: string; status?: 'read' } | undefined }) => {
   const [displayedMessage, setDisplayedMessage] = useState(message);
   const opacity = useRef(new RNAnimated.Value(1)).current;
@@ -570,18 +572,21 @@ const SentMessageStatus = ({ message }: { message: { text: string; status?: 'rea
       setIsRead(false);
       opacity.setValue(1);
     } else if (displayedMessage && (message?.status === 'read' || !message)) {
-      // Le message est marqué lu ou a disparu
       setIsRead(true);
+      // PRRT! : opacité réduite sur la bulle quand lu, puis disparition
       RNAnimated.sequence([
-        RNAnimated.delay(500),
+        RNAnimated.timing(opacity, {
+          toValue: 0.45,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        RNAnimated.delay(400),
         RNAnimated.timing(opacity, {
           toValue: 0,
-          duration: 500,
+          duration: 400,
           useNativeDriver: true,
-        })
-      ]).start(() => {
-        // L'animation est finie, mais on attend que le parent supprime le message
-      });
+        }),
+      ]).start();
     }
   }, [message]);
 
@@ -593,7 +598,7 @@ const SentMessageStatus = ({ message }: { message: { text: string; status?: 'rea
         <Text style={styles.bubbleTextSent}>{displayedMessage.text}</Text>
       </View>
       {isRead && (
-        <Text style={{ fontSize: 12, color: '#604a3e', marginRight: 12, marginBottom: 4, fontStyle: 'italic' }}>
+        <Text style={{ fontSize: 12, color: '#604a3e', marginRight: 12, marginBottom: 4, fontStyle: 'italic', opacity: 0.9 }}>
           {i18n.t('message_read')}
         </Text>
       )}
@@ -923,22 +928,36 @@ export function FriendsList({
     }
   }, [expandedFriendId]);
 
-  // Marquer comme lu automatiquement les nouveaux messages si le sticky est déjà ouvert (mode chat en direct)
+  // PRRT! Protocol : à l'entrée du chat, marquer comme lu tous les messages reçus non-lus de cet ami
+  useEffect(() => {
+    if (!expandedFriendId || !currentUserId) return;
+    const unreadFromFriend = pendingMessages.filter(
+      m => m.from_user_id === expandedFriendId && !m.message_content?.startsWith('READ:')
+    );
+    if (unreadFromFriend.length > 0) {
+      unreadFromFriend.forEach(m => deletedMessagesCache.add(m.id));
+      setUnreadCache(prev => {
+        const currentCache = prev[expandedFriendId] || [];
+        const newMsgs = unreadFromFriend.filter(u => !currentCache.some(c => c.id === u.id));
+        if (newMsgs.length === 0) return prev;
+        return { ...prev, [expandedFriendId]: [...currentCache, ...newMsgs] };
+      });
+      unreadFromFriend.forEach(msg => markMessageReadViaBackend(msg.id, msg.from_user_id));
+    }
+  }, [expandedFriendId, currentUserId, pendingMessages]);
+
+  // Marquer comme lu automatiquement les nouveaux messages qui arrivent pendant que le sticky est ouvert
   useEffect(() => {
     let timer: any;
-    // Vérifier si l'app est active pour ne pas marquer lu en background
     if (expandedFriendId && AppState.currentState === 'active') {
-      const unreadForActive = pendingMessages.filter(m => m.from_user_id === expandedFriendId);
+      const unreadForActive = pendingMessages.filter(m => m.from_user_id === expandedFriendId && !m.message_content?.startsWith('READ:'));
       if (unreadForActive.length > 0) {
-        // 1. D'abord ajouter au cache pour qu'ils restent affichés
         setUnreadCache(prev => {
-            const currentCache = prev[expandedFriendId] || [];
-            const newMsgs = unreadForActive.filter(u => !currentCache.some(c => c.id === u.id));
-            if (newMsgs.length === 0) return prev;
-            return { ...prev, [expandedFriendId]: [...currentCache, ...newMsgs] };
+          const currentCache = prev[expandedFriendId] || [];
+          const newMsgs = unreadForActive.filter(u => !currentCache.some(c => c.id === u.id));
+          if (newMsgs.length === 0) return prev;
+          return { ...prev, [expandedFriendId]: [...currentCache, ...newMsgs] };
         });
-        
-        // 2. Ensuite marquer comme lu avec un délai pour éviter les lectures instantanées/accidentelles
         timer = setTimeout(() => {
           unreadForActive.forEach(msg => markMessageAsRead(msg.id));
         }, 1500);
@@ -947,13 +966,12 @@ export function FriendsList({
     return () => clearTimeout(timer);
   }, [pendingMessages, expandedFriendId]);
 
-  // Quand on ferme le sticky, on efface l'historique local pour ce contact
+  // PRRT! Protocol : au démontage du chat (fermeture ou changement d'ami), nettoyer l'état local des messages lus
   useEffect(() => {
     if (prevExpandedRef.current && !expandedFriendId) {
       const prevId = prevExpandedRef.current;
       const cachedForPrev = unreadCache[prevId] || [];
       setUnreadCache(prev => ({ ...prev, [prevId]: [] }));
-      // Nettoyer aussi les messages en cours de disparition pour ce contact
       if (cachedForPrev.length > 0) {
         setFadingOutReceivedMessages(prev => {
           const newSet = new Set(prev);
@@ -961,6 +979,8 @@ export function FriendsList({
           return newSet;
         });
       }
+      // Retirer de l'affichage les messages déjà marqués READ: (lu puis supprimés côté backend)
+      setPendingMessages(prev => prev.filter(m => !m.message_content?.startsWith('READ:')));
     }
     prevExpandedRef.current = expandedFriendId;
   }, [expandedFriendId, unreadCache]);
@@ -2304,97 +2324,43 @@ useEffect(() => {
 
       subscriptionRef.current = channel;
 
-      // Canal Broadcast pour la lecture instantanée (bypass DB)
+      // PRRT! Protocol : à réception de message-read, suppression visuelle immédiate côté expéditeur
       const broadcastChannel = supabase
         .channel(`room-${user.id}`)
         .on('broadcast', { event: 'message-read' }, (payload) => {
             const deletedId = payload.payload?.id;
-            const senderId = payload.payload?.senderId;
             const receiverId = payload.payload?.receiverId;
-            if (__DEV__) {
-            }
-            if (deletedId) {
-              let shouldScheduleRemoval = false;
-              setLastSentMessages((prev) => {
-                // Chercher dans tous les tableaux de messages
-                let targetUserId: string | null = null;
+            if (!deletedId) return;
+            setLastSentMessages((prev) => {
+              let targetUserId: string | null = null;
+              Object.entries(prev).forEach(([userId, messages]) => {
+                if (Array.isArray(messages) && messages.some(msg => msg.id === deletedId)) {
+                  targetUserId = userId;
+                }
+              });
+              if (!targetUserId) {
+                targetUserId = lastSentByIdRef.current[deletedId] || receiverId || null;
+              }
+              if (targetUserId) {
+                const next: LastSentMap = {};
+                let changed = false;
                 Object.entries(prev).forEach(([userId, messages]) => {
-                  if (Array.isArray(messages) && messages.some(msg => msg.id === deletedId)) {
-                    targetUserId = userId;
+                  if (Array.isArray(messages)) {
+                    const kept = messages.filter(msg => msg.id !== deletedId);
+                    if (kept.length > 0) next[userId] = kept;
+                    if (kept.length !== messages.length) changed = true;
                   }
                 });
-                
-                // Fallback sur l'index ou receiverId
-                if (!targetUserId) {
-                  targetUserId = lastSentByIdRef.current[deletedId] || receiverId || null;
+                if (changed) {
+                  updateLastSentIndex(next);
+                  saveLastSentMessagesCache(next);
+                  return next;
                 }
-                
-                if (targetUserId) {
-                  const copy: LastSentMap = {};
-                  let updated = false;
-                  let didFallbackTemp = false;
-                  Object.entries(prev).forEach(([userId, messages]) => {
-                    if (Array.isArray(messages)) {
-                      if (userId === targetUserId) {
-                        // Marquer le message correspondant comme lu
-                        const hasIdMatch = messages.some(msg => msg.id === deletedId);
-                        if (hasIdMatch) {
-                          updated = true;
-                          shouldScheduleRemoval = true;
-                          copy[userId] = messages.map(msg => 
-                            msg.id === deletedId ? { ...msg, status: 'read' as const, readAt: Date.now() } : msg
-                          );
-                        } else {
-                          // Fallback : marquer le plus vieux temp sans ID
-                          let tempIndex = -1;
-                          let tempTime = Infinity;
-                          messages.forEach((msg, idx) => {
-                            if (!msg.id && msg.status !== 'read') {
-                              const t = new Date(msg.ts).getTime();
-                              if (t < tempTime) {
-                                tempTime = t;
-                                tempIndex = idx;
-                              }
-                            }
-                          });
-                          if (tempIndex !== -1) {
-                            updated = true;
-                            didFallbackTemp = true;
-                            copy[userId] = messages.map((msg, idx) => 
-                              idx === tempIndex ? { ...msg, status: 'read' as const, readAt: Date.now() } : msg
-                            );
-                            if (__DEV__) {
-                              // Log removed
-                            }
-                          } else {
-                            copy[userId] = messages;
-                          }
-                        }
-                      } else {
-                        copy[userId] = messages;
-                      }
-                    }
-                  });
-                  if (updated) {
-                    if (__DEV__) {
-                    }
-                    updateLastSentIndex(copy);
-                    saveLastSentMessagesCache(copy);
-                    return copy;
-                  }
-                  return prev;
-                }
-                if (__DEV__) {
-                }
-                pendingReadIdsRef.current.add(deletedId);
-                // Forcer un refresh pour tenter de retrouver l'ID via loadData
-                loadData(false, false, false);
-                return prev;
-              });
-              if (shouldScheduleRemoval) {
-                scheduleReadRemoval(deletedId);
               }
-            }
+              pendingReadIdsRef.current.add(deletedId);
+              loadData(false, false, false);
+              return prev;
+            });
         })
         .on('broadcast', { event: 'message-received' }, () => {
             loadData(false, false, false);
