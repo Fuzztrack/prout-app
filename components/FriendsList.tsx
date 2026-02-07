@@ -768,6 +768,7 @@ export function FriendsList({
   const toastOpacity = useRef(new RNAnimated.Value(0)).current;
   const lastSentByIdRef = useRef<Record<string, string>>({});
   const pendingReadIdsRef = useRef<Set<string>>(new Set());
+  const processingReadIdsRef = useRef<Set<string>>(new Set());
   const pendingReadRemovalTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const prevExpandedRef = useRef<string | null>(null);
   const stickyScrollViewRef = useRef<ScrollView>(null);
@@ -865,6 +866,7 @@ export function FriendsList({
   const lastSentSetAtRef = useRef<number>(0); // timestamp du dernier setLastSentMessages local (pour éviter un clear trop tôt)
   const lastPressTime = useRef(0); // Debounce pour les clics sur les amis
   const pendingCenterScrollFriendIdRef = useRef<string | null>(null);
+  const processingReadIdsRef = useRef<Set<string>>(new Set());
   const keptReadMessagesRef = useRef<Map<string, PendingMessage[]>>(new Map()); // PRRT! : Messages reçus lus mais gardés visibles tant que le chat est ouvert
 
   
@@ -914,7 +916,8 @@ export function FriendsList({
       });
       
       // 3. Dire au backend de supprimer (marquer lu) mais SANS supprimer localement via deletedMessagesCache ici
-      unreadFromFriend.forEach(msg => markMessageReadViaBackend(msg.id, msg.from_user_id));
+      // Utiliser markMessageAsRead pour bénéficier du verrou anti-spam et du retry
+      unreadFromFriend.forEach(msg => markMessageAsRead(msg.id));
     }
   }, [expandedFriendId, currentUserId, pendingMessages]);
 
@@ -931,7 +934,11 @@ export function FriendsList({
           return { ...prev, [expandedFriendId]: [...currentCache, ...newMsgs] };
         });
         timer = setTimeout(() => {
-          unreadForActive.forEach(msg => markMessageAsRead(msg.id));
+          unreadForActive.forEach(msg => {
+             if (!processingReadIdsRef.current.has(msg.id)) {
+                 markMessageAsRead(msg.id);
+             }
+          });
         }, 1500);
       }
     }
@@ -1063,6 +1070,12 @@ export function FriendsList({
   };
 
   const markMessageAsRead = async (messageId: string) => {
+    // Éviter le spam de requêtes pour le même message (cause 429)
+    if (processingReadIdsRef.current.has(messageId)) {
+      return;
+    }
+    processingReadIdsRef.current.add(messageId);
+
     try {
       if (__DEV__) {
         const msg = pendingMessages.find(m => m.id === messageId);
