@@ -561,32 +561,29 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
 });
 
 // Composant pour gérer l'animation du message envoyé (PRRT! : opacité réduite quand lu)
-const SentMessageStatus = ({ message }: { message: { text: string; status?: 'read' } | undefined }) => {
+const SentMessageStatus = ({ message }: { message: { text: string; status?: 'read'; id?: string } | undefined }) => {
   const [displayedMessage, setDisplayedMessage] = useState(message);
-  const opacity = useRef(new RNAnimated.Value(1)).current;
-  const [isRead, setIsRead] = useState(false);
+  const opacity = useRef(new RNAnimated.Value(message?.status === 'read' ? 0.5 : 1)).current;
+  const [isRead, setIsRead] = useState(message?.status === 'read');
 
   useEffect(() => {
+    if (__DEV__) console.log('[CHAT_DEBUG] SentMessageStatus update:', message?.id, message?.status, 'isRead:', isRead);
+
     if (message && message.status !== 'read') {
       setDisplayedMessage(message);
       setIsRead(false);
       opacity.setValue(1);
     } else if (displayedMessage && (message?.status === 'read' || !message)) {
-      setIsRead(true);
-      // PRRT! : opacité réduite sur la bulle quand lu, puis disparition
-      RNAnimated.sequence([
-        RNAnimated.timing(opacity, {
-          toValue: 0.45,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        RNAnimated.delay(400),
-        RNAnimated.timing(opacity, {
-          toValue: 0,
-          duration: 400,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      if (!isRead) {
+          setIsRead(true);
+          if (__DEV__) console.log('[CHAT_DEBUG] Animating to read (0.5 opacity) for:', message?.id);
+          // PRRT! : opacité réduite sur la bulle quand lu (reste affiché tant que le chat est ouvert)
+          RNAnimated.timing(opacity, {
+            toValue: 0.5,
+            duration: 300,
+            useNativeDriver: true,
+          }).start();
+      }
     }
   }, [message]);
 
@@ -871,6 +868,8 @@ export function FriendsList({
   const lastSentSetAtRef = useRef<number>(0); // timestamp du dernier setLastSentMessages local (pour éviter un clear trop tôt)
   const lastPressTime = useRef(0); // Debounce pour les clics sur les amis
   const pendingCenterScrollFriendIdRef = useRef<string | null>(null);
+  const keptReadMessagesRef = useRef<Map<string, PendingMessage[]>>(new Map()); // PRRT! : Messages reçus lus mais gardés visibles tant que le chat est ouvert
+
   
   // Polling simple (sans backoff exponentiel)
   const flatListRef = useRef<FlatList>(null);
@@ -895,19 +894,29 @@ export function FriendsList({
   }, [expandedFriendId]);
 
   // PRRT! Protocol : à l'entrée du chat, marquer comme lu tous les messages reçus non-lus de cet ami
+  // MAIS : Ne pas les supprimer de l'affichage tant que le chat est ouvert
   useEffect(() => {
     if (!expandedFriendId || !currentUserId) return;
     const unreadFromFriend = pendingMessages.filter(
       m => m.from_user_id === expandedFriendId && !m.message_content?.startsWith('READ:')
     );
     if (unreadFromFriend.length > 0) {
-      unreadFromFriend.forEach(m => deletedMessagesCache.add(m.id));
+      // 1. Marquer comme "lus à garder" (ne pas les supprimer de l'UI)
+      const currentKept = keptReadMessagesRef.current.get(expandedFriendId) || [];
+      const newKept = unreadFromFriend.filter(u => !currentKept.some(c => c.id === u.id));
+      if (newKept.length > 0) {
+        keptReadMessagesRef.current.set(expandedFriendId, [...currentKept, ...newKept]);
+      }
+
+      // 2. Mettre à jour le cache local des non-lus (pour badge, etc.) - optionnel si géré par ailleurs
       setUnreadCache(prev => {
         const currentCache = prev[expandedFriendId] || [];
         const newMsgs = unreadFromFriend.filter(u => !currentCache.some(c => c.id === u.id));
         if (newMsgs.length === 0) return prev;
         return { ...prev, [expandedFriendId]: [...currentCache, ...newMsgs] };
       });
+      
+      // 3. Dire au backend de supprimer (marquer lu) mais SANS supprimer localement via deletedMessagesCache ici
       unreadFromFriend.forEach(msg => markMessageReadViaBackend(msg.id, msg.from_user_id));
     }
   }, [expandedFriendId, currentUserId, pendingMessages]);
@@ -935,7 +944,16 @@ export function FriendsList({
   // PRRT! Protocol : au démontage du chat (fermeture ou changement d'ami), nettoyer l'état local des messages lus et envoyés
   useEffect(() => {
     if (prevExpandedRef.current && !expandedFriendId) {
+      console.log('[CHAT_DEBUG] Chat closing for:', prevExpandedRef.current);
       const prevId = prevExpandedRef.current;
+      
+      // 1. Nettoyer les messages reçus gardés (keptReadMessagesRef)
+      const kept = keptReadMessagesRef.current.get(prevId) || [];
+      keptReadMessagesRef.current.delete(prevId);
+      
+      // 2. Supprimer ces messages reçus de l'état local (pendingMessages)
+      setPendingMessages(prev => prev.filter(m => !kept.some(k => k.id === m.id)));
+
       const cachedForPrev = unreadCache[prevId] || [];
       setUnreadCache(prev => ({ ...prev, [prevId]: [] }));
       if (cachedForPrev.length > 0) {
@@ -1005,7 +1023,24 @@ export function FriendsList({
     }
     
     // Filtrer les messages qui sont dans la liste noire locale (supprimés mais pas encore sync)
+    // MAIS : Si le chat est ouvert, on doit peut-être garder certains messages même s'ils ne sont plus dans 'data' (car supprimés du serveur après lecture)
     const validMessages = (data || []).filter(m => !deletedMessagesCache.has(m.id));
+    
+    // Si un chat est ouvert, réintégrer les messages qu'on a décidé de garder (keptReadMessagesRef)
+    // même s'ils ont disparu du serveur.
+    if (expandedFriendIdRef.current) {
+        const kept = keptReadMessagesRef.current.get(expandedFriendIdRef.current) || [];
+        const currentIds = new Set(validMessages.map(m => m.id));
+        kept.forEach(msg => {
+            if (!currentIds.has(msg.id)) {
+                // On réintègre le message gardé
+                validMessages.push(msg);
+            }
+        });
+        // On trie à nouveau pour être sûr
+        validMessages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    }
+
     setPendingMessages(validMessages);
 
     // Mise à jour optimiste locale pour remonter les expéditeurs (messages reçus)
@@ -1029,14 +1064,35 @@ export function FriendsList({
       if (__DEV__) {
         const msg = pendingMessages.find(m => m.id === messageId);
       }
-      // 1. Ajouter à la liste noire locale pour empêcher la réapparition immédiate via polling
-      deletedMessagesCache.add(messageId);
-
+      
       // Trouver l'expéditeur pour l'info
       const msg = pendingMessages.find(m => m.id === messageId);
       const senderId = msg?.from_user_id;
+
+      // PRRT! Protocol v2 : Si le chat est ouvert avec cet expéditeur, on ne supprime PAS le message localement
+      // On le déplace dans keptReadMessagesRef et on le garde dans pendingMessages (ou on le réinjecte via fetchPendingMessages)
+      // On ne l'ajoute PAS à deletedMessagesCache pour ne pas le masquer dans fetchPendingMessages
       
-      // Garantir que le message reste visible dans le sticky tant qu'il est ouvert
+      const isChatOpenWithSender = senderId && senderId === expandedFriendIdRef.current;
+
+      if (isChatOpenWithSender) {
+          // 1. Ajouter à keptReadMessagesRef pour être sûr de le garder
+          const currentKept = keptReadMessagesRef.current.get(senderId) || [];
+          if (msg && !currentKept.some(k => k.id === messageId)) {
+             keptReadMessagesRef.current.set(senderId, [...currentKept, msg]);
+          }
+          // 2. NE PAS l'ajouter à deletedMessagesCache
+          // 3. NE PAS le supprimer de pendingMessages
+          // On laisse le message visible.
+      } else {
+          // Comportement standard (chat fermé ou autre)
+          // 1. Ajouter à la liste noire locale pour empêcher la réapparition immédiate via polling
+          deletedMessagesCache.add(messageId);
+          // Optimiste : on retire de la liste locale tout de suite
+          setPendingMessages(prev => prev.filter(m => m.id !== messageId));
+      }
+
+      // Garantir que le message reste visible dans le sticky tant qu'il est ouvert (via unreadCache - ancien système, toujours utile ?)
       if (msg?.from_user_id) {
         setUnreadCache(prev => {
           const current = prev[msg.from_user_id] || [];
@@ -1052,11 +1108,9 @@ export function FriendsList({
         });
       }
 
-      // Optimiste : on retire de la liste locale tout de suite
-      setPendingMessages(prev => prev.filter(m => m.id !== messageId));
-
       // 2. Envoyer le signal Broadcast directement au client A (Sender) pour l'instantanéité
       if (senderId) {
+
         // On utilise un channel éphémère pour envoyer le signal
         const channel = supabase.channel(`room-${senderId}`);
         channel.subscribe(async (status) => {
@@ -1865,16 +1919,24 @@ useEffect(() => {
                   
                   // Si le chat est ouvert avec cet ami, on garde TOUS les messages lus tant qu'il est ouvert
                   if (expandedFriendIdRef.current === uid) {
-                    if (__DEV__) console.log('[CHAT_DEBUG] keeping read message (chat open):', msg.id, msg.text);
+                    console.log('[CHAT_DEBUG] keeping read message (chat open):', msg.id, msg.text);
                     return true;
                   }
 
                   if (!msg.readAt) return false;
                   return now - msg.readAt < READ_ANIMATION_MS;
                 });
+                const readIds = new Set(readMessages.map(m => m.id).filter(Boolean));
                 
-                // ... (suite)
-
+                // Filtrer les messages serveur si on a déjà marqué localement "lu"
+                const filteredServerMessages = serverMessages.filter(m => !readIds.has(m.id));
+                if (__DEV__ && readIds.size > 0) {
+                  const filteredCount = serverMessages.length - filteredServerMessages.length;
+                  if (filteredCount > 0) {
+                    // Log removed
+                  }
+                }
+                
                 // Cas 2: Messages 'sent' localement mais absents du serveur (temporaires, non lus ou lus récemment)
                 // Si un message a un ID mais n'est plus dans le serveur, il a été lu/supprimé.
                 
@@ -1884,12 +1946,15 @@ useEffect(() => {
                   msg => msg.id && !serverMessageIds.has(msg.id)
                 );
 
-                if (droppedWithIdMessages.length > 0 && __DEV__) {
+                if (droppedWithIdMessages.length > 0) {
                     console.log('[CHAT_DEBUG] dropped messages from server:', droppedWithIdMessages.map(m => m.id));
                     console.log('[CHAT_DEBUG] chat open with:', expandedFriendIdRef.current, 'target:', uid);
                 }
 
                 // Si le chat est ouvert, on considère les messages disparus comme LUS et on les garde
+                if (__DEV__) {
+                    console.log('[CHAT_DEBUG] Check keep messages. Chat Open:', expandedFriendIdRef.current, 'Current UID:', uid, 'Equal:', expandedFriendIdRef.current === uid);
+                }
                 if (expandedFriendIdRef.current === uid) {
                    droppedWithIdMessages.forEach(msg => {
                      // On le transforme en message lu pour le garder affiché
@@ -1910,7 +1975,7 @@ useEffect(() => {
                 if (__DEV__ && staleLocal > 0) {
                   // Log removed
                 }
-                if (__DEV__ && droppedWithId > 0) {
+                if (__DEV__ && droppedWithIdMessages.length > 0) {
                   // Log removed
                 }
 
@@ -1950,6 +2015,9 @@ useEffect(() => {
                     return timeA - timeB;
                   });
                   next[uid] = merged;
+                  if (__DEV__ && expandedFriendIdRef.current === uid) {
+                      console.log('[CHAT_DEBUG] Final merged messages objects:', JSON.stringify(merged));
+                  }
                 } else if (serverMessages.length === 0 && dedupedLocalOnlyMessages.length === 0) {
                   // Si aucun message, on supprime la clé
                   delete next[uid];
@@ -2093,7 +2161,24 @@ useEffect(() => {
               // Rechargement pour synchroniser avec Supabase
               loadData(false, false, false);
             } else if (payload.eventType === 'DELETE') {
-              setPendingMessages((prev) => prev.filter(m => m.id !== payload.old.id));
+              // PRRT! Protocol : Si le message est supprimé (parce que lu), on le garde si le chat est ouvert
+              const deletedId = payload.old.id;
+              setPendingMessages((prev) => {
+                // Vérifier si on doit garder ce message
+                const senderId = prev.find(m => m.id === deletedId)?.from_user_id;
+                if (senderId && senderId === expandedFriendIdRef.current) {
+                   // Le chat est ouvert avec cet ami, on garde le message !
+                   // On s'assure qu'il est dans keptReadMessagesRef
+                   const currentKept = keptReadMessagesRef.current.get(senderId) || [];
+                   const msgToKeep = prev.find(m => m.id === deletedId);
+                   if (msgToKeep && !currentKept.some(k => k.id === deletedId)) {
+                       keptReadMessagesRef.current.set(senderId, [...currentKept, msgToKeep]);
+                   }
+                   // On ne filtre PAS, on retourne prev tel quel (ou on update status si on avait un champ status)
+                   return prev;
+                }
+                return prev.filter(m => m.id !== deletedId);
+              });
             }
           }
         )
@@ -3061,30 +3146,11 @@ useEffect(() => {
 
       // Nettoyer le brouillon sans fermer le sticky
       setMessageDrafts(prev => ({ ...prev, [recipient.id]: '' }));
-      // Si A répond, marquer les messages de B comme "en cours de disparition" pour l'animation
-      // Inclure les messages du cache ET ceux qui sont encore dans pendingMessages
-      const cachedMessages = unreadCache[recipient.id] || [];
-      const activeMessages = pendingMessages.filter(m => m.from_user_id === recipient.id);
-      const allMessagesToFade = [...cachedMessages, ...activeMessages.map(m => ({ id: m.id, message_content: m.message_content, created_at: m.created_at }))];
-      // Dédupliquer par ID
-      const uniqueMessagesToFade = Array.from(new Map(allMessagesToFade.map(m => [m.id, m])).values());
-      
-      if (uniqueMessagesToFade.length > 0) {
-        setFadingOutReceivedMessages(prev => {
-          const newSet = new Set(prev);
-          uniqueMessagesToFade.forEach(msg => newSet.add(msg.id));
-          return newSet;
-        });
-        // Supprimer du cache après l'animation (500ms delay + 500ms fade = 1000ms)
-        setTimeout(() => {
-          setUnreadCache(prev => ({ ...prev, [recipient.id]: [] }));
-          setFadingOutReceivedMessages(prev => {
-            const newSet = new Set(prev);
-            uniqueMessagesToFade.forEach(msg => newSet.delete(msg.id));
-            return newSet;
-          });
-        }, 1000);
-      }
+      // Si A répond, PRRT! Protocol v2 : NE PAS FAIRE DISPARAÎTRE les messages de B tant que le chat est ouvert.
+      // Le code précédent qui faisait un fade-out + clear cache est SUPPRIMÉ.
+      // Les messages resteront visibles (soit via pendingMessages soit via keptReadMessagesRef)
+      // jusqu'à ce que A ferme le chat.
+
       // Laisser un feedback visuel court après envoi
       setTimeout(() => setSendingFriendId(null), 600);
 
