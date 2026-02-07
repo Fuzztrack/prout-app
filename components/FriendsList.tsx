@@ -866,7 +866,6 @@ export function FriendsList({
   const lastSentSetAtRef = useRef<number>(0); // timestamp du dernier setLastSentMessages local (pour éviter un clear trop tôt)
   const lastPressTime = useRef(0); // Debounce pour les clics sur les amis
   const pendingCenterScrollFriendIdRef = useRef<string | null>(null);
-  const processingReadIdsRef = useRef<Set<string>>(new Set());
   const keptReadMessagesRef = useRef<Map<string, PendingMessage[]>>(new Map()); // PRRT! : Messages reçus lus mais gardés visibles tant que le chat est ouvert
 
   
