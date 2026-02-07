@@ -567,8 +567,6 @@ const SentMessageStatus = ({ message }: { message: { text: string; status?: 'rea
   const [isRead, setIsRead] = useState(message?.status === 'read');
 
   useEffect(() => {
-    if (__DEV__) console.log('[CHAT_DEBUG] SentMessageStatus update:', message?.id, message?.status, 'isRead:', isRead);
-
     if (message && message.status !== 'read') {
       setDisplayedMessage(message);
       setIsRead(false);
@@ -576,7 +574,6 @@ const SentMessageStatus = ({ message }: { message: { text: string; status?: 'rea
     } else if (displayedMessage && (message?.status === 'read' || !message)) {
       if (!isRead) {
           setIsRead(true);
-          if (__DEV__) console.log('[CHAT_DEBUG] Animating to read (0.5 opacity) for:', message?.id);
           // PRRT! : opacité réduite sur la bulle quand lu (reste affiché tant que le chat est ouvert)
           RNAnimated.timing(opacity, {
             toValue: 0.5,
@@ -941,10 +938,9 @@ export function FriendsList({
     return () => clearTimeout(timer);
   }, [pendingMessages, expandedFriendId]);
 
-  // PRRT! Protocol : au démontage du chat (fermeture ou changement d'ami), nettoyer l'état local des messages lus et envoyés
+      // PRRT! Protocol : au démontage du chat (fermeture ou changement d'ami), nettoyer l'état local des messages lus et envoyés
   useEffect(() => {
     if (prevExpandedRef.current && !expandedFriendId) {
-      console.log('[CHAT_DEBUG] Chat closing for:', prevExpandedRef.current);
       const prevId = prevExpandedRef.current;
       
       // 1. Nettoyer les messages reçus gardés (keptReadMessagesRef)
@@ -1292,11 +1288,12 @@ useEffect(() => {
   const loadCache = async () => {
     // Purge one-shot du cache local des messages envoyés (debug)
     try {
-      const purgeFlag = await AsyncStorage.getItem('cache:last_sent_messages_purged_once_v2');
+      const purgeFlag = await AsyncStorage.getItem('cache:last_sent_messages_purged_once_v3');
       if (!purgeFlag) {
         await AsyncStorage.removeItem(CACHE_KEY_LAST_SENT_MESSAGES);
-        await AsyncStorage.setItem('cache:last_sent_messages_purged_once_v2', '1');
+        await AsyncStorage.setItem('cache:last_sent_messages_purged_once_v3', '1');
         if (__DEV__) {
+           console.log('[CACHE] Purged last sent messages cache (v3)');
         }
       }
     } catch {
@@ -2015,9 +2012,7 @@ useEffect(() => {
                     return timeA - timeB;
                   });
                   next[uid] = merged;
-                  if (__DEV__ && expandedFriendIdRef.current === uid) {
-                      console.log('[CHAT_DEBUG] Final merged messages objects:', JSON.stringify(merged));
-                  }
+                  // Debug logs removed
                 } else if (serverMessages.length === 0 && dedupedLocalOnlyMessages.length === 0) {
                   // Si aucun message, on supprime la clé
                   delete next[uid];
@@ -2321,7 +2316,6 @@ useEffect(() => {
         .on('broadcast', { event: 'message-read' }, (payload) => {
             const deletedId = payload.payload?.id;
             const receiverId = payload.payload?.receiverId;
-            console.log('[CHAT_DEBUG] broadcast message-read received:', deletedId);
             if (!deletedId) return;
             setLastSentMessages((prev) => {
               let targetUserId: string | null = null;
@@ -2333,14 +2327,12 @@ useEffect(() => {
               if (!targetUserId) {
                 targetUserId = lastSentByIdRef.current[deletedId] || receiverId || null;
               }
-              console.log('[CHAT_DEBUG] target user for read:', targetUserId, 'expanded:', expandedFriendIdRef.current);
               
               if (targetUserId) {
                 const next: LastSentMap = {};
                 let changed = false;
                 
                 const isChatOpen = expandedFriendIdRef.current === targetUserId;
-                console.log('[CHAT_DEBUG] isChatOpen:', isChatOpen);
 
                 Object.entries(prev).forEach(([userId, messages]) => {
                   if (Array.isArray(messages)) {
