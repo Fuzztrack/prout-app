@@ -1862,6 +1862,10 @@ useEffect(() => {
                 const now = Date.now();
                 const readMessages = prevMessages.filter(msg => {
                   if (msg.status !== 'read') return false;
+                  
+                  // Si le chat est ouvert avec cet ami, on garde TOUS les messages lus tant qu'il est ouvert
+                  if (expandedFriendIdRef.current === uid) return true;
+
                   if (!msg.readAt) return false;
                   return now - msg.readAt < READ_ANIMATION_MS;
                 });
@@ -1879,12 +1883,22 @@ useEffect(() => {
                 // Cas 2: Messages NON LUS uniquement (on ignore complètement les messages lus)
                 const unreadMessages = prevMessages.filter(msg => msg.status !== 'read');
                 
-                // Cas 2: Messages 'sent' localement mais absents du serveur (temporaires, non lus)
-                // On garde UNIQUEMENT les messages sans ID (temporaires). Si un message a un ID
-                // mais n'est plus dans le serveur, il a été lu/supprimé => on ne le garde pas.
-                const droppedWithId = unreadMessages.filter(
+                // Cas 2: Messages 'sent' localement mais absents du serveur (temporaires, non lus ou lus récemment)
+                // Si un message a un ID mais n'est plus dans le serveur, il a été lu/supprimé.
+                
+                const droppedWithIdMessages = unreadMessages.filter(
                   msg => msg.id && !serverMessageIds.has(msg.id)
-                ).length;
+                );
+
+                // Si le chat est ouvert, on considère les messages disparus comme LUS et on les garde
+                if (expandedFriendIdRef.current === uid) {
+                   droppedWithIdMessages.forEach(msg => {
+                     // On le transforme en message lu pour le garder affiché
+                     const readMsg = { ...msg, status: 'read' as const, readAt: Date.now() };
+                     readMessages.push(readMsg);
+                   });
+                }
+                
                 const staleLocal = unreadMessages.filter(
                   msg => !msg.id && !isFreshSentMessage(msg)
                 ).length;
