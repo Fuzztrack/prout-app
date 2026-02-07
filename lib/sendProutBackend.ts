@@ -87,3 +87,28 @@ export async function markMessageReadViaBackend(
   }
 }
 
+export async function purgeChatViaBackend(userId: string, friendId: string) {
+  const API_URL = 'https://prout-backend.onrender.com/prout/purge';
+  const API_KEY = '82d6d94d97ad501a596bf866c2831623';
+
+  try {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': API_KEY,
+      },
+      body: JSON.stringify({ userId, friendId }),
+    });
+
+    if (!res.ok) {
+      console.warn(`Erreur backend purgeChat (${res.status})`);
+      return false;
+    }
+    return true;
+  } catch (err: any) {
+    console.warn('Erreur réseau/Backend purgeChat:', err?.message || err);
+    return false;
+  }
+}
+

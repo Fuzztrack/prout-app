@@ -25,7 +25,7 @@ import Animated, {
 import { RINGER_MODE, VolumeManager } from 'react-native-volume-manager';
 import { ensureContactPermissionWithDisclosure } from '../lib/contactConsent';
 import { normalizePhone } from '../lib/normalizePhone';
-import { markMessageReadViaBackend, sendProutViaBackend } from '../lib/sendProutBackend';
+import { markMessageReadViaBackend, purgeChatViaBackend, sendProutViaBackend } from '../lib/sendProutBackend';
 // Import supprimé : on utilise maintenant sync_contacts (fonction SQL Supabase)
 import i18n from '../lib/i18n';
 import { supabase } from '../lib/supabase';
@@ -999,7 +999,17 @@ export function FriendsList({
       // PRRT! Protocol : Force sync à la fermeture pour être sûr que l'état local correspond au serveur
       // (supprime les messages qui ont été lus/supprimés sur le serveur mais dont on aurait raté le broadcast)
       // Comme expandedFriendIdRef est maintenant null (ou changé), loadData va nettoyer les messages absents du serveur.
-      loadData(false, false, false);
+      void (async () => {
+        // PURGE serveur : supprimer tous les pending_messages de ce chat (dans les 2 sens)
+        // pour éviter que les anciens messages réapparaissent après redémarrage.
+        const ok = currentUserId ? await purgeChatViaBackend(currentUserId, prevId) : true;
+
+        // Si la purge serveur a échoué (backend pas à jour, 404, etc.), on évite loadData ici
+        // pour ne pas réinjecter les anciens messages depuis le serveur.
+        if (ok) {
+          loadData(false, false, false);
+        }
+      })();
     }
     prevExpandedRef.current = expandedFriendId;
   }, [expandedFriendId, unreadCache]);
