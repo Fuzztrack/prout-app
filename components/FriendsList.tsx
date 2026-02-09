@@ -30,6 +30,7 @@ import { markMessageReadViaBackend, sendProutViaBackend } from '../lib/sendProut
 import i18n from '../lib/i18n';
 import { supabase } from '../lib/supabase';
 import { SearchBar } from './SearchBar';
+import { SOUND_CATEGORY_KEY, type SoundCategory } from './SoundcheckSelector';
 const ANIM_IMAGES = [
   require('../assets/images/animprout1.png'),
   require('../assets/images/animprout2.png'),
@@ -75,6 +76,51 @@ const PROUT_SOUNDS_ANDROID: { [key: string]: any } = {
 };
 const PROUT_SOUNDS = Platform.OS === 'ios' ? PROUT_SOUNDS_IOS : PROUT_SOUNDS_ANDROID;
 const SOUND_KEYS = Object.keys(PROUT_SOUNDS);
+
+// Soundcheck: catégories → sons envoyés (clé = base du nom de fichier .wav)
+const SOUND_KEYS_BY_CATEGORY: Record<SoundCategory, string[]> = {
+  prrt: ['prrt1', 'prrt6', 'prrt8', 'prrt9', 'prrt17', 'prrt18'],
+  bzzz: ['bzzz1', 'bzzz2'],
+  // NB: catégorie = 'trll' mais fichiers = trrl*.wav
+  trll: ['trrl1', 'trrl2', 'trrl3'],
+};
+
+// Mapping des sons locaux joués côté expéditeur (doit matcher les fichiers présents dans assets/sounds)
+const SOUND_ASSETS: Record<string, any> = {
+  // PRRT
+  prrt1: require('../assets/sounds/prrt1.wav'),
+  prrt6: require('../assets/sounds/prrt6.wav'),
+  prrt8: require('../assets/sounds/prrt8.wav'),
+  prrt9: require('../assets/sounds/prrt9.wav'),
+  prrt17: require('../assets/sounds/prrt17.wav'),
+  prrt18: require('../assets/sounds/prrt18.wav'),
+  // BZZZ
+  bzzz1: require('../assets/sounds/bzzz1.wav'),
+  bzzz2: require('../assets/sounds/bzzz2.wav'),
+  // TRRL
+  trrl1: require('../assets/sounds/trrl1.wav'),
+  trrl2: require('../assets/sounds/trrl2.wav'),
+  trrl3: require('../assets/sounds/trrl3.wav'),
+};
+
+function pickRandom<T>(arr: T[]) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+async function getSelectedSoundCategory(): Promise<SoundCategory> {
+  try {
+    const saved = await AsyncStorage.getItem(SOUND_CATEGORY_KEY);
+    if (saved === 'prrt' || saved === 'bzzz' || saved === 'trll') return saved;
+  } catch (_) {}
+  return 'prrt';
+}
+
+function getDisplaySoundLabel(soundKey: string) {
+  if (soundKey.startsWith('prrt')) return 'PRRT!';
+  if (soundKey.startsWith('bzzz')) return 'BZZZ!';
+  if (soundKey.startsWith('trrl')) return 'TRRL!';
+  return i18n.t(`prout_names.${soundKey}`) || soundKey;
+}
 
 // Clés de cache pour AsyncStorage
 const CACHE_KEY_FRIENDS = 'cached_friends_list';
@@ -3117,11 +3163,12 @@ useEffect(() => {
     try {
       setSendingFriendId(recipient.id);
       // ⚡ Choisir un prout aléatoire et préparer le message tout de suite
-      const randomKey = SOUND_KEYS[Math.floor(Math.random() * SOUND_KEYS.length)];
+      const selectedCategory = await getSelectedSoundCategory();
+      const randomKey = pickRandom(SOUND_KEYS_BY_CATEGORY[selectedCategory] || SOUND_KEYS_BY_CATEGORY.prrt);
       const customMessage = (messageDrafts[recipient.id] || '').trim().slice(0, 140);
 
       // Feedback immédiat côté expéditeur
-      const proutName = i18n.t(`prout_names.${randomKey}`) || randomKey;
+      const proutName = getDisplaySoundLabel(randomKey);
       showToast(`${proutName} !`);
       if (onProutSent) {
         onProutSent();
@@ -3129,7 +3176,7 @@ useEffect(() => {
 
       // Jouer localement avec expo-av sans bloquer l'envoi
       if (!isSilentMode) {
-        const soundFile = PROUT_SOUNDS[randomKey];
+        const soundFile = SOUND_ASSETS[randomKey] ?? PROUT_SOUNDS[randomKey];
         void (async () => {
           try {
             const { sound } = await Audio.Sound.createAsync(soundFile);
