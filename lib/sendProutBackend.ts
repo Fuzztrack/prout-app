@@ -87,6 +87,34 @@ export async function markMessageReadViaBackend(
   }
 }
 
+export async function markMessagesReadViaBackend(
+  messageIds: string[],
+  senderId: string,
+  receiverId: string
+) {
+  const API_URL = 'https://prout-backend.onrender.com/prout/readMany';
+  const API_KEY = '82d6d94d97ad501a596bf866c2831623';
+
+  try {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': API_KEY,
+      },
+      body: JSON.stringify({
+        messageIds,
+        senderId,
+        receiverId,
+      }),
+    });
+
+    return { ok: res.ok, status: res.status };
+  } catch (err: any) {
+    return { ok: false as const, status: undefined as number | undefined };
+  }
+}
+
 export async function purgeChatViaBackend(userId: string, friendId: string) {
   const API_URL = 'https://prout-backend.onrender.com/prout/purge';
   const API_KEY = '82d6d94d97ad501a596bf866c2831623';
@@ -112,3 +140,20 @@ export async function purgeChatViaBackend(userId: string, friendId: string) {
   }
 }
 
+export async function markConversationReadViaBackend(senderId: string, receiverId: string) {
+  const API_URL = 'https://prout-backend.onrender.com/prout/readConversation';
+  const API_KEY = '82d6d94d97ad501a596bf866c2831623';  try {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': API_KEY,
+      },
+      body: JSON.stringify({ senderId, receiverId }),
+    });
+
+    return { ok: res.ok, status: res.status };
+  } catch {
+    return { ok: false as const, status: undefined as number | undefined };
+  }
+}

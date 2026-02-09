@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+// Force git update 2
 import AsyncStorage from '@react-native-async-storage/async-storage';
 // import { useAudioPlayer } from 'expo-audio'; // Supprimé
 import { Audio } from 'expo-av';
@@ -25,7 +26,7 @@ import Animated, {
 import { RINGER_MODE, VolumeManager } from 'react-native-volume-manager';
 import { ensureContactPermissionWithDisclosure } from '../lib/contactConsent';
 import { normalizePhone } from '../lib/normalizePhone';
-import { markMessageReadViaBackend, sendProutViaBackend } from '../lib/sendProutBackend';
+import { markConversationReadViaBackend, markMessageReadViaBackend, sendProutViaBackend } from '../lib/sendProutBackend';
 // Import supprimé : on utilise maintenant sync_contacts (fonction SQL Supabase)
 import i18n from '../lib/i18n';
 import { supabase } from '../lib/supabase';
@@ -943,7 +944,6 @@ export function FriendsList({
   const lastSentByIdRef = useRef<Record<string, string>>({});
   const pendingReadIdsRef = useRef<Set<string>>(new Set());
   // Anti-spam markRead (backoff) : Map<messageId, lastAttemptAtMs>
-  const processingReadIdsRef = useRef<Map<string, number>>(new Map());
   // Messages envoyés masqués après fermeture de chat (purge locale)
   const hiddenSentIdsRef = useRef<Set<string>>(new Set());
   const pendingReadRemovalTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
@@ -1045,6 +1045,12 @@ export function FriendsList({
   const pendingCenterScrollFriendIdRef = useRef<string | null>(null);
   const keptReadMessagesRef = useRef<Map<string, PendingMessage[]>>(new Map()); // PRRT! : Messages reçus lus mais gardés visibles tant que le chat est ouvert
 
+  // Backend feature flags / throttles (évite spam 404/429)
+  const readConversationUnsupportedRef = useRef(false);
+  const readConversationWarnedRef = useRef(false);
+  const lastConversationReadByFriendRef = useRef<Map<string, { sig: string; at: number }>>(new Map());
+  const CONVERSATION_READ_DEDUP_MS = 3_000;
+
   
   // Polling simple (sans backoff exponentiel)
   const flatListRef = useRef<FlatList>(null);
@@ -1072,31 +1078,114 @@ export function FriendsList({
   // MAIS : Ne pas les supprimer de l'affichage tant que le chat est ouvert
   useEffect(() => {
     if (!expandedFriendId || !currentUserId) return;
-    const unreadFromFriend = pendingMessages.filter(
-      m => m.from_user_id === expandedFriendId && !m.message_content?.startsWith('READ:')
-    );
-    if (unreadFromFriend.length > 0) {
-      // 1. Marquer comme "lus à garder" (ne pas les supprimer de l'UI)
-      const currentKept = keptReadMessagesRef.current.get(expandedFriendId) || [];
-      const newKept = unreadFromFriend.filter(u => !currentKept.some(c => c.id === u.id));
-      if (newKept.length > 0) {
-        keptReadMessagesRef.current.set(expandedFriendId, [...currentKept, ...newKept]);
-      }
+    // IMPORTANT : inclure aussi les messages déjà "READ:" (qui peuvent rester bloqués en DB)
+    // Sinon, ils ne seront jamais purgés et réapparaîtront après relance de l’app.
+    const fromFriend = pendingMessages.filter((m) => m.from_user_id === expandedFriendId);
+    if (fromFriend.length === 0) return;
 
-      // 2. Mettre à jour le cache local des non-lus (pour badge, etc.) - optionnel si géré par ailleurs
-      setUnreadCache(prev => {
+    // 1) Garder visibles dans l’UI tant que le chat est ouvert
+    const currentKept = keptReadMessagesRef.current.get(expandedFriendId) || [];
+    const newKept = fromFriend.filter((u) => !currentKept.some((c) => c.id === u.id));
+    if (newKept.length > 0) {
+      keptReadMessagesRef.current.set(expandedFriendId, [...currentKept, ...newKept]);
+    }
+
+    // 2) Mettre à jour le cache local des non-lus (badge)
+    const unreadOnly = fromFriend.filter((m) => !(m.message_content?.startsWith('READ:') ?? false));
+    if (unreadOnly.length > 0) {
+      setUnreadCache((prev) => {
         const currentCache = prev[expandedFriendId] || [];
-        const newMsgs = unreadFromFriend.filter(u => !currentCache.some(c => c.id === u.id));
+        const newMsgs = unreadOnly.filter((u) => !currentCache.some((c) => c.id === u.id));
         if (newMsgs.length === 0) return prev;
         return { ...prev, [expandedFriendId]: [...currentCache, ...newMsgs] };
       });
-      
-      // 3. Dire au backend de supprimer (marquer lu) mais SANS supprimer localement via deletedMessagesCache ici
-      // Espacer les appels pour éviter 429 (rate limit backend)
-      unreadFromFriend.forEach((msg, i) => {
-        setTimeout(() => markMessageAsRead(msg.id), i * MARK_READ_DELAY_MS);
-      });
     }
+
+    // 3) Read conversation (fiable) : 1 appel backend qui supprime tous les messages A->B
+    // (évite les 429 + assure la purge)
+    (async () => {
+      const ids = Array.from(new Set(fromFriend.map((m) => m.id).filter(Boolean)));
+      if (ids.length === 0) return;
+      // Dedup court : évite de rappeler en boucle si pendingMessages bouge sans nouveaux IDs
+      const sig = `${ids.length}:${ids[0]}:${ids[ids.length - 1]}`;
+      const prev = lastConversationReadByFriendRef.current.get(expandedFriendId);
+      const now = Date.now();
+      if (prev && prev.sig === sig && now - prev.at < CONVERSATION_READ_DEDUP_MS) return;
+      lastConversationReadByFriendRef.current.set(expandedFriendId, { sig, at: now });
+
+      if (readConversationUnsupportedRef.current) return;
+
+      const markLocalReadForIds = () => {
+        // Marquer localement comme "lu" (dimmer) et garantir purge à la fermeture
+        setPendingMessages((prevMsgs) =>
+          prevMsgs.map((m) => {
+            if (m.from_user_id !== expandedFriendId) return m;
+            if (!m.id) return m;
+            if (!ids.includes(m.id)) return m;
+            if (m.message_content?.startsWith('READ:')) return m;
+            return { ...m, message_content: `READ:${m.message_content || ''}` };
+          })
+        );
+      };
+
+      const tryClientSideDeleteAndBroadcast = async () => {
+        // 1) Broadcast batch à l'expéditeur (A) pour que ses messages passent "lu" localement
+        const channel = supabase.channel(`room-${expandedFriendId}`);
+        channel.subscribe(async (status) => {
+          if (status === 'SUBSCRIBED') {
+            await channel.send({
+              type: 'broadcast',
+              event: 'message-read',
+              payload: { ids, senderId: expandedFriendId, receiverId: currentUserId },
+            });
+            setTimeout(() => supabase.removeChannel(channel), 5000);
+          }
+        });
+
+        // 2) Delete batch en DB (souvent autorisé côté receiver via RLS)
+        // On scinde en paquets pour éviter les limites de payload.
+        const CHUNK = 200;
+        for (let i = 0; i < ids.length; i += CHUNK) {
+          const chunk = ids.slice(i, i + CHUNK);
+          await supabase
+            .from('pending_messages')
+            .delete()
+            .in('id', chunk)
+            .eq('to_user_id', currentUserId);
+        }
+      };
+
+      const res = await markConversationReadViaBackend(expandedFriendId, currentUserId);
+      if (res.ok) {
+        markLocalReadForIds();
+        return;
+      }
+
+      if (res.status === 404) {
+        readConversationUnsupportedRef.current = true;
+        if (!readConversationWarnedRef.current) {
+          readConversationWarnedRef.current = true;
+          console.warn('Erreur backend readConversation (404) — backend pas encore redéployé');
+        }
+        // Fallback immédiat sans backend : on marque localement + on tente delete batch Supabase + broadcast batch
+        markLocalReadForIds();
+        try {
+          await tryClientSideDeleteAndBroadcast();
+        } catch {
+          // Si RLS bloque, le message restera en DB mais ne réapparaîtra plus dans l'UI (READ: + purge locale à la fermeture).
+        }
+        return;
+      }
+
+      // Autres erreurs : on évite toute boucle (pas de purge backend => 429).
+      // On tente quand même le fallback client-side (best-effort) pour ne pas laisser la conversation persister.
+      markLocalReadForIds();
+      try {
+        await tryClientSideDeleteAndBroadcast();
+      } catch {
+        // noop
+      }
+    })();
   }, [expandedFriendId, currentUserId, pendingMessages]);
 
   // Marquer comme lu automatiquement les nouveaux messages qui arrivent pendant que le sticky est ouvert
@@ -1112,14 +1201,13 @@ export function FriendsList({
           return { ...prev, [expandedFriendId]: [...currentCache, ...newMsgs] };
         });
         timer = setTimeout(() => {
-          unreadForActive.forEach((msg, i) => {
-            setTimeout(() => markMessageAsRead(msg.id), i * MARK_READ_DELAY_MS);
-          });
+          // On laisse l'effet "à l'entrée" faire le readConversation (dedup/throttle).
+          // Évite de spammer le backend pendant que le chat est ouvert.
         }, 1500);
       }
     }
     return () => clearTimeout(timer);
-  }, [pendingMessages, expandedFriendId]);
+  }, [pendingMessages, expandedFriendId, currentUserId]);
 
       // PRRT! Protocol : au démontage du chat (fermeture ou changement d'ami), nettoyer l'état local des messages lus et envoyés
   useEffect(() => {
@@ -1209,6 +1297,9 @@ export function FriendsList({
     };
   }, []);
 
+  // Durée de vie maximale d'un message (24h)
+  const MESSAGE_TTL_MS = 24 * 60 * 60 * 1000;
+
   // Messages éphémères (pending_messages) — tri chronologique pour affichage type WhatsApp (plus ancien en haut, plus récent en bas)
   const fetchPendingMessages = async (userId: string) => {
     const { data, error } = await supabase
@@ -1220,9 +1311,29 @@ export function FriendsList({
       return;
     }
     
+    const now = Date.now();
+    const validMessages: any[] = [];
+    const expiredIds: string[] = [];
+
+    (data || []).forEach((m: any) => {
+      const msgTime = new Date(m.created_at).getTime();
+      if (now - msgTime > MESSAGE_TTL_MS) {
+        expiredIds.push(m.id);
+      } else {
+        validMessages.push(m);
+      }
+    });
+
+    if (expiredIds.length > 0) {
+      // Nettoyage silencieux en background des messages périmés
+      supabase.from('pending_messages').delete().in('id', expiredIds).then(({ error }) => {
+        if (error) console.log('Autocleanup received failed', error);
+      });
+    }
+
     // Filtrer les messages qui sont dans la liste noire locale (supprimés mais pas encore sync)
     // NOTE: On NE filtre PAS "READ:" (session gelée). Ils seront affichés en opacité réduite.
-    const serverMessages = (data || [])
+    const serverMessages = validMessages
       .filter(m => !deletedMessagesCache.has(m.id))
       .map((m: any) => ({ ...m, isPendingDelete: false })) as PendingMessage[];
 
@@ -1275,111 +1386,6 @@ export function FriendsList({
     // Le backend met à jour last_interaction_at, mais cette mise à jour optimiste rend l'affichage instantané
   };
 
-  const markMessageAsRead = async (messageId: string) => {
-    // Backoff anti-spam (évite 429) : max 1 tentative / 15s / message
-    const now = Date.now();
-    const lastAttempt = processingReadIdsRef.current.get(messageId);
-    if (lastAttempt && now - lastAttempt < 15000) {
-      return;
-    }
-    processingReadIdsRef.current.set(messageId, now);
-
-    try {
-      if (__DEV__) {
-        const msg = pendingMessages.find(m => m.id === messageId);
-      }
-      
-      // Trouver l'expéditeur pour l'info
-      const msg = pendingMessages.find(m => m.id === messageId);
-      const senderId = msg?.from_user_id;
-
-      // PRRT! Protocol v2 : Si le chat est ouvert avec cet expéditeur, on ne supprime PAS le message localement
-      // On le déplace dans keptReadMessagesRef et on le garde dans pendingMessages (ou on le réinjecte via fetchPendingMessages)
-      // On ne l'ajoute PAS à deletedMessagesCache pour ne pas le masquer dans fetchPendingMessages
-      
-      const isChatOpenWithSender = senderId && senderId === expandedFriendIdRef.current;
-
-      if (isChatOpenWithSender) {
-          // 1. Ajouter à keptReadMessagesRef pour être sûr de le garder
-          const currentKept = keptReadMessagesRef.current.get(senderId) || [];
-          if (msg && !currentKept.some(k => k.id === messageId)) {
-             keptReadMessagesRef.current.set(senderId, [...currentKept, msg]);
-          }
-          // 2. NE PAS l'ajouter à deletedMessagesCache
-          // 3. NE PAS le supprimer de pendingMessages
-          // On laisse le message visible.
-      } else {
-          // Comportement standard (chat fermé ou autre)
-          // 1. Ajouter à la liste noire locale pour empêcher la réapparition immédiate via polling
-          deletedMessagesCache.add(messageId);
-          // Optimiste : on retire de la liste locale tout de suite
-          setPendingMessages(prev => prev.filter(m => m.id !== messageId));
-      }
-
-      // Garantir que le message reste visible dans le sticky tant qu'il est ouvert (via unreadCache - ancien système, toujours utile ?)
-      if (msg?.from_user_id) {
-        setUnreadCache(prev => {
-          const current = prev[msg.from_user_id] || [];
-          const already = current.some(m => m.id === msg.id);
-          if (already) return prev;
-          return {
-            ...prev,
-            [msg.from_user_id]: [
-              ...current,
-              { id: msg.id, message_content: msg.message_content, created_at: msg.created_at },
-            ],
-          };
-        });
-      }
-
-      // 2. Envoyer le signal Broadcast directement au client A (Sender) pour l'instantanéité
-      if (senderId) {
-
-        // On utilise un channel éphémère pour envoyer le signal
-        const channel = supabase.channel(`room-${senderId}`);
-        channel.subscribe(async (status) => {
-          if (status === 'SUBSCRIBED') {
-            // Rafale de 3 envois pour assurer la réception
-            for (let i = 0; i < 3; i++) {
-            await channel.send({
-              type: 'broadcast',
-              event: 'message-read',
-              payload: { id: messageId, senderId, receiverId: currentUserId }
-            });
-                await new Promise(resolve => setTimeout(resolve, 300));
-            }
-            
-            // Nettoyage après un délai suffisant
-            setTimeout(() => supabase.removeChannel(channel), 5000);
-          }
-        });
-      }
-
-      // On demande au BACKEND de faire le travail (Delete DB + Broadcast signal de secours)
-      // C'est beaucoup plus fiable car le backend a tous les droits
-      // Retry automatique en cas d'erreur 429 ou autre
-      const attemptMarkRead = async (retryCount = 0) => {
-         try {
-              if (senderId) {
-                await markMessageReadViaBackend(messageId, senderId);
-              } else {
-                // Fallback si on a perdu l'info sender (rare)
-                await supabase.from('pending_messages').delete().eq('id', messageId);
-              }
-         } catch (e) {
-             console.warn(`Attempt ${retryCount + 1} failed for markMessageAsRead:`, e);
-             if (retryCount < 3) {
-                 setTimeout(() => attemptMarkRead(retryCount + 1), 1000 * (retryCount + 1));
-             }
-         }
-      };
-      
-      attemptMarkRead();
-      
-    } catch (e) {
-      console.warn('Erreur markMessageAsRead:', e);
-    }
-  };
 
   // Messages envoyés par moi et non lus (persistance du dernier message)
   const fetchSentPendingMessages = async (userId: string) => {
@@ -1390,8 +1396,29 @@ export function FriendsList({
     if (error) {
       return null;
     }
+
+    const now = Date.now();
+    const validMessages: any[] = [];
+    const expiredIds: string[] = [];
+
+    (data || []).forEach((m: any) => {
+      const msgTime = new Date(m.created_at).getTime();
+      if (now - msgTime > MESSAGE_TTL_MS) {
+        expiredIds.push(m.id);
+      } else {
+        validMessages.push(m);
+      }
+    });
+
+    if (expiredIds.length > 0) {
+      // Nettoyage silencieux en background des messages périmés
+      supabase.from('pending_messages').delete().in('id', expiredIds).then(({ error }) => {
+        if (error) console.log('Autocleanup sent failed', error);
+      });
+    }
+
     // Session gelée: on ne filtre pas READ ici (affichage grisé côté UI)
-    return data || [];
+    return validMessages;
   };
 
   const pickLatestTimestamp = (a?: string | null, b?: string | null) => {
@@ -2107,12 +2134,19 @@ useEffect(() => {
                     }
                     const rawText = m.message_content || '';
                     const isRead = rawText.startsWith('READ:');
+                    const text = isRead ? rawText.slice('READ:'.length) : rawText;
 
-                    // Ne pas ajouter les messages lus (avec "READ:") car ils sont en cours de suppression
-                    if (isRead) return;
+                    // IMPORTANT : Si le message est marqué "READ:" côté serveur, on doit le traiter
+                    // pour mettre à jour le statut "read" côté client, même s'il sera supprimé dans 5s
+                    // Cela garantit que A voit que son message a été lu par B
+                    const message: LastSentMessage = { 
+                      text, 
+                      ts: m.created_at, 
+                      id: m.id, 
+                      status: isRead ? 'read' as const : undefined,
+                      readAt: isRead ? Date.now() : undefined
+                    };
                     
-                    const text = rawText;
-                    const message: LastSentMessage = { text, ts: m.created_at, id: m.id, status: undefined };
                     // Purger les vieux messages côté serveur aussi
                     if (!isFreshSentMessage(message)) {
                       droppedStaleServer += 1;
@@ -2120,6 +2154,8 @@ useEffect(() => {
                     }
                     
                     // Ajouter le message au tableau pour cet utilisateur
+                    // Même si le message est marqué "READ:", on l'ajoute pour que le statut soit synchronisé
+                    // Il sera filtré plus tard si le chat n'est pas ouvert (voir purge ligne 2275)
                     if (!serverMap[m.to_user_id]) {
                       serverMap[m.to_user_id] = [];
                     }
@@ -2168,7 +2204,17 @@ useEffect(() => {
                 const readIds = new Set(readMessages.map(m => m.id).filter(Boolean));
                 
                 // Filtrer les messages serveur si on a déjà marqué localement "lu"
-                const filteredServerMessages = serverMessages.filter(m => !readIds.has(m.id));
+                // MAIS : garder les messages avec "READ:" pour mettre à jour le statut même s'ils sont en cours de suppression
+                const filteredServerMessages = serverMessages.filter(m => {
+                  // Si le message est marqué "READ:" côté serveur, on doit le traiter pour mettre à jour le statut
+                  const isReadOnServer = m.text?.startsWith('READ:') || m.message_content?.startsWith('READ:');
+                  if (isReadOnServer) {
+                    // Ne pas filtrer : on veut mettre à jour le statut "read" même si le message sera supprimé
+                    return true;
+                  }
+                  // Sinon, filtrer si déjà marqué localement "lu"
+                  return !readIds.has(m.id);
+                });
                 if (__DEV__ && readIds.size > 0) {
                   const filteredCount = serverMessages.length - filteredServerMessages.length;
                   if (filteredCount > 0) {
@@ -2229,24 +2275,90 @@ useEffect(() => {
                 });
                 
                 // Fusionner : messages du serveur + messages locaux uniquement (temporaires, non lus)
-                const merged = [...filteredServerMessages, ...readMessages];
+                // IMPORTANT : Traiter les messages avec "READ:" pour mettre à jour le statut même s'ils sont en cours de suppression
+                const processedServerMessages = filteredServerMessages.map(m => {
+                  // Le texte a déjà été nettoyé ligne 2110, donc on vérifie le statut plutôt que le texte
+                  // Si le message a déjà status: 'read', c'est qu'il était marqué "READ:" côté serveur
+                  if (m.status === 'read') {
+                    // S'assurer que readAt est défini
+                    return { ...m, readAt: m.readAt || Date.now() };
+                  }
+                  // Vérifier aussi dans message_content au cas où (fallback)
+                  const rawText = m.message_content || m.text || '';
+                  const isReadOnServer = rawText.startsWith('READ:');
+                  if (isReadOnServer) {
+                    // Marquer comme lu même si le message sera supprimé dans 5s
+                    return { ...m, status: 'read' as const, readAt: Date.now(), text: rawText.slice('READ:'.length) };
+                  }
+                  return m;
+                });
+                // Fusionner en dédupliquant par ID : privilégier les messages serveur avec status 'read'
+                const mergedById = new Map<string, LastSentMessage>();
                 
-                // Ajouter les messages locaux uniquement (temporaires, non lus)
+                // 1. Ajouter d'abord les messages serveur (ils ont la source de vérité)
+                processedServerMessages.forEach(msg => {
+                  if (msg.id) {
+                    mergedById.set(msg.id, msg);
+                  } else {
+                    // Message sans ID : utiliser le texte comme clé temporaire
+                    const key = `temp-${msg.text}-${msg.ts}`;
+                    if (!mergedById.has(key)) {
+                      mergedById.set(key, msg);
+                    }
+                  }
+                });
+                
+                // 2. Ajouter les messages lus localement (pour l'animation) seulement s'ils ne sont pas déjà dans mergedById
+                // IMPORTANT : Les messages serveur avec status 'read' ont toujours priorité sur les messages locaux
+                readMessages.forEach(msg => {
+                  if (msg.id) {
+                    const existing = mergedById.get(msg.id);
+                    // Si le message serveur n'existe pas ou n'est pas encore marqué comme lu, utiliser le message local
+                    if (!existing || existing.status !== 'read') {
+                      mergedById.set(msg.id, msg);
+                    }
+                    // Sinon, garder le message serveur qui a déjà status 'read' (priorité)
+                  } else if (!msg.id) {
+                    // Message sans ID : vérifier s'il existe déjà par texte
+                    const key = `temp-${msg.text}-${msg.ts}`;
+                    if (!mergedById.has(key)) {
+                      mergedById.set(key, msg);
+                    }
+                  }
+                });
+                
+                // 3. Ajouter les messages locaux uniquement (temporaires, non lus)
                 dedupedLocalOnlyMessages.forEach(localMsg => {
                   const now = Date.now();
                   const msgTime = new Date(localMsg.ts).getTime();
                   const age = now - msgTime;
                   if (age < 86400000) { // 24 heures
-                    merged.push(localMsg);
+                    if (localMsg.id && !mergedById.has(localMsg.id)) {
+                      mergedById.set(localMsg.id, localMsg);
+                    } else if (!localMsg.id) {
+                      const key = `temp-${localMsg.text}-${localMsg.ts}`;
+                      if (!mergedById.has(key)) {
+                        mergedById.set(key, localMsg);
+                      }
+                    }
                   }
                 });
                 
-                // Trier par timestamp
+                const merged = Array.from(mergedById.values());
+                
+                // Trier par timestamp de manière stricte et fiable
                 if (merged.length > 0) {
                   merged.sort((a, b) => {
-                    const timeA = new Date(a.ts).getTime();
-                    const timeB = new Date(b.ts).getTime();
-                    return timeA - timeB;
+                    const timeA = new Date(a.ts || a.created_at || 0).getTime();
+                    const timeB = new Date(b.ts || b.created_at || 0).getTime();
+                    // Si les timestamps sont égaux ou invalides, utiliser l'ordre d'ajout comme fallback
+                    if (timeA === timeB || (!timeA && !timeB)) {
+                      // Garder l'ordre relatif : messages reçus avant messages envoyés si même timestamp
+                      return 0;
+                    }
+                    if (!timeA || isNaN(timeA)) return 1; // Messages sans timestamp à la fin
+                    if (!timeB || isNaN(timeB)) return -1;
+                    return timeA - timeB; // Tri chronologique strict
                   });
                   next[uid] = merged;
                   // Debug logs removed
@@ -2268,15 +2380,19 @@ useEffect(() => {
               }
 
               // Purge des anciens messages : garder seulement les messages récents (TTL) et les "lus" uniquement pour le chat ouvert
+              // IMPORTANT : Si le chat est fermé, on supprime TOUS les messages lus (même ceux qui étaient gardés temporairement)
               const activeId = expandedFriendIdRef.current;
               const pruned: LastSentMap = {};
               Object.entries(finalNext).forEach(([uid, arr]) => {
                 if (!Array.isArray(arr)) return;
-                const kept = arr.filter(
-                  (msg) =>
-                    isFreshSentMessage(msg) &&
-                    (msg.status !== 'read' || activeId === uid)
-                );
+                const kept = arr.filter((msg) => {
+                  // Toujours garder les messages non-lus
+                  if (msg.status !== 'read') return isFreshSentMessage(msg);
+                  // Si le chat est ouvert : garder les messages lus (pour l'animation)
+                  if (activeId === uid) return isFreshSentMessage(msg);
+                  // Si le chat est fermé : supprimer TOUS les messages lus (pas de persistance)
+                  return false;
+                });
                 if (kept.length > 0) pruned[uid] = kept;
               });
               updateLastSentIndex(pruned);
@@ -2477,20 +2593,19 @@ useEffect(() => {
                     const readAt = Date.now();
                     const strippedText = text.slice('READ:'.length);
 
-                    // Trouver le message à mettre à jour : par id, sinon dernier sans id ou texte correspondant
+                    // IMPORTANT : Trouver le message par ID uniquement (évite de marquer le mauvais message)
+                    // Ne jamais utiliser "dernier non-lu" car cela peut marquer le mauvais message si l'ordre n'est pas correct
                     let matchIndex = messages.findIndex(msg => msg.id === id);
-                    if (matchIndex === -1) {
-                      const lastWithoutId = messages.map((msg, i) => ({ msg, i })).reverse().find(
-                        ({ msg }) => !msg.id && (msg.text === strippedText || msg.text === text)
+                    // Fallback uniquement si pas d'ID ET texte correspond exactement (plus sûr)
+                    if (matchIndex === -1 && id) {
+                      // Chercher par texte correspondant uniquement si on a un ID mais qu'il ne matche pas
+                      // (cas où le message n'a pas encore d'ID côté client mais en a côté serveur)
+                      const textMatch = messages.findIndex(msg => 
+                        !msg.id && (msg.text === strippedText || msg.text === text)
                       );
-                      if (lastWithoutId) matchIndex = lastWithoutId.i;
+                      if (textMatch !== -1) matchIndex = textMatch;
                     }
-                    if (matchIndex === -1) {
-                      const lastUnread = messages.map((msg, i) => ({ msg, i })).reverse().find(
-                        ({ msg }) => msg.status !== 'read'
-                      );
-                      if (lastUnread) matchIndex = lastUnread.i;
-                    }
+                    // Ne PAS utiliser "dernier non-lu" comme fallback : trop risqué pour l'ordre chronologique
 
                     if (matchIndex === -1) return prev;
 
@@ -2584,67 +2699,57 @@ useEffect(() => {
       const broadcastChannel = supabase
         .channel(`room-${user.id}`)
         .on('broadcast', { event: 'message-read' }, (payload) => {
-            const deletedId = payload.payload?.id;
             const receiverId = payload.payload?.receiverId;
-            if (!deletedId) return;
-            setLastSentMessages((prev) => {
-              let targetUserId: string | null = null;
-              Object.entries(prev).forEach(([userId, messages]) => {
-                if (Array.isArray(messages) && messages.some(msg => msg.id === deletedId)) {
-                  targetUserId = userId;
-                }
-              });
-              if (!targetUserId) {
-                targetUserId = lastSentByIdRef.current[deletedId] || receiverId || null;
-              }
-              
-              if (targetUserId) {
-                const next: LastSentMap = {};
-                let changed = false;
-                const isChatOpen = expandedFriendIdRef.current === targetUserId;
-                const messages = prev[targetUserId];
-                const hasMatchById = Array.isArray(messages) && messages.some(msg => msg.id === deletedId);
-                const lastUnreadIdx = Array.isArray(messages)
-                  ? messages.map((msg, i) => ({ msg, i })).reverse().findIndex(({ msg }) => msg.status !== 'read')
-                  : -1;
-                const fallbackIdx = lastUnreadIdx === -1 ? -1 : messages!.length - 1 - lastUnreadIdx;
+            const singleId = payload.payload?.id;
+            const ids: string[] = Array.isArray(payload.payload?.ids)
+              ? payload.payload.ids
+              : (singleId ? [singleId] : []);
+            if (ids.length === 0) return;
+            // Batch: 1 seule mise à jour de state pour tous les IDs (évite "seul le dernier")
+            const idsSet = new Set(ids);
+            ids.forEach((id) => pendingReadIdsRef.current.add(id));
 
-                Object.entries(prev).forEach(([userId, msgs]) => {
-                  if (!Array.isArray(msgs)) return;
-                  if (userId !== targetUserId) {
-                    next[userId] = msgs;
-                    return;
-                  }
-                  if (!isChatOpen) {
-                    const kept = msgs.filter(msg => msg.id !== deletedId);
-                    if (kept.length !== msgs.length) changed = true;
-                    if (kept.length > 0) next[userId] = kept;
-                    return;
-                  }
-                  const readAt = Date.now();
-                  const updated = msgs.map((msg, i) => {
-                    if (msg.id === deletedId) {
-                      changed = true;
-                      return { ...msg, status: 'read' as const, readAt };
-                    }
-                    if (!hasMatchById && fallbackIdx === i) {
-                      changed = true;
-                      return { ...msg, id: msg.id || deletedId, status: 'read' as const, readAt };
-                    }
-                    return msg;
-                  });
-                  next[userId] = updated;
-                });
-                if (changed) {
-                  updateLastSentIndex(next);
-                  saveLastSentMessagesCache(next);
-                  return next;
-                }
+            setLastSentMessages((prev) => {
+              const targetUserId: string | null = receiverId || null;
+              if (!targetUserId) return prev;
+
+              const msgs = prev[targetUserId];
+              if (!Array.isArray(msgs) || msgs.length === 0) return prev;
+
+              const isChatOpen = expandedFriendIdRef.current === targetUserId;
+              let changed = false;
+
+              if (!isChatOpen) {
+                const kept = msgs.filter((m) => !m.id || !idsSet.has(m.id));
+                if (kept.length !== msgs.length) changed = true;
+                if (!changed) return prev;
+
+                const next: LastSentMap = { ...prev };
+                if (kept.length > 0) next[targetUserId] = kept;
+                else delete next[targetUserId];
+                updateLastSentIndex(next);
+                saveLastSentMessagesCache(next);
+                return next;
               }
-              pendingReadIdsRef.current.add(deletedId);
-              loadData(false, false, false);
-              return prev;
+
+              const readAt = Date.now();
+              const updated = msgs.map((m) => {
+                if (m.id && idsSet.has(m.id) && m.status !== 'read') {
+                  changed = true;
+                  return { ...m, status: 'read' as const, readAt };
+                }
+                return m;
+              });
+
+              if (!changed) return prev;
+              const next: LastSentMap = { ...prev, [targetUserId]: updated };
+              updateLastSentIndex(next);
+              saveLastSentMessagesCache(next);
+              return next;
             });
+
+            // Un seul refresh après le batch
+            loadData(false, false, false);
         })
         .on('broadcast', { event: 'message-received' }, () => {
             loadData(false, false, false);
@@ -3133,12 +3238,8 @@ useEffect(() => {
             created_at: m.created_at,
           })),
         }));
-        // Marquer lu avec un délai pour laisser le temps de voir (espacés pour éviter 429)
-        setTimeout(() => {
-          unreadMessages.forEach((msg, i) => {
-            setTimeout(() => markMessageAsRead(msg.id), i * MARK_READ_DELAY_MS);
-          });
-        }, 1000);
+        // IMPORTANT : ne plus faire de "markRead" message-par-message ici (provoque 429 et désynchronise tout).
+        // Le marquage "lu" est géré par l'effet d'entrée du chat via `readConversation` (1 seul appel backend).
         pendingCenterScrollFriendIdRef.current = friend.id;
         // Marquer si on vient de la recherche (pour ajuster le padding sur Google Pixel)
         openedFromSearchRef.current = !!searchQuery.trim();
@@ -3625,7 +3726,7 @@ useEffect(() => {
             text: stripReadPrefix(m.message_content),
             ts: m.created_at,
             isMe: false,
-            dimmed: false,
+            dimmed: !!m.isPendingDelete || (m.message_content?.startsWith('READ:') ?? false),
             original: undefined
         })),
         ...(Array.isArray(mySentMessages) ? mySentMessages.map((msg, idx) => ({
@@ -3643,11 +3744,14 @@ useEffect(() => {
         };
         const timeA = getTs(a.ts);
         const timeB = getTs(b.ts);
-        // Si timestamps égaux : placer les messages de B (isMe=false) avant ceux de A (isMe=true)
-        if (timeA === timeB) return a.isMe ? 1 : -1;
-        // Si timestamp manquant : placer les messages de B avant ceux de A
-        if (timeA === 0 || timeB === 0) return a.isMe ? 1 : -1;
-        // Tri chronologique normal : plus récent = après
+        // Tri chronologique strict : utiliser le timestamp uniquement
+        // Si timestamps égaux : garder l'ordre d'ajout (pas de réorganisation arbitraire)
+        if (timeA === timeB && timeA > 0) return 0;
+        // Si timestamp manquant : placer à la fin (mais garder l'ordre relatif entre eux)
+        if (timeA === 0 && timeB === 0) return 0;
+        if (timeA === 0) return 1;
+        if (timeB === 0) return -1;
+        // Tri chronologique strict : plus ancien = avant, plus récent = après
         return timeA - timeB;
     });
 

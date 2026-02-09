@@ -17,13 +17,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SOUND_CATEGORY_KEY, type SoundCategory } from '@/components/SoundcheckSelector';
 
 const BACKGROUND_COLOR = '#ebb89b';
+const SOUND_ENABLED_KEY = 'soundcheck_sound_enabled';
 
 export default function SoundcheckScreen() {
   const router = useRouter();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [initialCategory, setInitialCategory] = useState<SoundCategory | null>(null);
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [soundEnabled, setSoundEnabled] = useState<boolean | null>(null); // null = loading
 
   // Taille du titre: on se base sur le vrai ratio de sound.png pour éviter
   // les "marges" visuelles créées par un ratio arbitraire + resizeMode="contain".
@@ -45,9 +46,15 @@ export default function SoundcheckScreen() {
   const showBackButton = !Device.isDevice;
 
   useEffect(() => {
+    // Charger la catégorie sélectionnée
     AsyncStorage.getItem(SOUND_CATEGORY_KEY).then((saved) => {
       setInitialCategory((saved as SoundCategory) || 'trll');
     }).catch(() => setInitialCategory('trll'));
+
+    // Charger l'état du son (par défaut: activé)
+    AsyncStorage.getItem(SOUND_ENABLED_KEY).then((saved) => {
+      setSoundEnabled(saved === null ? true : saved === 'true');
+    }).catch(() => setSoundEnabled(true));
   }, []);
 
   // Arrêter le son preview quand on quitte la page (swipe back ou flèche)
@@ -93,7 +100,9 @@ export default function SoundcheckScreen() {
         </View>
       </View>
       <View style={styles.selectorArea}>
-        <SoundcheckSelector initialCategory={initialCategory} soundEnabled={soundEnabled} />
+        {soundEnabled !== null && (
+          <SoundcheckSelector initialCategory={initialCategory} soundEnabled={soundEnabled} />
+        )}
       </View>
       {/* Bande sonore en bas (cliquable pour toggle son) */}
       <View style={[styles.bottomWave, { bottom: insets.bottom + 16 }]}>
@@ -102,7 +111,10 @@ export default function SoundcheckScreen() {
         </Text>
         <TouchableOpacity
           onPress={() => {
-            setSoundEnabled((prev) => !prev);
+            const newValue = !soundEnabled;
+            setSoundEnabled(newValue);
+            // Persister le choix pour toute la session
+            AsyncStorage.setItem(SOUND_ENABLED_KEY, String(newValue)).catch(() => {});
             if (soundEnabled) {
               stopCurrentPreviewSound().catch(() => {});
             }
