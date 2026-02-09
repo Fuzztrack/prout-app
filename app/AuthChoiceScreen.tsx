@@ -233,12 +233,27 @@ export default function AuthChoiceScreen() {
                 return randomPattern.test(pseudo) && !pseudo.includes(' ') || uuidPattern.test(pseudo);
               };
               
-              // Laisser l'auto-routeur global décider de la navigation finale vers CompleteProfileScreen
-              console.log('➡️ Profil à valider : on laisse RootLayout/index rediriger vers CompleteProfileScreen');
+              // IMPORTANT :
+              // Après OAuth, on est toujours sur cet écran (Welcome/AuthChoiceScreen).
+              // RootLayout/index ne sera pas forcément monté → si on "attend" sa redirection, on reste bloqué ici.
+              // Donc on navigue directement.
+              const pseudoValidated = updatedUser?.user_metadata?.pseudo_validated === true;
+              const finalPseudo = profile?.pseudo || finalPseudoFromMetadata || null;
+              const hasRealPseudo = !!finalPseudo && finalPseudo !== 'Nouveau Membre' && !isPseudoRandom(finalPseudo);
               
+              // Fin du flux OAuth : on libère le routeur global et on navigue
               if (typeof (global as any).__isOAuthFlow === 'function') {
                 (global as any).__isOAuthFlow(false);
               }
+              
+              if (!pseudoValidated || !hasRealPseudo) {
+                console.log('➡️ OAuth OK → CompleteProfileScreen (validation requise)');
+                replaceWithSkip('/CompleteProfileScreen');
+                return true;
+              }
+              
+              console.log('➡️ OAuth OK → Home');
+              replaceWithSkip('/(tabs)');
               
               return true;
             }
@@ -275,6 +290,8 @@ export default function AuthChoiceScreen() {
           (global as any).__isOAuthFlow(false);
         }
         setLoading(false);
+        // Même si on n'a pas eu les tokens dans l'URL, une session existe → on déclenche la suite
+        replaceWithSkip('/confirm-email');
         return true;
       } else {
         console.warn('⚠️ Pas de session après OAuth');

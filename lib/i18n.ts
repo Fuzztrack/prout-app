@@ -38,6 +38,12 @@ const i18n = new I18n({
       prout18: "L'Impromptu",
       prout19: "Le Tuba Chaotique",
       prout20: "L'Eternel",
+      // BZZZ (Soundcheck)
+      bzzz1: "Data Chaos",
+      bzzz2: "L’Hésitation de l'Atome",
+      bzzz3: "L'Acouphène de Courtoisie",
+      bzzz4: "Baleine Numérique",
+      bzzz5: "Le Court-Circuit",
       // TRRL (Soundcheck)
       trrl1: "Le vertige du Shaman",
       trrl2: "L'Onde Incomprise",
@@ -502,6 +508,18 @@ const i18n = new I18n({
       prout18: "The Impromptu",
       prout19: "The Chaotic Tuba",
       prout20: "The Eternal",
+      // BZZZ (Soundcheck)
+      bzzz1: "Data Chaos",
+      bzzz2: "The Atom's Hesitation",
+      bzzz3: "The Courtesy Tinnitus",
+      bzzz4: "Digital Whale",
+      bzzz5: "The Short Circuit",
+      // TRRL (Soundcheck) — proper names, kept in French for now
+      trrl1: "Le vertige du Shaman",
+      trrl2: "L'Onde Incomprise",
+      trrl3: "Le Philosophe Noir",
+      trrl4: "Le Sifflet de Velours",
+      trrl5: "L'Écho du Baobab",
       'identity-request': "Identity request",
       'identity-response': "Identity answer",
     },
@@ -956,6 +974,18 @@ const i18n = new I18n({
       prout18: "El Improvisado",
       prout19: "La Tuba Caótica",
       prout20: "El Eterno",
+      // BZZZ (Soundcheck)
+      bzzz1: "Caos de Datos",
+      bzzz2: "La Vacilación del Átomo",
+      bzzz3: "El Acúfeno de Cortesía",
+      bzzz4: "Ballena Digital",
+      bzzz5: "El Cortocircuito",
+      // TRRL (Soundcheck) — proper names, kept in French for now
+      trrl1: "Le vertige du Shaman",
+      trrl2: "L'Onde Incomprise",
+      trrl3: "Le Philosophe Noir",
+      trrl4: "Le Sifflet de Velours",
+      trrl5: "L'Écho du Baobab",
       'identity-request': "Solicitud de identidad",
       'identity-response': "Respuesta de identidad",
     },
@@ -1413,6 +1443,18 @@ const i18n = new I18n({
       prout18: "O De Repente",
       prout19: "A Tuba Desafinada",
       prout20: "O Infinito e Além",
+      // BZZZ (Soundcheck)
+      bzzz1: "Caos de Dados",
+      bzzz2: "A Hesitação do Átomo",
+      bzzz3: "O Zumbido de Cortesia",
+      bzzz4: "Baleia Digital",
+      bzzz5: "O Curto-Circuito",
+      // TRRL (Soundcheck) — proper names, kept in French for now
+      trrl1: "Le vertige du Shaman",
+      trrl2: "L'Onde Incomprise",
+      trrl3: "Le Philosophe Noir",
+      trrl4: "Le Sifflet de Velours",
+      trrl5: "L'Écho du Baobab",
       'identity-request': "Pedido de identidade",
       'identity-response': "Resposta de identidade",
     },
@@ -1867,6 +1909,18 @@ const i18n = new I18n({
       prout18: "Der Spontane",
       prout19: "Die chaotische Tuba",
       prout20: "Der Ewige",
+      // BZZZ (Soundcheck)
+      bzzz1: "Datenchaos",
+      bzzz2: "Das Zögern des Atoms",
+      bzzz3: "Der Höflichkeits-Tinnitus",
+      bzzz4: "Digitaler Wal",
+      bzzz5: "Der Kurzschluss",
+      // TRRL (Soundcheck) — proper names, kept in French for now
+      trrl1: "Le vertige du Shaman",
+      trrl2: "L'Onde Incomprise",
+      trrl3: "Le Philosophe Noir",
+      trrl4: "Le Sifflet de Velours",
+      trrl5: "L'Écho du Baobab",
       'identity-request': "Identitätsanfrage",
       'identity-response': "Identitätsantwort",
     },
@@ -2321,6 +2375,18 @@ const i18n = new I18n({
       prout18: "L'Improvvisata",
       prout19: "La Tuba Caotica",
       prout20: "L'Eterno",
+      // BZZZ (Soundcheck)
+      bzzz1: "Caos dei Dati",
+      bzzz2: "L'Esitazione dell'Atomo",
+      bzzz3: "L'Acufene di Cortesia",
+      bzzz4: "Balena Digitale",
+      bzzz5: "Il Cortocircuito",
+      // TRRL (Soundcheck) — proper names, kept in French for now
+      trrl1: "Le vertige du Shaman",
+      trrl2: "L'Onde Incomprise",
+      trrl3: "Le Philosophe Noir",
+      trrl4: "Le Sifflet de Velours",
+      trrl5: "L'Écho du Baobab",
       'identity-request': "Richiesta d'identità",
       'identity-response': "Risposta d'identità",
     },
@@ -2745,11 +2811,15 @@ const i18n = new I18n({
 // Configuration
 i18n.enableFallback = true;
 
-// Handler pour les traductions manquantes (retourne la clé au lieu de "[missing ...]")
-i18n.missingTranslation = (scope: string) => {
-  console.warn(`[i18n] Traduction manquante: ${scope}`);
-  return scope; // Retourner la clé plutôt que "[missing ...]"
-};
+// i18n-js v4: `missingTranslation` est un registre (avec `.get()`), pas un callback.
+// Si on l'écrase par une fonction, `i18n.t()` plante avec "missingTranslation.get is not a function".
+// On enregistre donc une stratégie custom qui renvoie simplement la clé.
+i18n.missingTranslation.register('key', (_i18n, scope) => {
+  const key = Array.isArray(scope) ? scope.join('.') : String(scope);
+  console.warn(`[i18n] Traduction manquante: ${key}`);
+  return key;
+});
+i18n.missingBehavior = 'key';
 
 // Fonction pour détecter la langue de l'appareil de manière robuste
 function getDeviceLanguage(): string {

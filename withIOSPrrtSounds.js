@@ -37,9 +37,14 @@ const IOS_NOTIFICATION_SOUNDS = [
   './assets/sounds/prrt18.wav',
   './assets/sounds/bzzz1.wav',
   './assets/sounds/bzzz2.wav',
+  './assets/sounds/bzzz3.wav',
+  './assets/sounds/bzzz4.wav',
+  './assets/sounds/bzzz5.wav',
   './assets/sounds/trrl1.wav',
   './assets/sounds/trrl2.wav',
   './assets/sounds/trrl3.wav',
+  './assets/sounds/trrl4.wav',
+  './assets/sounds/trrl5.wav',
 ];
 
 function withIOSPrrtSounds(config) {

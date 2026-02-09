@@ -106,6 +106,9 @@ const PREVIEW_SOUNDS_BY_CATEGORY: Record<SoundCategory, any[]> = {
   bzzz: [
     require('../assets/sounds/bzzz1.wav'),
     require('../assets/sounds/bzzz2.wav'),
+    require('../assets/sounds/bzzz3.wav'),
+    require('../assets/sounds/bzzz4.wav'),
+    require('../assets/sounds/bzzz5.wav'),
   ],
 };
 

@@ -83,7 +83,7 @@ const SOUND_KEYS = Object.keys(PROUT_SOUNDS);
 // Soundcheck: catégories → sons envoyés (clé = base du nom de fichier .wav)
 const SOUND_KEYS_BY_CATEGORY: Record<SoundCategory, string[]> = {
   prrt: ['prrt1', 'prrt6', 'prrt8', 'prrt9', 'prrt17', 'prrt18'],
-  bzzz: ['bzzz1', 'bzzz2'],
+  bzzz: ['bzzz1', 'bzzz2', 'bzzz3', 'bzzz4', 'bzzz5'],
   // NB: catégorie = 'trll' mais fichiers = trrl*.wav
   trll: ['trrl1', 'trrl2', 'trrl3', 'trrl4', 'trrl5'],
 };
@@ -100,6 +100,9 @@ const SOUND_ASSETS: Record<string, any> = {
   // BZZZ
   bzzz1: require('../assets/sounds/bzzz1.wav'),
   bzzz2: require('../assets/sounds/bzzz2.wav'),
+  bzzz3: require('../assets/sounds/bzzz3.wav'),
+  bzzz4: require('../assets/sounds/bzzz4.wav'),
+  bzzz5: require('../assets/sounds/bzzz5.wav'),
   // TRRL
   trrl1: require('../assets/sounds/trrl1.wav'),
   trrl2: require('../assets/sounds/trrl2.wav'),
@@ -121,6 +124,22 @@ async function getSelectedSoundCategory(): Promise<SoundCategory> {
 }
 
 function getDisplaySoundLabel(soundKey: string) {
+  const tOrFallback = (key: string, fallback: string) => {
+    const translated = i18n.t(key) as any;
+    if (typeof translated !== 'string') return fallback;
+    // Avec notre missingBehavior, une clé manquante renvoie la clé elle‑même → on ne veut pas l'afficher
+    if (translated === key) return fallback;
+    return translated;
+  };
+
+  const TRRL_FALLBACK: Record<string, string> = {
+    trrl1: 'Le vertige du Shaman',
+    trrl2: "L'Onde Incomprise",
+    trrl3: 'Le Philosophe Noir',
+    trrl4: 'Le Sifflet de Velours',
+    trrl5: "L'Écho du Baobab",
+  };
+
   // Nouveau bundle (soundcheck) : libellés affichés dans le toast d’envoi
   // - prrt{n} : mêmes noms que prout{n}
   // - bzzz/trrl : on affiche la clé (bzzz1, trrl2, etc.) pour valider la logique
@@ -128,18 +147,19 @@ function getDisplaySoundLabel(soundKey: string) {
     const match = soundKey.match(/(\d+)/);
     const n = match?.[1] ? parseInt(match[1], 10) : NaN;
     if (Number.isFinite(n)) {
-      return i18n.t(`prout_names.prout${n}`) || `prout${n}`;
+      return tOrFallback(`prout_names.prout${n}`, `prout${n}`);
     }
-    return i18n.t('prout_names.prout1') || 'prout1';
+    return tOrFallback('prout_names.prout1', 'prout1');
   }
   if (soundKey.startsWith('bzzz')) {
-    return soundKey;
+    // BZZZ : noms traduits (toast)
+    return tOrFallback(`prout_names.${soundKey}`, soundKey);
   }
   if (soundKey.startsWith('trrl')) {
     // TRRL : utiliser i18n si disponible, sinon afficher la clé
-    return i18n.t(`prout_names.${soundKey}`) || soundKey;
+    return tOrFallback(`prout_names.${soundKey}`, TRRL_FALLBACK[soundKey] ?? soundKey);
   }
-  return i18n.t(`prout_names.${soundKey}`) || soundKey;
+  return tOrFallback(`prout_names.${soundKey}`, soundKey);
 }
 
 // Clés de cache pour AsyncStorage

@@ -25,10 +25,10 @@
           "remote-notification"
         ],
         "ITSAppUsesNonExemptEncryption": false,
-        "NSContactsUsageDescription": "Cette app envoie les numéros de vos contacts vers les serveurs sécurisés de Prrt! pour retrouver automatiquement vos amis. Ces données ne sont pas partagées avec des tiers.",
-        "NSPhotoLibraryUsageDescription": "Cette application a besoin d'accéder à vos photos pour vous permettre de choisir une photo de profil.",
-        "NSPhotoLibraryAddUsageDescription": "Cette application a besoin d'accéder à vos photos pour vous permettre de choisir une photo de profil.",
-        "NSCameraUsageDescription": "Cette application a besoin d'accéder à votre caméra pour vous permettre de prendre une photo de profil."
+        "NSContactsUsageDescription": "This app uploads phone numbers from your contacts to Prrt!'s secure servers to automatically find your friends. This data is not shared with third parties.",
+        "NSPhotoLibraryUsageDescription": "This app needs access to your photos so you can choose a profile picture.",
+        "NSPhotoLibraryAddUsageDescription": "This app needs access to your photos so you can choose a profile picture.",
+        "NSCameraUsageDescription": "This app needs access to your camera so you can take a profile picture."
       }
     },
     "android": {
@@ -110,6 +110,9 @@
 
             "./assets/sounds/bzzz1.wav",
             "./assets/sounds/bzzz2.wav",
+            "./assets/sounds/bzzz3.wav",
+            "./assets/sounds/bzzz4.wav",
+            "./assets/sounds/bzzz5.wav",
 
             "./assets/sounds/trrl1.wav",
             "./assets/sounds/trrl2.wav",
@@ -136,7 +139,7 @@
       [
         "expo-contacts",
         {
-          "contactsPermission": "Cette app envoie les numéros de vos contacts vers les serveurs sécurisés de Prrt! pour retrouver automatiquement vos amis. Ces données ne sont pas partagées avec des tiers."
+          "contactsPermission": "This app uploads phone numbers from your contacts to Prrt!'s secure servers to automatically find your friends. This data is not shared with third parties."
         }
       ],
       "expo-localization",
