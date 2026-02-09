@@ -100,6 +100,8 @@ const PREVIEW_SOUNDS_BY_CATEGORY: Record<SoundCategory, any[]> = {
     require('../assets/sounds/trrl1.wav'),
     require('../assets/sounds/trrl2.wav'),
     require('../assets/sounds/trrl3.wav'),
+    require('../assets/sounds/trrl4.wav'),
+    require('../assets/sounds/trrl5.wav'),
   ],
   bzzz: [
     require('../assets/sounds/bzzz1.wav'),

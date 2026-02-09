@@ -113,7 +113,9 @@
 
             "./assets/sounds/trrl1.wav",
             "./assets/sounds/trrl2.wav",
-            "./assets/sounds/trrl3.wav"
+            "./assets/sounds/trrl3.wav",
+            "./assets/sounds/trrl4.wav",
+            "./assets/sounds/trrl5.wav"
           ]
         }
       ],

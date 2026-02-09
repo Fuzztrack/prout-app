@@ -38,6 +38,12 @@ const i18n = new I18n({
       prout18: "L'Impromptu",
       prout19: "Le Tuba Chaotique",
       prout20: "L'Eternel",
+      // TRRL (Soundcheck)
+      trrl1: "Le vertige du Shaman",
+      trrl2: "L'Onde Incomprise",
+      trrl3: "Le Philosophe Noir",
+      trrl4: "Le Sifflet de Velours",
+      trrl5: "L'Écho du Baobab",
       'identity-request': "Demande d'identité",
       'identity-response': "Réponse d'identité",
     },

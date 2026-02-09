@@ -85,7 +85,7 @@ const SOUND_KEYS_BY_CATEGORY: Record<SoundCategory, string[]> = {
   prrt: ['prrt1', 'prrt6', 'prrt8', 'prrt9', 'prrt17', 'prrt18'],
   bzzz: ['bzzz1', 'bzzz2'],
   // NB: catégorie = 'trll' mais fichiers = trrl*.wav
-  trll: ['trrl1', 'trrl2', 'trrl3'],
+  trll: ['trrl1', 'trrl2', 'trrl3', 'trrl4', 'trrl5'],
 };
 
 // Mapping des sons locaux joués côté expéditeur (doit matcher les fichiers présents dans assets/sounds)
@@ -104,6 +104,8 @@ const SOUND_ASSETS: Record<string, any> = {
   trrl1: require('../assets/sounds/trrl1.wav'),
   trrl2: require('../assets/sounds/trrl2.wav'),
   trrl3: require('../assets/sounds/trrl3.wav'),
+  trrl4: require('../assets/sounds/trrl4.wav'),
+  trrl5: require('../assets/sounds/trrl5.wav'),
 };
 
 function pickRandom<T>(arr: T[]) {
@@ -134,7 +136,8 @@ function getDisplaySoundLabel(soundKey: string) {
     return soundKey;
   }
   if (soundKey.startsWith('trrl')) {
-    return soundKey;
+    // TRRL : utiliser i18n si disponible, sinon afficher la clé
+    return i18n.t(`prout_names.${soundKey}`) || soundKey;
   }
   return i18n.t(`prout_names.${soundKey}`) || soundKey;
 }
