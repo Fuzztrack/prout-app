@@ -120,6 +120,9 @@ const i18n = new I18n({
     complicity_help_levels_text: "Votre niveau de complicité évolue avec votre score :\n• Souffle Initial (0-49 pts)\n• Accord Partagé (50-199 pts)\n• Sillage des Âmes (200-499 pts)\n• Quintessence de l'Amitié (500+ pts)",
     complicity_help_tip_title: "💡 Astuce",
     complicity_help_tip_text: "Plus vous échangez régulièrement avec vos amis, plus votre complicité grandit.",
+    complicity_empty_title: "Aucune donnée de complicité.",
+    complicity_empty_subtitle: "Envoyez des notifications pour commencer.",
+    soundcheck_hint: "Choisissez votre catégorie d'onde sonore et écoutez une preview aléatoire.",
     
     // Profil
     edit_profile: "Modifier votre profil",
@@ -571,6 +574,9 @@ const i18n = new I18n({
     complicity_help_levels_text: "Your complicity level evolves with your score:\n• First Breeze (0-49 pts)\n• Shared Accord (50-199 pts)\n• Sillage of Souls (200-499 pts)\n• Quintessence of Friendship (500+ pts)",
     complicity_help_tip_title: "💡 Tip",
     complicity_help_tip_text: "The more you regularly exchange with your friends, the more your complicity grows.",
+    complicity_empty_title: "No complicity data.",
+    complicity_empty_subtitle: "Send notifications to get started.",
+    soundcheck_hint: "Choose your sound wave category and listen to a random preview.",
     
     // Profil
     edit_profile: "Edit Profile",
@@ -1019,6 +1025,9 @@ const i18n = new I18n({
     complicity_help_levels_text: "Tu nivel de complicidad evoluciona con tu puntuación:\n• Soplo Inicial (0-49 pts)\n• Acorde Compartido (50-199 pts)\n• Estela de Almas (200-499 pts)\n• Quintaesencia de la Amistad (500+ pts)",
     complicity_help_tip_title: "💡 Consejo",
     complicity_help_tip_text: "Cuanto más intercambies regularmente con tus amigos, más crecerá tu complicidad.",
+    complicity_empty_title: "Sin datos de complicidad.",
+    complicity_empty_subtitle: "Envía notificaciones para empezar.",
+    soundcheck_hint: "Elige tu categoría de onda sonora y escucha una vista previa aleatoria.",
     
     // Profil
     edit_profile: "Editar perfil",
@@ -1470,6 +1479,9 @@ const i18n = new I18n({
     complicity_help_levels_text: "Seu nível de complicidade evolui com sua pontuação:\n• Sopro Inicial (0-49 pts)\n• Acorde Compartilhado (50-199 pts)\n• Rastro de Almas (200-499 pts)\n• Quintessência da Amizade (500+ pts)",
     complicity_help_tip_title: "💡 Dica",
     complicity_help_tip_text: "Quanto mais você troca regularmente com seus amigos, mais sua complicidade cresce.",
+    complicity_empty_title: "Nenhum dado de cumplicidade.",
+    complicity_empty_subtitle: "Envie notificações para começar.",
+    soundcheck_hint: "Escolha sua categoria de onda sonora e ouça uma prévia aleatória.",
     
     // Profil
     edit_profile: "Editar Perfil",
@@ -1918,6 +1930,9 @@ const i18n = new I18n({
     complicity_help_levels_text: "Deine Komplizenschafts-Stufe entwickelt sich mit deiner Punktzahl:\n• Erster Hauch (0-49 Pkt)\n• Geteilter Einklang (50-199 Pkt)\n• Seelen-Sillage (200-499 Pkt)\n• Quintessenz der Freundschaft (500+ Pkt)",
     complicity_help_tip_title: "💡 Tipp",
     complicity_help_tip_text: "Je regelmäßiger du mit deinen Freunden interagierst, desto mehr wächst eure Komplizenschaft.",
+    complicity_empty_title: "Keine Komplizenschaftsdaten.",
+    complicity_empty_subtitle: "Sende Benachrichtigungen, um zu starten.",
+    soundcheck_hint: "Wähle deine Schallwellen-Kategorie und höre eine zufällige Vorschau.",
     
     // Profil
     edit_profile: "Profil bearbeiten",
@@ -2366,6 +2381,9 @@ const i18n = new I18n({
     complicity_help_levels_text: "Il tuo livello di complicità evolve con il tuo punteggio:\n• Soffio Iniziale (0-49 pts)\n• Accordo Condiviso (50-199 pts)\n• Scia d'Anime (200-499 pts)\n• Quintessenza dell'Amicizia (500+ pts)",
     complicity_help_tip_title: "💡 Consiglio",
     complicity_help_tip_text: "Più scambi regolarmente con i tuoi amici, più la tua complicità cresce.",
+    complicity_empty_title: "Nessun dato di complicità.",
+    complicity_empty_subtitle: "Invia notifiche per iniziare.",
+    soundcheck_hint: "Scegli la tua categoria di onda sonora e ascolta un'anteprima casuale.",
     
     // Profil
     edit_profile: "Modifica Profilo",

@@ -42,7 +42,16 @@ const SCREEN_HEIGHT = Dimensions.get('window').height;
 const SWIPE_THRESHOLD = 150; // Seuil pour déclencher l'action
 const TAP_THRESHOLD = 12; // Distance max pour considérer un tap
 
-const PROUT_SOUNDS: { [key: string]: any } = {
+// iOS : 6 sons prrt uniquement (fichiers dans assets/sounds). Android : 20 sons prout.
+const PROUT_SOUNDS_IOS: { [key: string]: any } = {
+  prout1: require('../assets/sounds/prrt1.wav'),
+  prout6: require('../assets/sounds/prrt6.wav'),
+  prout8: require('../assets/sounds/prrt8.wav'),
+  prout9: require('../assets/sounds/prrt9.wav'),
+  prout17: require('../assets/sounds/prrt17.wav'),
+  prout18: require('../assets/sounds/prrt18.wav'),
+};
+const PROUT_SOUNDS_ANDROID: { [key: string]: any } = {
   prout1: require('../assets/sounds/prout1.wav'),
   prout2: require('../assets/sounds/prout2.wav'),
   prout3: require('../assets/sounds/prout3.wav'),
@@ -64,9 +73,7 @@ const PROUT_SOUNDS: { [key: string]: any } = {
   prout19: require('../assets/sounds/prout19.wav'),
   prout20: require('../assets/sounds/prout20.wav'),
 };
-
-// Mapping des noms de prouts (via i18n maintenant)
-
+const PROUT_SOUNDS = Platform.OS === 'ios' ? PROUT_SOUNDS_IOS : PROUT_SOUNDS_ANDROID;
 const SOUND_KEYS = Object.keys(PROUT_SOUNDS);
 
 // Clés de cache pour AsyncStorage

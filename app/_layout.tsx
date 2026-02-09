@@ -464,6 +464,7 @@ export default function RootLayout() {
               <Stack.Screen name="IdentityRevealScreen" options={{ presentation: 'modal' }} />
               {/* SearchUserScreen est maintenant intégré dans index.tsx, plus besoin de route dédiée */}
               <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="soundcheck" options={{ gestureEnabled: true }} />
               <Stack.Screen name="confirm-email" options={{ presentation: 'modal' }} />
               <Stack.Screen name="reset-password" options={{ presentation: 'modal' }} />
               <Stack.Screen name="edit-profile" options={{ presentation: 'transparentModal', animation: 'fade', headerShown: false }} />

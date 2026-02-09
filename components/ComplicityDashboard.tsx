@@ -281,8 +281,8 @@ export default function ComplicityDashboard() {
         ListEmptyComponent={
           !loading ? (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>Aucune donnée de complicité.</Text>
-              <Text style={styles.emptySubText}>Envoyez des prouts pour démarrer !</Text>
+              <Text style={styles.emptyText}>{i18n.t('complicity_empty_title')}</Text>
+              <Text style={styles.emptySubText}>{i18n.t('complicity_empty_subtitle')}</Text>
             </View>
           ) : null
         }

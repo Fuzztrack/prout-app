@@ -55,6 +55,7 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      "./withIOSPrrtSounds",
       "./withAndroidNotificationMetadata",
       "./withAndroidProutMessaging",
       "./withAndroidAppName",

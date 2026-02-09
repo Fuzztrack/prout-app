@@ -16,6 +16,9 @@ const isPixelDevice =
 // const isSearchSupported = Platform.OS === 'ios' || isPixelDevice;
 const isSearchSupported = true; // Test : activer pour tous les appareils
 
+// Couleur "actif" Zen/Silent dans le menu principal (contrastée avec le fond #ebb89b)
+const ACTIVE_ICON_COLOR = '#604a3e';
+
 interface AppHeaderProps {
   currentPseudo?: string;
   isZenMode?: boolean;
@@ -26,6 +29,7 @@ interface AppHeaderProps {
   onProfileMenuPress?: () => void;
   onSearchToggle?: () => void;
   onComplicityPress?: () => void;
+  onSoundcheckPress?: () => void;
   onZenModeToggle?: () => void;
   onSilentModeToggle?: () => void;
   shakeX?: Animated.Value;
@@ -42,6 +46,7 @@ export function AppHeader({
   onProfileMenuPress,
   onSearchToggle,
   onComplicityPress,
+  onSoundcheckPress,
   onZenModeToggle,
   onSilentModeToggle,
   shakeX,
@@ -76,66 +81,93 @@ export function AppHeader({
 
       {/* 2. LA BARRE DE NAVIGATION */}
       <View style={styles.navBar}>
-        <View style={styles.navBarContent}>
-          <View style={styles.greetingContainer}>
-            <View style={styles.greetingRow}>
-              {currentPseudo ? (
-                <Text style={styles.greetingText}>{i18n.t('greeting')} {currentPseudo} !</Text>
-              ) : null}
-              {isZenMode && onZenModeToggle && (
-                <TouchableOpacity onPress={onZenModeToggle} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
-                  <Ionicons
-                    name="moon"
-                    size={18}
-                    color="#ffffff"
-                    style={styles.zenIcon}
-                  />
-                </TouchableOpacity>
-              )}
-              {isSilentMode && onSilentModeToggle && (
-                <TouchableOpacity onPress={onSilentModeToggle} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
-                  <Ionicons
-                    name="volume-mute"
-                    size={22}
-                    color="#ffffff"
-                    style={styles.zenIcon}
-                  />
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-          
-          {/* Icônes à droite : Complicité + Recherche + Profil */}
-          <View style={styles.rightIconsContainer}>
-            {/* Complicité - Coeur */}
-            {onComplicityPress && (
-              <TouchableOpacity
-                onPress={onComplicityPress}
-                style={[styles.iconButton, { justifyContent: 'center', alignItems: 'center', minHeight: 28, marginTop: 2 }]}
-              >
-                <Ionicons
-                  name="trophy"
-                  size={22}
-                  color="#ffffff"
-                />
-              </TouchableOpacity>
-            )}
+        {/* Ligne 1 : Greeting uniquement */}
+        <View style={styles.greetingRow}>
+          {currentPseudo ? (
+            <Text style={styles.greetingText}>{i18n.t('greeting')} {currentPseudo} !</Text>
+          ) : null}
+        </View>
 
-            {/* Recherche - Uniquement sur iOS et Google Pixel */}
-            {isSearchSupported && onSearchToggle && (
-              <TouchableOpacity 
-                onPress={onSearchToggle} 
-                style={[styles.iconButton, { justifyContent: 'center', alignItems: 'center', minHeight: 28, marginTop: 2 }]}
-              >
-                <Ionicons 
-                  name={isSearchVisible ? "close" : "search"} 
-                  size={22} 
-                  color="#ffffff" 
-                />
-              </TouchableOpacity>
+        {/* Ligne 2 : Menu principal (Complicité, Soundcheck, Zen, Silencieux, Recherche, Profil) — masqué quand menu liste ouvert */}
+        <View style={styles.menuRow}>
+          <View style={styles.rightIconsContainer}>
+            {!(isProfileMenuOpen || isProfileOpen) && (
+              <>
+                {/* Complicité - Coupe */}
+                {onComplicityPress && (
+                  <TouchableOpacity
+                    onPress={onComplicityPress}
+                    style={[styles.iconButton, { justifyContent: 'center', alignItems: 'center', minHeight: 28, marginTop: 2 }]}
+                  >
+                    <Ionicons
+                      name="trophy"
+                      size={22}
+                      color="#ffffff"
+                    />
+                  </TouchableOpacity>
+                )}
+
+                {/* Soundcheck! - Onde sonore */}
+                {onSoundcheckPress && (
+                  <TouchableOpacity
+                    onPress={onSoundcheckPress}
+                    style={[styles.iconButton, { justifyContent: 'center', alignItems: 'center', minHeight: 28, marginTop: 2 }]}
+                  >
+                    <Ionicons
+                      name="pulse"
+                      size={22}
+                      color="#ffffff"
+                    />
+                  </TouchableOpacity>
+                )}
+
+                {/* Mode Zen */}
+                {onZenModeToggle && (
+                  <TouchableOpacity
+                    onPress={onZenModeToggle}
+                    style={[styles.iconButton, { justifyContent: 'center', alignItems: 'center', minHeight: 28, marginTop: 2 }]}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons
+                      name={isZenMode ? 'moon' : 'moon-outline'}
+                      size={22}
+                      color={isZenMode ? ACTIVE_ICON_COLOR : '#ffffff'}
+                    />
+                  </TouchableOpacity>
+                )}
+
+                {/* Envois silencieux */}
+                {onSilentModeToggle && (
+                  <TouchableOpacity
+                    onPress={onSilentModeToggle}
+                    style={[styles.iconButton, { justifyContent: 'center', alignItems: 'center', minHeight: 28, marginTop: 2 }]}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons
+                      name={isSilentMode ? 'volume-mute' : 'volume-mute-outline'}
+                      size={22}
+                      color={isSilentMode ? ACTIVE_ICON_COLOR : '#ffffff'}
+                    />
+                  </TouchableOpacity>
+                )}
+
+                {/* Recherche */}
+                {isSearchSupported && onSearchToggle && (
+                  <TouchableOpacity 
+                    onPress={onSearchToggle} 
+                    style={[styles.iconButton, { justifyContent: 'center', alignItems: 'center', minHeight: 28, marginTop: 2 }]}
+                  >
+                    <Ionicons 
+                      name={isSearchVisible ? "close" : "search"} 
+                      size={22} 
+                      color="#ffffff" 
+                    />
+                  </TouchableOpacity>
+                )}
+              </>
             )}
             
-            {/* Menu Profil */}
+            {/* Menu Profil / Fermer (toujours visible pour pouvoir fermer le menu) */}
             {onProfileMenuPress && (
               <TouchableOpacity 
                 onPress={onProfileMenuPress} 
@@ -163,6 +195,7 @@ export function AppHeader({
   );
 }
 
+
 const styles = StyleSheet.create({
   headerSection: {
     paddingTop: 0,
@@ -182,20 +215,18 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     marginBottom: 5,
   },
-  navBarContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    minHeight: 32,
-  },
-  greetingContainer: {
-    flex: 1,
-    marginRight: 8,
-  },
   greetingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
+    minHeight: 32,
+  },
+  menuRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    marginTop: 4,
+    minHeight: 36,
   },
   greetingText: {
     fontSize: 16,
@@ -203,13 +234,11 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     marginRight: 6,
   },
-  zenIcon: {
-    marginRight: 4,
-  },
   rightIconsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    marginLeft: 'auto',
   },
   iconButton: {
     padding: 4,

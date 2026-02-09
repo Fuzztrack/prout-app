@@ -12,10 +12,11 @@ import { supabase } from '@/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, ActionSheetIOS, Animated, Image, Keyboard, KeyboardAvoidingView, Platform, ScrollView, Share, StyleSheet, Text, TouchableOpacity, Vibration, View } from 'react-native';
+import { Alert, ActionSheetIOS, Animated, Image, Keyboard, KeyboardAvoidingView, Platform, ScrollView, Share, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, Vibration, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
@@ -44,7 +45,8 @@ export default function HomeScreen() {
   const ZEN_START_KEY = 'zen_start_at';
   const SILENT_MODE_KEY = 'silent_mode_enabled';
   const [showZenOptions, setShowZenOptions] = useState(false);
-const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
+  const [showSilentModal, setShowSilentModal] = useState(false);
+  const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
   
   // Animation de secousse pour le header
   const shakeX = useRef(new Animated.Value(0)).current;
@@ -53,6 +55,10 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
   // --- NAVIGATION COMPLICITÉ ---
   const handleComplicityPress = useCallback(() => {
     router.push('/complicity');
+  }, [router]);
+
+  const handleSoundcheckPress = useCallback(() => {
+    router.push('/soundcheck');
   }, [router]);
 
   // --- MISE À JOUR TOKEN FCM ---
@@ -68,7 +74,12 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
         if (fcmToken) {
           // Stocker le token FCM dans expo_push_token (on réutilise le champ existant)
           // Ou créer un nouveau champ fcm_token dans Supabase si préféré
-          const { error } = await supabase.from('user_profiles').update({ expo_push_token: fcmToken, push_platform: Platform.OS }).eq('id', userId);
+          const updatePayload: Record<string, unknown> = { expo_push_token: fcmToken, push_platform: Platform.OS };
+          if (Platform.OS === 'ios') {
+            const bundleId = Constants.expoConfig?.ios?.bundleIdentifier;
+            if (bundleId) updatePayload.push_ios_bundle = bundleId;
+          }
+          const { error } = await supabase.from('user_profiles').update(updatePayload).eq('id', userId);
           if (error) {
             console.error('❌ Erreur mise à jour token dans Supabase:', error);
           } else {
@@ -127,7 +138,14 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
               if (status === 'granted') {
                   getFCMToken().then(fcmToken => {
                       if (fcmToken) {
-                          supabase.from('user_profiles').update({ expo_push_token: fcmToken, push_platform: Platform.OS }).eq('id', user.id).then(({ error }) => {
+                          (() => {
+                            const updatePayload: Record<string, unknown> = { expo_push_token: fcmToken, push_platform: Platform.OS };
+                            if (Platform.OS === 'ios') {
+                              const bundleId = Constants.expoConfig?.ios?.bundleIdentifier;
+                              if (bundleId) updatePayload.push_ios_bundle = bundleId;
+                            }
+                            return supabase.from('user_profiles').update(updatePayload).eq('id', user.id);
+                          })().then(({ error }) => {
                               if (error) {
                                   console.error('❌ Erreur mise à jour token dans Supabase:', error);
                               } else {
@@ -495,12 +513,6 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
     }
   };
 
-  // Désactiver directement le mode Zen (quand on clique sur l'icône)
-  const disableZenMode = async () => {
-    if (!userId || !isZenMode) return;
-    await applyZenMode(false);
-  };
-
   const toggleHapticFeedback = async () => {
     const newValue = !isHapticEnabled;
     console.log('🔔 [HAPTIC] Toggle appelé, nouvelle valeur:', newValue, 'Platform:', Platform.OS);
@@ -557,18 +569,21 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
     }
   };
 
-  const toggleSilentMode = async () => {
-    const newValue = !isSilentMode;
-    setIsSilentMode(newValue);
-    await AsyncStorage.setItem(SILENT_MODE_KEY, newValue.toString());
-    
-    // Afficher le message explicatif quand activé
-    if (newValue) {
-      Alert.alert(
-        i18n.t('silent_mode_title'),
-        i18n.t('silent_mode_description')
-      );
+  const toggleSilentMode = () => {
+    if (isSilentMode) {
+      // Désactiver directement
+      setIsSilentMode(false);
+      AsyncStorage.setItem(SILENT_MODE_KEY, 'false');
+    } else {
+      // Afficher la modale : OK = activer, clic dehors = fermer sans activer
+      setShowSilentModal(true);
     }
+  };
+
+  const confirmSilentMode = async () => {
+    setIsSilentMode(true);
+    await AsyncStorage.setItem(SILENT_MODE_KEY, 'true');
+    setShowSilentModal(false);
   };
 
   // --- PARTAGE ---
@@ -623,6 +638,22 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
         </View>
       )}
 
+      {/* Modal Envois silencieux — OK = activer le mode, clic dehors = fermer sans activer */}
+      {showSilentModal && (
+        <View style={styles.zenOverlay} pointerEvents="box-none">
+          <TouchableWithoutFeedback onPress={() => setShowSilentModal(false)}>
+            <View style={StyleSheet.absoluteFill} />
+          </TouchableWithoutFeedback>
+          <View style={styles.silentModalCard}>
+            <Text style={styles.zenTitle}>{i18n.t('silent_mode_title')}</Text>
+            <Text style={styles.silentModalDescription}>{i18n.t('silent_mode_description')}</Text>
+            <TouchableOpacity style={styles.zenCancel} onPress={confirmSilentMode}>
+              <Text style={styles.zenCancelText}>{i18n.t('ok')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       <View style={[styles.container, { paddingTop: insets.top }]}>
         {Platform.OS === 'ios' ? (
           <KeyboardAvoidingView 
@@ -664,8 +695,9 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
                          isSearchVisible={isSearchVisible}
                         onSearchToggle={toggleSearchVisibility}
                         onComplicityPress={handleComplicityPress}
+                        onSoundcheckPress={handleSoundcheckPress}
                         onProfileMenuPress={toggleProfileMenu}
-                         onZenModeToggle={disableZenMode}
+                         onZenModeToggle={toggleZenMode}
                          onSilentModeToggle={toggleSilentMode}
                          shakeX={shakeX}
                          shakeY={shakeY}
@@ -680,18 +712,21 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
                          contentContainerStyle={{ paddingBottom: 20 }}
                          showsVerticalScrollIndicator={false}
                        >
-                         <AppHeader
-                           currentPseudo={currentPseudo}
-                           isZenMode={isZenMode}
-                           isSilentMode={isSilentMode}
-                           isProfileMenuOpen={activeView === 'profileMenu'}
-                           isProfileOpen={activeView === 'profile'}
-                           onProfileMenuPress={toggleProfileMenu}
-                           onZenModeToggle={disableZenMode}
-                           onSilentModeToggle={toggleSilentMode}
-                           shakeX={shakeX}
-                           shakeY={shakeY}
-                         />
+                         <TouchableOpacity activeOpacity={1} onPress={toggleProfileMenu}>
+                           <AppHeader
+                             currentPseudo={currentPseudo}
+                             isZenMode={isZenMode}
+                             isSilentMode={isSilentMode}
+                             isProfileMenuOpen={activeView === 'profileMenu'}
+                             isProfileOpen={activeView === 'profile'}
+                             onProfileMenuPress={toggleProfileMenu}
+                             onSoundcheckPress={handleSoundcheckPress}
+                             onZenModeToggle={toggleZenMode}
+                             onSilentModeToggle={toggleSilentMode}
+                             shakeX={shakeX}
+                             shakeY={shakeY}
+                           />
+                         </TouchableOpacity>
                          
                          <View style={styles.menuCard}>
                            {[
@@ -761,8 +796,9 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
                       isSearchVisible={isSearchVisible}
                         onSearchToggle={toggleSearchVisibility}
                         onComplicityPress={handleComplicityPress}
+                        onSoundcheckPress={handleSoundcheckPress}
                         onProfileMenuPress={toggleProfileMenu}
-                      onZenModeToggle={disableZenMode}
+                      onZenModeToggle={toggleZenMode}
                       onSilentModeToggle={toggleSilentMode}
                       shakeX={shakeX}
                       shakeY={shakeY}
@@ -777,18 +813,21 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
                       contentContainerStyle={{ paddingBottom: 20 }}
                       showsVerticalScrollIndicator={false}
                     >
-                      <AppHeader
-                        currentPseudo={currentPseudo}
-                        isZenMode={isZenMode}
-                        isSilentMode={isSilentMode}
-                        isProfileMenuOpen={activeView === 'profileMenu'}
-                        isProfileOpen={activeView === 'profile'}
-                        onProfileMenuPress={toggleProfileMenu}
-                        onZenModeToggle={disableZenMode}
-                        onSilentModeToggle={toggleSilentMode}
-                        shakeX={shakeX}
-                        shakeY={shakeY}
-                      />
+                      <TouchableOpacity activeOpacity={1} onPress={toggleProfileMenu}>
+                        <AppHeader
+                          currentPseudo={currentPseudo}
+                          isZenMode={isZenMode}
+                          isSilentMode={isSilentMode}
+                          isProfileMenuOpen={activeView === 'profileMenu'}
+                          isProfileOpen={activeView === 'profile'}
+                          onProfileMenuPress={toggleProfileMenu}
+                          onSoundcheckPress={handleSoundcheckPress}
+                          onZenModeToggle={toggleZenMode}
+                          onSilentModeToggle={toggleSilentMode}
+                          shakeX={shakeX}
+                          shakeY={shakeY}
+                        />
+                      </TouchableOpacity>
                       
                       <View style={styles.menuCard}>
                           {[
@@ -920,6 +959,23 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
+  },
+  silentModalCard: {
+    width: '86%',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    gap: 8,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  silentModalDescription: {
+    fontSize: 15,
+    color: '#604a3e',
+    lineHeight: 22,
   },
   zenTitle: {
     fontSize: 17,
