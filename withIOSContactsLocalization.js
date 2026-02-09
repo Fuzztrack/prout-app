@@ -4,6 +4,10 @@ const { withDangerousMod } = require('@expo/config-plugins');
 
 /** Texte validé pour le popup système contacts - traductions par locale iOS */
 const NS_CONTACTS_BY_LOCALE = {
+  // Base + en = fallback iOS (si aucune locale spécifique n'est trouvée)
+  // Base en FR pour éviter un fallback en anglais sur appareils FR
+  Base: 'Cette app envoie les numéros de vos contacts vers les serveurs sécurisés de Prrt! pour retrouver automatiquement vos amis. Ces données ne sont pas partagées avec des tiers.',
+  en: "This app uploads phone numbers from your contacts to Prrt!'s secure servers to automatically find your friends. This data is not shared with third parties.",
   fr: 'Cette app envoie les numéros de vos contacts vers les serveurs sécurisés de Prrt! pour retrouver automatiquement vos amis. Ces données ne sont pas partagées avec des tiers.',
   es: 'Esta app sube los números de tus contactos a los servidores seguros de Prrt! para encontrar automáticamente a tus amigos. Estos datos no se comparten con terceros.',
   pt: 'Este app envia os números dos seus contatos para os servidores seguros do Prrt! para encontrar seus amigos automaticamente. Esses dados não são compartilhados com terceiros.',
@@ -13,7 +17,7 @@ const NS_CONTACTS_BY_LOCALE = {
 
 /**
  * Plugin Expo pour ajouter les traductions de NSContactsUsageDescription
- * dans InfoPlist.strings pour iOS (fr, es, pt, de, it)
+ * dans InfoPlist.strings pour iOS (Base/en/fr/es/pt/de/it)
  */
 const withIOSContactsLocalization = (config) => {
   return withDangerousMod(config, [

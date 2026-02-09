@@ -2760,11 +2760,12 @@ function getDeviceLanguage(): string {
     
     // Si on a une locale complète (ex: "en-US"), extraire le code de langue de base
     if (firstLocale.languageTag) {
-      const baseLanguage = firstLocale.languageTag.split('-')[0];
+      const baseLanguage = firstLocale.languageTag.split(/[-_]/)[0];
       languageCode = baseLanguage;
     } else if (firstLocale.languageCode) {
-      // Si languageCode contient un tiret (ex: "en-US"), extraire la partie avant le tiret
-      languageCode = firstLocale.languageCode.split('-')[0];
+      // Si languageCode contient un tiret/underscore (ex: "en-US" / "fr_FR"),
+      // extraire la partie avant le séparateur.
+      languageCode = firstLocale.languageCode.split(/[-_]/)[0];
     }
 
     // Mapper les langues supportées
@@ -2785,6 +2786,10 @@ function getDeviceLanguage(): string {
       return 'en';
     }
     
+    if (detectedLanguage.startsWith('fr')) {
+      return 'fr';
+    }
+
     if (detectedLanguage.startsWith('es')) {
       return 'es';
     }
