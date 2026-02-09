@@ -99,7 +99,21 @@
             "./assets/sounds/prout17.wav",
             "./assets/sounds/prout18.wav",
             "./assets/sounds/prout19.wav",
-            "./assets/sounds/prout20.wav"
+            "./assets/sounds/prout20.wav",
+
+            "./assets/sounds/prrt1.wav",
+            "./assets/sounds/prrt6.wav",
+            "./assets/sounds/prrt8.wav",
+            "./assets/sounds/prrt9.wav",
+            "./assets/sounds/prrt17.wav",
+            "./assets/sounds/prrt18.wav",
+
+            "./assets/sounds/bzzz1.wav",
+            "./assets/sounds/bzzz2.wav",
+
+            "./assets/sounds/trrl1.wav",
+            "./assets/sounds/trrl2.wav",
+            "./assets/sounds/trrl3.wav"
           ]
         }
       ],
