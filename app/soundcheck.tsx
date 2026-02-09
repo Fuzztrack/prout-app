@@ -1,8 +1,8 @@
-import SoundcheckSelector from '@/components/SoundcheckSelector';
+import SoundcheckSelector, { stopCurrentPreviewSound } from '@/components/SoundcheckSelector';
 import { Ionicons } from '@expo/vector-icons';
 import * as Device from 'expo-device';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Image,
   StyleSheet,
@@ -23,6 +23,7 @@ export default function SoundcheckScreen() {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [initialCategory, setInitialCategory] = useState<SoundCategory | null>(null);
+  const [soundEnabled, setSoundEnabled] = useState(true);
 
   // Taille du titre: on se base sur le vrai ratio de sound.png pour éviter
   // les "marges" visuelles créées par un ratio arbitraire + resizeMode="contain".
@@ -49,6 +50,16 @@ export default function SoundcheckScreen() {
     }).catch(() => setInitialCategory('trll'));
   }, []);
 
+  // Arrêter le son preview quand on quitte la page (swipe back ou flèche)
+  useFocusEffect(
+    useCallback(() => {
+      // Cleanup quand la page perd le focus (swipe back, navigation, etc.)
+      return () => {
+        stopCurrentPreviewSound().catch(() => {});
+      };
+    }, [])
+  );
+
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <View style={[styles.header, { paddingTop: insets.top }]}>
@@ -66,7 +77,10 @@ export default function SoundcheckScreen() {
         <View style={styles.navRow}>
           {showBackButton ? (
             <TouchableOpacity
-              onPress={() => router.back()}
+              onPress={() => {
+                stopCurrentPreviewSound().catch(() => {});
+                router.back();
+              }}
               style={styles.backButton}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
@@ -79,15 +93,28 @@ export default function SoundcheckScreen() {
         </View>
       </View>
       <View style={styles.selectorArea}>
-        <SoundcheckSelector initialCategory={initialCategory} />
+        <SoundcheckSelector initialCategory={initialCategory} soundEnabled={soundEnabled} />
       </View>
-      {/* Bande sonore en bas (sans déformation, avec marge) */}
-      <View style={[styles.bottomWave, { bottom: insets.bottom + 16 }]} pointerEvents="none">
-        <Image
-          source={require('../assets/images/soundwave.png')}
-          style={[styles.bottomWaveImage, { width: soundwaveWidth, height: soundwaveHeight }]}
-          resizeMode="contain"
-        />
+      {/* Bande sonore en bas (cliquable pour toggle son) */}
+      <View style={[styles.bottomWave, { bottom: insets.bottom + 16 }]}>
+        <Text style={[styles.soundToggleText, { color: soundEnabled ? '#ffffff' : '#999999' }]}>
+          {soundEnabled ? 'Sound on' : 'Sound off'}
+        </Text>
+        <TouchableOpacity
+          onPress={() => {
+            setSoundEnabled((prev) => !prev);
+            if (soundEnabled) {
+              stopCurrentPreviewSound().catch(() => {});
+            }
+          }}
+          activeOpacity={0.7}
+        >
+          <Image
+            source={require('../assets/images/soundwave.png')}
+            style={[styles.bottomWaveImage, { width: soundwaveWidth, height: soundwaveHeight }]}
+            resizeMode="contain"
+          />
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -158,6 +185,12 @@ const styles = StyleSheet.create({
     right: 0,
     alignItems: 'center',
     opacity: 0.95,
+  },
+  soundToggleText: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 6,
+    textAlign: 'center',
   },
   bottomWaveImage: {
   },

@@ -17,7 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 let currentPreviewSound: Audio.Sound | null = null;
 let previewSeq = 0;
 
-async function stopCurrentPreviewSound() {
+export async function stopCurrentPreviewSound() {
   const s = currentPreviewSound;
   if (!s) return;
   currentPreviewSound = null;
@@ -115,11 +115,13 @@ const PREVIEW_SOUNDS_BY_CATEGORY: Record<SoundCategory, any[]> = {
 interface SoundcheckSelectorProps {
   initialCategory?: SoundCategory | null;
   onCategoryChange?: (category: SoundCategory) => void;
+  soundEnabled?: boolean; // Si false, ne joue pas les previews
 }
 
 export default function SoundcheckSelector({
   initialCategory = 'trll',
   onCategoryChange,
+  soundEnabled = true,
 }: SoundcheckSelectorProps) {
   const { width: screenWidth } = Dimensions.get('window');
   const layout = useMemo(() => {
@@ -181,6 +183,9 @@ export default function SoundcheckSelector({
   );
 
   const playPreview = useCallback(async (category: SoundCategory) => {
+    // Si le son est désactivé, ne rien faire
+    if (!soundEnabled) return;
+
     // Empêcher les superpositions : on coupe/unload le précédent immédiatement.
     await stopCurrentPreviewSound();
 
@@ -209,7 +214,7 @@ export default function SoundcheckSelector({
         }
       });
     } catch (_) {}
-  }, []);
+  }, [soundEnabled]);
 
   const updateKnobCenter = useCallback(() => {
     knobOuterRef.current?.measureInWindow?.((x, y, w, h) => {
@@ -233,7 +238,7 @@ export default function SoundcheckSelector({
       playPreview(category);
       persistAndNotify(index);
     },
-    [selectedIndex, rotationAnim, playPreview, persistAndNotify]
+    [selectedIndex, rotationAnim, playPreview, persistAndNotify, soundEnabled]
   );
 
   useEffect(() => {
