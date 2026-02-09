@@ -113,7 +113,7 @@ interface SoundcheckSelectorProps {
 }
 
 export default function SoundcheckSelector({
-  initialCategory = 'prrt',
+  initialCategory = 'trll',
   onCategoryChange,
 }: SoundcheckSelectorProps) {
   const { width: screenWidth } = Dimensions.get('window');

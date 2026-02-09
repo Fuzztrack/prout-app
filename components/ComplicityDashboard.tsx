@@ -18,6 +18,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import * as Device from 'expo-device';
 import { supabase } from '../lib/supabase';
 import i18n from '../lib/i18n';
 
@@ -244,13 +245,21 @@ export default function ComplicityDashboard() {
     );
   };
 
+  // Flèche retour : affichée uniquement sur simulateur
+  // Sur device réel, le swipe-back natif iOS fonctionne, donc pas besoin de flèche
+  const showBackButton = !Device.isDevice;
+
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.textMain} />
-        </TouchableOpacity>
+        {showBackButton ? (
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={COLORS.textMain} />
+          </TouchableOpacity>
+        ) : (
+          <View style={[styles.backButton, { width: 40 }]} />
+        )}
         <View style={styles.headerTitleContainer}>
           <Image 
             source={require('../assets/images/resonance.png')} 

@@ -122,7 +122,7 @@ const i18n = new I18n({
     complicity_help_tip_text: "Plus vous échangez régulièrement avec vos amis, plus votre complicité grandit.",
     complicity_empty_title: "Aucune donnée de complicité.",
     complicity_empty_subtitle: "Envoyez des notifications pour commencer.",
-    soundcheck_hint: "Choisissez votre catégorie d'onde sonore et écoutez une preview aléatoire.",
+    soundcheck_hint: "Choisissez votre catégorie d'onde sonore et\nécoutez une preview aléatoire",
     
     // Profil
     edit_profile: "Modifier votre profil",
@@ -242,6 +242,9 @@ const i18n = new I18n({
     
     // Footer & Help
     footer_help_text: "Swipez vers la droite pour envoyer une notification, cliquez avant de swiper pour ajouter un message !",
+    footer_sound_category_info: "Le son des notifications sera choisi aléatoirement parmi la catégorie d’onde sonore sélectionnée !",
+    friendlist_onboarding_soundcheck: "Choisis ta catégorie d’onde sonore à faire résonner !",
+    friendlist_onboarding_resonance: "Consulte la complicité acoustique que tu as avec tes amis dans le tableau de résonance !",
     
     // Notifications & Errors
     notifications_not_enabled: "%{pseudo} n'a pas activé les notifications. Le token n'est pas disponible dans la base de données.",
@@ -576,7 +579,7 @@ const i18n = new I18n({
     complicity_help_tip_text: "The more you regularly exchange with your friends, the more your complicity grows.",
     complicity_empty_title: "No complicity data.",
     complicity_empty_subtitle: "Send notifications to get started.",
-    soundcheck_hint: "Choose your sound wave category and listen to a random preview.",
+    soundcheck_hint: "Choose your sound wave category and\nlisten to a random preview",
     
     // Profil
     edit_profile: "Edit Profile",
@@ -713,6 +716,9 @@ const i18n = new I18n({
     
     // Footer & Help
     footer_help_text: "Swipe right to send a notification, tap before swiping to add a message!",
+    footer_sound_category_info: "Notification sounds will be randomly chosen from your selected sound wave category!",
+    friendlist_onboarding_soundcheck: "Choose the sound wave category you want to resonate!",
+    friendlist_onboarding_resonance: "Check your acoustic complicity with friends in the Resonance dashboard!",
     
     // Notifications & Errors
     notifications_not_enabled: "%{pseudo} has not enabled notifications. The token is not available in the database.",
@@ -1027,7 +1033,7 @@ const i18n = new I18n({
     complicity_help_tip_text: "Cuanto más intercambies regularmente con tus amigos, más crecerá tu complicidad.",
     complicity_empty_title: "Sin datos de complicidad.",
     complicity_empty_subtitle: "Envía notificaciones para empezar.",
-    soundcheck_hint: "Elige tu categoría de onda sonora y escucha una vista previa aleatoria.",
+    soundcheck_hint: "Elige tu categoría de onda sonora y\nescucha una vista previa aleatoria",
     
     // Profil
     edit_profile: "Editar perfil",
@@ -1165,6 +1171,9 @@ const i18n = new I18n({
     
     // Footer & Help
     footer_help_text: "Desliza hacia la derecha para enviar una notificación, toca antes de deslizar para agregar un mensaje!",
+    footer_sound_category_info: "El sonido de las notificaciones se elegirá aleatoriamente entre la categoría de onda sonora seleccionada.",
+    friendlist_onboarding_soundcheck: "¡Elige tu categoría de onda sonora para hacerla resonar!",
+    friendlist_onboarding_resonance: "Consulta la complicidad acústica que tienes con tus amigos en el panel de Resonancia.",
     
     // Notifications & Errors
     notifications_not_enabled: "%{pseudo} no ha activado las notificaciones. El token no está disponible en la base de datos.",
@@ -1481,7 +1490,7 @@ const i18n = new I18n({
     complicity_help_tip_text: "Quanto mais você troca regularmente com seus amigos, mais sua complicidade cresce.",
     complicity_empty_title: "Nenhum dado de cumplicidade.",
     complicity_empty_subtitle: "Envie notificações para começar.",
-    soundcheck_hint: "Escolha sua categoria de onda sonora e ouça uma prévia aleatória.",
+    soundcheck_hint: "Escolha sua categoria de onda sonora e\nouça uma prévia aleatória",
     
     // Profil
     edit_profile: "Editar Perfil",
@@ -1616,6 +1625,9 @@ const i18n = new I18n({
     
     // Footer & Help
     footer_help_text: "Direita pra peidar, clica antes pra escrever!",
+    footer_sound_category_info: "O som das notificações será escolhido aleatoriamente dentro da categoria de onda sonora selecionada!",
+    friendlist_onboarding_soundcheck: "Escolhe a categoria de onda sonora pra fazer ressoar!",
+    friendlist_onboarding_resonance: "Veja a cumplicidade acústica que você tem com seus amigos no painel de Ressonância!",
     
     // Notifications & Errors
     notifications_not_enabled: "%{pseudo} não ativou notificação. Sem token.",
@@ -1932,7 +1944,7 @@ const i18n = new I18n({
     complicity_help_tip_text: "Je regelmäßiger du mit deinen Freunden interagierst, desto mehr wächst eure Komplizenschaft.",
     complicity_empty_title: "Keine Komplizenschaftsdaten.",
     complicity_empty_subtitle: "Sende Benachrichtigungen, um zu starten.",
-    soundcheck_hint: "Wähle deine Schallwellen-Kategorie und höre eine zufällige Vorschau.",
+    soundcheck_hint: "Wähle deine Schallwellen-Kategorie und\nhöre eine zufällige Vorschau",
     
     // Profil
     edit_profile: "Profil bearbeiten",
@@ -2067,6 +2079,9 @@ const i18n = new I18n({
     
     // Footer & Help
     footer_help_text: "Rechts zum Fürzen, vorher klicken zum Schreiben!",
+    footer_sound_category_info: "Der Benachrichtigungston wird zufällig aus der ausgewählten Schallwellen-Kategorie gewählt!",
+    friendlist_onboarding_soundcheck: "Wähle deine Schallwellen-Kategorie, die du erklingen lassen willst!",
+    friendlist_onboarding_resonance: "Sieh dir die akustische Komplizenschaft mit deinen Freunden im Resonanz-Dashboard an!",
     
     // Notifications & Errors
     notifications_not_enabled: "%{pseudo} hat Benachrichtigungen nicht aktiviert. Kein Token.",
@@ -2383,7 +2398,7 @@ const i18n = new I18n({
     complicity_help_tip_text: "Più scambi regolarmente con i tuoi amici, più la tua complicità cresce.",
     complicity_empty_title: "Nessun dato di complicità.",
     complicity_empty_subtitle: "Invia notifiche per iniziare.",
-    soundcheck_hint: "Scegli la tua categoria di onda sonora e ascolta un'anteprima casuale.",
+    soundcheck_hint: "Scegli la tua categoria di onda sonora e\nascolta un'anteprima casuale",
     
     // Profil
     edit_profile: "Modifica Profilo",
@@ -2518,6 +2533,9 @@ const i18n = new I18n({
     
     // Footer & Help
     footer_help_text: "Destra per scoreggiare, clicca prima per scrivere!",
+    footer_sound_category_info: "Il suono delle notifiche verrà scelto casualmente dalla categoria di onda sonora selezionata!",
+    friendlist_onboarding_soundcheck: "Scegli la categoria di onda sonora da far risuonare!",
+    friendlist_onboarding_resonance: "Consulta la complicità acustica che hai con i tuoi amici nel pannello di Risonanza!",
     
     // Notifications & Errors
     notifications_not_enabled: "%{pseudo} non ha abilitato le notifiche. Nessun token.",

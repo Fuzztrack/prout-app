@@ -1,6 +1,6 @@
 import SoundcheckSelector from '@/components/SoundcheckSelector';
 import { Ionicons } from '@expo/vector-icons';
-import Constants from 'expo-constants';
+import * as Device from 'expo-device';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -24,40 +24,57 @@ export default function SoundcheckScreen() {
   const insets = useSafeAreaInsets();
   const [initialCategory, setInitialCategory] = useState<SoundCategory | null>(null);
 
-  // On garde un header lisible (sinon il chevauche le centre et le sélecteur).
-  const titleImageHeight = Math.min(150, Math.max(95, Math.round(screenHeight * 0.14)));
-  const titleImageWidth = Math.round(titleImageHeight * (310 / 75)); // proche de resonance.png
+  // Taille du titre: on se base sur le vrai ratio de sound.png pour éviter
+  // les "marges" visuelles créées par un ratio arbitraire + resizeMode="contain".
+  const soundTitleAsset = Image.resolveAssetSource(require('../assets/images/sound.png'));
+  const soundTitleAspectRatio =
+    soundTitleAsset?.width && soundTitleAsset?.height
+      ? soundTitleAsset.width / soundTitleAsset.height
+      : 4; // fallback safe
+  // On "sur-dimensionne" un peu le titre (image très large donc peu haute),
+  // ça augmente sa hauteur sans réintroduire de marges.
+  const titleScale = 0.8;
+  const titleImageWidth = Math.round(screenWidth * titleScale);
+  const titleImageHeight = Math.round(titleImageWidth / soundTitleAspectRatio);
   const soundwaveHeight = Math.min(90, Math.max(56, Math.round(screenWidth * 0.18)));
   const soundwaveWidth = Math.max(220, Math.round(screenWidth - 32)); // petite marge sur les bords
 
-  // Flèche retour : affichée sur simulateur (Constants.isDevice peut être bugué et renvoyer true sur simu, donc on affiche si !isDevice ou en dev)
-  const showBackButton = !Constants.isDevice || __DEV__;
+  // Flèche retour : affichée uniquement sur simulateur (comme page Résonance)
+  // Sur device réel, le swipe-back natif iOS fonctionne, donc pas besoin de flèche
+  const showBackButton = !Device.isDevice;
 
   useEffect(() => {
     AsyncStorage.getItem(SOUND_CATEGORY_KEY).then((saved) => {
-      setInitialCategory((saved as SoundCategory) || 'prrt');
-    }).catch(() => setInitialCategory('prrt'));
+      setInitialCategory((saved as SoundCategory) || 'trll');
+    }).catch(() => setInitialCategory('trll'));
   }, []);
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <View style={styles.headerRow}>
+      <View style={[styles.header, { paddingTop: insets.top }]}>
+        {/* Titre en HAUT (au-dessus de la flèche retour) */}
+        <View style={styles.titleContainer} pointerEvents="none">
+          <Image
+            source={require('../assets/images/sound.png')}
+            style={[styles.titleImage, { width: titleImageWidth, height: titleImageHeight }]}
+            resizeMode="contain"
+          />
+          <Text style={styles.titleHint}>{i18n.t('soundcheck_hint')}</Text>
+        </View>
+
+        {/* Ligne navigation EN DESSOUS du titre */}
+        <View style={styles.navRow}>
           {showBackButton ? (
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={styles.backButton}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
               <Ionicons name="arrow-back" size={24} color="#604a3e" />
             </TouchableOpacity>
           ) : (
             <View style={[styles.backButton, { width: 40 }]} />
           )}
-          <View style={styles.titleContainer} pointerEvents="none">
-            <Image
-              source={require('../assets/images/sound.png')}
-              style={[styles.titleImage, { width: titleImageWidth, height: titleImageHeight }]}
-              resizeMode="contain"
-            />
-            <Text style={styles.titleHint}>{i18n.t('soundcheck_hint')}</Text>
-          </View>
           <View style={styles.headerSpacer} />
         </View>
       </View>
@@ -82,37 +99,49 @@ const styles = StyleSheet.create({
     backgroundColor: BACKGROUND_COLOR,
   },
   header: {
-    alignItems: 'center',
-    paddingHorizontal: 20,
+    // Important: ne pas centrer verticalement le contenu du header,
+    // sinon quand l'image grandit elle "descend" (effet de centrage).
+    alignItems: 'stretch',
+    paddingHorizontal: 0,
     paddingTop: 0,
     paddingBottom: 0,
   },
-  headerRow: {
+  navRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     width: '100%',
+    marginTop: 0,
+    paddingHorizontal: 12,
   },
   backButton: {
-    padding: 8,
+    // Garder une zone de touch confortable sans "pousser" vers le bas
+    paddingHorizontal: 8,
+    paddingTop: 8,
+    paddingBottom: 0,
   },
   headerSpacer: {
     width: 40,
   },
   titleContainer: {
-    flex: 1,
+    width: '100%',
     alignItems: 'center',
     justifyContent: 'flex-start',
+    paddingHorizontal: 0,
   },
   titleImage: {
-    maxWidth: '100%',
+    marginTop: 0,
+    marginBottom: 16,
   },
   titleHint: {
-    marginTop: 4,
-    marginBottom: 2,
+    marginTop: 0,
+    marginBottom: 0,
     fontSize: 13,
     color: '#604a3e',
     textAlign: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
+    lineHeight: 18,
+    fontStyle: 'italic',
   },
   selectorArea: {
     flex: 1,

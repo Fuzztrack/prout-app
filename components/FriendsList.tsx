@@ -31,6 +31,9 @@ import i18n from '../lib/i18n';
 import { supabase } from '../lib/supabase';
 import { SearchBar } from './SearchBar';
 import { SOUND_CATEGORY_KEY, type SoundCategory } from './SoundcheckSelector';
+
+const FIRST_FRIENDLIST_FOOTER_MODAL_KEY = 'first_friendlist_footer_modal_seen_v1';
+const FIRST_FRIENDLIST_FEATURES_MODAL_KEY = 'first_friendlist_features_modal_seen_v1';
 const ANIM_IMAGES = [
   require('../assets/images/animprout1.png'),
   require('../assets/images/animprout2.png'),
@@ -112,7 +115,7 @@ async function getSelectedSoundCategory(): Promise<SoundCategory> {
     const saved = await AsyncStorage.getItem(SOUND_CATEGORY_KEY);
     if (saved === 'prrt' || saved === 'bzzz' || saved === 'trll') return saved;
   } catch (_) {}
-  return 'prrt';
+  return 'trll';
 }
 
 function getDisplaySoundLabel(soundKey: string) {
@@ -778,6 +781,9 @@ export function FriendsList({
   const [identityRequests, setIdentityRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true); // Commencer à true pour éviter le flash
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isFirstFriendlistModalVisible, setIsFirstFriendlistModalVisible] = useState(false);
+  const [isFirstFriendlistFeaturesModalVisible, setIsFirstFriendlistFeaturesModalVisible] = useState(false);
+  const pendingShowFeaturesAfterFooterRef = useRef(false);
   const [currentPseudo, setCurrentPseudo] = useState<string>("Un ami");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -791,6 +797,61 @@ export function FriendsList({
   useEffect(() => {
     expandedFriendIdRef.current = expandedFriendId;
   }, [expandedFriendId]);
+
+  const closeFirstFriendlistModal = useCallback(async () => {
+    setIsFirstFriendlistModalVisible(false);
+    try {
+      await AsyncStorage.setItem(FIRST_FRIENDLIST_FOOTER_MODAL_KEY, '1');
+    } catch {
+      // non bloquant
+    }
+  }, []);
+
+  const closeFirstFriendlistFeaturesModal = useCallback(async () => {
+    setIsFirstFriendlistFeaturesModalVisible(false);
+    try {
+      await AsyncStorage.setItem(FIRST_FRIENDLIST_FEATURES_MODAL_KEY, '1');
+    } catch {
+      // non bloquant
+    }
+  }, []);
+
+  const handleFirstFriendlistModalOk = useCallback(async () => {
+    // On ferme la 1ère modale, puis on ouvrira la 2e uniquement quand l'animation
+    // de fermeture est terminée (onModalHide) pour éviter qu'elle ne soit "mangée".
+    pendingShowFeaturesAfterFooterRef.current = true;
+    setIsFirstFriendlistModalVisible(false);
+    try {
+      await AsyncStorage.setItem(FIRST_FRIENDLIST_FOOTER_MODAL_KEY, '1');
+    } catch {
+      // non bloquant
+    }
+  }, []);
+
+  // Pop-up unique à la première arrivée sur la friendlist
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      (async () => {
+        try {
+          const seenFooter = await AsyncStorage.getItem(FIRST_FRIENDLIST_FOOTER_MODAL_KEY);
+          const seenFeatures = await AsyncStorage.getItem(FIRST_FRIENDLIST_FEATURES_MODAL_KEY);
+          if (cancelled) return;
+          if (!seenFooter) {
+            setIsFirstFriendlistModalVisible(true);
+          } else if (!seenFeatures) {
+            // Fallback si la 1ère a été validée mais pas la 2e (ex: crash)
+            setIsFirstFriendlistFeaturesModalVisible(true);
+          }
+        } catch {
+          // Si AsyncStorage échoue, on évite de spammer une modale
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [])
+  );
   const [keyboardVisible, setKeyboardVisible] = useState(false); // État local pour le clavier
   // const [keyboardHeight, setKeyboardHeight] = useState(0); // ❌ Supprimé : géré par Reanimated
   const [isModalContentVisible, setIsModalContentVisible] = useState(false);
@@ -3850,10 +3911,81 @@ useEffect(() => {
           appUsers.length > 0 ? (
             <View style={styles.footerHelp}>
               <Text style={styles.footerHelpText}>{i18n.t('footer_help_text')}</Text>
+              <Text style={[styles.footerHelpText, styles.footerHelpTextSecondary]}>
+                {i18n.t('footer_sound_category_info')}
+              </Text>
             </View>
           ) : null
         }
       />
+
+      <Modal
+        isVisible={isFirstFriendlistModalVisible}
+        onBackButtonPress={closeFirstFriendlistModal}
+        onModalHide={() => {
+          // Chaînage fiable : on ouvre la 2e modale après fermeture complète de la 1ère
+          if (!pendingShowFeaturesAfterFooterRef.current) return;
+          pendingShowFeaturesAfterFooterRef.current = false;
+          (async () => {
+            try {
+              const seenFeatures = await AsyncStorage.getItem(FIRST_FRIENDLIST_FEATURES_MODAL_KEY);
+              if (!seenFeatures) setIsFirstFriendlistFeaturesModalVisible(true);
+            } catch {
+              // ignorer
+            }
+          })();
+        }}
+        backdropOpacity={0.55}
+        animationIn="fadeIn"
+        animationOut="fadeOut"
+        useNativeDriver
+      >
+        <View style={styles.firstFooterModalCard}>
+          <Text style={styles.firstFooterModalText}>{i18n.t('footer_help_text')}</Text>
+          <Text style={[styles.firstFooterModalText, styles.firstFooterModalTextSecondary]}>
+            {i18n.t('footer_sound_category_info')}
+          </Text>
+          <TouchableOpacity
+            style={styles.firstFooterModalOkButton}
+            onPress={handleFirstFriendlistModalOk}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.firstFooterModalOkText}>OK</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
+      <Modal
+        isVisible={isFirstFriendlistFeaturesModalVisible}
+        onBackButtonPress={closeFirstFriendlistFeaturesModal}
+        backdropOpacity={0.55}
+        animationIn="fadeIn"
+        animationOut="fadeOut"
+        useNativeDriver
+      >
+        <View style={styles.firstFooterModalCard}>
+          <View style={styles.firstFooterModalFeatureRow}>
+            <Ionicons name="pulse" size={22} color="#604a3e" />
+            <Text style={styles.firstFooterModalFeatureText}>
+              {i18n.t('friendlist_onboarding_soundcheck')}
+            </Text>
+          </View>
+          <View style={[styles.firstFooterModalFeatureRow, { marginTop: 14 }]}>
+            <Ionicons name="trophy" size={22} color="#604a3e" />
+            <Text style={styles.firstFooterModalFeatureText}>
+              {i18n.t('friendlist_onboarding_resonance')}
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.firstFooterModalOkButton}
+            onPress={closeFirstFriendlistFeaturesModal}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.firstFooterModalOkText}>OK</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
 
       <Modal
         isVisible={!!expandedFriendId}
@@ -4271,6 +4403,61 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontStyle: 'italic',
     opacity: 0.7,
+  },
+  footerHelpTextSecondary: {
+    marginTop: 10,
+    fontSize: 13,
+    opacity: 0.75,
+  },
+
+  firstFooterModalCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(96, 74, 62, 0.12)',
+  },
+  firstFooterModalText: {
+    color: '#604a3e',
+    fontSize: 14,
+    textAlign: 'center',
+    fontStyle: 'italic',
+    opacity: 0.85,
+  },
+  firstFooterModalTextSecondary: {
+    marginTop: 10,
+    fontSize: 13,
+    opacity: 0.8,
+  },
+  firstFooterModalOkButton: {
+    marginTop: 16,
+    alignSelf: 'center',
+    backgroundColor: '#604a3e',
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    borderRadius: 999,
+  },
+  firstFooterModalOkText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  firstFooterModalFeatureRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  firstFooterModalFeatureText: {
+    flex: 1,
+    marginLeft: 12,
+    color: '#604a3e',
+    fontSize: 14,
+    textAlign: 'left',
+    fontStyle: 'italic',
+    opacity: 0.88,
+    lineHeight: 19,
   },
   
   // Styles pour la recherche
