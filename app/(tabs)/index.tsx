@@ -62,6 +62,23 @@ export default function HomeScreen() {
   }, [router]);
 
   // --- MISE À JOUR TOKEN FCM ---
+  const updateIosBundleId = async (userId: string) => {
+    if (Platform.OS !== 'ios') return;
+    try {
+      const bundleId = Constants.expoConfig?.ios?.bundleIdentifier;
+      if (!bundleId) return;
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({ push_ios_bundle: bundleId })
+        .eq('id', userId);
+      if (error) {
+        console.error('❌ Erreur mise à jour push_ios_bundle dans Supabase:', error);
+      }
+    } catch (e) {
+      console.error('❌ Exception mise à jour push_ios_bundle:', e);
+    }
+  };
+
   const updatePushToken = async (userId: string) => {
     // Permettre le simulateur pour le développement (Device.isDevice retourne false dans le simulateur)
     if (Platform.OS === 'web') return;
@@ -102,6 +119,8 @@ export default function HomeScreen() {
         return;
       }
       setUserId(user.id);
+      // Enregistrer le bundle iOS même sans permission notifications
+      updateIosBundleId(user.id);
 
       // Charger l'état Zen, le pseudo et le retour haptique
       const { data: profile } = await supabase
