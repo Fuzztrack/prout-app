@@ -119,9 +119,23 @@ async function getSelectedSoundCategory(): Promise<SoundCategory> {
 }
 
 function getDisplaySoundLabel(soundKey: string) {
-  if (soundKey.startsWith('prrt')) return 'PRRT!';
-  if (soundKey.startsWith('bzzz')) return 'BZZZ!';
-  if (soundKey.startsWith('trrl')) return 'TRRL!';
+  // Nouveau bundle (soundcheck) : libellés affichés dans le toast d’envoi
+  // - prrt{n} : mêmes noms que prout{n}
+  // - bzzz/trrl : on affiche la clé (bzzz1, trrl2, etc.) pour valider la logique
+  if (soundKey.startsWith('prrt')) {
+    const match = soundKey.match(/(\d+)/);
+    const n = match?.[1] ? parseInt(match[1], 10) : NaN;
+    if (Number.isFinite(n)) {
+      return i18n.t(`prout_names.prout${n}`) || `prout${n}`;
+    }
+    return i18n.t('prout_names.prout1') || 'prout1';
+  }
+  if (soundKey.startsWith('bzzz')) {
+    return soundKey;
+  }
+  if (soundKey.startsWith('trrl')) {
+    return soundKey;
+  }
   return i18n.t(`prout_names.${soundKey}`) || soundKey;
 }
 
