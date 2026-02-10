@@ -41,9 +41,8 @@ export default function SoundcheckScreen() {
   const soundwaveHeight = Math.min(90, Math.max(56, Math.round(screenWidth * 0.18)));
   const soundwaveWidth = Math.max(220, Math.round(screenWidth - 32)); // petite marge sur les bords
 
-  // Flèche retour : affichée uniquement sur simulateur (comme page Résonance)
-  // Sur device réel, le swipe-back natif iOS fonctionne, donc pas besoin de flèche
-  const showBackButton = !Device.isDevice;
+  // Flèche retour : toujours affichée
+  const showBackButton = true;
 
   useEffect(() => {
     // Charger la catégorie sélectionnée
@@ -82,7 +81,6 @@ export default function SoundcheckScreen() {
 
         {/* Ligne navigation EN DESSOUS du titre */}
         <View style={styles.navRow}>
-          {showBackButton ? (
             <TouchableOpacity
               onPress={() => {
                 stopCurrentPreviewSound().catch(() => {});
@@ -93,9 +91,6 @@ export default function SoundcheckScreen() {
             >
               <Ionicons name="arrow-back" size={24} color="#604a3e" />
             </TouchableOpacity>
-          ) : (
-            <View style={[styles.backButton, { width: 40 }]} />
-          )}
           <View style={styles.headerSpacer} />
         </View>
       </View>
@@ -106,21 +101,21 @@ export default function SoundcheckScreen() {
       </View>
       {/* Bande sonore en bas (cliquable pour toggle son) */}
       <View style={[styles.bottomWave, { bottom: insets.bottom + 16 }]}>
-        <Text style={[styles.soundToggleText, { color: soundEnabled ? '#ffffff' : '#999999' }]}>
-          {soundEnabled ? 'Sound on' : 'Sound off'}
-        </Text>
         <TouchableOpacity
           onPress={() => {
             const newValue = !soundEnabled;
             setSoundEnabled(newValue);
-            // Persister le choix pour toute la session
             AsyncStorage.setItem(SOUND_ENABLED_KEY, String(newValue)).catch(() => {});
             if (soundEnabled) {
               stopCurrentPreviewSound().catch(() => {});
             }
           }}
           activeOpacity={0.7}
+          style={{ alignItems: 'center' }}
         >
+          <Text style={[styles.soundToggleText, { color: soundEnabled ? '#ffffff' : '#999999' }]}>
+            {soundEnabled ? 'Sound on' : 'Sound off'}
+          </Text>
           <Image
             source={require('../assets/images/soundwave.png')}
             style={[styles.bottomWaveImage, { width: soundwaveWidth, height: soundwaveHeight }]}
@@ -175,11 +170,11 @@ const styles = StyleSheet.create({
   titleHint: {
     marginTop: 0,
     marginBottom: 0,
-    fontSize: 13,
+    fontSize: 16,
     color: '#604a3e',
     textAlign: 'center',
     paddingHorizontal: 12,
-    lineHeight: 18,
+    lineHeight: 22,
     fontStyle: 'italic',
   },
   selectorArea: {
@@ -199,7 +194,7 @@ const styles = StyleSheet.create({
     opacity: 0.95,
   },
   soundToggleText: {
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: '500',
     marginBottom: 6,
     textAlign: 'center',

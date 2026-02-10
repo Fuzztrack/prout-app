@@ -501,19 +501,19 @@ const styles = StyleSheet.create({
   headerImage: {
     width: 310,
     height: 75,
-    marginBottom: 12,
+    marginBottom: 20,
   },
   headerSubtitle: {
     color: COLORS.textSecondary,
     fontSize: 14,
     fontStyle: 'italic',
-    marginTop: 0,
+    marginTop: 8,
     textAlign: 'center',
   },
   helpContainer: {
     paddingHorizontal: 20,
-    paddingTop: 0, // Réduit de 10 à 0
-    paddingBottom: 5,
+    paddingTop: 0,
+    paddingBottom: 0,
     alignItems: 'flex-end',
   },
   helpButton: {
@@ -528,6 +528,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
+    paddingTop: 8,
   },
   cardContainer: {
     marginBottom: 12,
