@@ -489,9 +489,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: 50,
     paddingHorizontal: 20,
-    paddingBottom: 0, // Réduit de 5 à 0
-    // borderBottomWidth: 1,
-    // borderBottomColor: COLORS.border,
+    paddingBottom: 0,
   },
   backButton: {
     padding: 8,
