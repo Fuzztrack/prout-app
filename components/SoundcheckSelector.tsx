@@ -400,6 +400,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 10, // Ensure clickable above background elements
   },
   logoImage: {
   },

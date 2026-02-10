@@ -245,9 +245,8 @@ export default function ComplicityDashboard() {
     );
   };
 
-  // Flèche retour : affichée uniquement sur simulateur
-  // Sur device réel, le swipe-back natif iOS fonctionne, donc pas besoin de flèche
-  const showBackButton = !Device.isDevice;
+  // Flèche retour : toujours affichée
+  const showBackButton = true;
 
   return (
     <View style={styles.container}>

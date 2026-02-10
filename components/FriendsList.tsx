@@ -946,6 +946,7 @@ export function FriendsList({
   // Anti-spam markRead (backoff) : Map<messageId, lastAttemptAtMs>
   // Messages envoyés masqués après fermeture de chat (purge locale)
   const hiddenSentIdsRef = useRef<Set<string>>(new Set());
+  const readSentMessagesRef = useRef<Set<string>>(new Set()); // Messages envoyés lus par l'autre (pour ne pas les réafficher en non-lu)
   const pendingReadRemovalTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const prevExpandedRef = useRef<string | null>(null);
   const stickyScrollViewRef = useRef<ScrollView>(null);
@@ -1250,9 +1251,13 @@ export function FriendsList({
         const msgs = prev[prevId];
         if (!Array.isArray(msgs)) return prev;
 
-        // On garde tout ce qui N'EST PAS 'read'. 
+        // On garde tout ce qui N'EST PAS 'read' ET pas connu comme lu dans le cache
         // Donc status === undefined (envoyé) ou status === 'sent' sont conservés.
-        const keptSent = msgs.filter(m => m?.status !== 'read');
+        const keptSent = msgs.filter(m => {
+            if (m.status === 'read') return false;
+            if (m.id && readSentMessagesRef.current.has(m.id)) return false;
+            return true;
+        });
         
         const next = { ...prev };
         if (keptSent.length > 0) {
@@ -2209,13 +2214,21 @@ useEffect(() => {
                 // Filtrer les messages serveur si on a déjà marqué localement "lu"
                 // MAIS : garder les messages avec "READ:" pour mettre à jour le statut même s'ils sont en cours de suppression
                 const filteredServerMessages = serverMessages.filter(m => {
+                  // 1. Si on a reçu un broadcast "read" pour ce message, on sait qu'il est lu.
+                  // Si le serveur le renvoie sans statut "read" (car pas encore supprimé), on doit l'ignorer ou le forcer à "read".
+                  // Ici on l'ignore car on a déjà la version locale "lue" dans readMessages (via readIds).
+                  // Si on a purgé readMessages (chat fermé), on ne veut PAS le revoir en "non-lu".
+                  if (readSentMessagesRef.current.has(m.id)) {
+                      return false;
+                  }
+
                   // Si le message est marqué "READ:" côté serveur, on doit le traiter pour mettre à jour le statut
                   const isReadOnServer = m.text?.startsWith('READ:') || m.message_content?.startsWith('READ:');
                   if (isReadOnServer) {
                     // Ne pas filtrer : on veut mettre à jour le statut "read" même si le message sera supprimé
                     return true;
                   }
-                  // Sinon, filtrer si déjà marqué localement "lu"
+                  // Sinon, filtrer si déjà marqué localement "lu" (via readIds, qui est temporaire si chat ouvert)
                   return !readIds.has(m.id);
                 });
                 if (__DEV__ && readIds.size > 0) {
@@ -2289,9 +2302,19 @@ useEffect(() => {
                   // Vérifier aussi dans message_content au cas où (fallback)
                   const rawText = m.message_content || m.text || '';
                   const isReadOnServer = rawText.startsWith('READ:');
-                  if (isReadOnServer) {
-                    // Marquer comme lu même si le message sera supprimé dans 5s
-                    return { ...m, status: 'read' as const, readAt: Date.now(), text: rawText.slice('READ:'.length) };
+                  const isKnownRead = m.id && readSentMessagesRef.current.has(m.id);
+
+                  if (isReadOnServer || isKnownRead) {
+                    // Marquer comme lu si c'est connu comme tel
+                    if (isKnownRead && m.id && !readSentMessagesRef.current.has(m.id)) {
+                        readSentMessagesRef.current.add(m.id);
+                    }
+                    return { 
+                        ...m, 
+                        status: 'read' as const, 
+                        readAt: m.readAt || Date.now(), 
+                        text: isReadOnServer ? rawText.slice('READ:'.length) : rawText 
+                    };
                   }
                   return m;
                 });
@@ -2335,9 +2358,52 @@ useEffect(() => {
                   const now = Date.now();
                   const msgTime = new Date(localMsg.ts).getTime();
                   const age = now - msgTime;
+                  
+                  // CORRECTION: Si le message local a un ID, et qu'il n'est pas dans le serveur,
+                  // c'est qu'il a été lu/supprimé par l'autre.
+                  // Mais attention : loadData le supprime si on ne fait rien.
+                  // Si on a un statut 'read' localement (via broadcast), on veut le garder si chat ouvert.
+                  // Si chat fermé, on le laisse tomber (purge).
+                  
                   if (age < 86400000) { // 24 heures
-                    if (localMsg.id && !mergedById.has(localMsg.id)) {
-                      mergedById.set(localMsg.id, localMsg);
+                    if (localMsg.id) {
+                         if (!mergedById.has(localMsg.id)) {
+                             // Si on a un message local avec ID qui n'est plus sur le serveur
+                             // Si son statut est 'read' et chat ouvert => on garde
+                             // Si son statut est 'read' et chat fermé => on jette (déjà fait par le filter serverMessages ?)
+                             // Si son statut n'est PAS 'read' => c'est bizarre (message perdu?), on garde par sécurité
+                             
+                             if (localMsg.status === 'read') {
+                                 if (expandedFriendIdRef.current === uid) {
+                                     mergedById.set(localMsg.id, localMsg);
+                                 }
+                             } else {
+                                 // Message envoyé mais disparu du serveur sans être marqué lu ?
+                                 // Probablement lu et supprimé mais on a raté le broadcast.
+                                 // On le considère comme lu si chat ouvert.
+                                 if (expandedFriendIdRef.current === uid) {
+                                     mergedById.set(localMsg.id, { ...localMsg, status: 'read', readAt: Date.now() });
+                                 }
+                             }
+                         } else {
+                 // Le message est sur le serveur.
+                 // Si local est 'read' mais serveur 'sent', on force 'read' (priorité locale broadcast)
+                 const serverMsg = mergedById.get(localMsg.id);
+                 if (serverMsg) {
+                     const isKnownRead = readSentMessagesRef.current.has(localMsg.id);
+                     if (localMsg.status === 'read' || isKnownRead) {
+                        if (serverMsg.status !== 'read') {
+                            mergedById.set(localMsg.id, { 
+                                ...serverMsg, 
+                                status: 'read', 
+                                readAt: localMsg.readAt || Date.now() 
+                            });
+                            // S'assurer qu'il est dans le cache
+                            readSentMessagesRef.current.add(localMsg.id);
+                        }
+                     }
+                 }
+                         }
                     } else if (!localMsg.id) {
                       const key = `temp-${localMsg.text}-${localMsg.ts}`;
                       if (!mergedById.has(key)) {
@@ -2713,7 +2779,10 @@ useEffect(() => {
             if (ids.length === 0) return;
             // Batch: 1 seule mise à jour de state pour tous les IDs (évite "seul le dernier")
             const idsSet = new Set(ids);
-            ids.forEach((id) => pendingReadIdsRef.current.add(id));
+            ids.forEach((id) => {
+              pendingReadIdsRef.current.add(id);
+              readSentMessagesRef.current.add(id); // Mémoriser qu'ils sont lus pour filtrage futur
+            });
 
             setLastSentMessages((prev) => {
               const targetUserId: string | null = receiverId || null;
@@ -2748,14 +2817,17 @@ useEffect(() => {
               });
 
               if (!changed) return prev;
+              if (__DEV__) console.log('[CHAT_DEBUG] Broadcast READ applied for', targetUserId, 'updated:', updated.filter(m => m.status === 'read').length);
               const next: LastSentMap = { ...prev, [targetUserId]: updated };
               updateLastSentIndex(next);
               saveLastSentMessagesCache(next);
               return next;
             });
 
-            // Un seul refresh après le batch
-            loadData(false, false, false);
+            // Un seul refresh après le batch, MAIS éviter de re-fetcher immédiatement pour ne pas écraser l'état local
+            // avec des données serveur potentiellement pas encore à jour (suppression asynchrone).
+            // Le broadcast suffit pour l'UI immédiate.
+            // loadData(false, false, false); 
         })
         .on('broadcast', { event: 'message-received' }, () => {
             loadData(false, false, false);
@@ -3725,14 +3797,20 @@ useEffect(() => {
     
     const mySentMessages = (lastSentMessages[displayFriend.id] || []);
 
-    // Fusion et tri
+        // Fusion et tri
+    if (__DEV__ && displayFriend) {
+        // console.log('[CHAT_DEBUG] Rendering sticky content for', displayFriend.pseudo, 'sent:', mySentMessages.length, 'received:', activeMessagesToShow.length);
+    }
     const allMessages = [
         ...activeMessagesToShow.map((m, idx) => ({
             id: m.id || `received-${idx}-${m.created_at}`,
             text: stripReadPrefix(m.message_content),
             ts: m.created_at,
             isMe: false,
-            dimmed: !!m.isPendingDelete || (m.message_content?.startsWith('READ:') ?? false),
+            // CORRECTION: Les reçus ne doivent JAMAIS être grisés (même si "READ:" est présent).
+            // Le "READ:" sur un reçu signifie juste que JE l'ai lu, ça ne doit pas affecter l'affichage.
+            // On grise uniquement si pending delete (en train de disparaître).
+            dimmed: !!m.isPendingDelete, 
             original: undefined
         })),
         ...(Array.isArray(mySentMessages) ? mySentMessages.map((msg, idx) => ({
