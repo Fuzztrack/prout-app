@@ -68,7 +68,7 @@ const i18n = new I18n({
     password_label: "Mot de passe",
     
     // Home & Navigation
-    share_message: "Rejoins moi sur \"Prrt!\", mon pseudo est %{pseudo}",
+    share_message: "Rejoins-moi sur l'appli \"Prrt!\", mon pseudo est %{pseudo} : http://www.prrtapp.com",
     tab_list: "Amis",
     
     // Friends List
@@ -538,7 +538,7 @@ const i18n = new I18n({
     password_label: "Password",
     
     // Home & Navigation
-    share_message: "Join me on \"Prrt!\", my username is %{pseudo}",
+    share_message: "Join me on the \"Prrt!\" app, my username is %{pseudo}: http://www.prrtapp.com",
     tab_list: "Friends",
     
     // Friends List
@@ -1004,7 +1004,7 @@ const i18n = new I18n({
     password_label: "Contraseña",
     
     // Home & Navigation
-    share_message: "Únete a mí en \"Prrt!\", mi nombre de usuario es %{pseudo}",
+    share_message: "Únete a mí en la app \"Prrt!\", mi usuario es %{pseudo}: http://www.prrtapp.com",
     tab_list: "Amigos",
     
     // Friends List
@@ -1473,7 +1473,7 @@ const i18n = new I18n({
     password_label: "Senha",
     
     // Home & Navigation
-    share_message: "Vem pro \"Prrt!\", meu usuário é %{pseudo}",
+    share_message: "Vem para o app \"Prrt!\", meu usuário é %{pseudo}: http://www.prrtapp.com",
     tab_list: "Amigos",
     
     // Friends List
@@ -1939,7 +1939,7 @@ const i18n = new I18n({
     password_label: "Passwort",
     
     // Home & Navigation
-    share_message: "Tritt mir auf \"Prrt!\" bei, mein Benutzername ist %{pseudo}",
+    share_message: "Komm zu mir in der App \"Prrt!\", mein Benutzername ist %{pseudo}: http://www.prrtapp.com",
     tab_list: "Freunde",
     
     // Friends List
@@ -2405,7 +2405,7 @@ const i18n = new I18n({
     password_label: "Password",
     
     // Home & Navigation
-    share_message: "Unisciti a me su \"Prrt!\", il mio username è %{pseudo}",
+    share_message: "Unisciti a me sull'app \"Prrt!\", il mio username è %{pseudo}: http://www.prrtapp.com",
     tab_list: "Amici",
     
     // Friends List

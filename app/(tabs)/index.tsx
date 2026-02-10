@@ -29,6 +29,7 @@ export default function HomeScreen() {
   const [isSilentMode, setIsSilentMode] = useState(false);
   const [isHapticEnabled, setIsHapticEnabled] = useState(true);
   const [currentPseudo, setCurrentPseudo] = useState<string>('');
+  const [currentAvatarUrl, setCurrentAvatarUrl] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
@@ -125,7 +126,7 @@ export default function HomeScreen() {
       // Charger l'état Zen, le pseudo et le retour haptique
       const { data: profile } = await supabase
         .from('user_profiles')
-        .select('is_zen_mode, pseudo')
+        .select('is_zen_mode, pseudo, avatar_url')
         .eq('id', user.id)
         .single();
       
@@ -143,6 +144,7 @@ export default function HomeScreen() {
         setIsZenMode(profile.is_zen_mode || false);
         const pseudo = profile.pseudo || '';
         setCurrentPseudo(pseudo);
+        setCurrentAvatarUrl(profile.avatar_url || null);
         // Mémoriser pour affichage instantané au prochain lancement
         AsyncStorage.setItem(CACHE_PSEUDO_KEY, pseudo).catch(() => {});
       }
@@ -182,6 +184,26 @@ export default function HomeScreen() {
       console.log("Erreur Home:", e);
     }
   };
+
+  const refreshCurrentProfile = useCallback(async () => {
+    if (!userId) return;
+    try {
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('pseudo, avatar_url')
+        .eq('id', userId)
+        .single();
+
+      if (profile) {
+        const pseudo = profile.pseudo || '';
+        setCurrentPseudo(pseudo);
+        setCurrentAvatarUrl(profile.avatar_url || null);
+        AsyncStorage.setItem(CACHE_PSEUDO_KEY, pseudo).catch(() => {});
+      }
+    } catch {
+      // noop
+    }
+  }, [userId]);
 
   // Précharger le pseudo depuis le cache pour afficher le bonjour instantanément
   useEffect(() => {
@@ -691,6 +713,7 @@ export default function HomeScreen() {
                    onProfileUpdated={(newPseudo) => {
                      setCurrentPseudo(newPseudo);
                      AsyncStorage.setItem(CACHE_PSEUDO_KEY, newPseudo).catch(() => {});
+                      refreshCurrentProfile();
                    }}
                  />
                ) : (
@@ -707,6 +730,7 @@ export default function HomeScreen() {
                      headerComponent={
                        <AppHeader
                          currentPseudo={currentPseudo}
+                         profileAvatarUrl={currentAvatarUrl}
                          isZenMode={isZenMode}
                          isSilentMode={isSilentMode}
                          isProfileMenuOpen={activeView === 'profileMenu'}
@@ -716,6 +740,7 @@ export default function HomeScreen() {
                         onComplicityPress={handleComplicityPress}
                         onSoundcheckPress={handleSoundcheckPress}
                         onProfileMenuPress={toggleProfileMenu}
+                        onProfilePress={() => setActiveView('profile')}
                          onZenModeToggle={toggleZenMode}
                          onSilentModeToggle={toggleSilentMode}
                          shakeX={shakeX}
@@ -734,11 +759,13 @@ export default function HomeScreen() {
                          <TouchableOpacity activeOpacity={1} onPress={toggleProfileMenu}>
                            <AppHeader
                              currentPseudo={currentPseudo}
+                            profileAvatarUrl={currentAvatarUrl}
                              isZenMode={isZenMode}
                              isSilentMode={isSilentMode}
                              isProfileMenuOpen={activeView === 'profileMenu'}
                              isProfileOpen={activeView === 'profile'}
                              onProfileMenuPress={toggleProfileMenu}
+                            onProfilePress={() => setActiveView('profile')}
                              onSoundcheckPress={handleSoundcheckPress}
                              onZenModeToggle={toggleZenMode}
                              onSilentModeToggle={toggleSilentMode}
@@ -792,6 +819,7 @@ export default function HomeScreen() {
                 onProfileUpdated={(newPseudo) => {
                   setCurrentPseudo(newPseudo);
                   AsyncStorage.setItem(CACHE_PSEUDO_KEY, newPseudo).catch(() => {});
+                  refreshCurrentProfile();
                 }}
               />
             ) : (
@@ -808,6 +836,7 @@ export default function HomeScreen() {
                   headerComponent={
                     <AppHeader
                       currentPseudo={currentPseudo}
+                      profileAvatarUrl={currentAvatarUrl}
                       isZenMode={isZenMode}
                       isSilentMode={isSilentMode}
                       isProfileMenuOpen={activeView === 'profileMenu'}
@@ -817,6 +846,7 @@ export default function HomeScreen() {
                         onComplicityPress={handleComplicityPress}
                         onSoundcheckPress={handleSoundcheckPress}
                         onProfileMenuPress={toggleProfileMenu}
+                      onProfilePress={() => setActiveView('profile')}
                       onZenModeToggle={toggleZenMode}
                       onSilentModeToggle={toggleSilentMode}
                       shakeX={shakeX}
@@ -835,11 +865,13 @@ export default function HomeScreen() {
                       <TouchableOpacity activeOpacity={1} onPress={toggleProfileMenu}>
                         <AppHeader
                           currentPseudo={currentPseudo}
+                          profileAvatarUrl={currentAvatarUrl}
                           isZenMode={isZenMode}
                           isSilentMode={isSilentMode}
                           isProfileMenuOpen={activeView === 'profileMenu'}
                           isProfileOpen={activeView === 'profile'}
                           onProfileMenuPress={toggleProfileMenu}
+                          onProfilePress={() => setActiveView('profile')}
                           onSoundcheckPress={handleSoundcheckPress}
                           onZenModeToggle={toggleZenMode}
                           onSilentModeToggle={toggleSilentMode}

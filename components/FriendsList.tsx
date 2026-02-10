@@ -16,7 +16,6 @@ import Animated, {
   Extrapolation,
   interpolate,
   runOnJS,
-  useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -35,12 +34,7 @@ import { SOUND_CATEGORY_KEY, type SoundCategory } from './SoundcheckSelector';
 
 const FIRST_FRIENDLIST_FOOTER_MODAL_KEY = 'first_friendlist_footer_modal_seen_v1';
 const FIRST_FRIENDLIST_FEATURES_MODAL_KEY = 'first_friendlist_features_modal_seen_v1';
-const ANIM_IMAGES = [
-  require('../assets/images/animprout1.png'),
-  require('../assets/images/animprout2.png'),
-  require('../assets/images/animprout3.png'),
-  require('../assets/images/animprout4.png'),
-];
+const IOS_SOUNDWAVE_IMAGE = require('../assets/images/soundwave.png');
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -351,8 +345,6 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
   const translationX = useSharedValue(0);
   const maxSwipeRight = SCREEN_WIDTH * 0.7; // Maximum 70% de l'écran vers la droite
   const maxSwipeLeft = SCREEN_WIDTH * 0.7; // Maximum 70% de l'écran vers la gauche
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [showFinalImage, setShowFinalImage] = useState(false);
   const introOffset = useSharedValue(0);
   const introDirectionRef = useRef(Math.random() > 0.5 ? 1 : -1);
 
@@ -364,33 +356,9 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
     );
   }, [introDelay, introOffset, introTrigger]);
   
-  // Calculer l'index de l'image en fonction de la distance du swipe (seulement pour swipe droite)
-  const getImageIndex = (dx: number) => {
-    const percentage = Math.min(dx / maxSwipeRight, 1);
-    if (percentage <= 0.10) return 0; // animprout1 (0-10%)
-    if (percentage <= 0.90) return 1; // animprout2 (10-90%)
-    return 2; // animprout3 (90-100%)
-  };
-
-  // Fonction pour mettre à jour l'index d'image (appelée depuis le thread JS)
-  const updateImageIndex = (x: number) => {
-    const imageIndex = getImageIndex(x);
-    if (imageIndex !== currentImageIndex) {
-      setCurrentImageIndex(imageIndex);
-    }
-  };
-
   // Fonction pour déclencher l'action (swipe droite)
   const triggerAction = () => {
-    setShowFinalImage(true);
-    setCurrentImageIndex(0);
     onSendProut();
-    
-    // Après le retour du slider, attendre 0.5 seconde avant de cacher l'image
-    setTimeout(() => {
-      setShowFinalImage(false);
-      setCurrentImageIndex(0);
-    }, 500);
   };
 
   useImperativeHandle(ref, () => ({
@@ -403,7 +371,6 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
             damping: 15,
             stiffness: 150,
           });
-          runOnJS(setCurrentImageIndex)(0);
         }
       });
     },
@@ -413,19 +380,8 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
         damping: 15,
         stiffness: 150,
       });
-      runOnJS(setCurrentImageIndex)(0);
-      runOnJS(setShowFinalImage)(false);
     },
   }));
-
-  useAnimatedReaction(
-    () => translationX.value,
-    (value) => {
-      if (value > 0) {
-        runOnJS(updateImageIndex)(value);
-      }
-    }
-  );
 
   // Fonction pour réinitialiser la position (doit être appelée depuis le thread UI)
   const resetPosition = () => {
@@ -480,11 +436,6 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
       // Permettre le swipe dans les deux sens
       const newX = Math.max(-maxSwipeLeft, Math.min(e.translationX, maxSwipeRight));
       translationX.value = newX;
-      
-      // Mettre à jour l'image seulement si swipe vers la droite
-      if (newX > 0) {
-        runOnJS(updateImageIndex)(newX);
-      }
     })
     .onEnd((e) => {
       const finalX = e.translationX;
@@ -496,7 +447,6 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
           runOnJS(onPressName)();
         }
         translationX.value = withSpring(0, { damping: 15, stiffness: 150 });
-        runOnJS(setCurrentImageIndex)(0);
         return;
       }
       
@@ -522,9 +472,6 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
           damping: 15,
           stiffness: 150,
         });
-        if (finalX > 0) {
-          runOnJS(setCurrentImageIndex)(0);
-        }
       }
     });
 
@@ -545,9 +492,15 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
       [0.5, 4.0],
       Extrapolation.CLAMP
     );
+    const translateX = interpolate(
+      positiveX,
+      [0, maxSwipeRight],
+      [-72, 34],
+      Extrapolation.CLAMP
+    );
     
     return {
-      transform: [{ scale }],
+      transform: [{ translateX }, { scale }],
       opacity: translationX.value > 0 ? 1 : 0, // Cacher l'image si swipe gauche
     };
   });
@@ -581,35 +534,14 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
         <Text style={styles.deleteText}>{i18n.t('delete_or_mute')}</Text>
       </Animated.View>
 
-      {/* Background droite : Image d'animation avec fond clair (cachée sur iOS) */}
-      {Platform.OS !== 'ios' && (
-        <View style={styles.swipeBackground} collapsable={false}>
-          {/* Image finale (animprout4) après l'envoi du prout */}
-          {showFinalImage ? (
-            <View style={styles.finalImageContainer} collapsable={false}>
-              <Animated.Image 
-                source={ANIM_IMAGES[3]} 
-                style={[
-                  styles.animImage,
-                  {
-                    transform: [{ scale: 4.0 }], // Même taille que la fin du zoom
-                  },
-                ]}
-                resizeMode="contain"
-                />
-            </View>
-          ) : (
-            /* Image normale pendant le swipe */
-            currentImageIndex >= 0 && currentImageIndex < 3 && (
-              <Animated.Image 
-                source={ANIM_IMAGES[currentImageIndex]} 
-                style={[styles.animImage, animatedImageScale]}
-                resizeMode="contain"
-              />
-            )
-          )}
-        </View>
-      )}
+      {/* Background droite partagé iOS + Android : soundwave avec animation unique */}
+      <View style={styles.swipeBackground} collapsable={false}>
+        <Animated.Image
+          source={IOS_SOUNDWAVE_IMAGE}
+          style={[styles.animImage, animatedImageScale]}
+          resizeMode="contain"
+        />
+      </View>
 
       {/* Foreground : Ligne de contact */}
       <GestureDetector gesture={gesture}>
@@ -1050,7 +982,21 @@ export function FriendsList({
   const readConversationUnsupportedRef = useRef(false);
   const readConversationWarnedRef = useRef(false);
   const lastConversationReadByFriendRef = useRef<Map<string, { sig: string; at: number }>>(new Map());
+  const readConversationInFlightRef = useRef<Set<string>>(new Set());
+  const lastConversationCallAtRef = useRef<Map<string, number>>(new Map());
   const CONVERSATION_READ_DEDUP_MS = 3_000;
+  const CONVERSATION_READ_MIN_INTERVAL_MS = 2_500;
+  const CHAT_VERBOSE_LOGS = false;
+
+  // Protection anti-spam des refresh globaux
+  const loadDataInFlightRef = useRef(false);
+  const queuedLoadDataArgsRef = useRef<{
+    hasCacheFromInit: boolean;
+    forceLoading: boolean;
+    syncContacts: boolean;
+  } | null>(null);
+  const lastLoadDataAtRef = useRef(0);
+  const LOAD_DATA_MIN_INTERVAL_MS = 1200;
 
   
   // Polling simple (sans backoff exponentiel)
@@ -1105,22 +1051,34 @@ export function FriendsList({
     // 3) Read conversation (fiable) : 1 appel backend qui supprime tous les messages A->B
     // (évite les 429 + assure la purge)
     (async () => {
+      const friendId = expandedFriendId;
+      if (!friendId) return;
+
+      if (readConversationInFlightRef.current.has(friendId)) {
+        if (__DEV__) console.log(`[CHAT_DEBUG] readConversation in-flight skipped for ${friendId}`);
+        return;
+      }
+
       const ids = Array.from(new Set(fromFriend.map((m) => m.id).filter(Boolean)));
       if (ids.length === 0) return;
       // Dedup court : évite de rappeler en boucle si pendingMessages bouge sans nouveaux IDs
       const sig = `${ids.length}:${ids[0]}:${ids[ids.length - 1]}`;
-      const prev = lastConversationReadByFriendRef.current.get(expandedFriendId);
+      const prev = lastConversationReadByFriendRef.current.get(friendId);
       const now = Date.now();
       if (prev && prev.sig === sig && now - prev.at < CONVERSATION_READ_DEDUP_MS) return;
-      lastConversationReadByFriendRef.current.set(expandedFriendId, { sig, at: now });
+      const lastCallAt = lastConversationCallAtRef.current.get(friendId) || 0;
+      if (now - lastCallAt < CONVERSATION_READ_MIN_INTERVAL_MS) return;
+      lastConversationReadByFriendRef.current.set(friendId, { sig, at: now });
+      lastConversationCallAtRef.current.set(friendId, now);
 
       if (readConversationUnsupportedRef.current) return;
+      readConversationInFlightRef.current.add(friendId);
 
       const markLocalReadForIds = () => {
         // Marquer localement comme "lu" (dimmer) et garantir purge à la fermeture
         setPendingMessages((prevMsgs) =>
           prevMsgs.map((m) => {
-            if (m.from_user_id !== expandedFriendId) return m;
+            if (m.from_user_id !== friendId) return m;
             if (!m.id) return m;
             if (!ids.includes(m.id)) return m;
             if (m.message_content?.startsWith('READ:')) return m;
@@ -1131,13 +1089,13 @@ export function FriendsList({
 
       const tryClientSideDeleteAndBroadcast = async () => {
         // 1) Broadcast batch à l'expéditeur (A) pour que ses messages passent "lu" localement
-        const channel = supabase.channel(`room-${expandedFriendId}`);
+        const channel = supabase.channel(`room-${friendId}`);
         channel.subscribe(async (status) => {
           if (status === 'SUBSCRIBED') {
             await channel.send({
               type: 'broadcast',
               event: 'message-read',
-              payload: { ids, senderId: expandedFriendId, receiverId: currentUserId },
+              payload: { ids, senderId: friendId, receiverId: currentUserId },
             });
             setTimeout(() => supabase.removeChannel(channel), 5000);
           }
@@ -1156,35 +1114,51 @@ export function FriendsList({
         }
       };
 
-      const res = await markConversationReadViaBackend(expandedFriendId, currentUserId);
-      if (res.ok) {
-        markLocalReadForIds();
-        return;
-      }
-
-      if (res.status === 404) {
-        readConversationUnsupportedRef.current = true;
-        if (!readConversationWarnedRef.current) {
-          readConversationWarnedRef.current = true;
-          console.warn('Erreur backend readConversation (404) — backend pas encore redéployé');
+      try {
+        if (CHAT_VERBOSE_LOGS) {
+          console.log(`📞 [CLIENT] Appel markConversationReadViaBackend - senderId: ${friendId}, receiverId: ${currentUserId}`);
         }
-        // Fallback immédiat sans backend : on marque localement + on tente delete batch Supabase + broadcast batch
+        const res = await markConversationReadViaBackend(friendId, currentUserId);
+        if (CHAT_VERBOSE_LOGS) {
+          console.log(`📞 [CLIENT] Réponse markConversationReadViaBackend:`, {
+            ok: res.ok,
+            status: res.status,
+            idsCount: ids.length
+          });
+        }
+        
+        if (res.ok) {
+          if (CHAT_VERBOSE_LOGS) console.log(`✅ [CLIENT] markConversationReadViaBackend réussi, marquage local`);
+          markLocalReadForIds();
+          return;
+        }
+
+        if (res.status === 404) {
+          readConversationUnsupportedRef.current = true;
+          if (!readConversationWarnedRef.current) {
+            readConversationWarnedRef.current = true;
+            console.warn('Erreur backend readConversation (404) — backend pas encore redéployé');
+          }
+          // Fallback immédiat sans backend : on marque localement + on tente delete batch Supabase + broadcast batch
+          markLocalReadForIds();
+          try {
+            await tryClientSideDeleteAndBroadcast();
+          } catch {
+            // Si RLS bloque, le message restera en DB mais ne réapparaîtra plus dans l'UI (READ: + purge locale à la fermeture).
+          }
+          return;
+        }
+
+        // Autres erreurs : on évite toute boucle (pas de purge backend => 429).
+        // On tente quand même le fallback client-side (best-effort) pour ne pas laisser la conversation persister.
         markLocalReadForIds();
         try {
           await tryClientSideDeleteAndBroadcast();
         } catch {
-          // Si RLS bloque, le message restera en DB mais ne réapparaîtra plus dans l'UI (READ: + purge locale à la fermeture).
+          // noop
         }
-        return;
-      }
-
-      // Autres erreurs : on évite toute boucle (pas de purge backend => 429).
-      // On tente quand même le fallback client-side (best-effort) pour ne pas laisser la conversation persister.
-      markLocalReadForIds();
-      try {
-        await tryClientSideDeleteAndBroadcast();
-      } catch {
-        // noop
+      } finally {
+        readConversationInFlightRef.current.delete(friendId);
       }
     })();
   }, [expandedFriendId, currentUserId, pendingMessages]);
@@ -1214,6 +1188,7 @@ export function FriendsList({
   useEffect(() => {
     if (prevExpandedRef.current && !expandedFriendId) {
       const prevId = prevExpandedRef.current;
+      console.log(`🔒 [CLIENT] Fermeture du chat pour friendId: ${prevId}`);
       
       // IMPORTANT : Mettre à jour la ref IMMÉDIATEMENT pour que loadData sache que le chat est fermé
       // Sinon loadData croit qu'il est encore ouvert et garde les messages !
@@ -1224,17 +1199,32 @@ export function FriendsList({
       // qui sont en sursis (READ: ou isPendingDelete).
       keptReadMessagesRef.current.delete(prevId);
 
-      setPendingMessages(prev =>
-        prev.filter(m => {
+      // LOGIQUE SNAPCHAT : À la fermeture du chat, on garde les messages reçus non lus
+      // Les messages lus (READ:) seront supprimés seulement s'ils sont aussi supprimés du serveur
+      // (après 5 secondes) lors du prochain loadData
+      setPendingMessages(prev => {
+        const beforeCount = prev.length;
+        const filtered = prev.filter(m => {
           if (m.from_user_id !== prevId) return true;
           const isRead = m.message_content?.startsWith('READ:') ?? false;
-          const shouldDrop = isRead || !!m.isPendingDelete;
-          if (shouldDrop && m.id) deletedMessagesCache.add(m.id);
-          return !shouldDrop;
-        })
-      );
+          // LOGIQUE SNAPCHAT : On garde les messages non lus même après fermeture
+          // Les messages lus seront supprimés seulement s'ils sont aussi supprimés du serveur
+          if (isRead) {
+            // Message lu : on le garde temporairement, il sera supprimé par loadData
+            // s'il n'est plus sur le serveur (après 5 secondes)
+            return true;
+          }
+          // Message non lu : toujours garder (persistance Snapchat)
+          return true;
+        });
+        const afterCount = filtered.length;
+        const dropped = beforeCount - afterCount;
+        console.log(`📨 [CLIENT] Messages reçus conservés (logique Snapchat): ${afterCount} sur ${beforeCount} (friendId: ${prevId})`);
+        return filtered;
+      });
 
       const cachedForPrev = unreadCache[prevId] || [];
+      console.log(`🗑️ [CLIENT] Cache unread nettoyé: ${cachedForPrev.length} messages pour ${prevId}`);
       setUnreadCache(prev => ({ ...prev, [prevId]: [] }));
       if (cachedForPrev.length > 0) {
         setFadingOutReceivedMessages(prev => {
@@ -1245,34 +1235,35 @@ export function FriendsList({
       }
       // Ne pas faire de purge globale READ: ici (session gelée).
 
-      // PURGE locale : supprimer uniquement les messages envoyés déjà "lus"
-      // Si B n'a pas lu, A doit revoir son message en rouvrant le chat (PERSISTANCE).
+      // LOGIQUE SNAPCHAT : À la fermeture du chat, on garde TOUS les messages
+      // - Messages non lus : restent visibles (persistance)
+      // - Messages lus : restent visibles aussi (session gelée)
+      // La purge complète se fera seulement si les messages sont supprimés du serveur
+      // (après 5 secondes) ET que le chat est fermé
+      console.log(`📤 [CLIENT] Fermeture chat Snapchat - Conservation de tous les messages pour ${prevId}`);
       setLastSentMessages(prev => {
         const msgs = prev[prevId];
-        if (!Array.isArray(msgs)) return prev;
-
-        // On garde tout ce qui N'EST PAS 'read' ET pas connu comme lu dans le cache
-        // Donc status === undefined (envoyé) ou status === 'sent' sont conservés.
-        const keptSent = msgs.filter(m => {
-            if (m.status === 'read') return false;
-            if (m.id && readSentMessagesRef.current.has(m.id)) return false;
-            return true;
-        });
-        
-        const next = { ...prev };
-        if (keptSent.length > 0) {
-          next[prevId] = keptSent;
-        } else {
-          delete next[prevId];
+        if (!Array.isArray(msgs)) {
+          console.log(`ℹ️ [CLIENT] Aucun message envoyé pour ${prevId}`);
+          return prev;
         }
-        updateLastSentIndex(next);
-        saveLastSentMessagesCache(next);
-        return next;
+
+        console.log(`📤 [CLIENT] Messages envoyés conservés (logique Snapchat):`, {
+          totalMessages: msgs.length,
+          readMessages: msgs.filter(m => m.status === 'read').length,
+          unreadMessages: msgs.filter(m => m.status !== 'read').length
+        });
+
+        // LOGIQUE SNAPCHAT : On garde TOUS les messages à la fermeture
+        // Ils seront purgés seulement s'ils sont supprimés du serveur (après 5 secondes)
+        // et que le chat reste fermé lors du prochain loadData
+        return prev;
       });
       
       // PRRT! Protocol : Force sync à la fermeture pour être sûr que l'état local correspond au serveur
       // (supprime les messages qui ont été lus/supprimés sur le serveur mais dont on aurait raté le broadcast)
       // Comme expandedFriendIdRef est maintenant null (ou changé), loadData va nettoyer les messages absents du serveur.
+      console.log(`🔄 [CLIENT] Force sync loadData après fermeture du chat`);
       loadData(false, false, false);
     }
     prevExpandedRef.current = expandedFriendId;
@@ -1401,7 +1392,9 @@ export function FriendsList({
       .from('pending_messages')
       .select('id, to_user_id, message_content, created_at')
       .eq('from_user_id', userId);
+    
     if (error) {
+      console.error(`❌ [fetchSentPendingMessages] Erreur Supabase:`, error.message, error);
       return null;
     }
 
@@ -1417,6 +1410,10 @@ export function FriendsList({
         validMessages.push(m);
       }
     });
+
+    if (CHAT_VERBOSE_LOGS && expiredIds.length > 0) {
+      console.log(`📊 [fetchSentPendingMessages] Messages valides: ${validMessages.length}, Expirés: ${expiredIds.length}`);
+    }
 
     if (expiredIds.length > 0) {
       // Nettoyage silencieux en background des messages périmés
@@ -1535,7 +1532,7 @@ export function FriendsList({
       // Intervalle plus long pour réduire les logs en boucle
       pollingIntervalRef.current = setInterval(() => {
         loadData(false, false, false); 
-      }, 5000) as unknown as NodeJS.Timeout; // 5 secondes (réduit de 2s pour moins de logs)
+      }, 10000) as unknown as NodeJS.Timeout;
     };
     
     initialize();
@@ -1799,6 +1796,18 @@ useEffect(() => {
   };
 
   const loadData = async (hasCacheFromInit: boolean = false, forceLoading: boolean = false, syncContacts: boolean = true) => {
+    // Évite les fetch concurrents + les rafales de triggers Realtime/polling
+    if (loadDataInFlightRef.current) {
+      queuedLoadDataArgsRef.current = { hasCacheFromInit, forceLoading, syncContacts };
+      return;
+    }
+    const now = Date.now();
+    if (!forceLoading && !syncContacts && now - lastLoadDataAtRef.current < LOAD_DATA_MIN_INTERVAL_MS) {
+      return;
+    }
+    loadDataInFlightRef.current = true;
+    lastLoadDataAtRef.current = now;
+
     // Ne mettre loading à true que si :
     // 1. On n'a pas de cache à l'init ET pas de données affichées
     // 2. OU si forceLoading est true (premier chargement)
@@ -2129,6 +2138,9 @@ useEffect(() => {
       
           // Si null, c'est une erreur, on ne touche pas au cache local pour éviter les disparitions fantômes
           if (sentPendingMessagesResult !== null) {
+            if (CHAT_VERBOSE_LOGS) {
+              console.log(`📥 [CLIENT] loadData - Messages envoyés récupérés depuis pending_messages: ${sentPendingMessagesResult.length}`);
+            }
             setLastSentMessages((prev) => {
               // 1. Convertir le résultat serveur en map (tableau de messages par utilisateur)
               // IMPORTANT : On ignore les messages avec "READ:" car ils sont en cours de suppression
@@ -2154,6 +2166,16 @@ useEffect(() => {
                       status: isRead ? 'read' as const : undefined,
                       readAt: isRead ? Date.now() : undefined
                     };
+                    
+                    if (CHAT_VERBOSE_LOGS) {
+                      console.log(`📥 [CLIENT] Message envoyé récupéré:`, {
+                        id: m.id,
+                        to_user_id: m.to_user_id,
+                        text_preview: text.substring(0, 30),
+                        isRead,
+                        hasId: !!m.id
+                      });
+                    }
                     
                     // Purger les vieux messages côté serveur aussi
                     if (!isFreshSentMessage(message)) {
@@ -2324,7 +2346,13 @@ useEffect(() => {
                 // 1. Ajouter d'abord les messages serveur (ils ont la source de vérité)
                 processedServerMessages.forEach(msg => {
                   if (msg.id) {
-                    mergedById.set(msg.id, msg);
+                    // Si le message est dans readSentMessagesRef, le marquer comme lu même s'il n'est pas encore marqué READ: côté serveur
+                    if (readSentMessagesRef.current.has(msg.id) && msg.status !== 'read') {
+                      console.log(`✅ [CLIENT] Message ${msg.id} trouvé dans readSentMessagesRef, marquage comme lu`);
+                      mergedById.set(msg.id, { ...msg, status: 'read' as const, readAt: msg.readAt || Date.now() });
+                    } else {
+                      mergedById.set(msg.id, msg);
+                    }
                   } else {
                     // Message sans ID : utiliser le texte comme clé temporaire
                     const key = `temp-${msg.text}-${msg.ts}`;
@@ -2359,31 +2387,39 @@ useEffect(() => {
                   const msgTime = new Date(localMsg.ts).getTime();
                   const age = now - msgTime;
                   
-                  // CORRECTION: Si le message local a un ID, et qu'il n'est pas dans le serveur,
-                  // c'est qu'il a été lu/supprimé par l'autre.
-                  // Mais attention : loadData le supprime si on ne fait rien.
-                  // Si on a un statut 'read' localement (via broadcast), on veut le garder si chat ouvert.
-                  // Si chat fermé, on le laisse tomber (purge).
+                  // CORRECTION: Si le message local n'a pas d'ID mais qu'un ID correspondant existe dans readSentMessagesRef,
+                  // c'est qu'il a été lu par l'autre. On doit le marquer comme lu.
+                  if (!localMsg.id && localMsg.text) {
+                    // Chercher dans readSentMessagesRef si un message avec ce texte a été lu
+                    // (on ne peut pas faire de matching parfait sans ID, mais on peut essayer de matcher par texte + timestamp)
+                    const matchingReadId = Array.from(readSentMessagesRef.current).find(id => {
+                      // On ne peut pas vraiment matcher sans avoir les messages depuis la DB
+                      // Mais on peut au moins vérifier si le message devrait être marqué comme lu
+                      return false; // Pas de matching possible sans ID
+                    });
+                  }
                   
+                  // LOGIQUE SNAPCHAT : Gestion des messages locaux selon leur statut et présence sur le serveur
                   if (age < 86400000) { // 24 heures
                     if (localMsg.id) {
                          if (!mergedById.has(localMsg.id)) {
-                             // Si on a un message local avec ID qui n'est plus sur le serveur
-                             // Si son statut est 'read' et chat ouvert => on garde
-                             // Si son statut est 'read' et chat fermé => on jette (déjà fait par le filter serverMessages ?)
-                             // Si son statut n'est PAS 'read' => c'est bizarre (message perdu?), on garde par sécurité
+                             // Message local avec ID qui n'est plus sur le serveur
+                             // Cela signifie qu'il a été supprimé du serveur (après 5 secondes)
+                             
+                             const isChatOpen = expandedFriendIdRef.current === uid;
                              
                              if (localMsg.status === 'read') {
-                                 if (expandedFriendIdRef.current === uid) {
+                                 // Message lu supprimé du serveur :
+                                 // - Si chat ouvert : on garde (pour l'animation)
+                                 // - Si chat fermé : on supprime (purge Snapchat)
+                                 if (isChatOpen) {
                                      mergedById.set(localMsg.id, localMsg);
                                  }
+                                 // Sinon, on ne l'ajoute pas = il sera supprimé
                              } else {
-                                 // Message envoyé mais disparu du serveur sans être marqué lu ?
-                                 // Probablement lu et supprimé mais on a raté le broadcast.
-                                 // On le considère comme lu si chat ouvert.
-                                 if (expandedFriendIdRef.current === uid) {
-                                     mergedById.set(localMsg.id, { ...localMsg, status: 'read', readAt: Date.now() });
-                                 }
+                                 // Message NON lu supprimé du serveur : c'est bizarre
+                                 // On le garde par sécurité (persistance Snapchat)
+                                 mergedById.set(localMsg.id, localMsg);
                              }
                          } else {
                  // Le message est sur le serveur.
@@ -2448,22 +2484,33 @@ useEffect(() => {
               if (__DEV__ && (shouldLog || prevTotal !== finalTotal || updated)) {
               }
 
-              // Purge des anciens messages : garder seulement les messages récents (TTL) et les "lus" uniquement pour le chat ouvert
-              // IMPORTANT : Si le chat est fermé, on supprime TOUS les messages lus (même ceux qui étaient gardés temporairement)
+              // LOGIQUE SNAPCHAT : Purge des messages selon leur statut et la présence sur le serveur
+              // - Messages non lus : TOUJOURS gardés (persistance même après fermeture)
+              // - Messages lus : gardés seulement s'ils sont encore sur le serveur OU si le chat est ouvert
+              // - Messages lus supprimés du serveur : supprimés seulement si le chat est fermé
               const activeId = expandedFriendIdRef.current;
               const pruned: LastSentMap = {};
               Object.entries(finalNext).forEach(([uid, arr]) => {
                 if (!Array.isArray(arr)) return;
                 const kept = arr.filter((msg) => {
-                  // Toujours garder les messages non-lus (persistance Snapchat-like)
-                  // Même si le chat est fermé, on VEUT voir les messages envoyés non lus.
+                  // Toujours garder les messages non-lus (persistance Snapchat)
+                  // Même si le chat est fermé, on VEUT voir les messages envoyés non lus
                   if (msg.status !== 'read') return true;
                   
-                  // Si le chat est ouvert : garder les messages lus (pour l'animation)
-                  if (activeId === uid) return isFreshSentMessage(msg);
+                  // Messages lus : garder si :
+                  // 1. Le chat est ouvert (pour l'animation de "lu")
+                  // 2. OU le message est encore sur le serveur (pas encore supprimé après 5 secondes)
+                  // Le message sera supprimé seulement s'il n'est plus sur le serveur ET que le chat est fermé
+                  if (activeId === uid) {
+                    // Chat ouvert : garder les messages lus récents (pour l'animation)
+                    return isFreshSentMessage(msg);
+                  }
                   
-                  // Si le chat est fermé : supprimer TOUS les messages lus (pas de persistance)
-                  return false;
+                  // Chat fermé : garder seulement si le message est encore sur le serveur
+                  // (c'est-à-dire qu'il a un ID et qu'il est dans serverMessages)
+                  // Si le message n'est plus sur le serveur, il sera supprimé par loadData
+                  // car il ne sera pas dans serverMessages
+                  return true; // On garde temporairement, loadData filtrera ceux qui ne sont plus sur le serveur
                 });
                 if (kept.length > 0) pruned[uid] = kept;
               });
@@ -2479,7 +2526,15 @@ useEffect(() => {
       console.warn('⚠️ Erreur loadData:', e);
       showOfflineToast();
     } finally { 
+      loadDataInFlightRef.current = false;
       setLoading(false); 
+      const queued = queuedLoadDataArgsRef.current;
+      if (queued) {
+        queuedLoadDataArgsRef.current = null;
+        setTimeout(() => {
+          loadData(queued.hasCacheFromInit, queued.forceLoading, queued.syncContacts);
+        }, 150);
+      }
     }
   };
 
@@ -2768,15 +2823,39 @@ useEffect(() => {
       subscriptionRef.current = channel;
 
       // PRRT! Protocol : à réception de message-read
+      if (CHAT_VERBOSE_LOGS) {
+        console.log(`📡 [CLIENT] Configuration du canal broadcast pour room-${user.id}`);
+      }
       const broadcastChannel = supabase
         .channel(`room-${user.id}`)
         .on('broadcast', { event: 'message-read' }, (payload) => {
+            if (CHAT_VERBOSE_LOGS) {
+              console.log(`📨 [CLIENT] Broadcast message-read reçu:`, {
+                payload: payload.payload,
+                timestamp: new Date().toISOString()
+              });
+            }
+            
             const receiverId = payload.payload?.receiverId;
             const singleId = payload.payload?.id;
             const ids: string[] = Array.isArray(payload.payload?.ids)
               ? payload.payload.ids
               : (singleId ? [singleId] : []);
-            if (ids.length === 0) return;
+            
+            if (CHAT_VERBOSE_LOGS) {
+              console.log(`📨 [CLIENT] IDs extraits du broadcast:`, {
+                idsCount: ids.length,
+                ids: ids.slice(0, 5),
+                receiverId,
+                senderId: payload.payload?.senderId
+              });
+            }
+            
+            if (ids.length === 0) {
+              console.warn(`⚠️ [CLIENT] Broadcast message-read reçu mais aucun ID valide`);
+              return;
+            }
+            
             // Batch: 1 seule mise à jour de state pour tous les IDs (évite "seul le dernier")
             const idsSet = new Set(ids);
             ids.forEach((id) => {
@@ -2784,21 +2863,52 @@ useEffect(() => {
               readSentMessagesRef.current.add(id); // Mémoriser qu'ils sont lus pour filtrage futur
             });
 
+            if (CHAT_VERBOSE_LOGS) {
+              console.log(`📨 [CLIENT] IDs ajoutés à pendingReadIdsRef: ${pendingReadIdsRef.current.size}`);
+            }
+
             setLastSentMessages((prev) => {
               const targetUserId: string | null = receiverId || null;
-              if (!targetUserId) return prev;
+              if (!targetUserId) {
+                console.warn(`⚠️ [CLIENT] Pas de receiverId dans le broadcast, impossible de mettre à jour`);
+                return prev;
+              }
 
-              const msgs = prev[targetUserId];
-              if (!Array.isArray(msgs) || msgs.length === 0) return prev;
-
+              const msgs = prev[targetUserId] || [];
               const isChatOpen = expandedFriendIdRef.current === targetUserId;
+              if (CHAT_VERBOSE_LOGS) {
+                console.log(`📨 [CLIENT] Chat ouvert pour ${targetUserId}: ${isChatOpen}, Messages dans lastSentMessages: ${msgs.length}`);
+              }
+              
+              // CORRECTION : Même si les messages ne sont pas encore dans lastSentMessages (pas encore récupérés depuis la DB),
+              // on doit les ajouter au cache readSentMessagesRef pour qu'ils soient marqués comme lus quand ils seront récupérés
+              ids.forEach((id) => {
+                readSentMessagesRef.current.add(id);
+                if (CHAT_VERBOSE_LOGS) console.log(`✅ [CLIENT] ID ${id} ajouté à readSentMessagesRef`);
+              });
+
+              if (!Array.isArray(msgs) || msgs.length === 0) {
+                if (CHAT_VERBOSE_LOGS) {
+                  console.log(`ℹ️ [CLIENT] Aucun message dans lastSentMessages pour ${targetUserId}, mais IDs ajoutés au cache pour traitement futur`);
+                }
+                // Même sans messages, on retourne prev pour déclencher un re-render qui pourrait déclencher loadData
+                return prev;
+              }
+
               let changed = false;
 
               if (!isChatOpen) {
+                if (CHAT_VERBOSE_LOGS) console.log(`📨 [CLIENT] Chat fermé - Suppression des messages lus de lastSentMessages`);
                 const kept = msgs.filter((m) => !m.id || !idsSet.has(m.id));
                 if (kept.length !== msgs.length) changed = true;
-                if (!changed) return prev;
+                if (!changed) {
+                  if (CHAT_VERBOSE_LOGS) console.log(`ℹ️ [CLIENT] Aucun changement nécessaire (messages déjà supprimés)`);
+                  return prev;
+                }
 
+                if (CHAT_VERBOSE_LOGS) {
+                  console.log(`✅ [CLIENT] Messages supprimés: ${msgs.length - kept.length} sur ${msgs.length}`);
+                }
                 const next: LastSentMap = { ...prev };
                 if (kept.length > 0) next[targetUserId] = kept;
                 else delete next[targetUserId];
@@ -2807,6 +2917,7 @@ useEffect(() => {
                 return next;
               }
 
+              if (CHAT_VERBOSE_LOGS) console.log(`📨 [CLIENT] Chat ouvert - Marquage des messages comme lus`);
               const readAt = Date.now();
               const updated = msgs.map((m) => {
                 if (m.id && idsSet.has(m.id) && m.status !== 'read') {
@@ -2816,8 +2927,18 @@ useEffect(() => {
                 return m;
               });
 
-              if (!changed) return prev;
-              if (__DEV__) console.log('[CHAT_DEBUG] Broadcast READ applied for', targetUserId, 'updated:', updated.filter(m => m.status === 'read').length);
+              if (!changed) {
+                if (CHAT_VERBOSE_LOGS) {
+                  console.log(`ℹ️ [CLIENT] Aucun changement nécessaire (messages déjà marqués comme lus ou pas encore dans lastSentMessages)`);
+                }
+                return prev;
+              }
+              
+              const readCount = updated.filter(m => m.status === 'read').length;
+              if (CHAT_VERBOSE_LOGS) {
+                console.log(`✅ [CLIENT] Broadcast READ appliqué pour ${targetUserId}, ${readCount} messages marqués comme lus`);
+              }
+              if (CHAT_VERBOSE_LOGS && __DEV__) console.log('[CHAT_DEBUG] Broadcast READ applied for', targetUserId, 'updated:', readCount);
               const next: LastSentMap = { ...prev, [targetUserId]: updated };
               updateLastSentIndex(next);
               saveLastSentMessagesCache(next);
@@ -2832,7 +2953,14 @@ useEffect(() => {
         .on('broadcast', { event: 'message-received' }, () => {
             loadData(false, false, false);
         })
-        .subscribe();
+        .subscribe((status) => {
+          if (CHAT_VERBOSE_LOGS) console.log(`📡 [CLIENT] Canal broadcast subscription status: ${status} pour room-${user.id}`);
+          if (status === 'SUBSCRIBED') {
+            if (CHAT_VERBOSE_LOGS) console.log(`✅ [CLIENT] Canal broadcast souscrit avec succès pour room-${user.id}`);
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error(`❌ [CLIENT] Erreur canal broadcast pour room-${user.id}`);
+          }
+        });
       broadcastSubscriptionRef.current = broadcastChannel;
 
     } catch (error) {
@@ -3560,6 +3688,7 @@ useEffect(() => {
 
       // Envoyer le push via backend avec le token FCM et le bon pseudo
       // ⚠️ On ne passe PAS la locale de l'expéditeur : le backend récupère celle du destinataire depuis Supabase
+      console.log(`📤 [CLIENT] Envoi message via backend pour ${recipient.id}, customMessage: ${customMessage ? 'OUI' : 'NON'}`);
       await sendProutViaBackend(
         fcmToken,
         senderPseudo,
@@ -3572,6 +3701,7 @@ useEffect(() => {
           // locale: i18n.locale || 'fr', // ❌ RETIRÉ : le backend utilise la locale du destinataire
         }
       );
+      console.log(`✅ [CLIENT] Message envoyé via backend, attente de la création dans pending_messages...`);
       
       // Mise à jour optimiste locale immédiate : mettre à jour last_interaction_at localement
       // pour que le tri soit instantané, puis recharger depuis Supabase pour la synchronisation
@@ -3585,6 +3715,7 @@ useEffect(() => {
         return sortFriends(updatedUsers);
       });
       if (customMessage) {
+        console.log(`📤 [CLIENT] Ajout message envoyé à lastSentMessages (sans ID pour l'instant) pour ${recipient.id}`);
         setLastSentMessages(prev => {
           const existingMessages = prev[recipient.id] || [];
           // Ajouter 1ms au timestamp pour garantir que le message de A apparaît après les messages de B
@@ -3598,13 +3729,19 @@ useEffect(() => {
           };
           lastSentSetAtRef.current = Date.now();
           saveLastSentMessagesCache(next);
+          console.log(`📤 [CLIENT] Message envoyé ajouté (total: ${next[recipient.id]?.length || 0} messages pour ${recipient.id})`);
           return next;
         });
       }
       
       // Le backend met à jour last_interaction_at pour les deux relations (A→B et B→A)
       // Recharger les données depuis Supabase pour synchroniser avec le backend
-      loadData(false, false, false);
+      // IMPORTANT : Attendre un peu pour que le message soit créé dans pending_messages avant de charger
+      console.log(`🔄 [CLIENT] Appel loadData après envoi du message...`);
+      setTimeout(() => {
+        console.log(`🔄 [CLIENT] loadData appelé après délai de 500ms`);
+        loadData(false, false, false);
+      }, 500);
 
       // Nettoyer le brouillon sans fermer le sticky
       setMessageDrafts(prev => ({ ...prev, [recipient.id]: '' }));
@@ -4532,16 +4669,6 @@ const styles = StyleSheet.create({
     height: 60,
     // Le transform origin est center par défaut en React Native
     // L'image va zoomer depuis son centre
-  },
-  finalImageContainer: {
-    // Conteneur pour l'image finale pour éviter qu'elle affecte le layout parent
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: '100%',
-    overflow: 'hidden',
-    zIndex: 1,
   },
   swipeForeground: {
     flexDirection: 'row',

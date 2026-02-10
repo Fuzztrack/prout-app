@@ -19,6 +19,7 @@ import Animated, {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import * as Device from 'expo-device';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
 import i18n from '../lib/i18n';
 
@@ -122,6 +123,7 @@ const MODAL_COLORS = {
 
 export default function ComplicityDashboard() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [friends, setFriends] = useState<FriendComplicity[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedFriend, setSelectedFriend] = useState<FriendComplicity | null>(null);
@@ -251,14 +253,7 @@ export default function ComplicityDashboard() {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        {showBackButton ? (
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={COLORS.textMain} />
-          </TouchableOpacity>
-        ) : (
-          <View style={[styles.backButton, { width: 40 }]} />
-        )}
+      <View style={[styles.header, { paddingTop: Math.max(insets.top + 8, 16) }]}>
         <View style={styles.headerTitleContainer}>
           <Image 
             source={require('../assets/images/resonance.png')} 
@@ -267,18 +262,23 @@ export default function ComplicityDashboard() {
           />
           <Text style={styles.headerSubtitle}>{i18n.t('complicity_subtitle')}</Text>
         </View>
-        <View style={{ width: 40 }} /> 
-      </View>
 
-      {/* Icône d'aide */}
-      <View style={styles.helpContainer}>
-        <TouchableOpacity 
-          style={styles.helpButton}
-          onPress={() => setHelpModalVisible(true)}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="help-circle-outline" size={24} color="#ffffff" />
-        </TouchableOpacity>
+        <View style={styles.headerNavRow}>
+          {showBackButton ? (
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color={COLORS.textMain} />
+            </TouchableOpacity>
+          ) : (
+            <View style={[styles.backButton, { width: 40 }]} />
+          )}
+          <TouchableOpacity
+            style={styles.helpButton}
+            onPress={() => setHelpModalVisible(true)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="help-circle-outline" size={24} color="#ffffff" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <FlatList
@@ -483,19 +483,23 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 50,
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    justifyContent: 'flex-start',
     paddingHorizontal: 20,
-    paddingBottom: 0,
+    paddingBottom: 6,
   },
   backButton: {
     padding: 8,
   },
   headerTitleContainer: {
-    flex: 1,
     alignItems: 'center',
+  },
+  headerNavRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 0,
   },
   headerImage: {
     width: 310,
@@ -509,12 +513,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'center',
   },
-  helpContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 0,
-    paddingBottom: 0,
-    alignItems: 'flex-end',
-  },
   helpButton: {
     padding: 8,
     borderRadius: 20,
@@ -527,7 +525,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
-    paddingTop: 8,
+    paddingTop: 2,
   },
   cardContainer: {
     marginBottom: 12,

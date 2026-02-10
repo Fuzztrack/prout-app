@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Animated, Image, Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
-import i18n from '../lib/i18n';
 
 // Détection Google Pixel
 const isPixelDevice =
@@ -21,12 +20,14 @@ const ACTIVE_ICON_COLOR = '#604a3e';
 
 interface AppHeaderProps {
   currentPseudo?: string;
+  profileAvatarUrl?: string | null;
   isZenMode?: boolean;
   isSilentMode?: boolean;
   isProfileMenuOpen?: boolean;
   isProfileOpen?: boolean;
   isSearchVisible?: boolean;
   onProfileMenuPress?: () => void;
+  onProfilePress?: () => void;
   onSearchToggle?: () => void;
   onComplicityPress?: () => void;
   onSoundcheckPress?: () => void;
@@ -38,12 +39,14 @@ interface AppHeaderProps {
 
 export function AppHeader({
   currentPseudo,
+  profileAvatarUrl,
   isZenMode = false,
   isSilentMode = false,
   isProfileMenuOpen = false,
   isProfileOpen = false,
   isSearchVisible = false,
   onProfileMenuPress,
+  onProfilePress,
   onSearchToggle,
   onComplicityPress,
   onSoundcheckPress,
@@ -65,30 +68,47 @@ export function AppHeader({
 
   return (
     <View style={styles.headerSection}>
-      {/* 1. LE LOGO */}
-      <AnimatedContainer 
-        style={[
-          styles.logoContainer,
-          animatedStyle,
-        ]}
-      >
-        <Image 
-          source={require('../assets/images/Prrt.png')} 
-          style={[styles.logo, { height: logoHeight, width: logoWidth }]} 
-          resizeMode="contain" 
-        />
-      </AnimatedContainer>
+      <View style={styles.topRow}>
+        {/* Logo à gauche */}
+        <AnimatedContainer
+          style={[
+            styles.logoContainer,
+            animatedStyle,
+          ]}
+        >
+          <Image
+            source={require('../assets/images/Prrt.png')}
+            style={[styles.logo, { height: logoHeight, width: logoWidth }]}
+            resizeMode="contain"
+          />
+        </AnimatedContainer>
+
+        {/* Vignette profil à droite (photo cliquable + pseudo dessous) */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={onProfilePress || onProfileMenuPress}
+          style={styles.profileVignette}
+        >
+          <View style={styles.profileAvatarWrap}>
+            {profileAvatarUrl ? (
+              <Image source={{ uri: profileAvatarUrl }} style={styles.profileAvatar} />
+            ) : (
+              <View style={styles.profileAvatarFallback}>
+                <Ionicons name="person" size={18} color="#604a3e" />
+              </View>
+            )}
+          </View>
+          {!!currentPseudo && (
+            <Text style={styles.profilePseudo} numberOfLines={1}>
+              {currentPseudo}
+            </Text>
+          )}
+        </TouchableOpacity>
+      </View>
 
       {/* 2. LA BARRE DE NAVIGATION */}
       <View style={styles.navBar}>
-        {/* Ligne 1 : Greeting uniquement */}
-        <View style={styles.greetingRow}>
-          {currentPseudo ? (
-            <Text style={styles.greetingText}>{i18n.t('greeting')} {currentPseudo} !</Text>
-          ) : null}
-        </View>
-
-        {/* Ligne 2 : Menu principal (Complicité, Soundcheck, Zen, Silencieux, Recherche, Profil) — masqué quand menu liste ouvert */}
+        {/* Ligne 1 : Menu principal (Complicité, Soundcheck, Zen, Silencieux, Recherche, Profil) — masqué quand menu liste ouvert */}
         <View style={styles.menuRow}>
           <View style={styles.rightIconsContainer}>
             {!(isProfileMenuOpen || isProfileOpen) && (
@@ -190,6 +210,7 @@ export function AppHeader({
             )}
           </View>
         </View>
+
       </View>
     </View>
   );
@@ -202,10 +223,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 0,
   },
-  logoContainer: {
+  topRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  logoContainer: {
+    alignItems: 'flex-start',
     marginTop: -5,
-    marginBottom: -8,
+    marginBottom: 2,
+    marginLeft: 10,
   },
   logo: {
     width: 120,
@@ -215,24 +242,46 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     marginBottom: 5,
   },
-  greetingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    minHeight: 32,
-  },
   menuRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    marginTop: 4,
-    minHeight: 36,
+    marginTop: 2,
+    minHeight: 30,
   },
-  greetingText: {
-    fontSize: 16,
+  profileVignette: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    maxWidth: 92,
+    marginTop: 2,
+  },
+  profileAvatarWrap: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#ffffff',
+    padding: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(96,74,62,0.2)',
+  },
+  profileAvatar: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 26,
+  },
+  profileAvatarFallback: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f2ebe7',
+  },
+  profilePseudo: {
+    marginTop: 4,
+    fontSize: 12,
     fontWeight: '700',
     color: '#ffffff',
-    marginRight: 6,
   },
   rightIconsContainer: {
     flexDirection: 'row',
