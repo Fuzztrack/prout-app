@@ -1245,12 +1245,15 @@ export function FriendsList({
       // Ne pas faire de purge globale READ: ici (session gelée).
 
       // PURGE locale : supprimer uniquement les messages envoyés déjà "lus"
-      // Si B n'a pas lu, A doit revoir son message en rouvrant le chat.
+      // Si B n'a pas lu, A doit revoir son message en rouvrant le chat (PERSISTANCE).
       setLastSentMessages(prev => {
         const msgs = prev[prevId];
         if (!Array.isArray(msgs)) return prev;
 
+        // On garde tout ce qui N'EST PAS 'read'. 
+        // Donc status === undefined (envoyé) ou status === 'sent' sont conservés.
         const keptSent = msgs.filter(m => m?.status !== 'read');
+        
         const next = { ...prev };
         if (keptSent.length > 0) {
           next[prevId] = keptSent;
@@ -2386,10 +2389,13 @@ useEffect(() => {
               Object.entries(finalNext).forEach(([uid, arr]) => {
                 if (!Array.isArray(arr)) return;
                 const kept = arr.filter((msg) => {
-                  // Toujours garder les messages non-lus
-                  if (msg.status !== 'read') return isFreshSentMessage(msg);
+                  // Toujours garder les messages non-lus (persistance Snapchat-like)
+                  // Même si le chat est fermé, on VEUT voir les messages envoyés non lus.
+                  if (msg.status !== 'read') return true;
+                  
                   // Si le chat est ouvert : garder les messages lus (pour l'animation)
                   if (activeId === uid) return isFreshSentMessage(msg);
+                  
                   // Si le chat est fermé : supprimer TOUS les messages lus (pas de persistance)
                   return false;
                 });
