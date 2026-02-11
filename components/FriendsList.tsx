@@ -45,6 +45,8 @@ const IOS_SOUNDWAVE_IMAGE = require('../assets/images/soundwave.png');
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
+const SCREEN_HEIGHT_DEVICE = Dimensions.get('screen').height;
+const CHAT_MODAL_TOP_SAFE_MARGIN = Platform.OS === 'ios' ? 96 : 84;
 const SWIPE_THRESHOLD = 150; // Seuil pour déclencher l'action
 const TAP_THRESHOLD = 12; // Distance max pour considérer un tap
 
@@ -849,26 +851,43 @@ export function FriendsList({
   
   // 👇 AJOUT : Gestion Reanimated du clavier pour Android via react-native-keyboard-controller
   const keyboardHeightSV = useSharedValue(0);
+  const keyboardBottomOffsetSV = useSharedValue(0);
   useKeyboardHandler({
     onMove: (e: { height: number }) => {
       'worklet';
       keyboardHeightSV.value = e.height;
+      if (Platform.OS === 'android') {
+        keyboardBottomOffsetSV.value = Math.max(0, e.height);
+      }
     },
     onInteractive: (e: { height: number }) => {
       'worklet';
       keyboardHeightSV.value = e.height;
+      if (Platform.OS === 'android') {
+        keyboardBottomOffsetSV.value = Math.max(0, e.height);
+      }
     },
     onEnd: (e: { height: number }) => {
       'worklet';
       keyboardHeightSV.value = e.height; // Peut être 0 si fermé, ou la hauteur finale
+      if (Platform.OS === 'android') {
+        keyboardBottomOffsetSV.value = Math.max(0, e.height);
+      }
     },
   });
 
-  // Style animé pour le padding Android (Fluide & Précis)
-  const androidChatStyle = useAnimatedStyle(() => {
-    if (Platform.OS !== 'android') return {};
+  // Style animé unifié iOS + Android pour coller la modale au clavier.
+  const chatModalKeyboardStyle = useAnimatedStyle(() => {
+    const keyboardOffset = Math.max(0, keyboardBottomOffsetSV.value, keyboardHeightSV.value);
+    // Petite marge de sécurité universelle pour éviter tout chevauchement clavier/modale.
+    const keyboardOffsetSafe = keyboardOffset > 0 ? keyboardOffset + 2 : 0;
+    const fixedChatHeight = Math.max(320, SCREEN_HEIGHT - CHAT_MODAL_TOP_SAFE_MARGIN - keyboardOffsetSafe);
     return {
-      paddingBottom: keyboardHeightSV.value > 0 ? keyboardHeightSV.value + 10 : 10,
+      // Colle le bas de la modale exactement au haut du clavier
+      marginBottom: keyboardOffsetSafe,
+      paddingBottom: 0,
+      // Agrandit la zone chat et garde un top sécurisé.
+      height: fixedChatHeight,
     };
   });
 
@@ -3361,10 +3380,17 @@ const selectChatMessageSoundChoice = useCallback((choice: ChatMessageSoundChoice
   }, [expandedFriendId, keyboardVisible, appUsers, searchQuery]);
 
   useEffect(() => {
-    const onShow = (event?: { endCoordinates?: { height?: number } }) => {
+    const onShow = (event?: { endCoordinates?: { height?: number; screenY?: number } }) => {
       setKeyboardVisible(true);
       keyboardVisibleRef.current = true;
-      // keyboardHeight géré par react-native-keyboard-controller (keyboardHeightSV)
+      // Source universelle: on combine hauteur + position écran pour éviter les écarts iOS.
+      const eventHeight = Math.max(0, Number(event?.endCoordinates?.height || 0));
+      const screenY = Number(event?.endCoordinates?.screenY ?? 0);
+      const offsetFromWindowY = screenY > 0 ? Math.max(0, SCREEN_HEIGHT - screenY) : 0;
+      const offsetFromScreenY = screenY > 0 ? Math.max(0, SCREEN_HEIGHT_DEVICE - screenY) : 0;
+      const measuredOffset = Math.max(eventHeight, offsetFromWindowY, offsetFromScreenY);
+      keyboardHeightSV.value = Math.max(keyboardHeightSV.value, eventHeight);
+      keyboardBottomOffsetSV.value = Math.max(keyboardBottomOffsetSV.value, measuredOffset);
       if (Platform.OS === 'android') {
         setIsModalContentVisible(true);
       }
@@ -3381,20 +3407,25 @@ const selectChatMessageSoundChoice = useCallback((choice: ChatMessageSoundChoice
     const onHide = () => {
       setKeyboardVisible(false);
       keyboardVisibleRef.current = false;
-      // keyboardHeight géré par react-native-keyboard-controller (keyboardHeightSV)
+      keyboardHeightSV.value = 0;
+      keyboardBottomOffsetSV.value = 0;
       // Ne pas cacher la modale ici : Samsung peut fermer le clavier brièvement
     };
 
-    // Sur iOS keyboardWillShow est plus fluide, sur Android keyboardDidShow est plus sûr pour le layout
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    // iOS: keyboardDidShow donne une mesure finale plus fiable (évite le sous-décalage sur XS).
+    // Android: keyboardDidShow reste le plus sûr pour le layout.
+    const showEvent = 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const frameEvent = Platform.OS === 'ios' ? 'keyboardWillChangeFrame' : null;
     
     const subShow = Keyboard.addListener(showEvent, onShow);
     const subHide = Keyboard.addListener(hideEvent, onHide);
+    const subFrame = frameEvent ? Keyboard.addListener(frameEvent, onShow) : null;
     
     return () => {
       subShow.remove();
       subHide.remove();
+      subFrame?.remove();
     };
   }, [expandedFriendId, appUsers]);
 
@@ -4021,7 +4052,7 @@ const selectChatMessageSoundChoice = useCallback((choice: ChatMessageSoundChoice
     });
 
     return (
-      <>
+      <View style={styles.stickyContentLayout}>
         <TouchableOpacity 
           style={styles.stickyHeader} 
           onPress={() => handlePressHeaderRef.current()}
@@ -4083,7 +4114,7 @@ const selectChatMessageSoundChoice = useCallback((choice: ChatMessageSoundChoice
           </ScrollView>
         )}
 
-        <View style={[styles.messageInputRow, { alignItems: 'flex-end', marginBottom: 25 }]}>
+        <View style={[styles.messageInputRow, { alignItems: 'flex-end', marginBottom: 5 }]}>
           <TextInput
             ref={(ref) => { textInputRefs.current[displayFriend.id] = ref; }}
             style={styles.messageInput}
@@ -4129,37 +4160,47 @@ const selectChatMessageSoundChoice = useCallback((choice: ChatMessageSoundChoice
         </View>
         <View style={styles.chatSoundChoiceRow}>
           <TouchableOpacity
-            style={[
-              styles.chatSoundChoiceButton,
-              chatMessageSoundChoice === 'trll' && styles.chatSoundChoiceButtonActive,
-            ]}
+            style={styles.chatSoundChoiceButton}
             onPress={() => selectChatMessageSoundChoice('trll')}
             activeOpacity={0.8}
           >
-            <Image source={require('../assets/images/trrl.png')} style={styles.chatSoundChoiceImage} resizeMode="contain" />
+            <Image
+              source={require('../assets/images/trrl.png')}
+              style={[
+                styles.chatSoundChoiceImage,
+                chatMessageSoundChoice !== 'trll' && styles.chatSoundChoiceImageInactive,
+              ]}
+              resizeMode="contain"
+            />
           </TouchableOpacity>
           <TouchableOpacity
-            style={[
-              styles.chatSoundChoiceButton,
-              chatMessageSoundChoice === 'bzzz' && styles.chatSoundChoiceButtonActive,
-            ]}
+            style={styles.chatSoundChoiceButton}
             onPress={() => selectChatMessageSoundChoice('bzzz')}
             activeOpacity={0.8}
           >
-            <Image source={require('../assets/images/bzzz.png')} style={styles.chatSoundChoiceImage} resizeMode="contain" />
+            <Image
+              source={require('../assets/images/bzzz.png')}
+              style={[
+                styles.chatSoundChoiceImage,
+                chatMessageSoundChoice !== 'bzzz' && styles.chatSoundChoiceImageInactive,
+              ]}
+              resizeMode="contain"
+            />
           </TouchableOpacity>
           <TouchableOpacity
-            style={[
-              styles.chatSoundChoiceButton,
-              chatMessageSoundChoice === 'mute' && styles.chatSoundChoiceButtonActive,
-            ]}
+            style={styles.chatSoundChoiceButton}
             onPress={() => selectChatMessageSoundChoice('mute')}
             activeOpacity={0.8}
           >
-            <Ionicons name="volume-mute" size={28} color="#604a3e" />
+            <Ionicons
+              name="volume-mute"
+              size={34}
+              color="#604a3e"
+              style={chatMessageSoundChoice !== 'mute' ? styles.chatSoundChoiceImageInactive : undefined}
+            />
           </TouchableOpacity>
         </View>
-      </>
+      </View>
     );
   }, [
     displayFriendId,
@@ -4499,44 +4540,25 @@ const selectChatMessageSoundChoice = useCallback((choice: ChatMessageSoundChoice
         animationInTiming={150}
         animationOutTiming={1} // Instantané à la fermeture
         backdropTransitionOutTiming={0}
-        avoidKeyboard={Platform.OS === 'ios'} // iOS gère nativement, Android géré manuellement
+        avoidKeyboard={false} // Ancrage clavier géré de façon unifiée via keyboardHeightSV
       >
-        {Platform.OS === 'android' ? (
-           <Animated.View
-            style={[
-              {
-                width: '100%',
-                backgroundColor: '#ebb89b',
-                borderTopLeftRadius: 15,
-                borderTopRightRadius: 15,
-                padding: 10,
-                opacity: isModalContentVisible ? 1 : 0,
-                // paddingBottom géré par androidChatStyle
-              },
-              androidChatStyle
-            ]}
-          >
-            {expandedFriendId && !isClosingModalRef.current && stickyInnerContent}
-          </Animated.View>
-        ) : (
-          <KeyboardAvoidingView
-            behavior="padding"
-            style={{ width: '100%' }}
-          >
-            <View
-              style={{
-                backgroundColor: '#ebb89b',
-                borderTopLeftRadius: 15,
-                borderTopRightRadius: 15,
-                padding: 10,
-                paddingBottom: 30,
-                opacity: isModalContentVisible ? 1 : 0,
-              }}
-            >
-              {expandedFriendId && !isClosingModalRef.current && stickyInnerContent}
-            </View>
-          </KeyboardAvoidingView>
-        )}
+        <Animated.View
+          style={[
+            {
+              width: '100%',
+              backgroundColor: '#ebb89b',
+              borderTopLeftRadius: 15,
+              borderTopRightRadius: 15,
+              padding: 10,
+              paddingBottom: 0,
+              opacity: isModalContentVisible ? 1 : 0,
+              overflow: 'hidden',
+            },
+            chatModalKeyboardStyle,
+          ]}
+        >
+          {expandedFriendId && !isClosingModalRef.current && stickyInnerContent}
+        </Animated.View>
       </Modal>
 
       {toastMessage && (
@@ -4692,27 +4714,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 18,
-    marginTop: -10,
-    marginBottom: 18,
+    marginTop: 0,
+    marginBottom: 5,
   },
   chatSoundChoiceButton: {
-    width: 74,
-    height: 56,
-    borderRadius: 16,
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: 'rgba(96,74,62,0.25)',
+    width: 94,
+    height: 76,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  chatSoundChoiceButtonActive: {
-    borderColor: '#604a3e',
-    borderWidth: 2,
-    backgroundColor: 'transparent',
-  },
   chatSoundChoiceImage: {
-    width: 48,
-    height: 48,
+    width: 74,
+    height: 74,
+  },
+  chatSoundChoiceImageInactive: {
+    opacity: 0.4,
   },
   messageInputRowAndroid: { alignItems: 'flex-end' },
   messageInput: { flex: 1, minHeight: 40, maxHeight: 80, borderWidth: 1, borderColor: '#c5d7d3', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, color: '#333', backgroundColor: '#fff', fontSize: 18 },
@@ -5007,9 +5023,14 @@ const styles = StyleSheet.create({
     color: '#604a3e',
     fontSize: 16,
   },
+  stickyContentLayout: {
+    flex: 1,
+    minHeight: 0,
+  },
   stickyMessages: {
     marginBottom: 8,
-    maxHeight: 200, // Augmenté pour plus de visibilité, scrollable si dépasse
+    minHeight: 180,
+    flex: 1,
   },
   bubbleReceived: {
     alignSelf: 'flex-start',
