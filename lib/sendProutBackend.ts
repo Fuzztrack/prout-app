@@ -163,3 +163,57 @@ export async function markConversationReadViaBackend(senderId: string, receiverI
     return { ok: false as const, status: undefined as number | undefined };
   }
 }
+
+export async function fetchPendingReceivedViaBackend(userId: string) {
+  const API_URL = 'https://prout-backend.onrender.com/prout/pendingReceived';
+  const API_KEY = '82d6d94d97ad501a596bf866c2831623';
+  try {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': API_KEY,
+      },
+      body: JSON.stringify({ userId }),
+    });
+
+    if (!res.ok) {
+      console.warn(`❌ [fetchPendingReceivedViaBackend] Erreur backend (${res.status})`);
+      return null;
+    }
+
+    const result = await res.json().catch(() => ({} as any));
+    if (!result?.success || !Array.isArray(result?.messages)) return [];
+    return result.messages as any[];
+  } catch (err: any) {
+    console.warn('❌ [fetchPendingReceivedViaBackend] Erreur réseau:', err?.message || err);
+    return null;
+  }
+}
+
+export async function fetchPendingSentViaBackend(userId: string) {
+  const API_URL = 'https://prout-backend.onrender.com/prout/pendingSent';
+  const API_KEY = '82d6d94d97ad501a596bf866c2831623';
+  try {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': API_KEY,
+      },
+      body: JSON.stringify({ userId }),
+    });
+
+    if (!res.ok) {
+      console.warn(`❌ [fetchPendingSentViaBackend] Erreur backend (${res.status})`);
+      return null;
+    }
+
+    const result = await res.json().catch(() => ({} as any));
+    if (!result?.success || !Array.isArray(result?.messages)) return [];
+    return result.messages as any[];
+  } catch (err: any) {
+    console.warn('❌ [fetchPendingSentViaBackend] Erreur réseau:', err?.message || err);
+    return null;
+  }
+}

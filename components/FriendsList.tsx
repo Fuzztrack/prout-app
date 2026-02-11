@@ -25,7 +25,13 @@ import Animated, {
 import { RINGER_MODE, VolumeManager } from 'react-native-volume-manager';
 import { ensureContactPermissionWithDisclosure } from '../lib/contactConsent';
 import { normalizePhone } from '../lib/normalizePhone';
-import { markConversationReadViaBackend, markMessageReadViaBackend, sendProutViaBackend } from '../lib/sendProutBackend';
+import {
+  fetchPendingReceivedViaBackend,
+  fetchPendingSentViaBackend,
+  markConversationReadViaBackend,
+  markMessageReadViaBackend,
+  sendProutViaBackend
+} from '../lib/sendProutBackend';
 // Import supprimé : on utilise maintenant sync_contacts (fonction SQL Supabase)
 import i18n from '../lib/i18n';
 import { supabase } from '../lib/supabase';
@@ -1301,12 +1307,8 @@ export function FriendsList({
 
   // Messages éphémères (pending_messages) — tri chronologique pour affichage type WhatsApp (plus ancien en haut, plus récent en bas)
   const fetchPendingMessages = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('pending_messages')
-      .select('id, from_user_id, sender_pseudo, message_content, created_at')
-      .eq('to_user_id', userId)
-      .order('created_at', { ascending: true });
-    if (error) {
+    const data = await fetchPendingReceivedViaBackend(userId);
+    if (data === null) {
       return;
     }
     
@@ -1322,13 +1324,6 @@ export function FriendsList({
         validMessages.push(m);
       }
     });
-
-    if (expiredIds.length > 0) {
-      // Nettoyage silencieux en background des messages périmés
-      supabase.from('pending_messages').delete().in('id', expiredIds).then(({ error }) => {
-        if (error) console.log('Autocleanup received failed', error);
-      });
-    }
 
     // Filtrer les messages qui sont dans la liste noire locale (supprimés mais pas encore sync)
     // NOTE: On NE filtre PAS "READ:" (session gelée). Ils seront affichés en opacité réduite.
@@ -1388,13 +1383,9 @@ export function FriendsList({
 
   // Messages envoyés par moi et non lus (persistance du dernier message)
   const fetchSentPendingMessages = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('pending_messages')
-      .select('id, to_user_id, message_content, created_at')
-      .eq('from_user_id', userId);
-    
-    if (error) {
-      console.error(`❌ [fetchSentPendingMessages] Erreur Supabase:`, error.message, error);
+    const data = await fetchPendingSentViaBackend(userId);
+    if (data === null) {
+      console.error(`❌ [fetchSentPendingMessages] Erreur backend pendingSent`);
       return null;
     }
 
@@ -1413,13 +1404,6 @@ export function FriendsList({
 
     if (CHAT_VERBOSE_LOGS && expiredIds.length > 0) {
       console.log(`📊 [fetchSentPendingMessages] Messages valides: ${validMessages.length}, Expirés: ${expiredIds.length}`);
-    }
-
-    if (expiredIds.length > 0) {
-      // Nettoyage silencieux en background des messages périmés
-      supabase.from('pending_messages').delete().in('id', expiredIds).then(({ error }) => {
-        if (error) console.log('Autocleanup sent failed', error);
-      });
     }
 
     // Session gelée: on ne filtre pas READ ici (affichage grisé côté UI)
@@ -2620,6 +2604,14 @@ useEffect(() => {
           (payload) => {
             if (payload.eventType === 'INSERT') {
               const newMessage = payload.new as any;
+              const rawContent = newMessage?.message_content || '';
+              const isEncryptedPayload =
+                typeof rawContent === 'string' &&
+                (rawContent.startsWith('ENCv1:') || rawContent.startsWith('READ:ENCv1:'));
+              if (isEncryptedPayload) {
+                loadData(false, false, false);
+                return;
+              }
               
               // Vérifier si ce message n'est pas dans la liste noire (au cas où on reçoit un INSERT tardif)
               if (deletedMessagesCache.has(newMessage.id)) {
@@ -2677,6 +2669,13 @@ useEffect(() => {
               const text = (payload.new as any)?.message_content;
               const ts = (payload.new as any)?.created_at || new Date().toISOString();
               const id = (payload.new as any)?.id;
+              const isEncryptedPayload =
+                typeof text === 'string' &&
+                (text.startsWith('ENCv1:') || text.startsWith('READ:ENCv1:'));
+              if (isEncryptedPayload) {
+                loadData(false, false, false);
+                return;
+              }
               
               if (toUserId && text && id) {
                 setLastSentMessages((prev) => {
@@ -2710,6 +2709,13 @@ useEffect(() => {
               const toUserId = (payload.new as any)?.to_user_id;
               const text = (payload.new as any)?.message_content;
               const id = (payload.new as any)?.id;
+              const isEncryptedPayload =
+                typeof text === 'string' &&
+                (text.startsWith('ENCv1:') || text.startsWith('READ:ENCv1:'));
+              if (isEncryptedPayload) {
+                loadData(false, false, false);
+                return;
+              }
 
               if (text && text.startsWith('READ:') && toUserId) {
                  setLastSentMessages((prev) => {
