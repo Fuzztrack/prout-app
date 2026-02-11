@@ -45,7 +45,6 @@ const IOS_SOUNDWAVE_IMAGE = require('../assets/images/soundwave.png');
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
-const SCREEN_HEIGHT_DEVICE = Dimensions.get('screen').height;
 const CHAT_MODAL_TOP_SAFE_MARGIN = Platform.OS === 'ios' ? 96 : 84;
 const SWIPE_THRESHOLD = 150; // Seuil pour déclencher l'action
 const TAP_THRESHOLD = 12; // Distance max pour considérer un tap
@@ -856,38 +855,30 @@ export function FriendsList({
     onMove: (e: { height: number }) => {
       'worklet';
       keyboardHeightSV.value = e.height;
-      if (Platform.OS === 'android') {
-        keyboardBottomOffsetSV.value = Math.max(0, e.height);
-      }
+      keyboardBottomOffsetSV.value = Math.max(0, e.height);
     },
     onInteractive: (e: { height: number }) => {
       'worklet';
       keyboardHeightSV.value = e.height;
-      if (Platform.OS === 'android') {
-        keyboardBottomOffsetSV.value = Math.max(0, e.height);
-      }
+      keyboardBottomOffsetSV.value = Math.max(0, e.height);
     },
     onEnd: (e: { height: number }) => {
       'worklet';
       keyboardHeightSV.value = e.height; // Peut être 0 si fermé, ou la hauteur finale
-      if (Platform.OS === 'android') {
-        keyboardBottomOffsetSV.value = Math.max(0, e.height);
-      }
+      keyboardBottomOffsetSV.value = Math.max(0, e.height);
     },
   });
 
   // Style animé unifié iOS + Android pour coller la modale au clavier.
   const chatModalKeyboardStyle = useAnimatedStyle(() => {
-    const keyboardOffset = Math.max(0, keyboardBottomOffsetSV.value, keyboardHeightSV.value);
-    // Petite marge de sécurité universelle pour éviter tout chevauchement clavier/modale.
-    const keyboardOffsetSafe = keyboardOffset > 0 ? keyboardOffset + 2 : 0;
-    const fixedChatHeight = Math.max(320, SCREEN_HEIGHT - CHAT_MODAL_TOP_SAFE_MARGIN - keyboardOffsetSafe);
+    const keyboardOffset = Math.max(0, keyboardBottomOffsetSV.value);
+    const chatHeight = Math.max(320, SCREEN_HEIGHT - CHAT_MODAL_TOP_SAFE_MARGIN - keyboardOffset);
     return {
       // Colle le bas de la modale exactement au haut du clavier
-      marginBottom: keyboardOffsetSafe,
+      marginBottom: keyboardOffset,
       paddingBottom: 0,
-      // Agrandit la zone chat et garde un top sécurisé.
-      height: fixedChatHeight,
+      // Hauteur explicite pour éviter la disparition de la modale avec le layout flex interne.
+      height: chatHeight,
     };
   });
 
@@ -1983,7 +1974,22 @@ const selectChatMessageSoundChoice = useCallback((choice: ChatMessageSoundChoice
                 });
 
               if (error) {
-                console.error('❌ Erreur sync contacts:', error);
+                console.error('❌ Erreur sync contacts:', {
+                  code: (error as any)?.code,
+                  message: (error as any)?.message,
+                  details: (error as any)?.details,
+                  hint: (error as any)?.hint,
+                });
+                // Fallback: on garde le comportement lecture seule des contacts locaux
+                // pour éviter de bloquer la liste d'amis si la RPC est indisponible.
+                const { data: contactsFound } = await supabase
+                  .from('user_profiles')
+                  .select('id')
+                  .in('phone', phones)
+                  .neq('id', user.id);
+                if (contactsFound) {
+                  phoneFriendsIds = contactsFound.map(u => u.id);
+                }
               } else if (matchedFriends) {
                 phoneFriendsIds = matchedFriends.map((u: { id: string }) => u.id);
                 contactsSyncedRef.current = true; // Marquer comme synchronisé
@@ -3380,17 +3386,15 @@ const selectChatMessageSoundChoice = useCallback((choice: ChatMessageSoundChoice
   }, [expandedFriendId, keyboardVisible, appUsers, searchQuery]);
 
   useEffect(() => {
-    const onShow = (event?: { endCoordinates?: { height?: number; screenY?: number } }) => {
+    const onShow = (event?: { endCoordinates?: { height?: number } }) => {
       setKeyboardVisible(true);
       keyboardVisibleRef.current = true;
-      // Source universelle: on combine hauteur + position écran pour éviter les écarts iOS.
+      // Fallback léger: seulement si la valeur worklet n'est pas encore montée.
       const eventHeight = Math.max(0, Number(event?.endCoordinates?.height || 0));
-      const screenY = Number(event?.endCoordinates?.screenY ?? 0);
-      const offsetFromWindowY = screenY > 0 ? Math.max(0, SCREEN_HEIGHT - screenY) : 0;
-      const offsetFromScreenY = screenY > 0 ? Math.max(0, SCREEN_HEIGHT_DEVICE - screenY) : 0;
-      const measuredOffset = Math.max(eventHeight, offsetFromWindowY, offsetFromScreenY);
-      keyboardHeightSV.value = Math.max(keyboardHeightSV.value, eventHeight);
-      keyboardBottomOffsetSV.value = Math.max(keyboardBottomOffsetSV.value, measuredOffset);
+      if (eventHeight > 0 && keyboardBottomOffsetSV.value <= 0) {
+        keyboardHeightSV.value = eventHeight;
+        keyboardBottomOffsetSV.value = eventHeight;
+      }
       if (Platform.OS === 'android') {
         setIsModalContentVisible(true);
       }
@@ -4070,6 +4074,7 @@ const selectChatMessageSoundChoice = useCallback((choice: ChatMessageSoundChoice
           <Animated.ScrollView
             ref={stickyScrollViewAnimatedRef}
             style={[styles.stickyMessages, stickyMessagesAnimatedStyle]}
+            contentContainerStyle={styles.stickyMessagesContent}
             onContentSizeChange={() => stickyScrollViewAnimatedRef.current?.scrollToEnd({ animated: true })}
             showsVerticalScrollIndicator={true}
           >
@@ -4093,6 +4098,7 @@ const selectChatMessageSoundChoice = useCallback((choice: ChatMessageSoundChoice
           <ScrollView
             ref={stickyScrollViewRef}
             style={styles.stickyMessages}
+            contentContainerStyle={styles.stickyMessagesContent}
             onContentSizeChange={() => stickyScrollViewRef.current?.scrollToEnd({ animated: true })}
             showsVerticalScrollIndicator={true}
           >
@@ -4114,7 +4120,7 @@ const selectChatMessageSoundChoice = useCallback((choice: ChatMessageSoundChoice
           </ScrollView>
         )}
 
-        <View style={[styles.messageInputRow, { alignItems: 'flex-end', marginBottom: 5 }]}>
+        <View style={[styles.messageInputRow, { alignItems: 'flex-end', marginBottom: 1 }]}>
           <TextInput
             ref={(ref) => { textInputRefs.current[displayFriend.id] = ref; }}
             style={styles.messageInput}
@@ -4194,7 +4200,7 @@ const selectChatMessageSoundChoice = useCallback((choice: ChatMessageSoundChoice
           >
             <Ionicons
               name="volume-mute"
-              size={34}
+              size={28}
               color="#604a3e"
               style={chatMessageSoundChoice !== 'mute' ? styles.chatSoundChoiceImageInactive : undefined}
             />
@@ -4715,7 +4721,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 18,
     marginTop: 0,
-    marginBottom: 5,
+    marginBottom: 1,
   },
   chatSoundChoiceButton: {
     width: 94,
@@ -5029,8 +5035,12 @@ const styles = StyleSheet.create({
   },
   stickyMessages: {
     marginBottom: 8,
-    minHeight: 180,
+    minHeight: 0,
     flex: 1,
+  },
+  stickyMessagesContent: {
+    flexGrow: 1,
+    justifyContent: 'flex-end',
   },
   bubbleReceived: {
     alignSelf: 'flex-start',
