@@ -164,9 +164,17 @@ export async function markConversationReadViaBackend(senderId: string, receiverI
   }
 }
 
+const pendingRateLimitCooldownMs = 8_000;
+let pendingReceivedBlockedUntil = 0;
+let pendingSentBlockedUntil = 0;
+
 export async function fetchPendingReceivedViaBackend(userId: string) {
   const API_URL = 'https://prout-backend.onrender.com/prout/pendingReceived';
   const API_KEY = '82d6d94d97ad501a596bf866c2831623';
+  const now = Date.now();
+  if (now < pendingReceivedBlockedUntil) {
+    return [];
+  }
   try {
     const res = await fetch(API_URL, {
       method: 'POST',
@@ -178,6 +186,9 @@ export async function fetchPendingReceivedViaBackend(userId: string) {
     });
 
     if (!res.ok) {
+      if (res.status === 429) {
+        pendingReceivedBlockedUntil = Date.now() + pendingRateLimitCooldownMs;
+      }
       console.warn(`❌ [fetchPendingReceivedViaBackend] Erreur backend (${res.status})`);
       return null;
     }
@@ -194,6 +205,10 @@ export async function fetchPendingReceivedViaBackend(userId: string) {
 export async function fetchPendingSentViaBackend(userId: string) {
   const API_URL = 'https://prout-backend.onrender.com/prout/pendingSent';
   const API_KEY = '82d6d94d97ad501a596bf866c2831623';
+  const now = Date.now();
+  if (now < pendingSentBlockedUntil) {
+    return [];
+  }
   try {
     const res = await fetch(API_URL, {
       method: 'POST',
@@ -205,6 +220,9 @@ export async function fetchPendingSentViaBackend(userId: string) {
     });
 
     if (!res.ok) {
+      if (res.status === 429) {
+        pendingSentBlockedUntil = Date.now() + pendingRateLimitCooldownMs;
+      }
       console.warn(`❌ [fetchPendingSentViaBackend] Erreur backend (${res.status})`);
       return null;
     }
