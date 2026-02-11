@@ -90,6 +90,9 @@ class ProutMessagingService : FirebaseMessagingService() {
     }
 
     private fun resolveSoundUri(proutKey: String): Uri {
+        if (proutKey == "mute") {
+            return Uri.EMPTY
+        }
         val resId = resources.getIdentifier(proutKey, "raw", packageName)
         return if (resId != 0) {
             Uri.parse("android.resource://" + packageName + "/" + resId)
@@ -120,7 +123,11 @@ class ProutMessagingService : FirebaseMessagingService() {
             description = "Notifications personnalisées pour " + proutKey
             enableVibration(true)
             vibrationPattern = longArrayOf(0, 250, 250, 250)
-            setSound(soundUri, attrs)
+            if (soundUri != Uri.EMPTY) {
+                setSound(soundUri, attrs)
+            } else {
+                setSound(null, null)
+            }
             lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
         }
 
@@ -160,10 +167,12 @@ class ProutMessagingService : FirebaseMessagingService() {
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
-            .setSound(soundUri)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
+        if (soundUri != Uri.EMPTY) {
+            builder.setSound(soundUri)
+        }
 
         NotificationManagerCompat.from(this).notify(channelId.hashCode(), builder.build())
     }

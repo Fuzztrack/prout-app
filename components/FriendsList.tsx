@@ -40,6 +40,7 @@ import { SOUND_CATEGORY_KEY, type SoundCategory } from './SoundcheckSelector';
 
 const FIRST_FRIENDLIST_FOOTER_MODAL_KEY = 'first_friendlist_footer_modal_seen_v1';
 const FIRST_FRIENDLIST_FEATURES_MODAL_KEY = 'first_friendlist_features_modal_seen_v1';
+const CHAT_MESSAGE_SOUND_CHOICE_KEY = 'chat_message_sound_choice_v1';
 const IOS_SOUNDWAVE_IMAGE = require('../assets/images/soundwave.png');
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -88,6 +89,8 @@ const SOUND_KEYS_BY_CATEGORY: Record<SoundCategory, string[]> = {
   // NB: catégorie = 'trll' mais fichiers = trrl*.wav
   trll: ['trrl1', 'trrl2', 'trrl3', 'trrl4', 'trrl5'],
 };
+
+type ChatMessageSoundChoice = 'trll' | 'bzzz' | 'mute';
 
 // Mapping des sons locaux joués côté expéditeur (doit matcher les fichiers présents dans assets/sounds)
 const SOUND_ASSETS: Record<string, any> = {
@@ -757,6 +760,7 @@ export function FriendsList({
   const [identityRequests, setIdentityRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true); // Commencer à true pour éviter le flash
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [chatMessageSoundChoice, setChatMessageSoundChoice] = useState<ChatMessageSoundChoice>('trll');
   const [isFirstFriendlistModalVisible, setIsFirstFriendlistModalVisible] = useState(false);
   const [isFirstFriendlistFeaturesModalVisible, setIsFirstFriendlistFeaturesModalVisible] = useState(false);
   const pendingShowFeaturesAfterFooterRef = useRef(false);
@@ -1595,6 +1599,25 @@ useEffect(() => {
     }
   };
   loadCache();
+}, []);
+
+useEffect(() => {
+  const loadChatSoundChoice = async () => {
+    try {
+      const saved = await AsyncStorage.getItem(CHAT_MESSAGE_SOUND_CHOICE_KEY);
+      if (saved === 'trll' || saved === 'bzzz' || saved === 'mute') {
+        setChatMessageSoundChoice(saved);
+      }
+    } catch {
+      // noop
+    }
+  };
+  loadChatSoundChoice();
+}, []);
+
+const selectChatMessageSoundChoice = useCallback((choice: ChatMessageSoundChoice) => {
+  setChatMessageSoundChoice(choice);
+  AsyncStorage.setItem(CHAT_MESSAGE_SOUND_CHOICE_KEY, choice).catch(() => {});
 }, []);
 
 // Vérifier si les notifications sont silencieuses
@@ -3573,20 +3596,35 @@ useEffect(() => {
     
     try {
       setSendingFriendId(recipient.id);
-      // ⚡ Choisir un prout aléatoire et préparer le message tout de suite
-      const selectedCategory = await getSelectedSoundCategory();
-      const randomKey = pickRandom(SOUND_KEYS_BY_CATEGORY[selectedCategory] || SOUND_KEYS_BY_CATEGORY.prrt);
       const customMessage = (messageDrafts[recipient.id] || '').trim().slice(0, 140);
+      const isChatTextMessage = customMessage.length > 0;
+
+      // Override chat uniquement : trll / bzzz / mute
+      let randomKey: string;
+      let isSilentMessage = false;
+      if (isChatTextMessage) {
+        if (chatMessageSoundChoice === 'mute') {
+          randomKey = 'mute';
+          isSilentMessage = true;
+        } else {
+          randomKey = pickRandom(
+            SOUND_KEYS_BY_CATEGORY[chatMessageSoundChoice] || SOUND_KEYS_BY_CATEGORY.trll
+          );
+        }
+      } else {
+        const selectedCategory = await getSelectedSoundCategory();
+        randomKey = pickRandom(SOUND_KEYS_BY_CATEGORY[selectedCategory] || SOUND_KEYS_BY_CATEGORY.prrt);
+      }
 
       // Feedback immédiat côté expéditeur
-      const proutName = getDisplaySoundLabel(randomKey);
+      const proutName = isSilentMessage ? 'Silencieux' : getDisplaySoundLabel(randomKey);
       showToast(`${proutName} !`);
       if (onProutSent) {
         onProutSent();
       }
 
       // Jouer localement avec expo-av sans bloquer l'envoi
-      if (!isSilentMode) {
+      if (!isSilentMode && !isSilentMessage) {
         const soundFile = SOUND_ASSETS[randomKey] ?? PROUT_SOUNDS[randomKey];
         void (async () => {
           try {
@@ -4089,6 +4127,38 @@ useEffect(() => {
             <Ionicons name="send" size={18} color="#604a3e" />
           </TouchableOpacity>
         </View>
+        <View style={styles.chatSoundChoiceRow}>
+          <TouchableOpacity
+            style={[
+              styles.chatSoundChoiceButton,
+              chatMessageSoundChoice === 'trll' && styles.chatSoundChoiceButtonActive,
+            ]}
+            onPress={() => selectChatMessageSoundChoice('trll')}
+            activeOpacity={0.8}
+          >
+            <Image source={require('../assets/images/trrl.png')} style={styles.chatSoundChoiceImage} resizeMode="contain" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.chatSoundChoiceButton,
+              chatMessageSoundChoice === 'bzzz' && styles.chatSoundChoiceButtonActive,
+            ]}
+            onPress={() => selectChatMessageSoundChoice('bzzz')}
+            activeOpacity={0.8}
+          >
+            <Image source={require('../assets/images/bzzz.png')} style={styles.chatSoundChoiceImage} resizeMode="contain" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.chatSoundChoiceButton,
+              chatMessageSoundChoice === 'mute' && styles.chatSoundChoiceButtonActive,
+            ]}
+            onPress={() => selectChatMessageSoundChoice('mute')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="volume-mute" size={28} color="#604a3e" />
+          </TouchableOpacity>
+        </View>
       </>
     );
   }, [
@@ -4097,9 +4167,11 @@ useEffect(() => {
     unreadCache,
     lastSentMessages,
     displayDraft,
+    chatMessageSoundChoice,
     sendingFriendId,
     displayBackgroundColor,
     fadingOutReceivedMessages,
+    selectChatMessageSoundChoice,
     // PAS de keyboardVisible ici !
     // PAS de handlePressHeader ici ! (on utilise la Ref)
   ]);
@@ -4615,6 +4687,33 @@ const styles = StyleSheet.create({
   messageInputContainerAndroid: { marginBottom: 0, paddingBottom: 0 },
   messageLabel: { color: '#604a3e', fontWeight: '600', marginBottom: 6 },
   messageInputRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 0, gap: 8 },
+  chatSoundChoiceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 18,
+    marginTop: -10,
+    marginBottom: 18,
+  },
+  chatSoundChoiceButton: {
+    width: 74,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(96,74,62,0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chatSoundChoiceButtonActive: {
+    borderColor: '#604a3e',
+    borderWidth: 2,
+    backgroundColor: 'transparent',
+  },
+  chatSoundChoiceImage: {
+    width: 48,
+    height: 48,
+  },
   messageInputRowAndroid: { alignItems: 'flex-end' },
   messageInput: { flex: 1, minHeight: 40, maxHeight: 80, borderWidth: 1, borderColor: '#c5d7d3', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, color: '#333', backgroundColor: '#fff', fontSize: 18 },
   messageSendButton: { backgroundColor: '#ebb89b', padding: 10, borderRadius: 999, justifyContent: 'center', alignItems: 'center', minWidth: 40, minHeight: 40 },
