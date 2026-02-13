@@ -34,6 +34,12 @@ import {
 } from '../lib/sendProutBackend';
 // Import supprimé : on utilise maintenant sync_contacts (fonction SQL Supabase)
 import i18n from '../lib/i18n';
+import {
+  DIRECT_SEND_FALLBACK_CATEGORY,
+  LOCAL_PLAYBACK_FALLBACK_KEY,
+  SOUND_ASSETS,
+  SOUND_KEYS_BY_CATEGORY,
+} from '../lib/runtimeSounds';
 import { supabase } from '../lib/supabase';
 import { SearchBar } from './SearchBar';
 import SoundcheckSelector, { SOUND_CATEGORY_KEY, type SoundCategory } from './SoundcheckSelector';
@@ -52,14 +58,6 @@ const SCREEN_HEIGHT = Dimensions.get('window').height;
 const CHAT_MODAL_TOP_SAFE_MARGIN = Platform.OS === 'ios' ? 96 : 84;
 const SWIPE_THRESHOLD = 150; // Seuil pour déclencher l'action
 const TAP_THRESHOLD = 12; // Distance max pour considérer un tap
-
-// Soundcheck: catégories → sons envoyés (clé = base du nom de fichier .wav)
-const SOUND_KEYS_BY_CATEGORY: Record<SoundCategory, string[]> = {
-  prrt: ['prrt1', 'prrt6', 'prrt8', 'prrt9', 'prrt17', 'prrt18'],
-  bzzz: ['bzzz1', 'bzzz2', 'bzzz3', 'bzzz4', 'bzzz5'],
-  // NB: catégorie = 'trll' mais fichiers = trrl*.wav
-  trll: ['trrl1', 'trrl2', 'trrl3', 'trrl4', 'trrl5'],
-};
 
 type ChatMessageSoundChoice = 'trll' | 'bzzz';
 type ChatEmojiTone = 'content' | 'joy' | 'surprised' | 'sad' | 'angry';
@@ -89,29 +87,6 @@ const EMOJI_SOUND_BY_CATEGORY: Record<'trll' | 'bzzz', Record<ChatEmojiTone, str
   },
 };
 
-// Mapping des sons locaux joués côté expéditeur (doit matcher les fichiers présents dans assets/sounds)
-const SOUND_ASSETS: Record<string, any> = {
-  // PRRT
-  prrt1: require('../assets/sounds/prrt1.wav'),
-  prrt6: require('../assets/sounds/prrt6.wav'),
-  prrt8: require('../assets/sounds/prrt8.wav'),
-  prrt9: require('../assets/sounds/prrt9.wav'),
-  prrt17: require('../assets/sounds/prrt17.wav'),
-  prrt18: require('../assets/sounds/prrt18.wav'),
-  // BZZZ
-  bzzz1: require('../assets/sounds/bzzz1.wav'),
-  bzzz2: require('../assets/sounds/bzzz2.wav'),
-  bzzz3: require('../assets/sounds/bzzz3.wav'),
-  bzzz4: require('../assets/sounds/bzzz4.wav'),
-  bzzz5: require('../assets/sounds/bzzz5.wav'),
-  // TRRL
-  trrl1: require('../assets/sounds/trrl1.wav'),
-  trrl2: require('../assets/sounds/trrl2.wav'),
-  trrl3: require('../assets/sounds/trrl3.wav'),
-  trrl4: require('../assets/sounds/trrl4.wav'),
-  trrl5: require('../assets/sounds/trrl5.wav'),
-};
-
 function pickRandom<T>(arr: T[]) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -119,7 +94,10 @@ function pickRandom<T>(arr: T[]) {
 async function getSelectedSoundCategory(): Promise<SoundCategory> {
   try {
     const saved = await AsyncStorage.getItem(SOUND_CATEGORY_KEY);
-    if (saved === 'prrt' || saved === 'bzzz' || saved === 'trll') return saved;
+    if (saved === 'prrt' || saved === 'bzzz' || saved === 'trll') {
+      if (Platform.OS === 'ios' && saved === 'prrt') return 'trll';
+      return saved;
+    }
   } catch (_) {}
   return 'trll';
 }
@@ -3857,7 +3835,9 @@ const closeIdentityModal = useCallback(() => {
       } else {
         const friendCategory = friendSoundCategoryByFriend[recipient.id];
         const selectedCategory = friendCategory || await getSelectedSoundCategory();
-        randomKey = pickRandom(SOUND_KEYS_BY_CATEGORY[selectedCategory] || SOUND_KEYS_BY_CATEGORY.prrt);
+        const categoryKeys = SOUND_KEYS_BY_CATEGORY[selectedCategory];
+        const fallbackKeys = SOUND_KEYS_BY_CATEGORY[DIRECT_SEND_FALLBACK_CATEGORY] || SOUND_KEYS_BY_CATEGORY.trll;
+        randomKey = pickRandom(categoryKeys || fallbackKeys);
       }
 
       // Feedback immédiat côté expéditeur
@@ -3870,7 +3850,7 @@ const closeIdentityModal = useCallback(() => {
       // Jouer localement avec expo-av sans bloquer l'envoi.
       // `isSilentMode` = mute général (menu principal), `isSilentMessage` = mute chat explicite.
       if (!isSilentMessage && !isSilentMode) {
-        const fallbackSound = SOUND_ASSETS.prrt1;
+        const fallbackSound = SOUND_ASSETS[LOCAL_PLAYBACK_FALLBACK_KEY];
         const soundFile = SOUND_ASSETS[randomKey] ?? fallbackSound;
         void (async () => {
           try {

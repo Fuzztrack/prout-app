@@ -6,13 +6,6 @@
  * Ici on applique toujours (idempotent) : ça n'impacte pas Android.
  */
 const IOS_NOTIFICATION_SOUNDS = [
-  // Nouvelle app iOS "Prrt!" : catégories Soundcheck
-  './assets/sounds/prrt1.wav',
-  './assets/sounds/prrt6.wav',
-  './assets/sounds/prrt8.wav',
-  './assets/sounds/prrt9.wav',
-  './assets/sounds/prrt17.wav',
-  './assets/sounds/prrt18.wav',
   './assets/sounds/bzzz1.wav',
   './assets/sounds/bzzz2.wav',
   './assets/sounds/bzzz3.wav',
@@ -33,7 +26,7 @@ function withIOSPrrtSounds(config) {
   if (notifIndex !== -1 && plugins[notifIndex][1]) {
     plugins[notifIndex][1].sounds = IOS_NOTIFICATION_SOUNDS;
     console.log(
-      '[withIOSPrrtSounds] sons notifications (prrt/bzzz/trrl) configurés.'
+      '[withIOSPrrtSounds] sons notifications (bzzz/trrl) configurés.'
     );
   }
 

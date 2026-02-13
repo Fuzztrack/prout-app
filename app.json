@@ -80,13 +80,6 @@
           "icon": "./asset/images/Prrt_icon.png",
           "color": "#ffffff",
           "sounds": [
-            "./assets/sounds/prrt1.wav",
-            "./assets/sounds/prrt6.wav",
-            "./assets/sounds/prrt8.wav",
-            "./assets/sounds/prrt9.wav",
-            "./assets/sounds/prrt17.wav",
-            "./assets/sounds/prrt18.wav",
-
             "./assets/sounds/bzzz1.wav",
             "./assets/sounds/bzzz2.wav",
             "./assets/sounds/bzzz3.wav",

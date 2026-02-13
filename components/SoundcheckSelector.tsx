@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { PREVIEW_SOUNDS_BY_CATEGORY } from '../lib/runtimeSounds';
 
 // 🔊 Preview player global (évite la cacophonie)
 let currentPreviewSound: Audio.Sound | null = null;
@@ -94,32 +95,6 @@ const snapToNearestAngle = (deg: number) => {
   return best;
 };
 
-const PREVIEW_SOUNDS_BY_CATEGORY: Record<SoundCategory, any[]> = {
-  prrt: [
-    require('../assets/sounds/prrt1.wav'),
-    require('../assets/sounds/prrt6.wav'),
-    require('../assets/sounds/prrt8.wav'),
-    require('../assets/sounds/prrt9.wav'),
-    require('../assets/sounds/prrt17.wav'),
-    require('../assets/sounds/prrt18.wav'),
-  ],
-  // NB: fichiers existants = trrl*.wav (orthographe assets)
-  trll: [
-    require('../assets/sounds/trrl1.wav'),
-    require('../assets/sounds/trrl2.wav'),
-    require('../assets/sounds/trrl3.wav'),
-    require('../assets/sounds/trrl4.wav'),
-    require('../assets/sounds/trrl5.wav'),
-  ],
-  bzzz: [
-    require('../assets/sounds/bzzz1.wav'),
-    require('../assets/sounds/bzzz2.wav'),
-    require('../assets/sounds/bzzz3.wav'),
-    require('../assets/sounds/bzzz4.wav'),
-    require('../assets/sounds/bzzz5.wav'),
-  ],
-};
-
 interface SoundcheckSelectorProps {
   initialCategory?: SoundCategory | null;
   onCategoryChange?: (category: SoundCategory) => void;
@@ -199,7 +174,7 @@ export default function SoundcheckSelector({
     await stopCurrentPreviewSound();
 
     const seq = ++previewSeq;
-    const list = PREVIEW_SOUNDS_BY_CATEGORY[category] ?? PREVIEW_SOUNDS_BY_CATEGORY.prrt;
+    const list = PREVIEW_SOUNDS_BY_CATEGORY[category] ?? PREVIEW_SOUNDS_BY_CATEGORY.trll;
     const soundAsset = list[Math.floor(Math.random() * list.length)];
     try {
       await Audio.setAudioModeAsync({
