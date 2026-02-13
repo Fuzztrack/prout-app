@@ -6,28 +6,6 @@
  * Ici on applique toujours (idempotent) : ça n'impacte pas Android.
  */
 const IOS_NOTIFICATION_SOUNDS = [
-  // Ancienne app iOS "Prout" : sons prout1..20
-  './assets/sounds/prout1.wav',
-  './assets/sounds/prout2.wav',
-  './assets/sounds/prout3.wav',
-  './assets/sounds/prout4.wav',
-  './assets/sounds/prout5.wav',
-  './assets/sounds/prout6.wav',
-  './assets/sounds/prout7.wav',
-  './assets/sounds/prout8.wav',
-  './assets/sounds/prout9.wav',
-  './assets/sounds/prout10.wav',
-  './assets/sounds/prout11.wav',
-  './assets/sounds/prout12.wav',
-  './assets/sounds/prout13.wav',
-  './assets/sounds/prout14.wav',
-  './assets/sounds/prout15.wav',
-  './assets/sounds/prout16.wav',
-  './assets/sounds/prout17.wav',
-  './assets/sounds/prout18.wav',
-  './assets/sounds/prout19.wav',
-  './assets/sounds/prout20.wav',
-
   // Nouvelle app iOS "Prrt!" : catégories Soundcheck
   './assets/sounds/prrt1.wav',
   './assets/sounds/prrt6.wav',

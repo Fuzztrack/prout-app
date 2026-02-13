@@ -27,7 +27,7 @@ const withAndroidNotificationMetadata = (config) => {
     mainApplication['meta-data'].push({
       $: {
         'android:name': 'com.google.firebase.messaging.default_notification_channel_id',
-        'android:value': 'prout1', // Doit correspondre au canal créé dans lib/notifications.ts
+        'android:value': 'prout-prrt1-v5', // Doit correspondre au canal créé par withAndroidProutMessaging
         'tools:replace': 'android:value', // Résout les conflits avec react-native-firebase
       },
     });

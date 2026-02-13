@@ -2,15 +2,14 @@ import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
-const PROUT_SOUNDS = [
-  'prout1','prout2','prout3','prout4','prout5',
-  'prout6','prout7','prout8','prout9','prout10',
-  'prout11','prout12','prout13','prout14','prout15',
-  'prout16','prout17','prout18','prout19','prout20'
+const SOUND_KEYS = [
+  'prrt1','prrt6','prrt8','prrt9','prrt17','prrt18',
+  'bzzz1','bzzz2','bzzz3','bzzz4','bzzz5',
+  'trrl1','trrl2','trrl3','trrl4','trrl5',
 ];
 
 // Canal par défaut pour Android (FCM)
-export const DEFAULT_CHANNEL_ID = 'prout1';
+export const DEFAULT_CHANNEL_ID = 'prrt1';
 
 export function getChannelIdForSound(soundName: string) {
   return `prout-${soundName}-v5`; // Harmonisation avec ProutMessagingService.kt (v5)
@@ -25,7 +24,7 @@ async function configureAndroidNotificationChannels() {
     
     // Supprimer les anciens canaux avec suffixe
     const oldSuffixes = ['-v14','-v13','-v12','-v11','-v10','-v3','-v2']; // Ajout de -v3 et -v2 à supprimer
-    for (const soundName of PROUT_SOUNDS) {
+    for (const soundName of SOUND_KEYS) {
       // Supprimer aussi les versions brutes "prout1", etc.
       try { await Notifications.deleteNotificationChannelAsync(soundName); } catch {}
       
@@ -37,11 +36,11 @@ async function configureAndroidNotificationChannels() {
     }
 
     let createdCount = 0;
-    for (const soundName of PROUT_SOUNDS) {
-      const channelId = getChannelIdForSound(soundName); // ex: "prout1" (sans suffixe)
+    for (const soundName of SOUND_KEYS) {
+      const channelId = getChannelIdForSound(soundName);
       // ⚡ Pour Android : Le nom de la ressource est SANS extension
-      // Si le fichier est "prout1.wav" dans app.json, Android l'identifie comme "prout1"
-      const soundResourceName = soundName; // "prout1" (sans extension)
+      // Exemple: "prrt1.wav" dans app.json => ressource "prrt1"
+      const soundResourceName = soundName;
 
       // Supprimer l'ancien canal s'il existe
       try { await Notifications.deleteNotificationChannelAsync(channelId); } catch {}
@@ -68,7 +67,7 @@ async function configureAndroidNotificationChannels() {
       }
     }
 
-    console.log(`🎯 [ANDROID] ${createdCount}/${PROUT_SOUNDS.length} canaux créés avec succès`);
+    console.log(`🎯 [ANDROID] ${createdCount}/${SOUND_KEYS.length} canaux créés avec succès`);
 
     // Attendre propagation
     await new Promise(resolve => setTimeout(resolve, 1000));
@@ -76,8 +75,8 @@ async function configureAndroidNotificationChannels() {
     // Vérifier que les canaux sont bien créés
     try {
       const allChannels = await Notifications.getNotificationChannelsAsync();
-      const proutChannels = allChannels?.filter(c => c.id.startsWith('prout')) || [];
-      console.log(`📋 [ANDROID] Canaux prout trouvés: ${proutChannels.length}`);
+      const soundChannels = allChannels?.filter(c => c.id.startsWith('prout-')) || [];
+      console.log(`📋 [ANDROID] Canaux sons trouvés: ${soundChannels.length}`);
     } catch (checkError) {
       console.error('❌ [ANDROID] Erreur vérification canaux:', checkError);
     }
@@ -114,9 +113,9 @@ export async function updateAndroidNotificationChannelsVibration(enabled: boolea
     if (defaultChannel) {
       try {
         const defaultChannelConfig: any = {
-          name: defaultChannel.name || 'Prout',
+          name: defaultChannel.name || 'Prrt',
           importance: defaultChannel.importance || Notifications.AndroidImportance.MAX,
-          sound: 'prout1',
+          sound: 'prrt1',
           lockscreenVisibility: defaultChannel.lockscreenVisibility || Notifications.AndroidNotificationVisibility.PUBLIC,
           enableVibrate: enabled,
           bypassDnd: defaultChannel.bypassDnd !== false,
@@ -141,7 +140,7 @@ export async function updateAndroidNotificationChannelsVibration(enabled: boolea
       }
     }
     
-    for (const soundName of PROUT_SOUNDS) {
+    for (const soundName of SOUND_KEYS) {
       const channelId = getChannelIdForSound(soundName);
       
       try {

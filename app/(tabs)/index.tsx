@@ -734,17 +734,18 @@ export default function HomeScreen() {
                          isZenMode={isZenMode}
                          isSilentMode={isSilentMode}
                          isProfileMenuOpen={activeView === 'profileMenu'}
-                         isProfileOpen={activeView === 'profile'}
-                         isSearchVisible={isSearchVisible}
+                        isProfileOpen={activeView === 'profile'}
+                        isSearchVisible={isSearchVisible}
                         onSearchToggle={toggleSearchVisibility}
+                        onAddFriendPress={() => { setShowSearch(true); setActiveView('list'); }}
                         onComplicityPress={handleComplicityPress}
                         onSoundcheckPress={handleSoundcheckPress}
                         onProfileMenuPress={toggleProfileMenu}
                         onProfilePress={() => setActiveView('profile')}
-                         onZenModeToggle={toggleZenMode}
-                         onSilentModeToggle={toggleSilentMode}
-                         shakeX={shakeX}
-                         shakeY={shakeY}
+                        onZenModeToggle={toggleZenMode}
+                        onSilentModeToggle={toggleSilentMode}
+                        shakeX={shakeX}
+                        shakeY={shakeY}
                        />
                      }
                    />
@@ -776,15 +777,12 @@ export default function HomeScreen() {
                          
                          <View style={styles.menuCard}>
                            {[
-                             { label: i18n.t('search_friend'), icon: 'person-add-outline', onPress: () => { setShowSearch(true); setActiveView('list'); }, iconColor: '#604a3e' },
-                             { label: i18n.t('zen_mode'), icon: isZenMode ? 'moon' : 'moon-outline', onPress: toggleZenMode, iconColor: isZenMode ? '#ebb89b' : '#604a3e' },
-                             { label: i18n.t('silent_mode'), icon: isSilentMode ? 'volume-mute' : 'volume-mute-outline', onPress: toggleSilentMode, iconColor: isSilentMode ? '#ebb89b' : '#604a3e' },
-                             // Retour haptique uniquement sur iOS
-                             ...(Platform.OS === 'ios' ? [{ label: i18n.t('haptic_feedback'), icon: isHapticEnabled ? 'phone-portrait' : 'phone-portrait-outline', onPress: toggleHapticFeedback, iconColor: isHapticEnabled ? '#ebb89b' : '#604a3e' }] : []),
                              { label: i18n.t('manage_profile'), icon: 'person-circle-outline', onPress: () => setActiveView('profile'), iconColor: '#604a3e' },
                              { label: i18n.t('invite_friend'), icon: 'share-social-outline', onPress: handleShare, iconColor: '#604a3e' },
                              { label: i18n.t('review_app_functions'), icon: 'help-circle-outline', onPress: () => setActiveView('tutorial'), iconColor: '#604a3e' },
                              { label: i18n.t('who_is_who'), icon: 'eye-outline', onPress: () => { setShowIdentity(true); setActiveView('list'); }, iconColor: '#604a3e' },
+                             // Retour haptique uniquement sur iOS
+                             ...(Platform.OS === 'ios' ? [{ label: i18n.t('haptic_feedback'), icon: isHapticEnabled ? 'phone-portrait' : 'phone-portrait-outline', onPress: toggleHapticFeedback, iconColor: isHapticEnabled ? '#ebb89b' : '#604a3e' }] : []),
                              { label: i18n.t('privacy_policy_menu'), icon: 'document-text-outline', onPress: () => { setShowPrivacy(true); setActiveView('list'); }, iconColor: '#604a3e' },
                            ].map((item, index) => (
                              <TouchableOpacity 
@@ -795,7 +793,7 @@ export default function HomeScreen() {
                                <Text style={styles.menuText}>{item.label}</Text>
                                <Ionicons
                                  name={item.icon as any}
-                                 size={item.label === i18n.t('silent_mode') ? 26 : 22}
+                              size={22}
                                  color={item.iconColor}
                                />
                              </TouchableOpacity>
@@ -842,10 +840,11 @@ export default function HomeScreen() {
                       isProfileMenuOpen={activeView === 'profileMenu'}
                       isProfileOpen={activeView === 'profile'}
                       isSearchVisible={isSearchVisible}
-                        onSearchToggle={toggleSearchVisibility}
-                        onComplicityPress={handleComplicityPress}
-                        onSoundcheckPress={handleSoundcheckPress}
-                        onProfileMenuPress={toggleProfileMenu}
+                      onSearchToggle={toggleSearchVisibility}
+                      onAddFriendPress={() => { setShowSearch(true); setActiveView('list'); }}
+                      onComplicityPress={handleComplicityPress}
+                      onSoundcheckPress={handleSoundcheckPress}
+                      onProfileMenuPress={toggleProfileMenu}
                       onProfilePress={() => setActiveView('profile')}
                       onZenModeToggle={toggleZenMode}
                       onSilentModeToggle={toggleSilentMode}
@@ -882,15 +881,12 @@ export default function HomeScreen() {
                       
                       <View style={styles.menuCard}>
                           {[
-                            { label: i18n.t('search_friend'), icon: 'person-add-outline', onPress: () => { setShowSearch(true); setActiveView('list'); }, iconColor: '#604a3e' },
-                            { label: i18n.t('zen_mode'), icon: isZenMode ? 'moon' : 'moon-outline', onPress: toggleZenMode, iconColor: isZenMode ? '#ebb89b' : '#604a3e' },
-                            { label: i18n.t('silent_mode'), icon: isSilentMode ? 'volume-mute' : 'volume-mute-outline', onPress: toggleSilentMode, iconColor: isSilentMode ? '#ebb89b' : '#604a3e' },
-                            // Retour haptique uniquement sur iOS
-                            ...(Platform.OS === 'ios' ? [{ label: i18n.t('haptic_feedback'), icon: isHapticEnabled ? 'phone-portrait' : 'phone-portrait-outline', onPress: toggleHapticFeedback, iconColor: isHapticEnabled ? '#ebb89b' : '#604a3e' }] : []),
                             { label: i18n.t('manage_profile'), icon: 'person-circle-outline', onPress: () => setActiveView('profile'), iconColor: '#604a3e' },
                             { label: i18n.t('invite_friend'), icon: 'share-social-outline', onPress: handleShare, iconColor: '#604a3e' },
                             { label: i18n.t('review_app_functions'), icon: 'help-circle-outline', onPress: () => setActiveView('tutorial'), iconColor: '#604a3e' },
                             { label: i18n.t('who_is_who'), icon: 'eye-outline', onPress: () => { setShowIdentity(true); setActiveView('list'); }, iconColor: '#604a3e' },
+                            // Retour haptique uniquement sur iOS
+                            ...(Platform.OS === 'ios' ? [{ label: i18n.t('haptic_feedback'), icon: isHapticEnabled ? 'phone-portrait' : 'phone-portrait-outline', onPress: toggleHapticFeedback, iconColor: isHapticEnabled ? '#ebb89b' : '#604a3e' }] : []),
                             { label: i18n.t('privacy_policy_menu'), icon: 'document-text-outline', onPress: () => { setShowPrivacy(true); setActiveView('list'); }, iconColor: '#604a3e' },
                         ].map((item, index) => (
                           <TouchableOpacity 
@@ -901,7 +897,7 @@ export default function HomeScreen() {
                             <Text style={styles.menuText}>{item.label}</Text>
                             <Ionicons
                               name={item.icon as any}
-                              size={item.label === i18n.t('silent_mode') ? 26 : 22}
+                                size={22}
                               color={item.iconColor}
                             />
                           </TouchableOpacity>

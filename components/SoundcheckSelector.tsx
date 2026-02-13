@@ -38,8 +38,8 @@ export type SoundCategory = 'prrt' | 'trll' | 'bzzz';
 // 0° = 3h, sens horaire (y vers le bas).
 const CATEGORIES: { id: SoundCategory; angle: number; label: string; source: any }[] = [
   { id: 'trll', angle: 210, label: 'TRLL!', source: require('../assets/images/trrl.png') }, // 10h
-  { id: 'prrt', angle: 330, label: 'PRRT!', source: require('../assets/images/Prrt.png') }, // 2h
-  { id: 'bzzz', angle: 90, label: 'BZZZ!', source: require('../assets/images/bzzz.png') },  // 6h
+  // { id: 'prrt', angle: 90, label: 'PRRT!', source: require('../assets/images/Prrt.png') }, // temporairement masqué
+  { id: 'bzzz', angle: 330, label: 'BZZZ!', source: require('../assets/images/bzzz.png') }, // 2h
 ];
 
 // Ajustements fins par logo (pour un rendu visuel équilibré)
@@ -53,17 +53,25 @@ const RADIAL_FACTOR: Record<SoundCategory, number> = {
 const POSITION_OFFSET: Record<SoundCategory, { dx: number; dy: number }> = {
   trll: { dx: 0, dy: 0 },
   prrt: { dx: 0, dy: 18 }, // un peu plus bas
-  bzzz: { dx: 0, dy: -28 }, // plus haut (vers le centre)
+  bzzz: { dx: 0, dy: -8 }, // légèrement plus bas qu'avant
 };
 
 // L'indicateur est dessiné en haut (12h = 270° dans notre convention).
 const angleToKnobRotation = (angleDeg: number) => (angleDeg - 270 + 360) % 360;
 const SNAP_ANGLES = CATEGORIES.map((c) => c.angle); // [210, 330, 90]
-const KNOB_ROTATIONS = SNAP_ANGLES.map(angleToKnobRotation); // [300, 60, 180]
+const KNOB_ROTATIONS = SNAP_ANGLES.map(angleToKnobRotation);
 
 const normalizeAngle = (deg: number) => {
   const v = deg % 360;
   return v < 0 ? v + 360 : v;
+};
+
+const getShortestRotationTarget = (currentDeg: number, targetDegNormalized: number) => {
+  const currentNorm = normalizeAngle(currentDeg);
+  let delta = targetDegNormalized - currentNorm;
+  if (delta > 180) delta -= 360;
+  if (delta < -180) delta += 360;
+  return currentDeg + delta;
 };
 
 const circularDistance = (a: number, b: number) => {
@@ -151,7 +159,7 @@ export default function SoundcheckSelector({
     const offsetsScaled: Record<SoundCategory, { dx: number; dy: number }> = {
       trll: { dx: 0, dy: 0 },
       prrt: { dx: 0, dy: Math.round(18 * (logoBox / 112)) },
-      bzzz: { dx: 0, dy: Math.round(-28 * (logoBox / 112)) },
+      bzzz: { dx: 0, dy: Math.round(-8 * (logoBox / 112)) },
     };
 
     return {
@@ -167,6 +175,7 @@ export default function SoundcheckSelector({
 
   const [selectedIndex, setSelectedIndex] = useState(0);
   const rotationAnim = useRef(new Animated.Value(KNOB_ROTATIONS[0])).current;
+  const currentRotationRef = useRef(KNOB_ROTATIONS[0]);
   const knobOuterRef = useRef<View | null>(null);
   const knobCenterRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const applySelectionByIndexRef = useRef<(index: number) => void>(() => {});
@@ -227,11 +236,17 @@ export default function SoundcheckSelector({
       if (index === selectedIndex) return;
       const category = CATEGORIES[index].id;
       setSelectedIndex(index);
+      const targetRotation = getShortestRotationTarget(
+        currentRotationRef.current,
+        KNOB_ROTATIONS[index]
+      );
       Animated.timing(rotationAnim, {
-        toValue: KNOB_ROTATIONS[index],
+        toValue: targetRotation,
         duration: 180,
         useNativeDriver: true,
-      }).start();
+      }).start(() => {
+        currentRotationRef.current = targetRotation;
+      });
       if (Platform.OS === 'ios') {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
       }
@@ -253,15 +268,16 @@ export default function SoundcheckSelector({
   );
 
   useEffect(() => {
-    const cat = initialCategory ?? 'prrt';
+    const cat = initialCategory ?? 'trll';
     const idx = CATEGORIES.findIndex((c) => c.id === cat);
     const i = idx >= 0 ? idx : 0;
     setSelectedIndex(i);
     rotationAnim.setValue(KNOB_ROTATIONS[i]);
+    currentRotationRef.current = KNOB_ROTATIONS[i];
   }, [initialCategory, rotationAnim]);
 
   const cycleNext = useCallback(() => {
-    const next = (selectedIndex + 1) % 3;
+    const next = (selectedIndex + 1) % CATEGORIES.length;
     selectIndex(next);
   }, [selectedIndex, selectIndex]);
 
@@ -313,8 +329,8 @@ export default function SoundcheckSelector({
     transform: [
       {
         rotate: rotationAnim.interpolate({
-          inputRange: [0, 60, 180, 300, 360],
-          outputRange: ['0deg', '60deg', '180deg', '300deg', '360deg'],
+          inputRange: [-1080, 1080],
+          outputRange: ['-1080deg', '1080deg'],
         }),
       },
     ],

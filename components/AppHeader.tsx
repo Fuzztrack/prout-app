@@ -29,6 +29,7 @@ interface AppHeaderProps {
   onProfileMenuPress?: () => void;
   onProfilePress?: () => void;
   onSearchToggle?: () => void;
+  onAddFriendPress?: () => void;
   onComplicityPress?: () => void;
   onSoundcheckPress?: () => void;
   onZenModeToggle?: () => void;
@@ -48,6 +49,7 @@ export function AppHeader({
   onProfileMenuPress,
   onProfilePress,
   onSearchToggle,
+  onAddFriendPress,
   onComplicityPress,
   onSoundcheckPress,
   onZenModeToggle,
@@ -181,6 +183,20 @@ export function AppHeader({
                       name={isSearchVisible ? "close" : "search"} 
                       size={22} 
                       color="#ffffff" 
+                    />
+                  </TouchableOpacity>
+                )}
+
+                {/* Ajouter un ami */}
+                {onAddFriendPress && (
+                  <TouchableOpacity
+                    onPress={onAddFriendPress}
+                    style={[styles.iconButton, { justifyContent: 'center', alignItems: 'center', minHeight: 28, marginTop: 2 }]}
+                  >
+                    <Ionicons
+                      name="person-add-outline"
+                      size={22}
+                      color="#ffffff"
                     />
                   </TouchableOpacity>
                 )}

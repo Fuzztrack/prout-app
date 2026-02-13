@@ -125,6 +125,7 @@ export default function CompleteProfileScreen() {
             onChangeText={setPseudo} 
             style={styles.input} 
             placeholder="Votre Pseudo *" 
+            placeholderTextColor="#604a3e"
             autoCapitalize="none"
         />
 
@@ -133,6 +134,7 @@ export default function CompleteProfileScreen() {
             onChangeText={setPhone} 
             style={styles.input} 
             placeholder={i18n.t('phone_placeholder')} 
+            placeholderTextColor="#604a3e"
             keyboardType="phone-pad"
             autoCapitalize="none"
         />
@@ -161,7 +163,7 @@ const styles = StyleSheet.create({
   image: { width: 180, height: 140, marginBottom: 20 },
   title: { fontSize: 28, fontWeight: 'bold', color: '#604a3e', marginBottom: 10 },
   subtitle: { fontSize: 16, color: '#604a3e', textAlign: 'center', marginBottom: 30, paddingHorizontal: 20 },
-  input: { backgroundColor: 'white', borderRadius: 8, padding: 15, marginBottom: 20, width: '100%', fontSize: 18, textAlign: 'center' },
+  input: { backgroundColor: 'white', color: '#000000', borderRadius: 8, padding: 15, marginBottom: 20, width: '100%', fontSize: 18, textAlign: 'center' },
   logoutButton: { marginTop: 30, padding: 10 },
   logoutText: { color: '#604a3e', textDecorationLine: 'underline' }
 });

@@ -253,10 +253,17 @@ const i18n = new I18n({
     phone_format_placeholder: "06 12 34 56 78",
     
     // Footer & Help
-    footer_help_text: "Swipez vers la droite pour envoyer une notification, cliquez avant de swiper pour ajouter un message !",
+    footer_help_text: "Swipez vers la droite pour envoyer une notification, cliquez avant de swiper pour ajouter un message et faites un appui long pour choisir la catégorie d'ondes sonores !",
     footer_sound_category_info: "Le son des notifications sera choisi aléatoirement parmi la catégorie d’onde sonore sélectionnée !",
+    friendlist_onboarding_swipe: "Swipez le nom d'un ami vers la droite pour envoyer une notification.",
+    friendlist_onboarding_tap: "Cliquez sur le nom d'un ami pour ouvrir le chat éphémère.",
+    friendlist_onboarding_long_press: "Faites un appui long pour choisir la catégorie d’ondes sonores.",
     friendlist_onboarding_soundcheck: "Choisis ta catégorie d’onde sonore à faire résonner !",
     friendlist_onboarding_resonance: "Consulte la complicité acoustique que tu as avec tes amis dans le tableau de résonance !",
+    friendlist_onboarding_zen: "Activez le mode zen pour ne pas être dérangé.",
+    friendlist_onboarding_silent_send: "Activez les envois silencieux pour envoyer vos notifications en toute discrétion.",
+    friendlist_onboarding_search_contacts: "Cherchez des amis dans votre liste.",
+    friendlist_onboarding_search_pseudo: "Recherchez un ami avec son pseudo.",
     
     // Notifications & Errors
     notifications_not_enabled: "%{pseudo} n'a pas activé les notifications. Le token n'est pas disponible dans la base de données.",
@@ -741,8 +748,15 @@ const i18n = new I18n({
     // Footer & Help
     footer_help_text: "Swipe right to send a notification, tap before swiping to add a message!",
     footer_sound_category_info: "Notification sounds will be randomly chosen from your selected sound wave category!",
+    friendlist_onboarding_swipe: "Swipe a friend's name to the right to send a notification.",
+    friendlist_onboarding_tap: "Tap a friend's name to open the ephemeral chat.",
+    friendlist_onboarding_long_press: "Long-press to choose the sound wave category.",
     friendlist_onboarding_soundcheck: "Choose the sound wave category you want to resonate!",
     friendlist_onboarding_resonance: "Check your acoustic complicity with friends in the Resonance dashboard!",
+    friendlist_onboarding_zen: "Enable Zen mode to avoid being disturbed.",
+    friendlist_onboarding_silent_send: "Enable silent sends to send your notifications discreetly.",
+    friendlist_onboarding_search_contacts: "Look for friends in your list.",
+    friendlist_onboarding_search_pseudo: "Search for a friend by username.",
     
     // Notifications & Errors
     notifications_not_enabled: "%{pseudo} has not enabled notifications. The token is not available in the database.",
@@ -1208,8 +1222,15 @@ const i18n = new I18n({
     // Footer & Help
     footer_help_text: "Desliza hacia la derecha para enviar una notificación, toca antes de deslizar para agregar un mensaje!",
     footer_sound_category_info: "El sonido de las notificaciones se elegirá aleatoriamente entre la categoría de onda sonora seleccionada.",
+    friendlist_onboarding_swipe: "Desliza el nombre de un amigo hacia la derecha para enviar una notificación.",
+    friendlist_onboarding_tap: "Toca el nombre de un amigo para abrir el chat efímero.",
+    friendlist_onboarding_long_press: "Mantén pulsado para elegir la categoría de ondas sonoras.",
     friendlist_onboarding_soundcheck: "¡Elige tu categoría de onda sonora para hacerla resonar!",
     friendlist_onboarding_resonance: "Consulta la complicidad acústica que tienes con tus amigos en el panel de Resonancia.",
+    friendlist_onboarding_zen: "Activa el modo zen para no ser molestado.",
+    friendlist_onboarding_silent_send: "Activa los envíos silenciosos para enviar tus notificaciones con discreción.",
+    friendlist_onboarding_search_contacts: "Busca amigos en tu lista.",
+    friendlist_onboarding_search_pseudo: "Busca a un amigo con su seudónimo.",
     
     // Notifications & Errors
     notifications_not_enabled: "%{pseudo} no ha activado las notificaciones. El token no está disponible en la base de datos.",
@@ -1674,8 +1695,15 @@ const i18n = new I18n({
     // Footer & Help
     footer_help_text: "Direita pra peidar, clica antes pra escrever!",
     footer_sound_category_info: "O som das notificações será escolhido aleatoriamente dentro da categoria de onda sonora selecionada!",
+    friendlist_onboarding_swipe: "Deslize o nome de um amigo para a direita para enviar uma notificação.",
+    friendlist_onboarding_tap: "Toque no nome de um amigo para abrir o chat efêmero.",
+    friendlist_onboarding_long_press: "Faça um toque longo para escolher a categoria de ondas sonoras.",
     friendlist_onboarding_soundcheck: "Escolhe a categoria de onda sonora pra fazer ressoar!",
     friendlist_onboarding_resonance: "Veja a cumplicidade acústica que você tem com seus amigos no painel de Ressonância!",
+    friendlist_onboarding_zen: "Ative o modo zen para não ser incomodado.",
+    friendlist_onboarding_silent_send: "Ative os envios silenciosos para mandar notificações com discrição.",
+    friendlist_onboarding_search_contacts: "Procure amigos na sua lista.",
+    friendlist_onboarding_search_pseudo: "Procure um amigo pelo pseudo.",
     
     // Notifications & Errors
     notifications_not_enabled: "%{pseudo} não ativou notificação. Sem token.",
@@ -2140,8 +2168,15 @@ const i18n = new I18n({
     // Footer & Help
     footer_help_text: "Rechts zum Fürzen, vorher klicken zum Schreiben!",
     footer_sound_category_info: "Der Benachrichtigungston wird zufällig aus der ausgewählten Schallwellen-Kategorie gewählt!",
+    friendlist_onboarding_swipe: "Wische den Namen eines Freundes nach rechts, um eine Benachrichtigung zu senden.",
+    friendlist_onboarding_tap: "Tippe auf den Namen eines Freundes, um den ephemeren Chat zu öffnen.",
+    friendlist_onboarding_long_press: "Halte lange gedrückt, um die Schallwellen-Kategorie auszuwählen.",
     friendlist_onboarding_soundcheck: "Wähle deine Schallwellen-Kategorie, die du erklingen lassen willst!",
     friendlist_onboarding_resonance: "Sieh dir die akustische Komplizenschaft mit deinen Freunden im Resonanz-Dashboard an!",
+    friendlist_onboarding_zen: "Aktiviere den Zen-Modus, um nicht gestört zu werden.",
+    friendlist_onboarding_silent_send: "Aktiviere stille Sendungen, um Benachrichtigungen diskret zu versenden.",
+    friendlist_onboarding_search_contacts: "Suche Freunde in deiner Liste.",
+    friendlist_onboarding_search_pseudo: "Suche einen Freund mit seinem Pseudonym.",
     
     // Notifications & Errors
     notifications_not_enabled: "%{pseudo} hat Benachrichtigungen nicht aktiviert. Kein Token.",
@@ -2606,8 +2641,15 @@ const i18n = new I18n({
     // Footer & Help
     footer_help_text: "Destra per scoreggiare, clicca prima per scrivere!",
     footer_sound_category_info: "Il suono delle notifiche verrà scelto casualmente dalla categoria di onda sonora selezionata!",
+    friendlist_onboarding_swipe: "Scorri il nome di un amico verso destra per inviare una notifica.",
+    friendlist_onboarding_tap: "Tocca il nome di un amico per aprire la chat effimera.",
+    friendlist_onboarding_long_press: "Fai una pressione prolungata per scegliere la categoria di onde sonore.",
     friendlist_onboarding_soundcheck: "Scegli la categoria di onda sonora da far risuonare!",
     friendlist_onboarding_resonance: "Consulta la complicità acustica che hai con i tuoi amici nel pannello di Risonanza!",
+    friendlist_onboarding_zen: "Attiva la modalità zen per non essere disturbato.",
+    friendlist_onboarding_silent_send: "Attiva gli invii silenziosi per mandare notifiche in modo discreto.",
+    friendlist_onboarding_search_contacts: "Cerca amici nella tua lista.",
+    friendlist_onboarding_search_pseudo: "Cerca un amico con il suo pseudonimo.",
     
     // Notifications & Errors
     notifications_not_enabled: "%{pseudo} non ha abilitato le notifiche. Nessun token.",
