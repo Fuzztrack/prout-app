@@ -8,6 +8,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { Alert, AppState, DeviceEventEmitter, Dimensions, FlatList, Image, Keyboard, KeyboardAvoidingView, Linking, NativeModules, Platform, Animated as RNAnimated, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { Gesture, GestureDetector, TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
+import Svg, { Path } from 'react-native-svg';
 // 👇 AJOUT : Hook pour capturer la hauteur réelle du clavier (Texte OU Emoji)
 import { useKeyboardHandler } from 'react-native-keyboard-controller';
 import Modal from 'react-native-modal';
@@ -4437,12 +4438,50 @@ const closeIdentityModal = useCallback(() => {
             onPress={() => setIsEmojiPickerVisible((prev) => !prev)}
             activeOpacity={0.8}
           >
-            <Ionicons
-              name="happy-outline"
-              size={30}
-              color="#604a3e"
-              style={!isEmojiPickerVisible ? styles.chatSoundChoiceImageInactive : undefined}
-            />
+            <View
+              style={[
+                styles.emojiIconWithWaves,
+                !isEmojiPickerVisible && styles.chatSoundChoiceImageInactive,
+              ]}
+            >
+              <Ionicons name="happy-outline" size={30} color="#604a3e" />
+              <View style={styles.emojiLeftWaves} pointerEvents="none">
+                <Svg width={22} height={24} viewBox="0 0 22 24">
+                  <Path
+                    d="M6 8.5 A8 8 0 0 1 6 15.5"
+                    stroke="#604a3e"
+                    strokeWidth={2.2}
+                    strokeLinecap="round"
+                    fill="none"
+                  />
+                  <Path
+                    d="M10 7 A12 12 0 0 1 10 17"
+                    stroke="#604a3e"
+                    strokeWidth={2.2}
+                    strokeLinecap="round"
+                    fill="none"
+                  />
+                </Svg>
+              </View>
+              <View style={styles.emojiRightWaves} pointerEvents="none">
+                <Svg width={22} height={24} viewBox="0 0 22 24">
+                  <Path
+                    d="M6 8.5 A8 8 0 0 1 6 15.5"
+                    stroke="#604a3e"
+                    strokeWidth={2.2}
+                    strokeLinecap="round"
+                    fill="none"
+                  />
+                  <Path
+                    d="M10 7 A12 12 0 0 1 10 17"
+                    stroke="#604a3e"
+                    strokeWidth={2.2}
+                    strokeLinecap="round"
+                    fill="none"
+                  />
+                </Svg>
+              </View>
+            </View>
           </TouchableOpacity>
         </View>
         {isEmojiPickerVisible && (
@@ -5153,6 +5192,30 @@ const styles = StyleSheet.create({
   chatSoundChoiceImage: {
     width: 74,
     height: 74,
+  },
+  emojiIconWithWaves: {
+    position: 'relative',
+    width: 42,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emojiRightWaves: {
+    position: 'absolute',
+    top: '50%',
+    right: -13,
+    marginTop: -12,
+    width: 22,
+    height: 24,
+  },
+  emojiLeftWaves: {
+    position: 'absolute',
+    top: '50%',
+    left: -13,
+    marginTop: -12,
+    width: 22,
+    height: 24,
+    transform: [{ scaleX: -1 }],
   },
   chatSoundChoiceImageInactive: {
     opacity: 0.4,

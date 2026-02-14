@@ -135,6 +135,8 @@ const i18n = new I18n({
     complicity_empty_title: "Aucune donnée de complicité.",
     complicity_empty_subtitle: "Envoyez des notifications pour commencer.",
     soundcheck_hint: "Choisissez votre catégorie d'onde sonore et\nécoutez une preview aléatoire",
+    soundcheck_bzzz_description: "Sons digitaux",
+    soundcheck_trll_description: "Sons d'oiseaux",
     
     // Profil
     edit_profile: "Modifier votre profil",
@@ -611,6 +613,8 @@ const i18n = new I18n({
     complicity_empty_title: "No complicity data.",
     complicity_empty_subtitle: "Send notifications to get started.",
     soundcheck_hint: "Choose your sound wave category and\nlisten to a random preview",
+    soundcheck_bzzz_description: "Digital sounds",
+    soundcheck_trll_description: "Bird sounds",
     
     // Profil
     edit_profile: "Edit Profile",
@@ -1084,6 +1088,8 @@ const i18n = new I18n({
     complicity_empty_title: "Sin datos de complicidad.",
     complicity_empty_subtitle: "Envía notificaciones para empezar.",
     soundcheck_hint: "Elige tu categoría de onda sonora y\nescucha una vista previa aleatoria",
+    soundcheck_bzzz_description: "Sonidos digitales",
+    soundcheck_trll_description: "Sonidos de pájaros",
     
     // Profil
     edit_profile: "Editar perfil",
@@ -1560,6 +1566,8 @@ const i18n = new I18n({
     complicity_empty_title: "Nenhum dado de cumplicidade.",
     complicity_empty_subtitle: "Envie notificações para começar.",
     soundcheck_hint: "Escolha sua categoria de onda sonora e\nouça uma prévia aleatória",
+    soundcheck_bzzz_description: "Sons digitais",
+    soundcheck_trll_description: "Sons de pássaros",
     
     // Profil
     edit_profile: "Editar Perfil",
@@ -2033,6 +2041,8 @@ const i18n = new I18n({
     complicity_empty_title: "Keine Komplizenschaftsdaten.",
     complicity_empty_subtitle: "Sende Benachrichtigungen, um zu starten.",
     soundcheck_hint: "Wähle deine Schallwellen-Kategorie und\nhöre eine zufällige Vorschau",
+    soundcheck_bzzz_description: "Digitale Geräusche",
+    soundcheck_trll_description: "Vogelgeräusche",
     
     // Profil
     edit_profile: "Profil bearbeiten",
@@ -2506,6 +2516,8 @@ const i18n = new I18n({
     complicity_empty_title: "Nessun dato di complicità.",
     complicity_empty_subtitle: "Invia notifiche per iniziare.",
     soundcheck_hint: "Scegli la tua categoria di onda sonora e\nascolta un'anteprima casuale",
+    soundcheck_bzzz_description: "Suoni digitali",
+    soundcheck_trll_description: "Suoni di uccelli",
     
     // Profil
     edit_profile: "Modifica Profilo",

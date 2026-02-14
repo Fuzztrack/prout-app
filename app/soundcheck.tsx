@@ -94,34 +94,50 @@ export default function SoundcheckScreen() {
           <View style={styles.headerSpacer} />
         </View>
       </View>
-      <View style={styles.selectorArea}>
-        {soundEnabled !== null && (
-          <SoundcheckSelector initialCategory={initialCategory} soundEnabled={soundEnabled} />
-        )}
-      </View>
-      {/* Bande sonore en bas (cliquable pour toggle son) */}
-      <View style={[styles.bottomWave, { bottom: insets.bottom + 16 }]}>
-        <TouchableOpacity
-          onPress={() => {
-            const newValue = !soundEnabled;
-            setSoundEnabled(newValue);
-            AsyncStorage.setItem(SOUND_ENABLED_KEY, String(newValue)).catch(() => {});
-            if (soundEnabled) {
-              stopCurrentPreviewSound().catch(() => {});
-            }
-          }}
-          activeOpacity={0.7}
-          style={{ alignItems: 'center' }}
-        >
-          <Text style={[styles.soundToggleText, { color: soundEnabled ? '#ffffff' : '#999999' }]}>
-            {soundEnabled ? 'Sound on' : 'Sound off'}
-          </Text>
-          <Image
-            source={require('../assets/images/soundwave.png')}
-            style={[styles.bottomWaveImage, { width: soundwaveWidth, height: soundwaveHeight }]}
-            resizeMode="contain"
-          />
-        </TouchableOpacity>
+      <View style={styles.content}>
+        <View style={styles.selectorArea}>
+          {soundEnabled !== null && (
+            <SoundcheckSelector initialCategory={initialCategory} soundEnabled={soundEnabled} />
+          )}
+        </View>
+
+        <View style={styles.definitionsSlot}>
+          {soundEnabled !== null && (
+            <View style={styles.categoryDefinitions}>
+              <Text style={styles.categoryDefinitionText}>
+                <Text style={styles.categoryName}>Trll</Text> : {i18n.t('soundcheck_trll_description')}
+              </Text>
+              <Text style={styles.categoryDefinitionText}>
+                <Text style={styles.categoryName}>Bzzz</Text> : {i18n.t('soundcheck_bzzz_description')}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Bande sonore en bas (cliquable pour toggle son) */}
+        <View style={[styles.bottomWave, { marginBottom: insets.bottom + 16 }]}>
+          <TouchableOpacity
+            onPress={() => {
+              const newValue = !soundEnabled;
+              setSoundEnabled(newValue);
+              AsyncStorage.setItem(SOUND_ENABLED_KEY, String(newValue)).catch(() => {});
+              if (soundEnabled) {
+                stopCurrentPreviewSound().catch(() => {});
+              }
+            }}
+            activeOpacity={0.7}
+            style={{ alignItems: 'center' }}
+          >
+            <Image
+              source={require('../assets/images/soundwave.png')}
+              style={[styles.bottomWaveImage, { width: soundwaveWidth, height: soundwaveHeight }]}
+              resizeMode="contain"
+            />
+            <Text style={[styles.soundToggleText, { color: soundEnabled ? '#ffffff' : '#999999' }]}>
+              {soundEnabled ? 'Sound on' : 'Sound off'}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -131,6 +147,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: BACKGROUND_COLOR,
+  },
+  content: {
+    flex: 1,
   },
   header: {
     // Important: ne pas centrer verticalement le contenu du header,
@@ -178,25 +197,44 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   selectorArea: {
-    flex: 1,
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
     paddingTop: 6,
+    marginTop: -14,
+    marginBottom: 10,
+    paddingBottom: 0,
+  },
+  definitionsSlot: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  categoryDefinitions: {
     marginTop: 0,
-    paddingBottom: 10,
+    alignItems: 'center',
+  },
+  categoryDefinitionText: {
+    fontSize: 14,
+    color: '#604a3e',
+    textAlign: 'center',
+    marginBottom: 8,
+    lineHeight: 20,
+    fontStyle: 'italic',
+  },
+  categoryName: {
+    fontWeight: '700',
   },
   bottomWave: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
     alignItems: 'center',
     opacity: 0.95,
+    marginTop: 4,
   },
   soundToggleText: {
     fontSize: 18,
     fontWeight: '500',
-    marginBottom: 6,
+    marginTop: 6,
     textAlign: 'center',
   },
   bottomWaveImage: {
