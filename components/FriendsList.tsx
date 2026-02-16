@@ -4788,9 +4788,6 @@ const closeIdentityModal = useCallback(() => {
           appUsers.length > 0 ? (
             <View style={styles.footerHelp}>
               <Text style={styles.footerHelpText}>{i18n.t('footer_help_text')}</Text>
-              <Text style={[styles.footerHelpText, styles.footerHelpTextSecondary]}>
-                {i18n.t('footer_sound_category_info')}
-              </Text>
             </View>
           ) : null
         }

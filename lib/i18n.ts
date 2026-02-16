@@ -258,7 +258,7 @@ const i18n = new I18n({
     phone_format_placeholder: "06 12 34 56 78",
     
     // Footer & Help
-    footer_help_text: "Swipez vers la droite pour envoyer une notification, cliquez avant de swiper pour ajouter un message et faites un appui long pour choisir la catégorie de son ou un son spécifique !",
+    footer_help_text: "Swipez vers la droite pour envoyer une notification sonore, cliquez avant de swiper pour ajouter un message et faites un appui long pour choisir la catégorie de son ou un son spécifique !",
     footer_sound_category_info: "Le son des notifications sera choisi aléatoirement parmi la catégorie d’onde sonore sélectionnée !",
     friendlist_onboarding_swipe: "Swipez le nom d'un ami vers la droite pour envoyer une notification.",
     friendlist_onboarding_tap: "Cliquez sur le nom d'un ami pour ouvrir le chat éphémère.",
@@ -759,7 +759,7 @@ const i18n = new I18n({
     phone_format_placeholder: "+1 234 567 8900",
     
     // Footer & Help
-    footer_help_text: "Swipe right to send a notification, tap before swiping to add a message!",
+    footer_help_text: "Swipe right to send a sound notification, tap before swiping to add a message and long-press to choose the sound category or a specific sound!",
     footer_sound_category_info: "Notification sounds will be randomly chosen from your selected sound wave category!",
     friendlist_onboarding_swipe: "Swipe a friend's name to the right to send a notification.",
     friendlist_onboarding_tap: "Tap a friend's name to open the ephemeral chat.",
@@ -1241,7 +1241,7 @@ const i18n = new I18n({
     phone_format_placeholder: "+34 612 34 56 78",
     
     // Footer & Help
-    footer_help_text: "Desliza hacia la derecha para enviar una notificación, toca antes de deslizar para agregar un mensaje!",
+    footer_help_text: "Desliza hacia la derecha para enviar una notificación sonora, toca antes de deslizar para agregar un mensaje y mantén presionado para elegir la categoría de sonido o un sonido específico!",
     footer_sound_category_info: "El sonido de las notificaciones se elegirá aleatoriamente entre la categoría de onda sonora seleccionada.",
     friendlist_onboarding_swipe: "Desliza el nombre de un amigo hacia la derecha para enviar una notificación.",
     friendlist_onboarding_tap: "Toca el nombre de un amigo para abrir el chat efímero.",
@@ -1722,7 +1722,7 @@ const i18n = new I18n({
     phone_format_placeholder: "+55 11 99999 9999",
     
     // Footer & Help
-    footer_help_text: "Direita pra peidar, clica antes pra escrever!",
+    footer_help_text: "Direita pra enviar uma notificação sonora, clica antes pra escrever e mantenha pressionado para escolher a categoria de som ou um som específico!",
     footer_sound_category_info: "O som das notificações será escolhido aleatoriamente dentro da categoria de onda sonora selecionada!",
     friendlist_onboarding_swipe: "Deslize o nome de um amigo para a direita para enviar uma notificação.",
     friendlist_onboarding_tap: "Toque no nome de um amigo para abrir o chat efêmero.",
@@ -2203,7 +2203,7 @@ const i18n = new I18n({
     phone_format_placeholder: "+49 30 12345678",
     
     // Footer & Help
-    footer_help_text: "Rechts zum Fürzen, vorher klicken zum Schreiben!",
+    footer_help_text: "Rechts zum Senden einer Tonbenachrichtigung, vorher klicken zum Schreiben und lange drücken, um die Soundkategorie oder einen bestimmten Sound auszuwählen!",
     footer_sound_category_info: "Der Benachrichtigungston wird zufällig aus der ausgewählten Schallwellen-Kategorie gewählt!",
     friendlist_onboarding_swipe: "Wische den Namen eines Freundes nach rechts, um eine Benachrichtigung zu senden.",
     friendlist_onboarding_tap: "Tippe auf den Namen eines Freundes, um den ephemeren Chat zu öffnen.",
@@ -2684,7 +2684,7 @@ const i18n = new I18n({
     phone_format_placeholder: "+39 06 12345678",
     
     // Footer & Help
-    footer_help_text: "Destra per scoreggiare, clicca prima per scrivere!",
+    footer_help_text: "Destra per inviare una notifica sonora, clicca prima per scrivere e tieni premuto per scegliere la categoria di suono o un suono specifico!",
     footer_sound_category_info: "Il suono delle notifiche verrà scelto casualmente dalla categoria di onda sonora selezionata!",
     friendlist_onboarding_swipe: "Scorri il nome di un amico verso destra per inviare una notifica.",
     friendlist_onboarding_tap: "Tocca il nome di un amico per aprire la chat effimera.",
