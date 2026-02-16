@@ -8,7 +8,6 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { Alert, AppState, DeviceEventEmitter, Dimensions, FlatList, Image, Keyboard, KeyboardAvoidingView, Linking, NativeModules, Platform, Animated as RNAnimated, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { Gesture, GestureDetector, TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
-import Svg, { Path } from 'react-native-svg';
 // 👇 AJOUT : Hook pour capturer la hauteur réelle du clavier (Texte OU Emoji)
 import { useKeyboardHandler } from 'react-native-keyboard-controller';
 import Modal from 'react-native-modal';
@@ -49,6 +48,7 @@ const FIRST_FRIENDLIST_FOOTER_MODAL_KEY = 'first_friendlist_footer_modal_seen_v1
 const FIRST_FRIENDLIST_FEATURES_MODAL_KEY = 'first_friendlist_features_modal_seen_v1';
 const FIRST_FRIENDLIST_ZEN_MODAL_KEY = 'first_friendlist_zen_modal_seen_v1';
 const FIRST_FRIENDLIST_SEARCH_MODAL_KEY = 'first_friendlist_search_modal_seen_v1';
+const FIRST_CHAT_MODAL_KEY = 'first_chat_modal_seen_v2';
 const CHAT_MESSAGE_SOUND_CHOICE_KEY = 'chat_message_sound_choice_v1';
 const CHAT_MESSAGE_MUTE_KEY = 'chat_message_mute_v2';
 const FRIEND_SOUND_CATEGORY_MAP_KEY = 'friend_sound_category_map_v1';
@@ -61,35 +61,19 @@ const SWIPE_THRESHOLD = 150; // Seuil pour déclencher l'action
 const TAP_THRESHOLD = 12; // Distance max pour considérer un tap
 
 type ChatMessageSoundChoice = 'trll' | 'bzzz';
-type ChatEmojiTone = 'content' | 'joy' | 'surprised' | 'sad' | 'angry';
-
-const CHAT_EMOJI_OPTIONS: { id: ChatEmojiTone; emoji: string }[] = [
-  { id: 'content', emoji: '🙂' },
-  { id: 'joy', emoji: '😄' },
-  { id: 'surprised', emoji: '😮' },
-  { id: 'sad', emoji: '😢' },
-  { id: 'angry', emoji: '😡' },
-];
-
-const EMOJI_SOUND_BY_CATEGORY: Record<'trll' | 'bzzz', Record<ChatEmojiTone, string>> = {
-  trll: {
-    content: 'trrl4',
-    joy: 'trrl5',
-    surprised: 'trrl1',
-    sad: 'trrl2',
-    angry: 'trrl3',
-  },
-  bzzz: {
-    content: 'bzzz4',
-    joy: 'bzzz1',
-    surprised: 'bzzz5',
-    sad: 'bzzz2',
-    angry: 'bzzz3',
-  },
-};
+const PICKUP_TRLL_KEYS = (SOUND_KEYS_BY_CATEGORY.trll || []).filter((key) => !!SOUND_ASSETS[key]);
+const PICKUP_BZZZ_KEYS = (SOUND_KEYS_BY_CATEGORY.bzzz || []).filter((key) => !!SOUND_ASSETS[key]);
 
 function pickRandom<T>(arr: T[]) {
   return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function pickRandomWithoutImmediateRepeat(arr: string[], lastValue?: string) {
+  if (!arr.length) return undefined;
+  if (arr.length === 1) return arr[0];
+  const filtered = lastValue ? arr.filter((item) => item !== lastValue) : arr;
+  if (!filtered.length) return arr[0];
+  return pickRandom(filtered);
 }
 
 async function getSelectedSoundCategory(): Promise<SoundCategory> {
@@ -795,15 +779,18 @@ export function FriendsList({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [chatMessageSoundChoice, setChatMessageSoundChoice] = useState<ChatMessageSoundChoice>('trll');
   const [isChatMuteEnabled, setIsChatMuteEnabled] = useState(false);
-  const [isEmojiPickerVisible, setIsEmojiPickerVisible] = useState(false);
-  const [pendingEmojiSoundKeyByFriend, setPendingEmojiSoundKeyByFriend] = useState<Record<string, string>>({});
+  const [chatSpecificSoundListCategory, setChatSpecificSoundListCategory] = useState<ChatMessageSoundChoice | null>(null);
+  const [pendingChatSoundKeyByFriend, setPendingChatSoundKeyByFriend] = useState<Record<string, string>>({});
   const [friendSoundCategoryByFriend, setFriendSoundCategoryByFriend] = useState<Record<string, SoundCategory>>({});
+  const [friendSoundKeyByFriend, setFriendSoundKeyByFriend] = useState<Record<string, string>>({});
   const [friendSoundModalVisible, setFriendSoundModalVisible] = useState(false);
+  const [friendSoundModalStep, setFriendSoundModalStep] = useState<'selector' | 'pickup'>('selector');
   const [friendSoundModalFriend, setFriendSoundModalFriend] = useState<any>(null);
   const [isFirstFriendlistModalVisible, setIsFirstFriendlistModalVisible] = useState(false);
   const [isFirstFriendlistFeaturesModalVisible, setIsFirstFriendlistFeaturesModalVisible] = useState(false);
   const [isFirstFriendlistZenModalVisible, setIsFirstFriendlistZenModalVisible] = useState(false);
   const [isFirstFriendlistSearchModalVisible, setIsFirstFriendlistSearchModalVisible] = useState(false);
+  const [isFirstChatModalVisible, setIsFirstChatModalVisible] = useState(false);
   const pendingShowFeaturesAfterFooterRef = useRef(false);
   const pendingShowZenAfterFeaturesRef = useRef(false);
   const pendingShowSearchAfterZenRef = useRef(false);
@@ -816,6 +803,7 @@ export function FriendsList({
   const [dismissedSilentWarning, setDismissedSilentWarning] = useState(dismissedSilentWarningSession); // reste à true pour toute la session après clic OK
   const [expandedFriendId, setExpandedFriendId] = useState<string | null>(null);
   const expandedFriendIdRef = useRef<string | null>(null);
+  const lastRandomSoundByFriendRef = useRef<Record<string, string>>({});
   
   useEffect(() => {
     expandedFriendIdRef.current = expandedFriendId;
@@ -823,7 +811,19 @@ export function FriendsList({
 
   useEffect(() => {
     if (!expandedFriendId) {
-      setIsEmojiPickerVisible(false);
+      setChatSpecificSoundListCategory(null);
+    } else {
+      // Première ouverture du chat : vérifier si on doit afficher la modale
+      (async () => {
+        try {
+          const seenChatModal = await AsyncStorage.getItem(FIRST_CHAT_MODAL_KEY);
+          if (!seenChatModal) {
+            setIsFirstChatModalVisible(true);
+          }
+        } catch {
+          // non bloquant
+        }
+      })();
     }
   }, [expandedFriendId]);
 
@@ -858,6 +858,15 @@ export function FriendsList({
     setIsFirstFriendlistSearchModalVisible(false);
     try {
       await AsyncStorage.setItem(FIRST_FRIENDLIST_SEARCH_MODAL_KEY, '1');
+    } catch {
+      // non bloquant
+    }
+  }, []);
+
+  const closeFirstChatModal = useCallback(async () => {
+    setIsFirstChatModalVisible(false);
+    try {
+      await AsyncStorage.setItem(FIRST_CHAT_MODAL_KEY, '1');
     } catch {
       // non bloquant
     }
@@ -1090,6 +1099,8 @@ export function FriendsList({
   }, []);
   const subscriptionRef = useRef<any>(null);
   const broadcastSubscriptionRef = useRef<any>(null);
+  const broadcastRetryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const broadcastRetryAttemptsRef = useRef(0);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const cacheLoadedRef = useRef(false); // Pour éviter de charger le cache plusieurs fois
   const contactsSyncedRef = useRef(false); // Pour éviter de synchroniser les contacts plusieurs fois
@@ -1646,6 +1657,10 @@ export function FriendsList({
         supabase.removeChannel(broadcastSubscriptionRef.current);
         broadcastSubscriptionRef.current = null;
       }
+      if (broadcastRetryTimeoutRef.current) {
+        clearTimeout(broadcastRetryTimeoutRef.current);
+        broadcastRetryTimeoutRef.current = null;
+      }
       // Nettoyer le polling
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
@@ -1740,10 +1755,27 @@ useEffect(() => {
 
 const selectChatMessageSoundChoice = useCallback((choice: ChatMessageSoundChoice) => {
   setChatMessageSoundChoice(choice);
+  setChatSpecificSoundListCategory(null);
   AsyncStorage.setItem(CHAT_MESSAGE_SOUND_CHOICE_KEY, choice).catch(() => {});
 }, []);
 
+const openChatSpecificSoundList = useCallback((choice: ChatMessageSoundChoice) => {
+  setChatMessageSoundChoice(choice);
+  AsyncStorage.setItem(CHAT_MESSAGE_SOUND_CHOICE_KEY, choice).catch(() => {});
+  setChatSpecificSoundListCategory(choice);
+}, []);
+
+const handleSelectChatSpecificSound = useCallback((soundKey: string) => {
+  if (!expandedFriendId) return;
+  setPendingChatSoundKeyByFriend((prev) => ({
+    ...prev,
+    [expandedFriendId]: soundKey,
+  }));
+  setChatSpecificSoundListCategory(null);
+}, [expandedFriendId]);
+
 const toggleChatMute = useCallback(() => {
+  setChatSpecificSoundListCategory(null);
   setIsChatMuteEnabled((prev) => {
     const next = !prev;
     AsyncStorage.setItem(CHAT_MESSAGE_MUTE_KEY, next ? '1' : '0').catch(() => {});
@@ -1774,8 +1806,9 @@ useEffect(() => {
 
 const handleLongPressSoundCategory = useCallback((friend: any) => {
   if (isModalTransitionActive()) return;
-  if (identityModalVisible || isFirstFriendlistModalVisible || isFirstFriendlistFeaturesModalVisible || isFirstFriendlistZenModalVisible || isFirstFriendlistSearchModalVisible) return;
+  if (identityModalVisible || isFirstFriendlistModalVisible || isFirstFriendlistFeaturesModalVisible || isFirstFriendlistZenModalVisible || isFirstFriendlistSearchModalVisible || isFirstChatModalVisible) return;
   markModalTransition();
+  setFriendSoundModalStep('selector');
   setFriendSoundModalFriend(friend);
   setFriendSoundModalVisible(true);
 }, [identityModalVisible, isFirstFriendlistModalVisible, isFirstFriendlistFeaturesModalVisible, isFirstFriendlistZenModalVisible, isFirstFriendlistSearchModalVisible, isModalTransitionActive, markModalTransition]);
@@ -1788,12 +1821,39 @@ const handleSelectFriendSoundCategory = useCallback((category: SoundCategory) =>
     AsyncStorage.setItem(FRIEND_SOUND_CATEGORY_MAP_KEY, JSON.stringify(next)).catch(() => {});
     return next;
   });
+  // Repasser en mode "hasard" quand on sélectionne une catégorie.
+  setFriendSoundKeyByFriend((prev) => {
+    if (!prev[friendId]) return prev;
+    const { [friendId]: _removed, ...rest } = prev;
+    return rest;
+  });
 }, [friendSoundModalFriend?.id]);
+
+const handleOpenFriendSoundPickModal = useCallback(() => {
+  if (!friendSoundModalFriend?.id) return;
+  setFriendSoundModalStep('pickup');
+}, [friendSoundModalFriend?.id]);
+
+const handleSelectFriendSpecificSoundKey = useCallback((soundKey: string) => {
+  const friendId = friendSoundModalFriend?.id;
+  if (!friendId || !SOUND_ASSETS[soundKey]) return;
+  setFriendSoundKeyByFriend((prev) => {
+    return { ...prev, [friendId]: soundKey };
+  });
+  markModalTransition();
+  setFriendSoundModalStep('selector');
+  setFriendSoundModalVisible(false);
+}, [friendSoundModalFriend?.id, markModalTransition]);
 
 const closeFriendSoundModal = useCallback(() => {
   markModalTransition();
+  setFriendSoundModalStep('selector');
   setFriendSoundModalVisible(false);
 }, [markModalTransition]);
+
+const closeFriendSoundPickModal = useCallback(() => {
+  setFriendSoundModalStep('selector');
+}, []);
 
 const closeIdentityModal = useCallback(() => {
   markModalTransition();
@@ -3050,9 +3110,15 @@ const closeIdentityModal = useCallback(() => {
       if (CHAT_VERBOSE_LOGS) {
         console.log(`📡 [CLIENT] Configuration du canal broadcast pour room-${user.id}`);
       }
-      const broadcastChannel = supabase
-        .channel(`room-${user.id}`)
-        .on('broadcast', { event: 'message-read' }, (payload) => {
+      const subscribeBroadcastChannel = () => {
+        if (broadcastSubscriptionRef.current) {
+          supabase.removeChannel(broadcastSubscriptionRef.current);
+          broadcastSubscriptionRef.current = null;
+        }
+        const channelName = `room-${user.id}`;
+        const broadcastChannel = supabase
+          .channel(channelName)
+          .on('broadcast', { event: 'message-read' }, (payload) => {
             if (CHAT_VERBOSE_LOGS) {
               console.log(`📨 [CLIENT] Broadcast message-read reçu:`, {
                 payload: payload.payload,
@@ -3173,19 +3239,45 @@ const closeIdentityModal = useCallback(() => {
             // avec des données serveur potentiellement pas encore à jour (suppression asynchrone).
             // Le broadcast suffit pour l'UI immédiate.
             // loadData(false, false, false); 
-        })
-        .on('broadcast', { event: 'message-received' }, () => {
+          })
+          .on('broadcast', { event: 'message-received' }, () => {
             loadData(false, false, false);
-        })
-        .subscribe((status) => {
-          if (CHAT_VERBOSE_LOGS) console.log(`📡 [CLIENT] Canal broadcast subscription status: ${status} pour room-${user.id}`);
-          if (status === 'SUBSCRIBED') {
-            if (CHAT_VERBOSE_LOGS) console.log(`✅ [CLIENT] Canal broadcast souscrit avec succès pour room-${user.id}`);
-          } else if (status === 'CHANNEL_ERROR') {
-            console.error(`❌ [CLIENT] Erreur canal broadcast pour room-${user.id}`);
-          }
-        });
-      broadcastSubscriptionRef.current = broadcastChannel;
+          })
+          .subscribe((status) => {
+            if (CHAT_VERBOSE_LOGS) console.log(`📡 [CLIENT] Canal broadcast subscription status: ${status} pour ${channelName}`);
+            if (status === 'SUBSCRIBED') {
+              broadcastRetryAttemptsRef.current = 0;
+              if (broadcastRetryTimeoutRef.current) {
+                clearTimeout(broadcastRetryTimeoutRef.current);
+                broadcastRetryTimeoutRef.current = null;
+              }
+              if (CHAT_VERBOSE_LOGS) console.log(`✅ [CLIENT] Canal broadcast souscrit avec succès pour ${channelName}`);
+              return;
+            }
+            if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+              const attempt = ++broadcastRetryAttemptsRef.current;
+              const MAX_RETRY_ATTEMPTS = 5;
+              if (attempt > MAX_RETRY_ATTEMPTS) {
+                console.warn(`⚠️ [CLIENT] Canal broadcast ${status} pour ${channelName} - Arrêt après ${MAX_RETRY_ATTEMPTS} tentatives. Le polling prendra le relais.`);
+                return;
+              }
+              const retryDelayMs = Math.min(30000, 1000 * Math.pow(2, Math.max(0, attempt - 1)));
+              console.warn(`⚠️ [CLIENT] Canal broadcast ${status} pour ${channelName} (tentative ${attempt}/${MAX_RETRY_ATTEMPTS}). Retry dans ${retryDelayMs}ms.`);
+              if (broadcastRetryTimeoutRef.current) {
+                clearTimeout(broadcastRetryTimeoutRef.current);
+              }
+              broadcastRetryTimeoutRef.current = setTimeout(() => {
+                if (broadcastSubscriptionRef.current === broadcastChannel) {
+                  supabase.removeChannel(broadcastChannel);
+                  broadcastSubscriptionRef.current = null;
+                }
+                subscribeBroadcastChannel();
+              }, retryDelayMs) as unknown as NodeJS.Timeout;
+            }
+          });
+        broadcastSubscriptionRef.current = broadcastChannel;
+      };
+      subscribeBroadcastChannel();
 
     } catch (error) {
       console.error('❌ Erreur lors de la configuration de Realtime friends:', error);
@@ -3654,7 +3746,7 @@ const closeIdentityModal = useCallback(() => {
 
   const handlePressFriend = (friend: any) => {
     if (isModalTransitionActive()) return;
-    if (friendSoundModalVisible || identityModalVisible || isFirstFriendlistModalVisible || isFirstFriendlistFeaturesModalVisible || isFirstFriendlistZenModalVisible || isFirstFriendlistSearchModalVisible) return;
+    if (friendSoundModalVisible || identityModalVisible || isFirstFriendlistModalVisible || isFirstFriendlistFeaturesModalVisible || isFirstFriendlistZenModalVisible || isFirstFriendlistSearchModalVisible || isFirstChatModalVisible) return;
     // Debounce pour éviter les doubles clics (fermeture puis réouverture immédiate)
     const now = Date.now();
     if (now - lastPressTime.current < 500) return;
@@ -3812,7 +3904,7 @@ const closeIdentityModal = useCallback(() => {
       const forcedCustomMessage = (options?.forcedCustomMessage || '').trim().slice(0, 140);
       const customMessage = forcedCustomMessage || (messageDrafts[recipient.id] || '').trim().slice(0, 140);
       const isChatTextMessage = customMessage.length > 0;
-      const pendingEmojiSoundKey = pendingEmojiSoundKeyByFriend[recipient.id];
+      const pendingChatSoundKey = pendingChatSoundKeyByFriend[recipient.id];
 
       // Override chat uniquement : trll / bzzz / mute
       let randomKey: string;
@@ -3822,23 +3914,38 @@ const closeIdentityModal = useCallback(() => {
       } else if (isChatTextMessage) {
         if (isChatMuteEnabled) {
           // En chat, le mute explicite doit toujours l'emporter,
-          // même si un emoji a été sélectionné.
+          // même si un son one-shot a été sélectionné.
           randomKey = 'mute';
           isSilentMessage = true;
-        } else if (pendingEmojiSoundKey) {
-          // Emoji sélectionné: son spécifique pour ce message.
-          randomKey = pendingEmojiSoundKey;
+        } else if (pendingChatSoundKey && SOUND_ASSETS[pendingChatSoundKey]) {
+          // Son spécifique sélectionné en appui long (one-shot).
+          randomKey = pendingChatSoundKey;
         } else {
-          randomKey = pickRandom(
-            SOUND_KEYS_BY_CATEGORY[chatMessageSoundChoice] || SOUND_KEYS_BY_CATEGORY.trll
-          );
+          const candidates = SOUND_KEYS_BY_CATEGORY[chatMessageSoundChoice] || SOUND_KEYS_BY_CATEGORY.trll;
+          const noRepeat = pickRandomWithoutImmediateRepeat(candidates, lastRandomSoundByFriendRef.current[recipient.id]);
+          randomKey = noRepeat || pickRandom(candidates);
+          lastRandomSoundByFriendRef.current[recipient.id] = randomKey;
         }
       } else {
+        const forcedFriendSoundKey = friendSoundKeyByFriend[recipient.id];
+        if (forcedFriendSoundKey && SOUND_ASSETS[forcedFriendSoundKey]) {
+          randomKey = forcedFriendSoundKey;
+          // Son spécifique = one-shot : on le consomme pour cet envoi uniquement.
+          setFriendSoundKeyByFriend((prev) => {
+            if (!prev[recipient.id]) return prev;
+            const { [recipient.id]: _removed, ...rest } = prev;
+            return rest;
+          });
+        } else {
         const friendCategory = friendSoundCategoryByFriend[recipient.id];
         const selectedCategory = friendCategory || await getSelectedSoundCategory();
         const categoryKeys = SOUND_KEYS_BY_CATEGORY[selectedCategory];
         const fallbackKeys = SOUND_KEYS_BY_CATEGORY[DIRECT_SEND_FALLBACK_CATEGORY] || SOUND_KEYS_BY_CATEGORY.trll;
-        randomKey = pickRandom(categoryKeys || fallbackKeys);
+        const candidates = categoryKeys || fallbackKeys;
+        const noRepeat = pickRandomWithoutImmediateRepeat(candidates, lastRandomSoundByFriendRef.current[recipient.id]);
+        randomKey = noRepeat || pickRandom(candidates);
+        lastRandomSoundByFriendRef.current[recipient.id] = randomKey;
+        }
       }
 
       // Feedback immédiat côté expéditeur
@@ -4028,12 +4135,12 @@ const closeIdentityModal = useCallback(() => {
         loadData(false, false, false);
       }, 500);
 
-      // Nettoyer le brouillon sans fermer le sticky (sauf envoi emoji forcé)
+      // Nettoyer le brouillon sans fermer le sticky
       if (!forcedCustomMessage) {
         setMessageDrafts(prev => ({ ...prev, [recipient.id]: '' }));
       }
-      // Le son emoji est consommé pour un seul envoi.
-      setPendingEmojiSoundKeyByFriend((prev) => {
+      // Le son spécifique de chat est consommé pour un seul envoi.
+      setPendingChatSoundKeyByFriend((prev) => {
         if (!prev[recipient.id]) return prev;
         const next = { ...prev };
         delete next[recipient.id];
@@ -4268,20 +4375,6 @@ const closeIdentityModal = useCallback(() => {
         return timeA - timeB;
     });
 
-    const handleEmojiPress = (emojiTone: ChatEmojiTone, emojiChar: string) => {
-      const mappedKey = EMOJI_SOUND_BY_CATEGORY[chatMessageSoundChoice][emojiTone];
-      setIsEmojiPickerVisible(false);
-      setMessageDrafts((prev) => {
-        const current = prev[displayFriend.id] || '';
-        const nextText = `${current}${emojiChar}`.slice(0, 140);
-        return { ...prev, [displayFriend.id]: nextText };
-      });
-      setPendingEmojiSoundKeyByFriend((prev) => ({
-        ...prev,
-        [displayFriend.id]: mappedKey,
-      }));
-    };
-
     return (
       <View style={styles.stickyContentLayout}>
         <TouchableOpacity 
@@ -4293,22 +4386,49 @@ const closeIdentityModal = useCallback(() => {
              {i18n.t('sticky_chat_with', { pseudo: displayFriend.pseudo })}
            </Text>
            <View style={styles.stickyHeaderActions}>
-             <TouchableOpacity
-               onPress={toggleChatMute}
-               hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
-             >
-               <Ionicons
-                 name={isChatMuteEnabled ? 'volume-mute' : 'volume-medium'}
-                 size={22}
-                 color="#604a3e"
-                 style={!isChatMuteEnabled ? styles.chatSoundChoiceImageInactive : undefined}
-               />
-             </TouchableOpacity>
              <TouchableOpacity onPress={() => handlePressHeaderRef.current()} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
                <Ionicons name="close-circle" size={24} color="#604a3e" />
              </TouchableOpacity>
            </View>
         </TouchableOpacity>
+
+        {isFirstChatModalVisible && (
+          <View style={[styles.firstFooterModalCard, styles.chatOnboardingInlineCard]}>
+            <View style={styles.chatOnboardingHeaderRow}>
+              <Image source={require('../assets/images/trrl.png')} style={styles.chatOnboardingHeaderImage} resizeMode="contain" />
+              <Image source={require('../assets/images/bzzz.png')} style={styles.chatOnboardingHeaderImage} resizeMode="contain" />
+            </View>
+            <View style={styles.firstFooterModalFeatureRow}>
+              <Image
+                source={require('../assets/images/tap-gesture.png')}
+                style={styles.firstFooterTapImage}
+                resizeMode="contain"
+              />
+              <Text style={styles.firstFooterModalFeatureText}>
+                {i18n.t('chat_onboarding_tap_category')}
+              </Text>
+            </View>
+            <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
+              <Ionicons name="finger-print" size={22} color="#604a3e" />
+              <Text style={styles.firstFooterModalFeatureText}>
+                {i18n.t('chat_onboarding_long_press_specific')}
+              </Text>
+            </View>
+            <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
+              <Ionicons name="volume-mute" size={22} color="#604a3e" />
+              <Text style={styles.firstFooterModalFeatureText}>
+                {i18n.t('chat_onboarding_mute')}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.firstFooterModalOkButton}
+              onPress={closeFirstChatModal}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.firstFooterModalOkText}>{i18n.t('ok')}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {Platform.OS === 'android' ? (
           <Animated.ScrollView
@@ -4408,6 +4528,8 @@ const closeIdentityModal = useCallback(() => {
           <TouchableOpacity
             style={styles.chatSoundChoiceButton}
             onPress={() => selectChatMessageSoundChoice('trll')}
+            onLongPress={() => openChatSpecificSoundList('trll')}
+            delayLongPress={280}
             activeOpacity={0.8}
           >
             <Image
@@ -4422,6 +4544,8 @@ const closeIdentityModal = useCallback(() => {
           <TouchableOpacity
             style={styles.chatSoundChoiceButton}
             onPress={() => selectChatMessageSoundChoice('bzzz')}
+            onLongPress={() => openChatSpecificSoundList('bzzz')}
+            delayLongPress={280}
             activeOpacity={0.8}
           >
             <Image
@@ -4434,66 +4558,31 @@ const closeIdentityModal = useCallback(() => {
             />
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.chatSoundChoiceButton}
-            onPress={() => setIsEmojiPickerVisible((prev) => !prev)}
+            style={styles.chatMuteChoiceButton}
+            onPress={toggleChatMute}
             activeOpacity={0.8}
           >
-            <View
-              style={[
-                styles.emojiIconWithWaves,
-                !isEmojiPickerVisible && styles.chatSoundChoiceImageInactive,
-              ]}
-            >
-              <Ionicons name="happy-outline" size={30} color="#604a3e" />
-              <View style={styles.emojiLeftWaves} pointerEvents="none">
-                <Svg width={22} height={24} viewBox="0 0 22 24">
-                  <Path
-                    d="M6 8.5 A8 8 0 0 1 6 15.5"
-                    stroke="#604a3e"
-                    strokeWidth={2.2}
-                    strokeLinecap="round"
-                    fill="none"
-                  />
-                  <Path
-                    d="M10 7 A12 12 0 0 1 10 17"
-                    stroke="#604a3e"
-                    strokeWidth={2.2}
-                    strokeLinecap="round"
-                    fill="none"
-                  />
-                </Svg>
-              </View>
-              <View style={styles.emojiRightWaves} pointerEvents="none">
-                <Svg width={22} height={24} viewBox="0 0 22 24">
-                  <Path
-                    d="M6 8.5 A8 8 0 0 1 6 15.5"
-                    stroke="#604a3e"
-                    strokeWidth={2.2}
-                    strokeLinecap="round"
-                    fill="none"
-                  />
-                  <Path
-                    d="M10 7 A12 12 0 0 1 10 17"
-                    stroke="#604a3e"
-                    strokeWidth={2.2}
-                    strokeLinecap="round"
-                    fill="none"
-                  />
-                </Svg>
-              </View>
-            </View>
+            <Ionicons
+              name={isChatMuteEnabled ? 'volume-mute' : 'volume-medium'}
+              size={30}
+              color="#604a3e"
+              style={!isChatMuteEnabled ? styles.chatSoundChoiceImageInactive : undefined}
+            />
           </TouchableOpacity>
         </View>
-        {isEmojiPickerVisible && (
-          <View style={styles.chatEmojiRow}>
-            {CHAT_EMOJI_OPTIONS.map((entry) => (
+        {!!chatSpecificSoundListCategory && (
+          <View style={styles.chatSpecificSoundList}>
+            {(chatSpecificSoundListCategory === 'trll' ? PICKUP_TRLL_KEYS : PICKUP_BZZZ_KEYS).map((soundKey) => (
               <TouchableOpacity
-                key={entry.id}
-                style={styles.chatEmojiButton}
-                onPress={() => handleEmojiPress(entry.id, entry.emoji)}
-                activeOpacity={0.8}
+                key={soundKey}
+                style={[
+                  styles.chatSpecificSoundButton,
+                  pendingChatSoundKeyByFriend[displayFriend.id] === soundKey && styles.chatSpecificSoundButtonActive,
+                ]}
+                onPress={() => handleSelectChatSpecificSound(soundKey)}
+                activeOpacity={0.85}
               >
-                <Text style={styles.chatEmojiText}>{entry.emoji}</Text>
+                <Text style={styles.chatSpecificSoundButtonText}>{getDisplaySoundLabel(soundKey)}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -4508,13 +4597,17 @@ const closeIdentityModal = useCallback(() => {
     displayDraft,
     chatMessageSoundChoice,
     isChatMuteEnabled,
-    isEmojiPickerVisible,
-    pendingEmojiSoundKeyByFriend,
+    chatSpecificSoundListCategory,
+    pendingChatSoundKeyByFriend,
     sendingFriendId,
     displayBackgroundColor,
     fadingOutReceivedMessages,
     selectChatMessageSoundChoice,
+    openChatSpecificSoundList,
+    handleSelectChatSpecificSound,
     toggleChatMute,
+    isFirstChatModalVisible,
+    closeFirstChatModal,
     // PAS de keyboardVisible ici !
     // PAS de handlePressHeader ici ! (on utilise la Ref)
   ]);
@@ -4747,9 +4840,6 @@ const closeIdentityModal = useCallback(() => {
               {i18n.t('friendlist_onboarding_long_press')}
             </Text>
           </View>
-          <Text style={[styles.firstFooterModalText, styles.firstFooterModalTextSecondary]}>
-            {i18n.t('footer_sound_category_info')}
-          </Text>
           <TouchableOpacity
             style={styles.firstFooterModalOkButton}
             onPress={handleFirstFriendlistModalOk}
@@ -4991,25 +5081,92 @@ const closeIdentityModal = useCallback(() => {
         useNativeDriver
       >
         <View style={styles.friendSoundModalCard}>
-          <Text style={styles.friendSoundModalTitle}>
-            {friendSoundModalFriend?.pseudo
-              ? `Ondes sonores pour ${friendSoundModalFriend.pseudo}`
-              : 'Ondes sonores pour ce contact'}
-          </Text>
-          <View style={styles.friendSoundModalSelectorWrap}>
-            <SoundcheckSelector
-              initialCategory={friendSoundModalFriend?.id ? (friendSoundCategoryByFriend[friendSoundModalFriend.id] || 'trll') : 'trll'}
-              onCategoryChange={handleSelectFriendSoundCategory}
-              soundEnabled={false}
-            />
-          </View>
-          <TouchableOpacity
-            style={styles.firstFooterModalOkButton}
-            onPress={closeFriendSoundModal}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.firstFooterModalOkText}>OK</Text>
-          </TouchableOpacity>
+          {friendSoundModalStep === 'selector' ? (
+            <>
+              <Text style={styles.friendSoundModalTitle}>
+                {i18n.t('friend_sound_modal_title_random')}
+              </Text>
+              <View style={styles.friendSoundModalSelectorWrap}>
+                <SoundcheckSelector
+                  initialCategory={friendSoundModalFriend?.id ? (friendSoundCategoryByFriend[friendSoundModalFriend.id] || 'trll') : 'trll'}
+                  onCategoryChange={handleSelectFriendSoundCategory}
+                  soundEnabled={false}
+                  compact
+                />
+              </View>
+              <Text style={styles.friendSoundModalOrTitle}>{i18n.t('friend_sound_modal_or')}</Text>
+              <TouchableOpacity
+                style={styles.friendSoundModalPickButton}
+                onPress={handleOpenFriendSoundPickModal}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.friendSoundModalPickButtonText}>{i18n.t('friend_sound_modal_pick_button')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.firstFooterModalOkButton}
+                onPress={closeFriendSoundModal}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.firstFooterModalOkText}>{i18n.t('ok')}</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <View style={styles.friendSoundPickHeaderRow}>
+                <Image source={require('../assets/images/trrl.png')} style={styles.friendSoundPickHeaderImage} resizeMode="contain" />
+                <Image source={require('../assets/images/bzzz.png')} style={styles.friendSoundPickHeaderImage} resizeMode="contain" />
+              </View>
+              <ScrollView
+                style={styles.friendSoundPickScroll}
+                contentContainerStyle={styles.friendSoundPickScrollContent}
+                showsVerticalScrollIndicator
+              >
+                <View style={styles.friendSoundPickColumns}>
+                  <View style={styles.friendSoundPickColumn}>
+                    {PICKUP_TRLL_KEYS.map((soundKey) => (
+                      <TouchableOpacity
+                        key={soundKey}
+                        style={[
+                          styles.friendSoundPickItemButton,
+                          friendSoundModalFriend?.id && friendSoundKeyByFriend[friendSoundModalFriend.id] === soundKey
+                            ? styles.friendSoundPickItemButtonActive
+                            : undefined,
+                        ]}
+                        onPress={() => handleSelectFriendSpecificSoundKey(soundKey)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.friendSoundPickItemText}>{getDisplaySoundLabel(soundKey)}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <View style={styles.friendSoundPickColumn}>
+                    {PICKUP_BZZZ_KEYS.map((soundKey) => (
+                      <TouchableOpacity
+                        key={soundKey}
+                        style={[
+                          styles.friendSoundPickItemButton,
+                          friendSoundModalFriend?.id && friendSoundKeyByFriend[friendSoundModalFriend.id] === soundKey
+                            ? styles.friendSoundPickItemButtonActive
+                            : undefined,
+                        ]}
+                        onPress={() => handleSelectFriendSpecificSoundKey(soundKey)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.friendSoundPickItemText}>{getDisplaySoundLabel(soundKey)}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              </ScrollView>
+              <TouchableOpacity
+                style={styles.firstFooterModalOkButton}
+                onPress={closeFriendSoundPickModal}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.firstFooterModalOkText}>{i18n.t('back')}</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </Modal>
 
@@ -5164,27 +5321,14 @@ const styles = StyleSheet.create({
     marginTop: 0,
     marginBottom: 0,
   },
-  chatEmojiRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    marginTop: -2,
-    marginBottom: 2,
-  },
-  chatEmojiButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  chatEmojiText: {
-    fontSize: 28,
-    lineHeight: 32,
-  },
   chatSoundChoiceButton: {
     width: 94,
+    height: 76,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chatMuteChoiceButton: {
+    width: 76,
     height: 76,
     alignItems: 'center',
     justifyContent: 'center',
@@ -5193,29 +5337,30 @@ const styles = StyleSheet.create({
     width: 74,
     height: 74,
   },
-  emojiIconWithWaves: {
-    position: 'relative',
-    width: 42,
-    height: 42,
-    alignItems: 'center',
+  chatSpecificSoundList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'center',
+    gap: 8,
+    marginTop: 2,
+    marginBottom: 4,
   },
-  emojiRightWaves: {
-    position: 'absolute',
-    top: '50%',
-    right: -13,
-    marginTop: -12,
-    width: 22,
-    height: 24,
+  chatSpecificSoundButton: {
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(96, 74, 62, 0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
-  emojiLeftWaves: {
-    position: 'absolute',
-    top: '50%',
-    left: -13,
-    marginTop: -12,
-    width: 22,
-    height: 24,
-    transform: [{ scaleX: -1 }],
+  chatSpecificSoundButtonActive: {
+    backgroundColor: '#A2E4D4',
+    borderColor: '#1a1a1a',
+  },
+  chatSpecificSoundButtonText: {
+    color: '#604a3e',
+    fontWeight: '600',
+    fontSize: 12,
   },
   chatSoundChoiceImageInactive: {
     opacity: 0.4,
@@ -5427,6 +5572,19 @@ const styles = StyleSheet.create({
     opacity: 0.88,
     lineHeight: 19,
   },
+  chatOnboardingInlineCard: {
+    marginBottom: 10,
+  },
+  chatOnboardingHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  chatOnboardingHeaderImage: {
+    width: 62,
+    height: 62,
+  },
   
   // Styles pour la recherche
   searchContainerModal: {
@@ -5599,12 +5757,103 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: 2,
   },
   friendSoundModalSelectorWrap: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 6,
+    marginTop: -18,
+    marginBottom: -14,
+    transform: [{ scale: 0.88 }],
+  },
+  friendSoundModalOrTitle: {
+    color: '#604a3e',
+    fontSize: 15,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: 0,
+    marginBottom: 2,
+  },
+  friendSoundModalPickButton: {
+    alignSelf: 'center',
+    backgroundColor: '#A2E4D4',
+    borderWidth: 2,
+    borderColor: '#1a1a1a',
+    borderRadius: 22,
+    paddingVertical: 9,
+    paddingHorizontal: 16,
+    marginBottom: 22,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  friendSoundModalPickButtonText: {
+    color: '#1a1a1a',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  friendSoundPickModalCard: {
+    backgroundColor: '#ebb89b',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(96, 74, 62, 0.12)',
+    maxHeight: '80%',
+  },
+  friendSoundPickModalTitle: {
+    color: '#604a3e',
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  friendSoundPickHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    marginBottom: 10,
+  },
+  friendSoundPickHeaderImage: {
+    width: 92,
+    height: 40,
+  },
+  friendSoundPickScroll: {
+    maxHeight: 300,
+    marginBottom: 10,
+  },
+  friendSoundPickScrollContent: {
+    paddingBottom: 2,
+  },
+  friendSoundPickColumns: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  friendSoundPickColumn: {
+    flex: 1,
+  },
+  friendSoundPickItemButton: {
+    borderWidth: 1,
+    borderColor: 'rgba(96, 74, 62, 0.2)',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginBottom: 8,
+    backgroundColor: 'rgba(255,255,255,0.45)',
+  },
+  friendSoundPickItemButtonActive: {
+    backgroundColor: 'rgba(96, 74, 62, 0.14)',
+    borderColor: 'rgba(96, 74, 62, 0.5)',
+  },
+  friendSoundPickItemText: {
+    color: '#604a3e',
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   identityAvatarContainer: {
     marginBottom: 20,

@@ -45,9 +45,9 @@ const CATEGORIES: { id: SoundCategory; angle: number; label: string; source: any
 
 // Ajustements fins par logo (pour un rendu visuel équilibré)
 const RADIAL_FACTOR: Record<SoundCategory, number> = {
-  trll: 0.90, // trll légèrement plus proche du centre
+  trll: 0.96, // trll légèrement plus éloigné du centre
   prrt: 0.99, // prrt un peu plus écarté (plus loin du centre)
-  bzzz: 0.92, // même marge que prrt
+  bzzz: 0.98, // légèrement plus éloigné du centre
 };
 
 // Offsets fins (px) pour équilibrer visuellement sans toucher aux angles de crans
@@ -99,12 +99,14 @@ interface SoundcheckSelectorProps {
   initialCategory?: SoundCategory | null;
   onCategoryChange?: (category: SoundCategory) => void;
   soundEnabled?: boolean; // Si false, ne joue pas les previews
+  compact?: boolean; // Réduit la hauteur du conteneur (moins d'espace vide sous le bouton)
 }
 
 export default function SoundcheckSelector({
   initialCategory = 'trll',
   onCategoryChange,
   soundEnabled = true,
+  compact = false,
 }: SoundcheckSelectorProps) {
   const { width: screenWidth } = Dimensions.get('window');
   const layout = useMemo(() => {
@@ -144,9 +146,11 @@ export default function SoundcheckSelector({
       logoImg,
       orbitRadius,
       containerSize: Math.round(container),
+      containerWidth: Math.round(compact ? container + 44 : container),
+      containerHeight: Math.round(compact ? container - 40 : container),
       offsetsScaled,
     };
-  }, [screenWidth]);
+  }, [screenWidth, compact]);
 
   const [selectedIndex, setSelectedIndex] = useState(0);
   const rotationAnim = useRef(new Animated.Value(KNOB_ROTATIONS[0])).current;
@@ -311,18 +315,28 @@ export default function SoundcheckSelector({
     ],
   };
 
-  const center = layout.containerSize / 2;
+  const centerX = layout.containerWidth / 2;
+  const centerY = layout.containerHeight / 2;
   return (
     <View style={styles.wrapper}>
-      <View style={[styles.selectorContainer, { width: layout.containerSize, height: layout.containerSize }]}>
+      <View
+        style={[
+          styles.selectorContainer,
+          {
+            width: layout.containerWidth,
+            height: layout.containerHeight,
+            overflow: compact ? 'hidden' as const : undefined,
+          },
+        ]}
+      >
         {CATEGORIES.map((cat, index) => {
           const rad = (cat.angle * Math.PI) / 180;
           const r = layout.orbitRadius * (RADIAL_FACTOR[cat.id] ?? 1);
           const x = Math.cos(rad) * r;
           const y = Math.sin(rad) * r;
           const off = layout.offsetsScaled[cat.id] ?? { dx: 0, dy: 0 };
-          const left = center + x + off.dx - layout.logoHalf;
-          const top = center + y + off.dy - layout.logoHalf;
+          const left = centerX + x + off.dx - layout.logoHalf;
+          const top = centerY + y + off.dy - layout.logoHalf;
           const isActive = index === selectedIndex;
           return (
             <TouchableOpacity

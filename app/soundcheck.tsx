@@ -1,9 +1,9 @@
-import SoundcheckSelector, { stopCurrentPreviewSound } from '@/components/SoundcheckSelector';
 import { Ionicons } from '@expo/vector-icons';
 import * as Device from 'expo-device';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ScrollView,
   Image,
   StyleSheet,
   Text,
@@ -13,18 +13,33 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import i18n from '@/lib/i18n';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SOUND_CATEGORY_KEY, type SoundCategory } from '@/components/SoundcheckSelector';
+import { Audio } from 'expo-av';
+import { SOUND_ASSETS, SOUND_KEYS_BY_CATEGORY } from '@/lib/runtimeSounds';
 
 const BACKGROUND_COLOR = '#ebb89b';
-const SOUND_ENABLED_KEY = 'soundcheck_sound_enabled';
+const TRLL_KEYS = SOUND_KEYS_BY_CATEGORY.trll || [];
+const BZZZ_KEYS = SOUND_KEYS_BY_CATEGORY.bzzz || [];
+
+function getSoundDisplayName(soundKey: string) {
+  const translated = i18n.t(`prout_names.${soundKey}`) as any;
+  if (typeof translated === 'string' && translated !== `prout_names.${soundKey}`) {
+    return translated;
+  }
+  const TRRL_FALLBACK: Record<string, string> = {
+    trrl1: 'Le vertige du Shaman',
+    trrl2: "L'Onde Incomprise",
+    trrl3: 'Le Philosophe Noir',
+    trrl4: 'Le Sifflet de Velours',
+    trrl5: "L'Écho du Baobab",
+  };
+  return TRRL_FALLBACK[soundKey] || soundKey;
+}
 
 export default function SoundcheckScreen() {
   const router = useRouter();
-  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const { width: screenWidth } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const [initialCategory, setInitialCategory] = useState<SoundCategory | null>(null);
-  const [soundEnabled, setSoundEnabled] = useState<boolean | null>(null); // null = loading
+  const currentSoundRef = useRef<Audio.Sound | null>(null);
 
   // Taille du titre: on se base sur le vrai ratio de sound.png pour éviter
   // les "marges" visuelles créées par un ratio arbitraire + resizeMode="contain".
@@ -38,32 +53,58 @@ export default function SoundcheckScreen() {
   const titleScale = 0.8;
   const titleImageWidth = Math.round(screenWidth * titleScale);
   const titleImageHeight = Math.round(titleImageWidth / soundTitleAspectRatio);
-  const soundwaveHeight = Math.min(90, Math.max(56, Math.round(screenWidth * 0.18)));
-  const soundwaveWidth = Math.max(220, Math.round(screenWidth - 32)); // petite marge sur les bords
+  const tableMaxHeight = Math.max(280, Math.min(430, Math.round(screenWidth * 1.06)));
 
-  // Flèche retour : toujours affichée
-  const showBackButton = true;
-
-  useEffect(() => {
-    // Charger la catégorie sélectionnée
-    AsyncStorage.getItem(SOUND_CATEGORY_KEY).then((saved) => {
-      setInitialCategory((saved as SoundCategory) || 'trll');
-    }).catch(() => setInitialCategory('trll'));
-
-    // Charger l'état du son (par défaut: activé)
-    AsyncStorage.getItem(SOUND_ENABLED_KEY).then((saved) => {
-      setSoundEnabled(saved === null ? true : saved === 'true');
-    }).catch(() => setSoundEnabled(true));
+  const stopCurrentSound = useCallback(async () => {
+    const current = currentSoundRef.current;
+    if (!current) return;
+    currentSoundRef.current = null;
+    try {
+      await current.stopAsync();
+    } catch (_) {}
+    try {
+      await current.unloadAsync();
+    } catch (_) {}
   }, []);
+
+  const playableTrllKeys = useMemo(() => TRLL_KEYS.filter((k) => !!SOUND_ASSETS[k]), []);
+  const playableBzzzKeys = useMemo(() => BZZZ_KEYS.filter((k) => !!SOUND_ASSETS[k]), []);
+
+  const playSelectedSound = useCallback(async (soundKey: string) => {
+    const asset = SOUND_ASSETS[soundKey];
+    if (!asset) return;
+    await stopCurrentSound();
+    try {
+      await Audio.setAudioModeAsync({
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
+      });
+      const { sound } = await Audio.Sound.createAsync(asset);
+      currentSoundRef.current = sound;
+      await sound.playAsync();
+      sound.setOnPlaybackStatusUpdate(async (status: any) => {
+        if (status?.isLoaded && status?.didJustFinish) {
+          try {
+            await sound.unloadAsync();
+          } catch (_) {}
+          if (currentSoundRef.current === sound) {
+            currentSoundRef.current = null;
+          }
+        }
+      });
+    } catch (_) {}
+  }, [stopCurrentSound]);
 
   // Arrêter le son preview quand on quitte la page (swipe back ou flèche)
   useFocusEffect(
     useCallback(() => {
       // Cleanup quand la page perd le focus (swipe back, navigation, etc.)
       return () => {
-        stopCurrentPreviewSound().catch(() => {});
+        stopCurrentSound().catch(() => {});
       };
-    }, [])
+    }, [stopCurrentSound])
   );
 
   return (
@@ -76,14 +117,13 @@ export default function SoundcheckScreen() {
             style={[styles.titleImage, { width: titleImageWidth, height: titleImageHeight }]}
             resizeMode="contain"
           />
-          <Text style={styles.titleHint}>{i18n.t('soundcheck_hint')}</Text>
         </View>
 
         {/* Ligne navigation EN DESSOUS du titre */}
         <View style={styles.navRow}>
             <TouchableOpacity
               onPress={() => {
-                stopCurrentPreviewSound().catch(() => {});
+                stopCurrentSound().catch(() => {});
                 router.back();
               }}
               style={styles.backButton}
@@ -95,48 +135,53 @@ export default function SoundcheckScreen() {
         </View>
       </View>
       <View style={styles.content}>
-        <View style={styles.selectorArea}>
-          {soundEnabled !== null && (
-            <SoundcheckSelector initialCategory={initialCategory} soundEnabled={soundEnabled} />
-          )}
-        </View>
-
-        <View style={styles.definitionsSlot}>
-          {soundEnabled !== null && (
-            <View style={styles.categoryDefinitions}>
-              <Text style={styles.categoryDefinitionText}>
-                <Text style={styles.categoryName}>Trll</Text> : {i18n.t('soundcheck_trll_description')}
-              </Text>
-              <Text style={styles.categoryDefinitionText}>
-                <Text style={styles.categoryName}>Bzzz</Text> : {i18n.t('soundcheck_bzzz_description')}
-              </Text>
+        <View style={styles.libraryArea}>
+          <View style={styles.libraryHeaderRow}>
+            <View style={styles.libraryHeaderCol}>
+              <Image source={require('../assets/images/trrl.png')} style={styles.libraryHeaderImage} resizeMode="contain" />
+              <Text style={styles.libraryHeaderDefinition}>{i18n.t('soundcheck_trll_description')}</Text>
             </View>
-          )}
-        </View>
-
-        {/* Bande sonore en bas (cliquable pour toggle son) */}
-        <View style={[styles.bottomWave, { marginBottom: insets.bottom + 16 }]}>
-          <TouchableOpacity
-            onPress={() => {
-              const newValue = !soundEnabled;
-              setSoundEnabled(newValue);
-              AsyncStorage.setItem(SOUND_ENABLED_KEY, String(newValue)).catch(() => {});
-              if (soundEnabled) {
-                stopCurrentPreviewSound().catch(() => {});
-              }
-            }}
-            activeOpacity={0.7}
-            style={{ alignItems: 'center' }}
+            <View style={styles.libraryHeaderCol}>
+              <Image source={require('../assets/images/bzzz.png')} style={styles.libraryHeaderImage} resizeMode="contain" />
+              <Text style={styles.libraryHeaderDefinition}>{i18n.t('soundcheck_bzzz_description')}</Text>
+            </View>
+          </View>
+          <ScrollView
+            style={[styles.libraryScroll, { maxHeight: tableMaxHeight }]}
+            contentContainerStyle={styles.libraryScrollContent}
+            showsVerticalScrollIndicator
           >
-            <Image
-              source={require('../assets/images/soundwave.png')}
-              style={[styles.bottomWaveImage, { width: soundwaveWidth, height: soundwaveHeight }]}
-              resizeMode="contain"
-            />
-            <Text style={[styles.soundToggleText, { color: soundEnabled ? '#ffffff' : '#999999' }]}>
-              {soundEnabled ? 'Sound on' : 'Sound off'}
-            </Text>
-          </TouchableOpacity>
+            <View style={styles.libraryColumns}>
+              <View style={styles.libraryColumn}>
+                {playableTrllKeys.map((soundKey) => (
+                  <TouchableOpacity
+                    key={soundKey}
+                    style={styles.libraryItem}
+                    onPress={() => playSelectedSound(soundKey)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.libraryItemText}>
+                      {getSoundDisplayName(soundKey)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <View style={styles.libraryColumn}>
+                {playableBzzzKeys.map((soundKey) => (
+                  <TouchableOpacity
+                    key={soundKey}
+                    style={styles.libraryItem}
+                    onPress={() => playSelectedSound(soundKey)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.libraryItemText}>
+                      {getSoundDisplayName(soundKey)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </ScrollView>
         </View>
       </View>
     </SafeAreaView>
@@ -184,59 +229,66 @@ const styles = StyleSheet.create({
   },
   titleImage: {
     marginTop: 0,
-    marginBottom: 16,
-  },
-  titleHint: {
-    marginTop: 0,
-    marginBottom: 0,
-    fontSize: 16,
-    color: '#604a3e',
-    textAlign: 'center',
-    paddingHorizontal: 12,
-    lineHeight: 22,
-    fontStyle: 'italic',
-  },
-  selectorArea: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 6,
-    marginTop: -14,
     marginBottom: 10,
-    paddingBottom: 0,
   },
-  definitionsSlot: {
+  libraryArea: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 8,
+    justifyContent: 'flex-start',
+  },
+  libraryHeaderRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 8,
+  },
+  libraryHeaderCol: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 24,
   },
-  categoryDefinitions: {
-    marginTop: 0,
-    alignItems: 'center',
+  libraryHeaderImage: {
+    width: 98,
+    height: 40,
+    marginBottom: 2,
   },
-  categoryDefinitionText: {
-    fontSize: 14,
+  libraryHeaderDefinition: {
     color: '#604a3e',
+    fontSize: 13,
     textAlign: 'center',
-    marginBottom: 8,
-    lineHeight: 20,
     fontStyle: 'italic',
+    minHeight: 34,
   },
-  categoryName: {
-    fontWeight: '700',
+  libraryScroll: {
+    borderWidth: 1,
+    borderColor: 'rgba(96, 74, 62, 0.12)',
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.2)',
   },
-  bottomWave: {
-    alignItems: 'center',
-    opacity: 0.95,
-    marginTop: 4,
+  libraryScrollContent: {
+    paddingHorizontal: 8,
+    paddingVertical: 8,
   },
-  soundToggleText: {
-    fontSize: 18,
-    fontWeight: '500',
-    marginTop: 6,
+  libraryColumns: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  libraryColumn: {
+    flex: 1,
+  },
+  libraryItem: {
+    borderWidth: 1,
+    borderColor: 'rgba(96, 74, 62, 0.2)',
+    borderRadius: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    marginBottom: 8,
+    backgroundColor: 'rgba(255,255,255,0.55)',
+  },
+  libraryItemText: {
+    color: '#604a3e',
+    fontSize: 13,
+    fontWeight: '600',
     textAlign: 'center',
-  },
-  bottomWaveImage: {
   },
 });

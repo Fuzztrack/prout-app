@@ -117,7 +117,7 @@ const i18n = new I18n({
     
     // Complicité
     complicity_title: "L'Indice de Résonance",
-    complicity_subtitle: "Mesurer l'harmonie acoustique de votre lien social !",
+    complicity_subtitle: "Score de complicité",
     complicity_description: "Votre score augmente à chaque notification envoyée ou reçue. Les réponses rapides (moins d'1 minute) rapportent 10 fois plus de points ! Plus vous échangez, plus votre complicité grandit.",
     complicity_level_1: "Souffle Initial",
     complicity_level_2: "Accord Partagé",
@@ -137,6 +137,9 @@ const i18n = new I18n({
     soundcheck_hint: "Choisissez votre catégorie d'onde sonore et\nécoutez une preview aléatoire",
     soundcheck_bzzz_description: "Sons digitaux",
     soundcheck_trll_description: "Sons d'oiseaux",
+    friend_sound_modal_title_random: "Laissez le hasard décider !",
+    friend_sound_modal_or: "Ou",
+    friend_sound_modal_pick_button: "Choisissez votre son",
     
     // Profil
     edit_profile: "Modifier votre profil",
@@ -255,17 +258,20 @@ const i18n = new I18n({
     phone_format_placeholder: "06 12 34 56 78",
     
     // Footer & Help
-    footer_help_text: "Swipez vers la droite pour envoyer une notification, cliquez avant de swiper pour ajouter un message et faites un appui long pour choisir la catégorie d'ondes sonores !",
+    footer_help_text: "Swipez vers la droite pour envoyer une notification, cliquez avant de swiper pour ajouter un message et faites un appui long pour choisir la catégorie de son ou un son spécifique !",
     footer_sound_category_info: "Le son des notifications sera choisi aléatoirement parmi la catégorie d’onde sonore sélectionnée !",
     friendlist_onboarding_swipe: "Swipez le nom d'un ami vers la droite pour envoyer une notification.",
     friendlist_onboarding_tap: "Cliquez sur le nom d'un ami pour ouvrir le chat éphémère.",
-    friendlist_onboarding_long_press: "Faites un appui long pour choisir la catégorie d’ondes sonores.",
-    friendlist_onboarding_soundcheck: "Choisis ta catégorie d’onde sonore à faire résonner !",
+    friendlist_onboarding_long_press: "Faites un appui long pour choisir la catégorie de son ou un son spécifique.",
+    friendlist_onboarding_soundcheck: "Explorez votre bibliothèque de sons",
     friendlist_onboarding_resonance: "Consulte la complicité acoustique que tu as avec tes amis dans le tableau de résonance !",
     friendlist_onboarding_zen: "Activez le mode zen pour ne pas être dérangé.",
     friendlist_onboarding_silent_send: "Activez les envois silencieux pour envoyer vos notifications en toute discrétion.",
     friendlist_onboarding_search_contacts: "Cherchez des amis dans votre liste.",
     friendlist_onboarding_search_pseudo: "Recherchez un ami avec son pseudo.",
+    chat_onboarding_tap_category: "Changez la catégorie de sons aléatoires par un simple tap.",
+    chat_onboarding_long_press_specific: "Un appuie long vous permet de choisir un son spécifique.",
+    chat_onboarding_mute: "Vous permet de discuter sans sons.",
     
     // Notifications & Errors
     notifications_not_enabled: "%{pseudo} n'a pas activé les notifications. Le token n'est pas disponible dans la base de données.",
@@ -523,12 +529,12 @@ const i18n = new I18n({
       bzzz3: "The Courtesy Tinnitus",
       bzzz4: "Digital Whale",
       bzzz5: "The Short Circuit",
-      // TRRL (Soundcheck) — proper names, kept in French for now
-      trrl1: "Le vertige du Shaman",
-      trrl2: "L'Onde Incomprise",
-      trrl3: "Le Philosophe Noir",
-      trrl4: "Le Sifflet de Velours",
-      trrl5: "L'Écho du Baobab",
+      // TRRL (Soundcheck)
+      trrl1: "The Shaman's Vertigo",
+      trrl2: "The Misunderstood Wave",
+      trrl3: "The Black Philosopher",
+      trrl4: "The Velvet Whistle",
+      trrl5: "The Baobab Echo",
       'identity-request': "Identity request",
       'identity-response': "Identity answer",
     },
@@ -596,7 +602,7 @@ const i18n = new I18n({
     
     // Complicity
     complicity_title: "The Resonance Index",
-    complicity_subtitle: "Quantifying the acoustic frequency of your social bond!",
+    complicity_subtitle: "Complicity Score",
     complicity_level_1: "First Breeze",
     complicity_level_2: "Shared Accord",
     complicity_level_3: "Sillage of Souls",
@@ -615,6 +621,9 @@ const i18n = new I18n({
     soundcheck_hint: "Choose your sound wave category and\nlisten to a random preview",
     soundcheck_bzzz_description: "Digital sounds",
     soundcheck_trll_description: "Bird sounds",
+    friend_sound_modal_title_random: "Let chance decide!",
+    friend_sound_modal_or: "Or",
+    friend_sound_modal_pick_button: "Choose your sound",
     
     // Profil
     edit_profile: "Edit Profile",
@@ -754,13 +763,16 @@ const i18n = new I18n({
     footer_sound_category_info: "Notification sounds will be randomly chosen from your selected sound wave category!",
     friendlist_onboarding_swipe: "Swipe a friend's name to the right to send a notification.",
     friendlist_onboarding_tap: "Tap a friend's name to open the ephemeral chat.",
-    friendlist_onboarding_long_press: "Long-press to choose the sound wave category.",
-    friendlist_onboarding_soundcheck: "Choose the sound wave category you want to resonate!",
+    friendlist_onboarding_long_press: "Long-press to choose sound category or specific sound.",
+    friendlist_onboarding_soundcheck: "Explore your sound library",
     friendlist_onboarding_resonance: "Check your acoustic complicity with friends in the Resonance dashboard!",
     friendlist_onboarding_zen: "Enable Zen mode to avoid being disturbed.",
     friendlist_onboarding_silent_send: "Enable silent sends to send your notifications discreetly.",
     friendlist_onboarding_search_contacts: "Look for friends in your list.",
     friendlist_onboarding_search_pseudo: "Search for a friend by username.",
+    chat_onboarding_tap_category: "Change the random sound category with a simple tap.",
+    chat_onboarding_long_press_specific: "A long press lets you choose a specific sound.",
+    chat_onboarding_mute: "Allows you to chat without sounds.",
     
     // Notifications & Errors
     notifications_not_enabled: "%{pseudo} has not enabled notifications. The token is not available in the database.",
@@ -998,12 +1010,12 @@ const i18n = new I18n({
       bzzz3: "El Acúfeno de Cortesía",
       bzzz4: "Ballena Digital",
       bzzz5: "El Cortocircuito",
-      // TRRL (Soundcheck) — proper names, kept in French for now
-      trrl1: "Le vertige du Shaman",
-      trrl2: "L'Onde Incomprise",
-      trrl3: "Le Philosophe Noir",
-      trrl4: "Le Sifflet de Velours",
-      trrl5: "L'Écho du Baobab",
+      // TRRL (Soundcheck)
+      trrl1: "El vértigo del Chamán",
+      trrl2: "La Onda Incomprendida",
+      trrl3: "El Filósofo Negro",
+      trrl4: "El Silbido de Terciopelo",
+      trrl5: "El Eco del Baobab",
       'identity-request': "Solicitud de identidad",
       'identity-response': "Respuesta de identidad",
     },
@@ -1071,7 +1083,7 @@ const i18n = new I18n({
     
     // Complicidad
     complicity_title: "El Índice de Resonancia",
-    complicity_subtitle: "Midiendo la armonía acústica de su vínculo social !",
+    complicity_subtitle: "Puntuación de complicidad",
     complicity_level_1: "Soplo Inicial",
     complicity_level_2: "Acorde Compartido",
     complicity_level_3: "Estela de Almas",
@@ -1090,6 +1102,9 @@ const i18n = new I18n({
     soundcheck_hint: "Elige tu categoría de onda sonora y\nescucha una vista previa aleatoria",
     soundcheck_bzzz_description: "Sonidos digitales",
     soundcheck_trll_description: "Sonidos de pájaros",
+    friend_sound_modal_title_random: "¡Deja que el azar decida!",
+    friend_sound_modal_or: "O",
+    friend_sound_modal_pick_button: "Elige tu sonido",
     
     // Profil
     edit_profile: "Editar perfil",
@@ -1230,13 +1245,16 @@ const i18n = new I18n({
     footer_sound_category_info: "El sonido de las notificaciones se elegirá aleatoriamente entre la categoría de onda sonora seleccionada.",
     friendlist_onboarding_swipe: "Desliza el nombre de un amigo hacia la derecha para enviar una notificación.",
     friendlist_onboarding_tap: "Toca el nombre de un amigo para abrir el chat efímero.",
-    friendlist_onboarding_long_press: "Mantén pulsado para elegir la categoría de ondas sonoras.",
-    friendlist_onboarding_soundcheck: "¡Elige tu categoría de onda sonora para hacerla resonar!",
+    friendlist_onboarding_long_press: "Mantén pulsado para elegir la categoría de sonido o un sonido específico.",
+    friendlist_onboarding_soundcheck: "Explora tu biblioteca de sonidos",
     friendlist_onboarding_resonance: "Consulta la complicidad acústica que tienes con tus amigos en el panel de Resonancia.",
     friendlist_onboarding_zen: "Activa el modo zen para no ser molestado.",
     friendlist_onboarding_silent_send: "Activa los envíos silenciosos para enviar tus notificaciones con discreción.",
     friendlist_onboarding_search_contacts: "Busca amigos en tu lista.",
     friendlist_onboarding_search_pseudo: "Busca a un amigo con su seudónimo.",
+    chat_onboarding_tap_category: "Cambia la categoría de sonidos aleatorios con un simple toque.",
+    chat_onboarding_long_press_specific: "Un toque largo te permite elegir un sonido específico.",
+    chat_onboarding_mute: "Te permite chatear sin sonidos.",
     
     // Notifications & Errors
     notifications_not_enabled: "%{pseudo} no ha activado las notificaciones. El token no está disponible en la base de datos.",
@@ -1476,12 +1494,12 @@ const i18n = new I18n({
       bzzz3: "O Zumbido de Cortesia",
       bzzz4: "Baleia Digital",
       bzzz5: "O Curto-Circuito",
-      // TRRL (Soundcheck) — proper names, kept in French for now
-      trrl1: "Le vertige du Shaman",
-      trrl2: "L'Onde Incomprise",
-      trrl3: "Le Philosophe Noir",
-      trrl4: "Le Sifflet de Velours",
-      trrl5: "L'Écho du Baobab",
+      // TRRL (Soundcheck)
+      trrl1: "O Vértigo do Xamã",
+      trrl2: "A Onda Incompreendida",
+      trrl3: "O Filósofo Negro",
+      trrl4: "O Assobio de Veludo",
+      trrl5: "O Eco do Baobá",
       'identity-request': "Pedido de identidade",
       'identity-response': "Resposta de identidade",
     },
@@ -1549,7 +1567,7 @@ const i18n = new I18n({
     
     // Complicidade
     complicity_title: "O Índice de Ressonância",
-    complicity_subtitle: "Medindo a harmonia acústica do seu vínculo social !",
+    complicity_subtitle: "Pontuação de cumplicidade",
     complicity_level_1: "Sopro Inicial",
     complicity_level_2: "Acorde Compartilhado",
     complicity_level_3: "Rastro de Almas",
@@ -1568,6 +1586,9 @@ const i18n = new I18n({
     soundcheck_hint: "Escolha sua categoria de onda sonora e\nouça uma prévia aleatória",
     soundcheck_bzzz_description: "Sons digitais",
     soundcheck_trll_description: "Sons de pássaros",
+    friend_sound_modal_title_random: "Deixe o acaso decidir!",
+    friend_sound_modal_or: "Ou",
+    friend_sound_modal_pick_button: "Escolha seu som",
     
     // Profil
     edit_profile: "Editar Perfil",
@@ -1705,13 +1726,16 @@ const i18n = new I18n({
     footer_sound_category_info: "O som das notificações será escolhido aleatoriamente dentro da categoria de onda sonora selecionada!",
     friendlist_onboarding_swipe: "Deslize o nome de um amigo para a direita para enviar uma notificação.",
     friendlist_onboarding_tap: "Toque no nome de um amigo para abrir o chat efêmero.",
-    friendlist_onboarding_long_press: "Faça um toque longo para escolher a categoria de ondas sonoras.",
-    friendlist_onboarding_soundcheck: "Escolhe a categoria de onda sonora pra fazer ressoar!",
+    friendlist_onboarding_long_press: "Faça um toque longo para escolher a categoria de som ou um som específico.",
+    friendlist_onboarding_soundcheck: "Explore sua biblioteca de sons",
     friendlist_onboarding_resonance: "Veja a cumplicidade acústica que você tem com seus amigos no painel de Ressonância!",
     friendlist_onboarding_zen: "Ative o modo zen para não ser incomodado.",
     friendlist_onboarding_silent_send: "Ative os envios silenciosos para mandar notificações com discrição.",
     friendlist_onboarding_search_contacts: "Procure amigos na sua lista.",
     friendlist_onboarding_search_pseudo: "Procure um amigo pelo pseudo.",
+    chat_onboarding_tap_category: "Mude a categoria de sons aleatórios com um simples toque.",
+    chat_onboarding_long_press_specific: "Um toque longo permite escolher um som específico.",
+    chat_onboarding_mute: "Permite conversar sem sons.",
     
     // Notifications & Errors
     notifications_not_enabled: "%{pseudo} não ativou notificação. Sem token.",
@@ -1951,12 +1975,12 @@ const i18n = new I18n({
       bzzz3: "Der Höflichkeits-Tinnitus",
       bzzz4: "Digitaler Wal",
       bzzz5: "Der Kurzschluss",
-      // TRRL (Soundcheck) — proper names, kept in French for now
-      trrl1: "Le vertige du Shaman",
-      trrl2: "L'Onde Incomprise",
-      trrl3: "Le Philosophe Noir",
-      trrl4: "Le Sifflet de Velours",
-      trrl5: "L'Écho du Baobab",
+      // TRRL (Soundcheck)
+      trrl1: "Der Schwindel des Schamanen",
+      trrl2: "Die unverstandene Welle",
+      trrl3: "Der schwarze Philosoph",
+      trrl4: "Der Samtpfiff",
+      trrl5: "Das Echo des Baobab",
       'identity-request': "Identitätsanfrage",
       'identity-response': "Identitätsantwort",
     },
@@ -2024,7 +2048,7 @@ const i18n = new I18n({
     
     // Komplizenschaft
     complicity_title: "Der Resonanz-Index",
-    complicity_subtitle: "Messung der akustischen Harmonie Ihrer sozialen Bindung!",
+    complicity_subtitle: "Komplizenschafts-Punktzahl",
     complicity_level_1: "Erster Hauch",
     complicity_level_2: "Geteilter Einklang",
     complicity_level_3: "Seelen-Sillage",
@@ -2043,6 +2067,9 @@ const i18n = new I18n({
     soundcheck_hint: "Wähle deine Schallwellen-Kategorie und\nhöre eine zufällige Vorschau",
     soundcheck_bzzz_description: "Digitale Geräusche",
     soundcheck_trll_description: "Vogelgeräusche",
+    friend_sound_modal_title_random: "Lass den Zufall entscheiden!",
+    friend_sound_modal_or: "Oder",
+    friend_sound_modal_pick_button: "Wähle deinen Sound",
     
     // Profil
     edit_profile: "Profil bearbeiten",
@@ -2180,13 +2207,16 @@ const i18n = new I18n({
     footer_sound_category_info: "Der Benachrichtigungston wird zufällig aus der ausgewählten Schallwellen-Kategorie gewählt!",
     friendlist_onboarding_swipe: "Wische den Namen eines Freundes nach rechts, um eine Benachrichtigung zu senden.",
     friendlist_onboarding_tap: "Tippe auf den Namen eines Freundes, um den ephemeren Chat zu öffnen.",
-    friendlist_onboarding_long_press: "Halte lange gedrückt, um die Schallwellen-Kategorie auszuwählen.",
-    friendlist_onboarding_soundcheck: "Wähle deine Schallwellen-Kategorie, die du erklingen lassen willst!",
+    friendlist_onboarding_long_press: "Halte lange gedrückt, um die Sound-Kategorie oder einen spezifischen Sound auszuwählen.",
+    friendlist_onboarding_soundcheck: "Erkunde deine Sound-Bibliothek",
     friendlist_onboarding_resonance: "Sieh dir die akustische Komplizenschaft mit deinen Freunden im Resonanz-Dashboard an!",
     friendlist_onboarding_zen: "Aktiviere den Zen-Modus, um nicht gestört zu werden.",
     friendlist_onboarding_silent_send: "Aktiviere stille Sendungen, um Benachrichtigungen diskret zu versenden.",
     friendlist_onboarding_search_contacts: "Suche Freunde in deiner Liste.",
     friendlist_onboarding_search_pseudo: "Suche einen Freund mit seinem Pseudonym.",
+    chat_onboarding_tap_category: "Ändere die zufällige Sound-Kategorie mit einem einfachen Tippen.",
+    chat_onboarding_long_press_specific: "Ein langes Drücken ermöglicht es dir, einen spezifischen Sound auszuwählen.",
+    chat_onboarding_mute: "Ermöglicht es dir, ohne Sounds zu chatten.",
     
     // Notifications & Errors
     notifications_not_enabled: "%{pseudo} hat Benachrichtigungen nicht aktiviert. Kein Token.",
@@ -2426,12 +2456,12 @@ const i18n = new I18n({
       bzzz3: "L'Acufene di Cortesia",
       bzzz4: "Balena Digitale",
       bzzz5: "Il Cortocircuito",
-      // TRRL (Soundcheck) — proper names, kept in French for now
-      trrl1: "Le vertige du Shaman",
-      trrl2: "L'Onde Incomprise",
-      trrl3: "Le Philosophe Noir",
-      trrl4: "Le Sifflet de Velours",
-      trrl5: "L'Écho du Baobab",
+      // TRRL (Soundcheck)
+      trrl1: "Le vertigini dello Sciamano",
+      trrl2: "L'onda incompresa",
+      trrl3: "Il filosofo nero",
+      trrl4: "Il fischio di velluto",
+      trrl5: "L'eco del baobab",
       'identity-request': "Richiesta d'identità",
       'identity-response': "Risposta d'identità",
     },
@@ -2499,7 +2529,7 @@ const i18n = new I18n({
     
     // Complicità
     complicity_title: "L'Indice di Risonanza",
-    complicity_subtitle: "Misurare l'armonia acustica del vostro legame sociale !",
+    complicity_subtitle: "Punteggio di complicità",
     complicity_level_1: "Soffio Iniziale",
     complicity_level_2: "Accordo Condiviso",
     complicity_level_3: "Scia d'Anime",
@@ -2518,6 +2548,9 @@ const i18n = new I18n({
     soundcheck_hint: "Scegli la tua categoria di onda sonora e\nascolta un'anteprima casuale",
     soundcheck_bzzz_description: "Suoni digitali",
     soundcheck_trll_description: "Suoni di uccelli",
+    friend_sound_modal_title_random: "Lascia decidere il caso!",
+    friend_sound_modal_or: "Oppure",
+    friend_sound_modal_pick_button: "Scegli il tuo suono",
     
     // Profil
     edit_profile: "Modifica Profilo",
@@ -2655,13 +2688,16 @@ const i18n = new I18n({
     footer_sound_category_info: "Il suono delle notifiche verrà scelto casualmente dalla categoria di onda sonora selezionata!",
     friendlist_onboarding_swipe: "Scorri il nome di un amico verso destra per inviare una notifica.",
     friendlist_onboarding_tap: "Tocca il nome di un amico per aprire la chat effimera.",
-    friendlist_onboarding_long_press: "Fai una pressione prolungata per scegliere la categoria di onde sonore.",
-    friendlist_onboarding_soundcheck: "Scegli la categoria di onda sonora da far risuonare!",
+    friendlist_onboarding_long_press: "Fai una pressione prolungata per scegliere la categoria di suono o un suono specifico.",
+    friendlist_onboarding_soundcheck: "Esplora la tua biblioteca di suoni",
     friendlist_onboarding_resonance: "Consulta la complicità acustica che hai con i tuoi amici nel pannello di Risonanza!",
     friendlist_onboarding_zen: "Attiva la modalità zen per non essere disturbato.",
     friendlist_onboarding_silent_send: "Attiva gli invii silenziosi per mandare notifiche in modo discreto.",
     friendlist_onboarding_search_contacts: "Cerca amici nella tua lista.",
     friendlist_onboarding_search_pseudo: "Cerca un amico con il suo pseudonimo.",
+    chat_onboarding_tap_category: "Cambia la categoria di suoni casuali con un semplice tocco.",
+    chat_onboarding_long_press_specific: "Una pressione prolungata ti permette di scegliere un suono specifico.",
+    chat_onboarding_mute: "Ti permette di chattare senza suoni.",
     
     // Notifications & Errors
     notifications_not_enabled: "%{pseudo} non ha abilitato le notifiche. Nessun token.",
