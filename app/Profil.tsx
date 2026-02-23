@@ -145,7 +145,7 @@ export default function ProfilScreen() {
         <View style={styles.header}>
           <TouchableOpacity onPress={() => safePush(router, '/(tabs)', { skipInitialCheck: false })} activeOpacity={0.7}>
             <Image
-              source={require('../assets/images/prout-meme.png')}
+              source={require('../assets/images/Prrt.png')}
               style={styles.headerImage}
               resizeMode="contain"
             />

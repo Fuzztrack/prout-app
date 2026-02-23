@@ -1,8 +1,6 @@
 import { useRouter } from 'expo-router';
-import * as AppleAuthentication from 'expo-apple-authentication';
-import * as Device from 'expo-device';
 import * as WebBrowser from 'expo-web-browser';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { CustomButton } from '../components/CustomButton';
 import { safePush, safeReplace } from '../lib/navigation';
@@ -16,6 +14,7 @@ export default function AuthChoiceScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
+  const isOAuthBrowserAuthInProgressRef = useRef(false);
 
   const replaceWithSkip = (path: string) => {
     safeReplace(router, path, { skipInitialCheck: false });
@@ -36,6 +35,48 @@ export default function AuthChoiceScreen() {
   ) => {
     await closeAuthSessionIfNeeded();
     return WebBrowser.openAuthSessionAsync(url, redirectUrl, options);
+  };
+
+  const startAppleOAuthFlow = async (timeoutId: NodeJS.Timeout) => {
+    const redirectUrl = getRedirectUrl();
+
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'apple',
+      options: {
+        redirectTo: redirectUrl,
+        skipBrowserRedirect: true,
+      },
+    });
+
+    if (error) {
+      clearTimeout(timeoutId);
+      throw error;
+    }
+
+    if (!data?.url) {
+      isOAuthBrowserAuthInProgressRef.current = false;
+      clearTimeout(timeoutId);
+      if (typeof (global as any).__isOAuthFlow === 'function') {
+        (global as any).__isOAuthFlow(false);
+      }
+      setLoading(false);
+      return;
+    }
+
+    if (typeof (global as any).__isOAuthFlow === 'function') {
+      (global as any).__isOAuthFlow(true);
+    }
+    isOAuthBrowserAuthInProgressRef.current = true;
+
+    const result = await openAuthSessionSafe(
+      data.url,
+      redirectUrl,
+      {
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.MODAL,
+        showInRecents: false,
+      }
+    );
+    await handleOAuthResult(result, timeoutId);
   };
 
   // 1. Vérification simple pour éviter les sessions fantômes
@@ -70,6 +111,7 @@ export default function AuthChoiceScreen() {
     }
     
     if (result.type === 'cancel') {
+      isOAuthBrowserAuthInProgressRef.current = false;
       clearTimeout(timeoutId);
       if (typeof (global as any).__isOAuthFlow === 'function') {
         (global as any).__isOAuthFlow(false);
@@ -98,6 +140,7 @@ export default function AuthChoiceScreen() {
             
             if (error) {
               console.error('❌ Erreur création session:', error);
+              isOAuthBrowserAuthInProgressRef.current = false;
               if (typeof (global as any).__isOAuthFlow === 'function') {
                 (global as any).__isOAuthFlow(false);
               }
@@ -107,7 +150,7 @@ export default function AuthChoiceScreen() {
             
             if (data.session?.user) {
               console.log('✅ Session créée pour:', data.session.user.id);
-              setLoading(false);
+              isOAuthBrowserAuthInProgressRef.current = false;
               
               // Récupérer les métadonnées utilisateur pour le pseudo
               const { data: { user } } = await supabase.auth.getUser();
@@ -260,6 +303,7 @@ export default function AuthChoiceScreen() {
           }
         } catch (e: any) {
           console.error('❌ Erreur traitement URL:', e);
+          isOAuthBrowserAuthInProgressRef.current = false;
           if (typeof (global as any).__isOAuthFlow === 'function') {
             (global as any).__isOAuthFlow(false);
           }
@@ -277,6 +321,7 @@ export default function AuthChoiceScreen() {
       
       if (sessionError) {
         console.error('❌ Erreur récupération session:', sessionError);
+        isOAuthBrowserAuthInProgressRef.current = false;
         if (typeof (global as any).__isOAuthFlow === 'function') {
           (global as any).__isOAuthFlow(false);
         }
@@ -286,15 +331,16 @@ export default function AuthChoiceScreen() {
       
       if (session?.user) {
         console.log('✅ Session créée pour:', session.user.id);
+        isOAuthBrowserAuthInProgressRef.current = false;
         if (typeof (global as any).__isOAuthFlow === 'function') {
           (global as any).__isOAuthFlow(false);
         }
-        setLoading(false);
         // Même si on n'a pas eu les tokens dans l'URL, une session existe → on déclenche la suite
         replaceWithSkip('/confirm-email');
         return true;
       } else {
         console.warn('⚠️ Pas de session après OAuth');
+        isOAuthBrowserAuthInProgressRef.current = false;
         if (typeof (global as any).__isOAuthFlow === 'function') {
           (global as any).__isOAuthFlow(false);
         }
@@ -309,6 +355,7 @@ export default function AuthChoiceScreen() {
   // 2. Connexion Google
   const handleGoogleLogin = async () => {
     setLoading(true);
+    isOAuthBrowserAuthInProgressRef.current = false;
     try {
       const redirectUrl = getRedirectUrl();
       
@@ -327,6 +374,7 @@ export default function AuthChoiceScreen() {
         if (typeof (global as any).__isOAuthFlow === 'function') {
           (global as any).__isOAuthFlow(true);
         }
+        isOAuthBrowserAuthInProgressRef.current = true;
         
         const result = await openAuthSessionSafe(
           data.url, 
@@ -339,16 +387,21 @@ export default function AuthChoiceScreen() {
         
         // Utiliser handleOAuthResult pour gérer le résultat de manière cohérente
         const timeoutId = setTimeout(() => {
+          if (isOAuthBrowserAuthInProgressRef.current) {
+            console.log('⏱️ Auth Google toujours en cours dans le navigateur, on garde le chargement actif.');
+            return;
+          }
           console.warn('⏱️ Timeout Google Sign In - réactivation du bouton');
           if (typeof (global as any).__isOAuthFlow === 'function') {
             (global as any).__isOAuthFlow(false);
           }
           setLoading(false);
-        }, 10000);
+        }, 20000);
         
         await handleOAuthResult(result, timeoutId);
       }
     } catch (e: any) {
+      isOAuthBrowserAuthInProgressRef.current = false;
       Alert.alert(i18n.t('google_error'), e.message);
       setLoading(false);
     }
@@ -357,266 +410,26 @@ export default function AuthChoiceScreen() {
   // 3. Connexion Apple
   const handleAppleLogin = async () => {
     setLoading(true);
+    isOAuthBrowserAuthInProgressRef.current = false;
     console.log('🍏 1. Début Apple Sign In');
     
     // Timeout de sécurité
     const timeoutId = setTimeout(() => {
+      if (isOAuthBrowserAuthInProgressRef.current) {
+        console.log('⏱️ Auth Apple toujours en cours dans le navigateur, on garde le chargement actif.');
+        return;
+      }
       console.warn('⏱️ Timeout Apple Sign In - réactivation du bouton');
       setLoading(false);
-    }, 10000);
+    }, 20000);
     
     try {
-      if (Platform.OS === 'ios') {
-        // Vérifier si on est sur un simulateur (l'authentification native bloque sur simulateur)
-        const isSimulator = !Device.isDevice;
-        console.log('🍏 2. Appareil réel:', !isSimulator);
-        
-        if (isSimulator) {
-          // Sur simulateur, utiliser directement OAuth Web (l'authentification native bloque)
-          console.log('🍏 3. Simulateur détecté, utilisation OAuth Web directement');
-          // Si non disponible (simulateur ou appareil non compatible), utiliser OAuth Web
-          console.log('⚠️ Apple Authentication non disponible, utilisation du flux OAuth Web');
-          const redirectUrl = Platform.OS === 'ios' ? 'prrtapp://login-callback' : 'proutapp://login-callback';
-          
-          console.log('🍏 4. Début OAuth Web Apple...');
-          const { data, error } = await supabase.auth.signInWithOAuth({
-            provider: 'apple',
-            options: {
-              redirectTo: redirectUrl,
-              skipBrowserRedirect: true,
-            },
-          });
-
-          if (error) {
-            console.error('❌ Erreur OAuth Apple:', error);
-            clearTimeout(timeoutId);
-            throw error;
-          }
-
-          console.log('🍏 5. URL OAuth obtenue, ouverture navigateur...');
-          if (data?.url) {
-            // Marquer qu'on est dans un flux OAuth
-            if ((global as any).__isOAuthFlow) {
-              (global as any).__isOAuthFlow(true);
-            }
-            
-            const result = await openAuthSessionSafe(
-              data.url, 
-              redirectUrl,
-              {
-                presentationStyle: WebBrowser.WebBrowserPresentationStyle.MODAL,
-                showInRecents: false,
-              }
-            );
-            console.log('🍏 6. Résultat navigateur:', result.type);
-            await handleOAuthResult(result, timeoutId);
-            return;
-          }
-          clearTimeout(timeoutId);
-          setLoading(false);
-          return;
-        }
-        
-        // Vérifier si Apple Authentication est disponible
-        console.log('🍏 3. Vérification disponibilité Apple Authentication...');
-        const isAvailable = await AppleAuthentication.isAvailableAsync();
-        console.log('🍏 4. Apple Authentication disponible:', isAvailable);
-        
-        if (!isAvailable) {
-          // Si non disponible, utiliser OAuth Web
-          console.log('⚠️ Apple Authentication non disponible, utilisation du flux OAuth Web');
-          const redirectUrl = Platform.OS === 'ios' ? 'prrtapp://login-callback' : 'proutapp://login-callback';
-          
-          console.log('🍏 5. Début OAuth Web Apple...');
-          const { data, error } = await supabase.auth.signInWithOAuth({
-            provider: 'apple',
-            options: {
-              redirectTo: redirectUrl,
-              skipBrowserRedirect: true,
-            },
-          });
-
-          if (error) {
-            console.error('❌ Erreur OAuth Apple:', error);
-            clearTimeout(timeoutId);
-            throw error;
-          }
-
-          console.log('🍏 6. URL OAuth obtenue, ouverture navigateur...');
-          if (data?.url) {
-            // Marquer qu'on est dans un flux OAuth
-            if ((global as any).__isOAuthFlow) {
-              (global as any).__isOAuthFlow(true);
-            }
-            
-            const result = await openAuthSessionSafe(
-              data.url, 
-              redirectUrl,
-              {
-                presentationStyle: WebBrowser.WebBrowserPresentationStyle.MODAL,
-                showInRecents: false,
-              }
-            );
-            console.log('🍏 7. Résultat navigateur:', result.type);
-            await handleOAuthResult(result, timeoutId);
-            return;
-          }
-          clearTimeout(timeoutId);
-          setLoading(false);
-          return;
-        }
-
-        // iOS - Authentification native avec FaceID (seulement sur appareil réel)
-        try {
-          console.log('🍏 5. Début authentification native Apple...');
-          const credential = await AppleAuthentication.signInAsync({
-            requestedScopes: [
-              AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-              AppleAuthentication.AppleAuthenticationScope.EMAIL,
-            ],
-          });
-
-          console.log('🍏 5. Credential Apple reçu');
-          if (!credential.identityToken) {
-            throw new Error('Pas de token Apple reçu');
-          }
-
-          console.log('🍏 6. Token Apple reçu, envoi à Supabase...');
-          const { data, error } = await supabase.auth.signInWithIdToken({
-            provider: 'apple',
-            token: credential.identityToken,
-            nonce: credential.nonce ?? undefined,
-            options: {
-              clientId: 'com.fuzztrack.proutapp',
-            },
-          });
-
-          if (error) {
-            console.error('❌ Erreur Supabase Apple:', error);
-            clearTimeout(timeoutId);
-            throw error;
-          }
-
-          console.log('✅ 7. Supabase connecté avec Apple !', data.user?.id);
-          clearTimeout(timeoutId);
-          
-          // Marquer qu'on est dans un flux OAuth pour éviter la redirection automatique
-          if (typeof (global as any).__isOAuthFlow === 'function') {
-            (global as any).__isOAuthFlow(true);
-          }
-          
-          // Extraire le prénom depuis Apple et rediriger directement vers CompleteProfileScreen
-          if (data.user) {
-            const fullName = credential.fullName?.givenName || credential.fullName?.familyName || null;
-            let pseudoToUse = null;
-            if (fullName) {
-              pseudoToUse = fullName.split(' ')[0].trim();
-              if (pseudoToUse && pseudoToUse.length > 0) {
-                await supabase.auth.updateUser({
-                  data: { pseudo: pseudoToUse, pseudo_from_apple: true, pseudo_validated: false }
-                });
-                console.log('✅ Prénom Apple stocké dans les métadonnées:', pseudoToUse);
-              }
-            }
-            
-            // Réinitialiser le flag OAuth après la navigation
-            if (typeof (global as any).__isOAuthFlow === 'function') {
-              (global as any).__isOAuthFlow(false);
-            }
-            
-            replaceWithSkip('/CompleteProfileScreen'); // Toujours rediriger vers CompleteProfileScreen pour validation
-          }
-        } catch (nativeError: any) {
-          // Si l'authentification native échoue (simulateur), fallback sur OAuth Web
-          if (nativeError.code === 'ERR_REQUEST_CANCELED') {
-            console.log('🍏 Annulation par l\'utilisateur');
-            clearTimeout(timeoutId);
-            setLoading(false);
-            return;
-          }
-          
-          console.error('❌ Erreur authentification native Apple:', nativeError);
-          console.log('⚠️ Fallback sur OAuth Web...');
-          
-          const redirectUrl = Platform.OS === 'ios' ? 'prrtapp://login-callback' : 'proutapp://login-callback';
-          
-          const { data, error } = await supabase.auth.signInWithOAuth({
-            provider: 'apple',
-            options: {
-              redirectTo: redirectUrl,
-              skipBrowserRedirect: true,
-            },
-          });
-
-          if (error) {
-            clearTimeout(timeoutId);
-            throw error;
-          }
-
-          if (data?.url) {
-            // Marquer qu'on est dans un flux OAuth
-            if ((global as any).__isOAuthFlow) {
-              (global as any).__isOAuthFlow(true);
-            }
-            
-            const result = await openAuthSessionSafe(
-              data.url, 
-              redirectUrl,
-              {
-                presentationStyle: WebBrowser.WebBrowserPresentationStyle.MODAL,
-                showInRecents: false,
-              }
-            );
-            await handleOAuthResult(result, timeoutId);
-            return;
-          }
-          clearTimeout(timeoutId);
-          if ((global as any).__isOAuthFlow) {
-            (global as any).__isOAuthFlow(false);
-          }
-          setLoading(false);
-        }
-      } else {
-        // Android - OAuth Web
-        console.log('🍏 2. Android - Début OAuth Web Apple...');
-        const redirectUrl = Platform.OS === 'ios' ? 'prrtapp://login-callback' : 'proutapp://login-callback';
-        
-        const { data, error } = await supabase.auth.signInWithOAuth({
-          provider: 'apple',
-          options: {
-            redirectTo: redirectUrl,
-            skipBrowserRedirect: true,
-          },
-        });
-
-        if (error) {
-          clearTimeout(timeoutId);
-          throw error;
-        }
-
-        console.log('🍏 3. Android - URL OAuth obtenue');
-        if (data?.url) {
-          // Marquer qu'on est dans un flux OAuth
-          if ((global as any).__isOAuthFlow) {
-            (global as any).__isOAuthFlow(true);
-          }
-          
-          const result = await openAuthSessionSafe(
-            data.url, 
-            redirectUrl,
-            {
-              presentationStyle: WebBrowser.WebBrowserPresentationStyle.MODAL,
-              showInRecents: false,
-            }
-          );
-          console.log('🍏 4. Android - Résultat navigateur:', result.type);
-          await handleOAuthResult(result, timeoutId);
-          return;
-        }
-        clearTimeout(timeoutId);
-        setLoading(false);
-      }
+      // Flux unique OAuth Apple (iOS + Android) pour garantir un comportement stable au 1er essai.
+      console.log(`🍏 2. ${Platform.OS === 'ios' ? 'iOS' : 'Android'} - Début OAuth Web Apple...`);
+      await startAppleOAuthFlow(timeoutId);
+      return;
     } catch (e: any) {
+      isOAuthBrowserAuthInProgressRef.current = false;
       clearTimeout(timeoutId);
       if (e.code === 'ERR_REQUEST_CANCELED') {
         console.log('🍏 Connexion Apple annulée');
@@ -715,6 +528,13 @@ export default function AuthChoiceScreen() {
           small
         />
       </ScrollView>
+
+      {loading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#604a3e" />
+          <Text style={styles.loadingOverlayText}>{i18n.t('finalizing_connection')}</Text>
+        </View>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -753,5 +573,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     marginBottom: 20,
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(235, 184, 155, 0.92)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+  },
+  loadingOverlayText: {
+    color: '#604a3e',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

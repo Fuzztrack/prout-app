@@ -8,7 +8,7 @@
     "scheme": "prrtapp",
     "userInterfaceStyle": "automatic",
     "backgroundColor": "#ebb89b",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "splash": {
       "image": "./Assets/Images/Prrt.png",
       "resizeMode": "contain",
@@ -48,7 +48,7 @@
         "android.permission.READ_CONTACTS",
         "android.permission.WRITE_CONTACTS"
       ],
-      "newArchEnabled": false
+      "newArchEnabled": true
     },
     "web": {
       "output": "static",
@@ -85,7 +85,6 @@
             "./assets/sounds/bzzz3.wav",
             "./assets/sounds/bzzz4.wav",
             "./assets/sounds/bzzz5.wav",
-
             "./assets/sounds/trrl1.wav",
             "./assets/sounds/trrl2.wav",
             "./assets/sounds/trrl3.wav",
@@ -116,7 +115,8 @@
       ],
       "expo-localization",
       "expo-asset",
-      "./withRemoveLocationPermission"
+      "./withRemoveLocationPermission",
+      "expo-font"
     ],
     "assetBundlePatterns": [
       "assets/**/*"

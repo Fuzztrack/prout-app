@@ -112,7 +112,7 @@ export default function ProfileScreen() {
         <View style={styles.header}>
           <TouchableOpacity onPress={() => safePush(router, '/(tabs)', { skipInitialCheck: false })} activeOpacity={0.7}>
             <Image 
-              source={require('../../assets/images/prout-meme.png')} 
+              source={require('../../assets/images/Prrt.png')} 
               style={styles.headerImage} 
               resizeMode="contain" 
             />
@@ -166,7 +166,7 @@ export default function ProfileScreen() {
       <TouchableOpacity onPress={handleContactSupport} style={styles.supportLink}>
         <Text style={styles.supportLinkText}>{i18n.t('contact_support')}</Text>
       </TouchableOpacity>
-      <Text style={styles.versionText}>Prout ! version 1.0.0</Text>
+      <Text style={styles.versionText}>Prrt! version 1.0.0</Text>
       </ScrollView>
     </View>
   );

@@ -539,11 +539,11 @@ export default function EditProfilScreen() {
       i18n.t('delete_account_confirm_body'),
       [
         {
-          text: 'Annuler',
+          text: i18n.t('cancel'),
           style: 'cancel',
         },
         {
-          text: 'Confirmer',
+          text: i18n.t('confirm'),
           style: 'destructive',
           onPress: async () => {
             setLoading(true);

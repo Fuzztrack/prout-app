@@ -58,7 +58,7 @@ export default function SplashScreen() {
 
   return (
     <View style={styles.container}>
-      <Image source={require('../assets/images/prout-meme.png')} style={styles.image} resizeMode="contain" />
+      <Image source={require('../assets/images/Prrt.png')} style={styles.image} resizeMode="contain" />
       <ActivityIndicator size="large" color="#604a3e" style={{ marginTop: 20 }} />
     </View>
   );

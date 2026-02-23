@@ -441,7 +441,7 @@ export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void;
   // Supprimer le compte
   const unsubscribe = async () => {
     if (!userId) {
-      Alert.alert(i18n.t('error'), 'Impossible d\'identifier votre compte');
+      Alert.alert(i18n.t('error'), i18n.t('cannot_identify_account'));
       return;
     }
 
@@ -464,7 +464,7 @@ export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void;
 
               if (deleteError) {
                 console.error('Erreur lors de la suppression du compte:', deleteError);
-                Alert.alert(i18n.t('error'), 'Impossible de supprimer le compte. Veuillez contacter le support.');
+                Alert.alert(i18n.t('error'), i18n.t('cannot_delete_account_support'));
                 return;
               }
 
@@ -481,7 +481,7 @@ export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void;
               ]);
             } catch (err) {
               console.error('Erreur inattendue:', err);
-              Alert.alert(i18n.t('error'), 'Une erreur est survenue lors de la suppression du compte');
+              Alert.alert(i18n.t('error'), i18n.t('error_occurred_deletion'));
             } finally {
               setLoading(false);
             }

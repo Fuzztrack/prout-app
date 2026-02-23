@@ -22,8 +22,20 @@ BEGIN
     RAISE EXCEPTION 'Utilisateur non authentifié';
   END IF;
   
-  -- Supprimer le profil dans user_profiles (le trigger CASCADE supprimera aussi friends et invitations)
-  DELETE FROM user_profiles WHERE id = current_user_id;
+  -- Supprimer d'abord les dépendances explicites pour éviter les erreurs de FK
+  -- (ex: fk_friends_profiles sur friends.friend_id -> user_profiles.id).
+  DELETE FROM public.friends
+  WHERE user_id = current_user_id OR friend_id = current_user_id;
+
+  DELETE FROM public.invitations
+  WHERE from_user_id = current_user_id OR to_user_id = current_user_id;
+
+  -- Table ajoutée par la feature "complicity"
+  DELETE FROM public.interaction_logs
+  WHERE sender_id = current_user_id OR receiver_id = current_user_id;
+
+  -- Puis supprimer le profil applicatif
+  DELETE FROM public.user_profiles WHERE id = current_user_id;
   
   -- Supprimer le compte auth.users (nécessite SECURITY DEFINER pour accéder à auth.users)
   -- Note: Cette opération supprime automatiquement toutes les données liées via CASCADE

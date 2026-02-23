@@ -56,7 +56,7 @@ export default function CompleteProfileScreen() {
     setLoading(true);
 
     try {
-      if (!userId) throw new Error("Utilisateur non trouvé");
+      if (!userId) throw new Error(i18n.t('cannot_identify_account'));
 
       // Normaliser le téléphone si fourni (non obligatoire)
       const normalizedPhone = phone.trim() ? normalizePhone(phone.trim()) : null;
@@ -110,21 +110,24 @@ export default function CompleteProfileScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"} 
       style={styles.container}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
         <TouchableOpacity onPress={() => safePush(router, '/(tabs)', { skipInitialCheck: false })} activeOpacity={0.7}>
-          <Image source={require('../assets/images/prout-meme.png')} style={styles.image} resizeMode="contain" />
+          <Image source={require('../assets/images/Prrt.png')} style={styles.image} resizeMode="contain" />
         </TouchableOpacity>
         
-        <Text style={styles.title}>Finalisation</Text>
+        <Text style={styles.title}>{i18n.t('complete_profile_title')}</Text>
         <Text style={styles.subtitle}>
-            Votre compte Google est actif, mais votre profil ProutApp est manquant. Choisissez un pseudo pour le (re)créer.
+            {i18n.t('complete_profile_subtitle')}
         </Text>
         
         <TextInput 
             value={pseudo} 
             onChangeText={setPseudo} 
             style={styles.input} 
-            placeholder="Votre Pseudo *" 
+            placeholder={i18n.t('complete_profile_pseudo_placeholder')}
             placeholderTextColor="#604a3e"
             autoCapitalize="none"
         />
@@ -140,9 +143,9 @@ export default function CompleteProfileScreen() {
         />
 
         <CustomButton 
-            title={loading ? "Sauvegarde..." : "C'est parti !"} 
+            title={loading ? i18n.t('complete_profile_saving') : i18n.t('complete_profile_cta')}
             onPress={handleSave} 
-            disabled={loading} 
+            disabled={loading || !userId}
             color="#604a3e"
             textColor="#ebb89b"
         />
