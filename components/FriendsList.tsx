@@ -131,6 +131,7 @@ const CACHE_KEY_FRIENDS = 'cached_friends_list';
 const CACHE_KEY_PENDING_REQUESTS = 'cached_pending_requests';
 const CACHE_KEY_LAST_SENT_MESSAGES = 'cached_last_sent_messages';
 const CACHE_KEY_DISMISSED_SILENT_WARNING = 'cached_dismissed_silent_warning';
+const CACHE_KEY_BLOCKED_USERS = 'cached_blocked_users_v1';
 const CACHE_MAX_AGE = 24 * 60 * 60 * 1000; // 24 heures
 
 type LastSentMessage = { text: string; ts: string; id?: string; status?: 'read'; readAt?: number };
@@ -145,6 +146,13 @@ type PendingMessage = {
   created_at: string;
   // Marqué localement quand Supabase DELETE arrive pendant une session ouverte
   isPendingDelete?: boolean;
+};
+
+type ReportReason = 'spam' | 'harassment' | 'hate_speech' | 'explicit_content' | 'other';
+type ReportableMessage = {
+  senderId: string;
+  sourceMessageId?: string | null;
+  createdAt?: string;
 };
 
 const stripReadPrefix = (text?: string | null) => {
@@ -393,39 +401,21 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
     });
   };
 
-  // Fonction pour afficher l'alerte de sourdine/suppression (doit être définie en dehors du geste)
+  // Fonction pour afficher l'alerte de blocage (doit être définie en dehors du geste)
   const showMuteDeleteAlert = useCallback(() => {
     try {
-      if (isMuted) {
-        // Si déjà en sourdine, proposer de quitter le mode sourdine
-        Alert.alert(
-          i18n.t('exit_mute_mode_title'),
-          i18n.t('exit_mute_mode_body', { pseudo: friend.pseudo }),
-          [
-            { text: i18n.t('cancel'), style: 'cancel', onPress: () => {} },
-            { text: 'Quitter le mode sourdine', onPress: () => {
-              if (onUnmuteFriend) {
-                onUnmuteFriend();
-              }
-            } },
-          ]
-        );
-      } else {
-        // Sinon, proposer de mettre en sourdine ou supprimer
-        Alert.alert(
-          i18n.t('delete_or_mute'),
-          '',
-          [
-            { text: i18n.t('cancel'), style: 'cancel', onPress: () => {} },
-            { text: i18n.t('tuto_4_title'), onPress: () => onMuteFriend() },
-            { text: i18n.t('delete_friend'), style: 'destructive', onPress: () => onDeleteFriend() },
-          ]
-        );
-      }
+      Alert.alert(
+        i18n.t('safety_actions_title'),
+        '',
+        [
+          { text: i18n.t('cancel'), style: 'cancel', onPress: () => {} },
+          { text: i18n.t('block_user'), style: 'destructive', onPress: () => onDeleteFriend() },
+        ]
+      );
     } catch (error) {
       console.error('Erreur lors de l\'affichage de l\'alerte:', error);
     }
-  }, [isMuted, friend.pseudo, onUnmuteFriend, onMuteFriend, onDeleteFriend]);
+  }, [onDeleteFriend]);
 
   // Geste avec Reanimated (fluide sur iOS) - Supporte gauche et droite
   const gesture = Gesture.Pan()
@@ -533,7 +523,7 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
         ]}
         collapsable={false}
       >
-        <Text style={styles.deleteText}>{i18n.t('delete_or_mute')}</Text>
+        <Text style={styles.deleteText}>{i18n.t('block_user')}</Text>
       </Animated.View>
 
       {/* Background droite partagé iOS + Android : soundwave avec animation unique */}
@@ -674,11 +664,12 @@ const SentMessageStatus = ({ message }: { message: { text: string; status?: 'rea
 };
 
 // Composant pour gérer l'animation de disparition des messages reçus (quand A envoie un message)
-const ReceivedMessageFade = ({ message, dimmed, shouldFadeOut, onFadeComplete }: { 
-  message: { id: string; text: string }; 
+const ReceivedMessageFade = ({ message, dimmed, shouldFadeOut, onFadeComplete, onLongPressReport }: { 
+  message: { id: string; text: string; senderId?: string; sourceMessageId?: string | null; createdAt?: string }; 
   dimmed?: boolean;
   shouldFadeOut: boolean;
   onFadeComplete: () => void;
+  onLongPressReport?: (message: ReportableMessage) => void;
 }) => {
   const opacity = useRef(new RNAnimated.Value(dimmed ? 0.3 : 1)).current;
 
@@ -702,9 +693,21 @@ const ReceivedMessageFade = ({ message, dimmed, shouldFadeOut, onFadeComplete }:
 
   return (
     <RNAnimated.View style={{ alignSelf: 'flex-start', opacity, maxWidth: '100%' }}>
-      <View style={styles.bubbleReceived}>
-        <Text style={styles.bubbleTextReceived}>{stripReadPrefix(message.text)}</Text>
-      </View>
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onLongPress={() => {
+          if (!onLongPressReport || !message.senderId) return;
+          onLongPressReport({
+            senderId: message.senderId,
+            sourceMessageId: message.sourceMessageId ?? null,
+            createdAt: message.createdAt,
+          });
+        }}
+      >
+        <View style={styles.bubbleReceived}>
+          <Text style={styles.bubbleTextReceived}>{stripReadPrefix(message.text)}</Text>
+        </View>
+      </TouchableOpacity>
     </RNAnimated.View>
   );
 };
@@ -988,6 +991,8 @@ export function FriendsList({
   const [expandedUnreadId, setExpandedUnreadId] = useState<string | null>(null);
   const [unreadCache, setUnreadCache] = useState<Record<string, { id: string; message_content: string; created_at?: string }[]>>({});
   const [fadingOutReceivedMessages, setFadingOutReceivedMessages] = useState<Set<string>>(new Set());
+  const [blockedUserIds, setBlockedUserIds] = useState<string[]>([]);
+  const blockedUserIdsRef = useRef<Set<string>>(new Set());
   const [messageDrafts, setMessageDrafts] = useState<Record<string, string>>({});
   const [sendingFriendId, setSendingFriendId] = useState<string | null>(null);
   const [identityModalVisible, setIdentityModalVisible] = useState(false);
@@ -1453,7 +1458,9 @@ export function FriendsList({
 
     // Filtrer les messages qui sont dans la liste noire locale (supprimés mais pas encore sync)
     // NOTE: On NE filtre PAS "READ:" (session gelée). Ils seront affichés en opacité réduite.
+    const blockedSet = blockedUserIdsRef.current;
     const serverMessages = validMessages
+      .filter(m => !blockedSet.has(m.from_user_id))
       .filter(m => !deletedMessagesCache.has(m.id))
       .map((m: any) => ({ ...m, isPendingDelete: false })) as PendingMessage[];
 
@@ -1600,9 +1607,10 @@ export function FriendsList({
         cacheLoadedRef.current = true;
         try {
           // Charger le cache des amis et des requêtes en parallèle pour aller plus vite
-          const [cachedFriends, cachedRequests] = await Promise.all([
+          const [cachedFriends, cachedRequests, cachedBlockedUsersRaw] = await Promise.all([
             loadCacheSafely(CACHE_KEY_FRIENDS),
-            loadCacheSafely(CACHE_KEY_PENDING_REQUESTS)
+            loadCacheSafely(CACHE_KEY_PENDING_REQUESTS),
+            AsyncStorage.getItem(CACHE_KEY_BLOCKED_USERS),
           ]);
           
           // Afficher immédiatement le cache s'il existe, même si certains tokens manquent
@@ -1618,6 +1626,14 @@ export function FriendsList({
           
           if (cachedRequests) {
             setPendingRequests(cachedRequests);
+          }
+
+          if (cachedBlockedUsersRaw) {
+            const parsed = JSON.parse(cachedBlockedUsersRaw);
+            if (Array.isArray(parsed)) {
+              setBlockedUserIds(parsed);
+              blockedUserIdsRef.current = new Set(parsed);
+            }
           }
         } catch (e) {
           // Ignorer les erreurs de cache
@@ -2093,6 +2109,15 @@ const closeIdentityModal = useCallback(() => {
       }
       
       setCurrentUserId(user.id);
+      const { data: blockedUsersRows } = await supabase
+        .from('blocked_users')
+        .select('blocked_user_id')
+        .eq('blocker_id', user.id);
+      const nextBlockedUserIds = (blockedUsersRows || []).map((row: any) => row.blocked_user_id).filter(Boolean);
+      setBlockedUserIds(nextBlockedUserIds);
+      blockedUserIdsRef.current = new Set(nextBlockedUserIds);
+      await AsyncStorage.setItem(CACHE_KEY_BLOCKED_USERS, JSON.stringify(nextBlockedUserIds));
+
       const { data: profile } = await supabase.from('user_profiles').select('pseudo').eq('id', user.id).single();
       if (profile) {
         setCurrentPseudo(profile.pseudo);
@@ -2259,7 +2284,9 @@ const closeIdentityModal = useCallback(() => {
       
       // Combiner tous les IDs d'amis (contacts + relations acceptées dans les deux sens)
       phoneFriendIdsRef.current = phoneFriendsIds;
-      const allFriendIds = [...new Set([...phoneFriendsIds, ...addedFriendsIds, ...friendsWhereIAmFriendIds])];
+      const blockedSet = blockedUserIdsRef.current;
+      const allFriendIds = [...new Set([...phoneFriendsIds, ...addedFriendsIds, ...friendsWhereIAmFriendIds])]
+        .filter((id) => !blockedSet.has(id));
 
       if (allFriendIds.length > 0) {
           // Récupérer les amis avec leur token FCM (stocké dans expo_push_token)
@@ -2897,6 +2924,9 @@ const closeIdentityModal = useCallback(() => {
               }
 
               const senderId = newMessage.from_user_id;
+              if (blockedUserIdsRef.current.has(senderId)) {
+                return;
+              }
               const now = new Date().toISOString();
 
               setPendingMessages((prev) => {
@@ -3403,61 +3433,125 @@ const closeIdentityModal = useCallback(() => {
     }
   };
 
+  const isUuid = (value?: string | null) =>
+    !!value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+
+  const submitReport = useCallback(
+    async (reason: ReportReason, reportTarget: ReportableMessage) => {
+      if (!currentUserId) return;
+      try {
+        const { error } = await supabase.from('reports').insert({
+          reporter_user_id: currentUserId,
+          reported_user_id: reportTarget.senderId,
+          message_id: isUuid(reportTarget.sourceMessageId || undefined) ? reportTarget.sourceMessageId : null,
+          message_created_at: reportTarget.createdAt ?? null,
+          reason,
+        });
+
+        if (error) {
+          console.error('❌ Erreur signalement:', error);
+          Alert.alert(i18n.t('error'), i18n.t('report_submit_error'));
+          return;
+        }
+
+        Alert.alert(i18n.t('report_submit_success_title'), i18n.t('report_submit_success_body'));
+      } catch (error) {
+        console.error('❌ Erreur signalement:', error);
+        Alert.alert(i18n.t('error'), i18n.t('report_submit_error'));
+      }
+    },
+    [currentUserId]
+  );
+
+  const openReportReasonSheet = useCallback(
+    (reportTarget: ReportableMessage) => {
+      Alert.alert(
+        i18n.t('report_message_title'),
+        i18n.t('report_message_reason_prompt'),
+        [
+          { text: i18n.t('report_reason_spam'), onPress: () => submitReport('spam', reportTarget) },
+          { text: i18n.t('report_reason_harassment'), onPress: () => submitReport('harassment', reportTarget) },
+          { text: i18n.t('report_reason_hate_speech'), onPress: () => submitReport('hate_speech', reportTarget) },
+          { text: i18n.t('report_reason_explicit_content'), onPress: () => submitReport('explicit_content', reportTarget) },
+          { text: i18n.t('report_reason_other'), onPress: () => submitReport('other', reportTarget) },
+          { text: i18n.t('cancel'), style: 'cancel' },
+        ]
+      );
+    },
+    [submitReport]
+  );
+
   const handleDeleteFriend = async (friend: any) => {
     if (!currentUserId) return;
-    
-    const isContactFriend =
-      friend?.isPhoneContact ||
-      phoneFriendIdsRef.current.includes(friend?.id);
 
-    if (isContactFriend) {
-      Alert.alert(
-        i18n.t('delete_impossible_title'),
-        i18n.t('delete_impossible_contact'),
-      );
-      return;
-    }
-    
-    // Afficher la confirmation avec Alert
     Alert.alert(
-      i18n.t('confirm_delete_title'),
-      i18n.t('confirm_delete_body', { pseudo: friend.pseudo }),
+      i18n.t('block_user_confirm_title'),
+      i18n.t('block_user_confirm_body', { pseudo: friend.pseudo }),
       [
         {
           text: i18n.t('cancel'),
           style: 'cancel',
-          onPress: () => {
-            // Rien à faire, le slider reviendra automatiquement
-          },
         },
         {
-          text: i18n.t('confirm'),
+          text: i18n.t('block_user'),
           style: 'destructive',
           onPress: async () => {
             try {
-              // Supprimer les deux relations dans friends (A→B et B→A)
-              // Relation A→B (où currentUserId est user_id)
+              const { error: blockError } = await supabase
+                .from('blocked_users')
+                .upsert(
+                  {
+                    blocker_id: currentUserId,
+                    blocked_user_id: friend.id,
+                  },
+                  { onConflict: 'blocker_id,blocked_user_id' }
+                );
+
+              if (blockError) {
+                console.error('❌ Erreur blocage:', blockError);
+                Alert.alert(i18n.t('error'), 'Impossible de bloquer cet utilisateur.');
+                return;
+              }
+
+              // Supprime les relations d'amitié dans les deux sens.
               await supabase
                 .from('friends')
                 .delete()
                 .eq('user_id', currentUserId)
                 .eq('friend_id', friend.id);
-              
-              // Relation B→A (où friend.id est user_id)
+
               await supabase
                 .from('friends')
                 .delete()
                 .eq('user_id', friend.id)
                 .eq('friend_id', currentUserId);
-              
-              // Recharger la liste
-              loadData();
-              
-              // Afficher un toast de confirmation
-              showToast(i18n.t('friend_deleted_toast', { pseudo: friend.pseudo }));
+
+              const nextBlocked = [...new Set([...blockedUserIds, friend.id])];
+              setBlockedUserIds(nextBlocked);
+              blockedUserIdsRef.current = new Set(nextBlocked);
+              await AsyncStorage.setItem(CACHE_KEY_BLOCKED_USERS, JSON.stringify(nextBlocked));
+
+              setAppUsers(prev => prev.filter(u => u.id !== friend.id));
+              setPendingMessages(prev => prev.filter(m => m.from_user_id !== friend.id && m.to_user_id !== friend.id));
+              setUnreadCache(prev => {
+                const copy = { ...prev };
+                delete copy[friend.id];
+                return copy;
+              });
+              setLastSentMessages(prev => {
+                const copy = { ...prev };
+                delete copy[friend.id];
+                return copy;
+              });
+
+              if (expandedFriendIdRef.current === friend.id) {
+                setExpandedFriendId(null);
+              }
+
+              showToast(i18n.t('user_blocked_toast', { pseudo: friend.pseudo }));
             } catch (error) {
-              console.error('Erreur lors de la suppression:', error);
-              Alert.alert(i18n.t('error'), i18n.t('cannot_delete_friend'));
+              console.error('Erreur lors du blocage:', error);
+              Alert.alert(i18n.t('error'), 'Impossible de bloquer cet utilisateur.');
             }
           },
         },
@@ -4340,9 +4434,12 @@ const closeIdentityModal = useCallback(() => {
     const allMessages = [
         ...activeMessagesToShow.map((m, idx) => ({
             id: m.id || `received-${idx}-${m.created_at}`,
+            sourceMessageId: m.id || null,
             text: stripReadPrefix(m.message_content),
             ts: m.created_at,
             isMe: false,
+            senderId: displayFriend.id,
+            createdAt: m.created_at,
             // CORRECTION: Les reçus ne doivent JAMAIS être grisés (même si "READ:" est présent).
             // Le "READ:" sur un reçu signifie juste que JE l'ai lu, ça ne doit pas affecter l'affichage.
             // On grise uniquement si pending delete (en train de disparaître).
@@ -4444,9 +4541,10 @@ const closeIdentityModal = useCallback(() => {
               ) : (
                 <ReceivedMessageFade
                   key={msg.id}
-                  message={{ id: msg.id, text: msg.text }}
+                  message={{ id: msg.id, text: msg.text, senderId: (msg as any).senderId, sourceMessageId: (msg as any).sourceMessageId, createdAt: (msg as any).createdAt }}
                   dimmed={(msg as any).dimmed}
                   shouldFadeOut={fadingOutReceivedMessages.has(msg.id)}
+                  onLongPressReport={openReportReasonSheet}
                   onFadeComplete={() => {
                     // L'animation est terminée, le message sera supprimé par le setTimeout dans handleSendProut
                   }}
@@ -4468,9 +4566,10 @@ const closeIdentityModal = useCallback(() => {
               ) : (
                 <ReceivedMessageFade
                   key={msg.id}
-                  message={{ id: msg.id, text: msg.text }}
+                  message={{ id: msg.id, text: msg.text, senderId: (msg as any).senderId, sourceMessageId: (msg as any).sourceMessageId, createdAt: (msg as any).createdAt }}
                   dimmed={(msg as any).dimmed}
                   shouldFadeOut={fadingOutReceivedMessages.has(msg.id)}
+                  onLongPressReport={openReportReasonSheet}
                   onFadeComplete={() => {
                     // L'animation est terminée, le message sera supprimé par le setTimeout dans handleSendProut
                   }}
@@ -4606,6 +4705,7 @@ const closeIdentityModal = useCallback(() => {
     openChatSpecificSoundList,
     handleSelectChatSpecificSound,
     toggleChatMute,
+    openReportReasonSheet,
     isFirstChatModalVisible,
     closeFirstChatModal,
     // PAS de keyboardVisible ici !

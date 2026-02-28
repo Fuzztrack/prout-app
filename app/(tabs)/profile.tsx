@@ -166,6 +166,9 @@ export default function ProfileScreen() {
       <TouchableOpacity onPress={handleContactSupport} style={styles.supportLink}>
         <Text style={styles.supportLinkText}>{i18n.t('contact_support')}</Text>
       </TouchableOpacity>
+      <TouchableOpacity onPress={() => safePush(router, '/eula', { skipInitialCheck: false })} style={styles.supportLink}>
+        <Text style={styles.supportLinkText}>{i18n.t('profile_eula')}</Text>
+      </TouchableOpacity>
       <Text style={styles.versionText}>Prrt! version 1.0.0</Text>
       </ScrollView>
     </View>

@@ -49,6 +49,17 @@ export default function Index() {
           return;
         }
 
+        // 1b. Vérifier si l'EULA a été accepté
+        const eulaAccepted = await AsyncStorage.getItem('eula_accepted');
+        if (eulaAccepted !== 'true') {
+          console.log('➡️ Direction: Acceptation EULA');
+          if (!hasNavigated.current) {
+            hasNavigated.current = true;
+            safeReplace(router, '/eula-accept', { skipInitialCheck: false });
+          }
+          return;
+        }
+
         // 2. Vérifier la session active
         // On utilise getUser() pour valider le token côté serveur (plus sûr)
         // MAIS si ça échoue (réseau), on fallback sur getSession() (cache local) pour le mode offline

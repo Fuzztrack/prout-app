@@ -467,6 +467,7 @@ export default function RootLayout() {
               <Stack.Screen name="soundcheck" options={{ gestureEnabled: true }} />
               <Stack.Screen name="confirm-email" options={{ presentation: 'modal' }} />
               <Stack.Screen name="reset-password" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="eula-accept" options={{ gestureEnabled: false }} />
               <Stack.Screen name="edit-profile" options={{ presentation: 'transparentModal', animation: 'fade', headerShown: false }} />
               <Stack.Screen name="complicity" />
             </Stack>
