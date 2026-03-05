@@ -83,7 +83,7 @@ class ProutMessagingService : FirebaseMessagingService() {
             }
         }
 
-        val proutKey = data["proutKey"]?.lowercase() ?: "prrt1"
+        val proutKey = data["proutKey"]?.lowercase() ?: "trrl1"
         val title = data["title"] ?: "Message"
         val proutName = data["proutName"] ?: "Un prout surprise"
         val sender = data["sender"] ?: "Un ami"
@@ -109,7 +109,7 @@ class ProutMessagingService : FirebaseMessagingService() {
         return if (resId != 0) {
             Uri.parse("android.resource://" + packageName + "/" + resId)
         } else {
-            Uri.parse("android.resource://" + packageName + "/raw/prrt1")
+            Uri.parse("android.resource://" + packageName + "/raw/trrl1")
         }
     }
 
@@ -263,7 +263,6 @@ import android.os.Build
 
 object NotificationChannelHelper {
     private val SOUND_KEYS = arrayOf(
-        "prrt1", "prrt6", "prrt8", "prrt9", "prrt17", "prrt18",
         "bzzz1", "bzzz2", "bzzz3", "bzzz4", "bzzz5",
         "trrl1", "trrl2", "trrl3", "trrl4", "trrl5"
     )
@@ -298,7 +297,7 @@ object NotificationChannelHelper {
 
             val channelName = "Prrt $soundKey"
             val resId = context.resources.getIdentifier(soundKey, "raw", context.packageName)
-            val resolvedName = if (resId != 0) soundKey else "prrt1"
+            val resolvedName = if (resId != 0) soundKey else "trrl1"
             val soundUri =
                 android.net.Uri.parse("android.resource://\${context.packageName}/raw/\${resolvedName}")
 
@@ -450,7 +449,7 @@ const withAndroidProutMessaging = (config) => {
     mainApplication['meta-data'].push({
       $: {
         'android:name': 'com.google.firebase.messaging.default_notification_channel_id',
-        'android:value': 'prout-prrt1-v5',
+        'android:value': 'prout-trrl1-v5',
         'tools:replace': 'android:value',
       },
     });
@@ -556,8 +555,7 @@ const withAndroidProutMessaging = (config) => {
         '# Keep ContentProvider for early initialization',
         '-keep class * extends android.content.ContentProvider { *; }',
         '',
-        '# Prevent R8 from removing raw sound resources (prrt/bzzz/trrl)',
-        '-keepclassmembers class **.R$raw { public static final int prrt*; }',
+        '# Prevent R8 from removing raw sound resources (bzzz/trrl)',
         '-keepclassmembers class **.R$raw { public static final int bzzz*; }',
         '-keepclassmembers class **.R$raw { public static final int trrl*; }',
       ].join('\n');

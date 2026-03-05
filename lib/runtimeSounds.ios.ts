@@ -18,8 +18,6 @@ const BZZZ_ASSETS = [
 ];
 
 export const SOUND_KEYS_BY_CATEGORY: Record<string, string[]> = {
-  // Compat legacy: si "prrt" remonte d'un ancien réglage, on redirige vers TRLL.
-  prrt: TRLL_KEYS,
   trll: TRLL_KEYS,
   bzzz: BZZZ_KEYS,
 };
@@ -38,7 +36,6 @@ export const SOUND_ASSETS: Record<string, any> = {
 };
 
 export const PREVIEW_SOUNDS_BY_CATEGORY: Record<string, any[]> = {
-  prrt: TRLL_ASSETS,
   trll: TRLL_ASSETS,
   bzzz: BZZZ_ASSETS,
 };

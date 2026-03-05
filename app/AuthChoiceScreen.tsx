@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { CustomButton } from '../components/CustomButton';
 import { safePush, safeReplace } from '../lib/navigation';
@@ -26,6 +27,13 @@ export default function AuthChoiceScreen() {
     } catch {
       // Aucun navigateur à fermer
     }
+  };
+
+  const ensureEulaAccepted = async () => {
+    const eulaAccepted = await AsyncStorage.getItem('eula_accepted');
+    if (eulaAccepted === 'true') return true;
+    replaceWithSkip('/eula-accept');
+    return false;
   };
 
   const openAuthSessionSafe = async (
@@ -100,6 +108,21 @@ export default function AuthChoiceScreen() {
     checkUser();
     return () => {
       isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const guardEula = async () => {
+      const accepted = await AsyncStorage.getItem('eula_accepted');
+      if (!mounted) return;
+      if (accepted !== 'true') {
+        replaceWithSkip('/eula-accept');
+      }
+    };
+    guardEula().catch(() => {});
+    return () => {
+      mounted = false;
     };
   }, []);
 
@@ -354,6 +377,7 @@ export default function AuthChoiceScreen() {
 
   // 2. Connexion Google
   const handleGoogleLogin = async () => {
+    if (!(await ensureEulaAccepted())) return;
     setLoading(true);
     isOAuthBrowserAuthInProgressRef.current = false;
     try {
@@ -409,6 +433,7 @@ export default function AuthChoiceScreen() {
 
   // 3. Connexion Apple
   const handleAppleLogin = async () => {
+    if (!(await ensureEulaAccepted())) return;
     setLoading(true);
     isOAuthBrowserAuthInProgressRef.current = false;
     console.log('🍏 1. Début Apple Sign In');
@@ -481,31 +506,31 @@ export default function AuthChoiceScreen() {
 
         <View style={styles.socialContainer}>
           <TouchableOpacity
-            onPress={handleGoogleLogin}
+            onPress={() => {
+              handleAppleLogin().catch(() => {});
+            }}
             disabled={loading}
-            style={styles.iconButton}
+            style={[styles.oauthButton, styles.appleOauthButton, loading && styles.oauthButtonDisabled]}
           >
-            <Image
-              source={require('../assets/images/google.png')}
-              style={styles.socialIcon}
-              resizeMode="contain"
-            />
+            <View style={styles.oauthButtonContent}>
+              <Image source={require('../assets/images/apple.png')} style={styles.oauthAppleIcon} resizeMode="contain" />
+              <Text style={styles.appleOauthButtonText}>Sign in with Apple</Text>
+            </View>
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={handleAppleLogin}
+            onPress={() => {
+              handleGoogleLogin().catch(() => {});
+            }}
             disabled={loading}
-            style={styles.iconButton}
+            style={[styles.oauthButton, styles.googleOauthButton, loading && styles.oauthButtonDisabled]}
           >
-            <Image
-              source={require('../assets/images/apple.png')}
-              style={styles.appleIcon}
-              resizeMode="contain"
-            />
+            <View style={styles.oauthButtonContent}>
+              <Image source={require('../assets/images/google.png')} style={styles.oauthGoogleIcon} resizeMode="contain" />
+              <Text style={styles.googleOauthButtonText}>Sign in with Google</Text>
+            </View>
           </TouchableOpacity>
         </View>
-
-        <Text style={styles.socialText}>{i18n.t('continue_with_social')}</Text>
 
         <View style={styles.dividerContainer}>
           <View style={styles.divider} />
@@ -527,6 +552,14 @@ export default function AuthChoiceScreen() {
           textColor="#604a3e"
           small
         />
+
+        <TouchableOpacity
+          style={styles.eulaLinkButton}
+          onPress={() => safePush(router, '/eula', { skipInitialCheck: false })}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.eulaLinkText}>Read EULA and Safety Policy</Text>
+        </TouchableOpacity>
       </ScrollView>
 
       {loading && (
@@ -550,29 +583,70 @@ const styles = StyleSheet.create({
   divider: { flex: 1, height: 1, backgroundColor: '#604a3e', opacity: 0.3 },
   orText: { marginHorizontal: 10, color: '#604a3e', fontWeight: 'bold' },
   socialContainer: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     justifyContent: 'center',
-    alignItems: 'center',
-    gap: 30,
+    alignItems: 'stretch',
+    gap: 12,
     marginBottom: 15,
   },
-  iconButton: {
-    padding: 10,
+  oauthButton: {
+    width: '100%',
+    maxWidth: 360,
+    alignSelf: 'center',
+    minHeight: 54,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
   },
-  socialIcon: {
-    width: 44,
-    height: 44,
+  oauthButtonDisabled: {
+    opacity: 0.6,
   },
-  appleIcon: {
-    width: 64,
-    height: 64,
+  oauthButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
   },
-  socialText: {
-    color: '#604a3e',
-    fontSize: 16,
+  appleOauthButton: {
+    backgroundColor: '#ffffff',
+    borderColor: '#1a1a1a',
+  },
+  googleOauthButton: {
+    backgroundColor: '#ffffff',
+    borderColor: '#1a1a1a',
+  },
+  oauthAppleIcon: {
+    width: 20,
+    height: 20,
+    tintColor: '#000000',
+  },
+  oauthGoogleIcon: {
+    width: 18,
+    height: 18,
+  },
+  appleOauthButtonText: {
+    color: '#1a1a1a',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  googleOauthButtonText: {
+    color: '#1a1a1a',
+    fontSize: 17,
     fontWeight: '600',
-    textAlign: 'center',
-    marginBottom: 20,
+  },
+  eulaLinkButton: {
+    alignSelf: 'center',
+    marginTop: 20,
+    marginBottom: 24,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+  },
+  eulaLinkText: {
+    color: '#604a3e',
+    fontSize: 14,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,

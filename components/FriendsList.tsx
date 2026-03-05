@@ -79,8 +79,7 @@ function pickRandomWithoutImmediateRepeat(arr: string[], lastValue?: string) {
 async function getSelectedSoundCategory(): Promise<SoundCategory> {
   try {
     const saved = await AsyncStorage.getItem(SOUND_CATEGORY_KEY);
-    if (saved === 'prrt' || saved === 'bzzz' || saved === 'trll') {
-      if (Platform.OS === 'ios' && saved === 'prrt') return 'trll';
+    if (saved === 'bzzz' || saved === 'trll') {
       return saved;
     }
   } catch (_) {}
@@ -1808,7 +1807,7 @@ useEffect(() => {
       if (!parsed || typeof parsed !== 'object') return;
       const sanitized: Record<string, SoundCategory> = {};
       Object.entries(parsed).forEach(([friendId, category]) => {
-        if (category === 'prrt' || category === 'trll' || category === 'bzzz') {
+        if (category === 'trll' || category === 'bzzz') {
           sanitized[friendId] = category;
         }
       });
@@ -4492,8 +4491,8 @@ const closeIdentityModal = useCallback(() => {
         {isFirstChatModalVisible && (
           <View style={[styles.firstFooterModalCard, styles.chatOnboardingInlineCard]}>
             <View style={styles.chatOnboardingHeaderRow}>
-              <Image source={require('../assets/images/trrl.png')} style={styles.chatOnboardingHeaderImage} resizeMode="contain" />
-              <Image source={require('../assets/images/bzzz.png')} style={styles.chatOnboardingHeaderImage} resizeMode="contain" />
+              <Image source={require('../assets/images/tweet.png')} style={styles.chatOnboardingHeaderImage} resizeMode="contain" />
+              <Image source={require('../assets/images/buzz.png')} style={styles.chatOnboardingHeaderImage} resizeMode="contain" />
             </View>
             <View style={styles.firstFooterModalFeatureRow}>
               <Image
@@ -4623,7 +4622,12 @@ const closeIdentityModal = useCallback(() => {
             <Ionicons name="send" size={18} color="#604a3e" />
           </TouchableOpacity>
         </View>
-        <View style={styles.chatSoundChoiceRow}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.chatSoundChoiceScroller}
+          contentContainerStyle={styles.chatSoundChoiceRow}
+        >
           <TouchableOpacity
             style={styles.chatSoundChoiceButton}
             onPress={() => selectChatMessageSoundChoice('trll')}
@@ -4632,7 +4636,7 @@ const closeIdentityModal = useCallback(() => {
             activeOpacity={0.8}
           >
             <Image
-              source={require('../assets/images/trrl.png')}
+              source={require('../assets/images/tweet.png')}
               style={[
                 styles.chatSoundChoiceImage,
                 chatMessageSoundChoice !== 'trll' && styles.chatSoundChoiceImageInactive,
@@ -4648,7 +4652,7 @@ const closeIdentityModal = useCallback(() => {
             activeOpacity={0.8}
           >
             <Image
-              source={require('../assets/images/bzzz.png')}
+              source={require('../assets/images/buzz.png')}
               style={[
                 styles.chatSoundChoiceImage,
                 chatMessageSoundChoice !== 'bzzz' && styles.chatSoundChoiceImageInactive,
@@ -4663,15 +4667,17 @@ const closeIdentityModal = useCallback(() => {
           >
             <Ionicons
               name={isChatMuteEnabled ? 'volume-mute' : 'volume-medium'}
-              size={30}
+              size={24}
               color="#604a3e"
               style={!isChatMuteEnabled ? styles.chatSoundChoiceImageInactive : undefined}
             />
           </TouchableOpacity>
-        </View>
+        </ScrollView>
         {!!chatSpecificSoundListCategory && (
           <View style={styles.chatSpecificSoundList}>
-            {(chatSpecificSoundListCategory === 'trll' ? PICKUP_TRLL_KEYS : PICKUP_BZZZ_KEYS).map((soundKey) => (
+            {(chatSpecificSoundListCategory === 'trll'
+              ? PICKUP_TRLL_KEYS
+              : PICKUP_BZZZ_KEYS).map((soundKey) => (
               <TouchableOpacity
                 key={soundKey}
                 style={[
@@ -5171,13 +5177,19 @@ const closeIdentityModal = useCallback(() => {
         isVisible={friendSoundModalVisible}
         onBackdropPress={closeFriendSoundModal}
         onBackButtonPress={closeFriendSoundModal}
+        style={styles.friendSoundModal}
         backdropOpacity={0.45}
         animationIn="fadeIn"
         animationOut="fadeOut"
         animationOutTiming={120}
         useNativeDriver
       >
-        <View style={styles.friendSoundModalCard}>
+        <View
+          style={[
+            styles.friendSoundModalCard,
+            friendSoundModalStep !== 'selector' ? styles.friendSoundModalCardExpanded : undefined,
+          ]}
+        >
           {friendSoundModalStep === 'selector' ? (
             <>
               <Text style={styles.friendSoundModalTitle}>
@@ -5209,10 +5221,6 @@ const closeIdentityModal = useCallback(() => {
             </>
           ) : (
             <>
-              <View style={styles.friendSoundPickHeaderRow}>
-                <Image source={require('../assets/images/trrl.png')} style={styles.friendSoundPickHeaderImage} resizeMode="contain" />
-                <Image source={require('../assets/images/bzzz.png')} style={styles.friendSoundPickHeaderImage} resizeMode="contain" />
-              </View>
               <ScrollView
                 style={styles.friendSoundPickScroll}
                 contentContainerStyle={styles.friendSoundPickScrollContent}
@@ -5220,6 +5228,9 @@ const closeIdentityModal = useCallback(() => {
               >
                 <View style={styles.friendSoundPickColumns}>
                   <View style={styles.friendSoundPickColumn}>
+                    <View style={styles.friendSoundPickHeaderCell}>
+                      <Image source={require('../assets/images/tweet.png')} style={styles.friendSoundPickHeaderImage} resizeMode="contain" />
+                    </View>
                     {PICKUP_TRLL_KEYS.map((soundKey) => (
                       <TouchableOpacity
                         key={soundKey}
@@ -5237,6 +5248,9 @@ const closeIdentityModal = useCallback(() => {
                     ))}
                   </View>
                   <View style={styles.friendSoundPickColumn}>
+                    <View style={styles.friendSoundPickHeaderCell}>
+                      <Image source={require('../assets/images/buzz.png')} style={styles.friendSoundPickHeaderImage} resizeMode="contain" />
+                    </View>
                     {PICKUP_BZZZ_KEYS.map((soundKey) => (
                       <TouchableOpacity
                         key={soundKey}
@@ -5406,33 +5420,40 @@ const styles = StyleSheet.create({
   emptyCard: { backgroundColor: 'rgba(255,255,255,0.7)', padding: 20, borderRadius: 15, alignItems: 'center' },
   emptyText: { color: '#666', fontSize: 16, fontWeight: 'bold' },
   subText: { color: '#888', fontSize: 14, marginTop: 5 },
-  messageInputContainer: { backgroundColor: 'rgba(255,255,255,0.9)', marginTop: 0, marginBottom: 10, padding: 8, paddingBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#d9e6e3' },
+  messageInputContainer: { backgroundColor: 'rgba(255,255,255,0.9)', marginTop: 0, marginBottom: 4, padding: 6, paddingBottom: 6, borderRadius: 12, borderWidth: 1, borderColor: '#d9e6e3' },
   messageInputContainerAndroid: { marginBottom: 0, paddingBottom: 0 },
   messageLabel: { color: '#604a3e', fontWeight: '600', marginBottom: 6 },
   messageInputRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 0, gap: 8 },
+  chatSoundChoiceScroller: {
+    marginTop: 4,
+    marginBottom: 4,
+    maxHeight: 44,
+    alignSelf: 'center',
+    flexGrow: 0,
+  },
   chatSoundChoiceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 18,
-    marginTop: 0,
-    marginBottom: 0,
+    gap: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 0,
   },
   chatSoundChoiceButton: {
-    width: 94,
-    height: 76,
+    width: 96,
+    height: 56,
     alignItems: 'center',
     justifyContent: 'center',
   },
   chatMuteChoiceButton: {
-    width: 76,
-    height: 76,
+    width: 56,
+    height: 56,
     alignItems: 'center',
     justifyContent: 'center',
   },
   chatSoundChoiceImage: {
-    width: 74,
-    height: 74,
+    width: 75,
+    height: 51,
   },
   chatSpecificSoundList: {
     flexDirection: 'row',
@@ -5744,8 +5765,9 @@ const styles = StyleSheet.create({
   
   stickyInputContainer: {
     backgroundColor: '#ebb89b',
-    padding: 10,
-    paddingBottom: Platform.OS === 'ios' ? 20 : 10, // Padding safe area basique
+    paddingHorizontal: 10,
+    paddingTop: 6,
+    paddingBottom: Platform.OS === 'ios' ? 10 : 6, // Padding safe area basique réduite
     elevation: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
@@ -5832,6 +5854,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     margin: 0,
   },
+  friendSoundModal: {
+    justifyContent: 'flex-end',
+    margin: 0,
+  },
   identityModalContent: {
     backgroundColor: '#ebb89b',
     borderRadius: 20,
@@ -5843,11 +5869,17 @@ const styles = StyleSheet.create({
   friendSoundModalCard: {
     backgroundColor: '#ebb89b',
     borderRadius: 16,
+    width: '100%',
+    alignSelf: 'center',
     paddingHorizontal: 18,
     paddingTop: 18,
     paddingBottom: 14,
     borderWidth: 1,
     borderColor: 'rgba(96, 74, 62, 0.12)',
+    maxHeight: SCREEN_HEIGHT - 8,
+  },
+  friendSoundModalCardExpanded: {
+    minHeight: SCREEN_HEIGHT - 70,
   },
   friendSoundModalTitle: {
     color: '#604a3e',
@@ -5860,7 +5892,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: -18,
-    marginBottom: -14,
+    marginBottom: 22,
     transform: [{ scale: 0.88 }],
   },
   friendSoundModalOrTitle: {
@@ -5868,7 +5900,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     textAlign: 'center',
-    marginTop: 0,
+    marginTop: 12,
     marginBottom: 2,
   },
   friendSoundModalPickButton: {
@@ -5876,9 +5908,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#A2E4D4',
     borderWidth: 2,
     borderColor: '#1a1a1a',
-    borderRadius: 22,
-    paddingVertical: 9,
-    paddingHorizontal: 16,
+    borderRadius: 26,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    minWidth: 230,
     marginBottom: 22,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
@@ -5889,7 +5922,8 @@ const styles = StyleSheet.create({
   friendSoundModalPickButtonText: {
     color: '#1a1a1a',
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: 16,
+    textAlign: 'center',
   },
   friendSoundPickModalCard: {
     backgroundColor: '#ebb89b',
@@ -5908,19 +5942,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 10,
   },
-  friendSoundPickHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  friendSoundPickHeaderCell: {
     alignItems: 'center',
-    paddingHorizontal: 14,
-    marginBottom: 10,
+    justifyContent: 'center',
+    marginBottom: 8,
   },
   friendSoundPickHeaderImage: {
     width: 92,
     height: 40,
   },
   friendSoundPickScroll: {
-    maxHeight: 300,
+    flex: 1,
     marginBottom: 10,
   },
   friendSoundPickScrollContent: {
@@ -5928,7 +5960,8 @@ const styles = StyleSheet.create({
   },
   friendSoundPickColumns: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
+    width: '100%',
   },
   friendSoundPickColumn: {
     flex: 1,

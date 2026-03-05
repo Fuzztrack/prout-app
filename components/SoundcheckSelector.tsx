@@ -33,33 +33,30 @@ export async function stopCurrentPreviewSound() {
 const MINT = '#A2E4D4';
 
 export const SOUND_CATEGORY_KEY = 'sound_category';
-export type SoundCategory = 'prrt' | 'trll' | 'bzzz';
+export type SoundCategory = 'trll' | 'bzzz';
 
 // Convention d'angles (demandée) :
 // 0° = 3h, sens horaire (y vers le bas).
 const CATEGORIES: { id: SoundCategory; angle: number; label: string; source: any }[] = [
-  { id: 'trll', angle: 210, label: 'TRLL!', source: require('../assets/images/trrl.png') }, // 10h
-  // { id: 'prrt', angle: 90, label: 'PRRT!', source: require('../assets/images/Prrt.png') }, // temporairement masqué
-  { id: 'bzzz', angle: 330, label: 'BZZZ!', source: require('../assets/images/bzzz.png') }, // 2h
+  { id: 'trll', angle: 210, label: 'TRLL!', source: require('../assets/images/tweet.png') }, // 10h
+  { id: 'bzzz', angle: 330, label: 'BZZZ!', source: require('../assets/images/buzz.png') }, // 2h
 ];
 
 // Ajustements fins par logo (pour un rendu visuel équilibré)
 const RADIAL_FACTOR: Record<SoundCategory, number> = {
   trll: 0.96, // trll légèrement plus éloigné du centre
-  prrt: 0.99, // prrt un peu plus écarté (plus loin du centre)
   bzzz: 0.98, // légèrement plus éloigné du centre
 };
 
 // Offsets fins (px) pour équilibrer visuellement sans toucher aux angles de crans
 const POSITION_OFFSET: Record<SoundCategory, { dx: number; dy: number }> = {
   trll: { dx: 0, dy: 0 },
-  prrt: { dx: 0, dy: 18 }, // un peu plus bas
   bzzz: { dx: 0, dy: -8 }, // légèrement plus bas qu'avant
 };
 
 // L'indicateur est dessiné en haut (12h = 270° dans notre convention).
 const angleToKnobRotation = (angleDeg: number) => (angleDeg - 270 + 360) % 360;
-const SNAP_ANGLES = CATEGORIES.map((c) => c.angle); // [210, 330, 90]
+const SNAP_ANGLES = CATEGORIES.map((c) => c.angle); // [210, 330]
 const KNOB_ROTATIONS = SNAP_ANGLES.map(angleToKnobRotation);
 
 const normalizeAngle = (deg: number) => {
@@ -135,7 +132,6 @@ export default function SoundcheckSelector({
     // Offsets fins (px) adaptés à l'échelle
     const offsetsScaled: Record<SoundCategory, { dx: number; dy: number }> = {
       trll: { dx: 0, dy: 0 },
-      prrt: { dx: 0, dy: Math.round(18 * (logoBox / 112)) },
       bzzz: { dx: 0, dy: Math.round(-8 * (logoBox / 112)) },
     };
 
@@ -147,7 +143,7 @@ export default function SoundcheckSelector({
       orbitRadius,
       containerSize: Math.round(container),
       containerWidth: Math.round(compact ? container + 44 : container),
-      containerHeight: Math.round(compact ? container - 40 : container),
+      containerHeight: Math.round(compact ? container - 8 : container),
       offsetsScaled,
     };
   }, [screenWidth, compact]);
@@ -325,7 +321,7 @@ export default function SoundcheckSelector({
           {
             width: layout.containerWidth,
             height: layout.containerHeight,
-            overflow: compact ? 'hidden' as const : undefined,
+            overflow: undefined,
           },
         ]}
       >

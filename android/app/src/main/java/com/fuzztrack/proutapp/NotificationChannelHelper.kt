@@ -22,14 +22,12 @@ object NotificationChannelHelper {
         R.raw.prout16, R.raw.prout17, R.raw.prout18, R.raw.prout19, R.raw.prout20
     )
 
-    // Soundcheck (prrt/bzzz/trrl) : références explicites pour éviter le shrink en release
+    // Soundcheck (bzzz/trrl) : références explicites pour éviter le shrink en release
     private val EXTRA_SOUND_KEYS = arrayOf(
-        "prrt1", "prrt6", "prrt8", "prrt9", "prrt17", "prrt18",
         "bzzz1", "bzzz2",
         "trrl1", "trrl2", "trrl3"
     )
     private val EXTRA_RAW_RES = intArrayOf(
-        R.raw.prrt1, R.raw.prrt6, R.raw.prrt8, R.raw.prrt9, R.raw.prrt17, R.raw.prrt18,
         R.raw.bzzz1, R.raw.bzzz2,
         R.raw.trrl1, R.raw.trrl2, R.raw.trrl3
     )

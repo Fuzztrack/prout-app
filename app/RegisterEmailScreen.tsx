@@ -209,6 +209,14 @@ export default function RegisterEmailScreen() {
             />
         </View>
 
+        <TouchableOpacity
+          style={styles.eulaLinkButton}
+          onPress={() => router.push('/eula')}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.eulaLinkText}>Read EULA and Safety Policy</Text>
+        </TouchableOpacity>
+
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -258,4 +266,18 @@ const styles = StyleSheet.create({
   helperText: { fontSize: 12, color: '#604a3e', marginTop: 5, marginLeft: 5, opacity: 0.7 },
 
   footer: { marginTop: 10 }
+  ,
+  eulaLinkButton: {
+    alignSelf: 'center',
+    marginTop: 20,
+    marginBottom: 24,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+  },
+  eulaLinkText: {
+    color: '#604a3e',
+    fontSize: 14,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
+  },
 });

@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Device from 'expo-device';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -15,10 +16,15 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import i18n from '@/lib/i18n';
 import { Audio } from 'expo-av';
 import { SOUND_ASSETS, SOUND_KEYS_BY_CATEGORY } from '@/lib/runtimeSounds';
+import { SOUND_CATEGORY_KEY, type SoundCategory } from '@/components/SoundcheckSelector';
 
 const BACKGROUND_COLOR = '#ebb89b';
 const TRLL_KEYS = SOUND_KEYS_BY_CATEGORY.trll || [];
 const BZZZ_KEYS = SOUND_KEYS_BY_CATEGORY.bzzz || [];
+const DEFAULT_SOUND_OPTIONS: Array<{ category: SoundCategory; image: any }> = [
+  { category: 'trll', image: require('../assets/images/tweet.png') },
+  { category: 'bzzz', image: require('../assets/images/buzz.png') },
+];
 
 function getSoundDisplayName(soundKey: string) {
   const translated = i18n.t(`prout_names.${soundKey}`) as any;
@@ -37,9 +43,10 @@ function getSoundDisplayName(soundKey: string) {
 
 export default function SoundcheckScreen() {
   const router = useRouter();
-  const { width: screenWidth } = useWindowDimensions();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const currentSoundRef = useRef<Audio.Sound | null>(null);
+  const [defaultCategory, setDefaultCategory] = useState<SoundCategory>('trll');
 
   // Taille du titre: on se base sur le vrai ratio de sound.png pour éviter
   // les "marges" visuelles créées par un ratio arbitraire + resizeMode="contain".
@@ -53,7 +60,8 @@ export default function SoundcheckScreen() {
   const titleScale = 0.8;
   const titleImageWidth = Math.round(screenWidth * titleScale);
   const titleImageHeight = Math.round(titleImageWidth / soundTitleAspectRatio);
-  const tableMaxHeight = Math.max(280, Math.min(430, Math.round(screenWidth * 1.06)));
+  // Laisser le tableau descendre presque jusqu'en bas, en gardant ~200px de marge (titre + bas)
+  const tableMaxHeight = Math.max(280, screenHeight - 200);
 
   const stopCurrentSound = useCallback(async () => {
     const current = currentSoundRef.current;
@@ -69,6 +77,32 @@ export default function SoundcheckScreen() {
 
   const playableTrllKeys = useMemo(() => TRLL_KEYS.filter((k) => !!SOUND_ASSETS[k]), []);
   const playableBzzzKeys = useMemo(() => BZZZ_KEYS.filter((k) => !!SOUND_ASSETS[k]), []);
+  const selectedDefaultCategoryIndex = useMemo(() => {
+    const foundIndex = DEFAULT_SOUND_OPTIONS.findIndex((option) => option.category === defaultCategory);
+    return foundIndex >= 0 ? foundIndex : 0;
+  }, [defaultCategory]);
+
+  useEffect(() => {
+    let mounted = true;
+    AsyncStorage.getItem(SOUND_CATEGORY_KEY)
+      .then((saved) => {
+        if (!mounted || !saved) return;
+        if (saved === 'trll' || saved === 'bzzz') {
+          setDefaultCategory(saved);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handleSelectDefaultCategory = useCallback(async (category: SoundCategory) => {
+    setDefaultCategory(category);
+    try {
+      await AsyncStorage.setItem(SOUND_CATEGORY_KEY, category);
+    } catch (_) {}
+  }, []);
 
   const playSelectedSound = useCallback(async (soundKey: string) => {
     const asset = SOUND_ASSETS[soundKey];
@@ -136,16 +170,6 @@ export default function SoundcheckScreen() {
       </View>
       <View style={styles.content}>
         <View style={styles.libraryArea}>
-          <View style={styles.libraryHeaderRow}>
-            <View style={styles.libraryHeaderCol}>
-              <Image source={require('../assets/images/trrl.png')} style={styles.libraryHeaderImage} resizeMode="contain" />
-              <Text style={styles.libraryHeaderDefinition}>{i18n.t('soundcheck_trll_description')}</Text>
-            </View>
-            <View style={styles.libraryHeaderCol}>
-              <Image source={require('../assets/images/bzzz.png')} style={styles.libraryHeaderImage} resizeMode="contain" />
-              <Text style={styles.libraryHeaderDefinition}>{i18n.t('soundcheck_bzzz_description')}</Text>
-            </View>
-          </View>
           <ScrollView
             style={[styles.libraryScroll, { maxHeight: tableMaxHeight }]}
             contentContainerStyle={styles.libraryScrollContent}
@@ -153,6 +177,9 @@ export default function SoundcheckScreen() {
           >
             <View style={styles.libraryColumns}>
               <View style={styles.libraryColumn}>
+                <View style={styles.libraryHeaderCol}>
+                  <Image source={require('../assets/images/tweet.png')} style={styles.libraryHeaderImage} resizeMode="contain" />
+                </View>
                 {playableTrllKeys.map((soundKey) => (
                   <TouchableOpacity
                     key={soundKey}
@@ -167,6 +194,9 @@ export default function SoundcheckScreen() {
                 ))}
               </View>
               <View style={styles.libraryColumn}>
+                <View style={styles.libraryHeaderCol}>
+                  <Image source={require('../assets/images/buzz.png')} style={styles.libraryHeaderImage} resizeMode="contain" />
+                </View>
                 {playableBzzzKeys.map((soundKey) => (
                   <TouchableOpacity
                     key={soundKey}
@@ -182,6 +212,28 @@ export default function SoundcheckScreen() {
               </View>
             </View>
           </ScrollView>
+        </View>
+        <View style={[styles.defaultCategorySection, { paddingBottom: Math.max(10, insets.bottom) }]}>
+          <Text style={styles.defaultCategoryTitle}>Choose your default sound notification category</Text>
+          <View style={styles.defaultCategoryTrack}>
+            <View
+              pointerEvents="none"
+              style={[
+                styles.defaultCategoryIndicator,
+                { left: `${selectedDefaultCategoryIndex * (100 / 2)}%` },
+              ]}
+            />
+            {DEFAULT_SOUND_OPTIONS.map((option) => (
+              <TouchableOpacity
+                key={option.category}
+                style={styles.defaultCategoryStep}
+                onPress={() => handleSelectDefaultCategory(option.category)}
+                activeOpacity={0.85}
+              >
+                <Image source={option.image} style={styles.defaultCategoryIcon} resizeMode="contain" />
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
       </View>
     </SafeAreaView>
@@ -233,19 +285,14 @@ const styles = StyleSheet.create({
   },
   libraryArea: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: 12,
     paddingTop: 8,
     justifyContent: 'flex-start',
   },
-  libraryHeaderRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 8,
-  },
   libraryHeaderCol: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 8,
   },
   libraryHeaderImage: {
     width: 98,
@@ -266,12 +313,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
   },
   libraryScrollContent: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 0,
     paddingVertical: 8,
   },
   libraryColumns: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
+    width: '100%',
   },
   libraryColumn: {
     flex: 1,
@@ -290,5 +338,44 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  defaultCategorySection: {
+    paddingHorizontal: 12,
+    paddingTop: 8,
+  },
+  defaultCategoryTitle: {
+    color: '#604a3e',
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  defaultCategoryTrack: {
+    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(96, 74, 62, 0.18)',
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.32)',
+    overflow: 'hidden',
+    minHeight: 62,
+  },
+  defaultCategoryIndicator: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: '50%',
+    backgroundColor: 'rgba(162, 228, 212, 0.72)',
+  },
+  defaultCategoryStep: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+  },
+  defaultCategoryIcon: {
+    width: 84,
+    height: 32,
   },
 });

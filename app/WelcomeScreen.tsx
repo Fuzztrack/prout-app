@@ -15,7 +15,7 @@ export default function WelcomeScreen() {
     await Notifications.requestPermissionsAsync();
     await ensureContactPermissionWithDisclosure();
     await AsyncStorage.setItem('hasSeenWelcome', 'true');
-    safeReplace(router, '/AuthChoiceScreen');
+    safeReplace(router, '/eula-accept');
   };
 
   return (

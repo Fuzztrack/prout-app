@@ -3,13 +3,12 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 const SOUND_KEYS = [
-  'prrt1','prrt6','prrt8','prrt9','prrt17','prrt18',
   'bzzz1','bzzz2','bzzz3','bzzz4','bzzz5',
   'trrl1','trrl2','trrl3','trrl4','trrl5',
 ];
 
 // Canal par défaut pour Android (FCM)
-export const DEFAULT_CHANNEL_ID = 'prrt1';
+export const DEFAULT_CHANNEL_ID = 'trrl1';
 
 export function getChannelIdForSound(soundName: string) {
   return `prout-${soundName}-v5`; // Harmonisation avec ProutMessagingService.kt (v5)
@@ -39,7 +38,7 @@ async function configureAndroidNotificationChannels() {
     for (const soundName of SOUND_KEYS) {
       const channelId = getChannelIdForSound(soundName);
       // ⚡ Pour Android : Le nom de la ressource est SANS extension
-      // Exemple: "prrt1.wav" dans app.json => ressource "prrt1"
+      // Exemple: "trrl1.wav" dans app.json => ressource "trrl1"
       const soundResourceName = soundName;
 
       // Supprimer l'ancien canal s'il existe
@@ -115,7 +114,7 @@ export async function updateAndroidNotificationChannelsVibration(enabled: boolea
         const defaultChannelConfig: any = {
           name: defaultChannel.name || 'Prrt',
           importance: defaultChannel.importance || Notifications.AndroidImportance.MAX,
-          sound: 'prrt1',
+          sound: 'trrl1',
           lockscreenVisibility: defaultChannel.lockscreenVisibility || Notifications.AndroidNotificationVisibility.PUBLIC,
           enableVibrate: enabled,
           bypassDnd: defaultChannel.bypassDnd !== false,
