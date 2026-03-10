@@ -695,7 +695,7 @@ const ReceivedMessageFade = ({ message, dimmed, shouldFadeOut, onFadeComplete, o
   }, [shouldFadeOut, dimmed]);
 
   return (
-    <RNAnimated.View style={{ alignSelf: 'flex-start', opacity, maxWidth: '100%' }}>
+    <RNAnimated.View style={[styles.bubbleReceivedWrapper, { opacity }]}>
       <TouchableOpacity
         activeOpacity={0.85}
         onLongPress={() => {
@@ -4492,39 +4492,48 @@ const closeIdentityModal = useCallback(() => {
 
         {isFirstChatModalVisible && (
           <View style={[styles.firstFooterModalCard, styles.chatOnboardingInlineCard]}>
-            <View style={styles.chatOnboardingHeaderRow}>
-              <Image source={require('../assets/images/tweet.png')} style={styles.chatOnboardingHeaderImage} resizeMode="contain" />
-              <Image source={require('../assets/images/buzz.png')} style={styles.chatOnboardingHeaderImage} resizeMode="contain" />
-            </View>
-            <View style={styles.firstFooterModalFeatureRow}>
-              <Image
-                source={require('../assets/images/tap-gesture.png')}
-                style={styles.firstFooterTapImage}
-                resizeMode="contain"
-              />
-              <Text style={styles.firstFooterModalFeatureText}>
-                {i18n.t('chat_onboarding_tap_category')}
-              </Text>
-            </View>
-            <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
-              <Ionicons name="finger-print" size={22} color="#604a3e" />
-              <Text style={styles.firstFooterModalFeatureText}>
-                {i18n.t('chat_onboarding_long_press_specific')}
-              </Text>
-            </View>
-            <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
-              <Ionicons name="volume-mute" size={22} color="#604a3e" />
-              <Text style={styles.firstFooterModalFeatureText}>
-                {i18n.t('chat_onboarding_mute')}
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={styles.firstFooterModalOkButton}
-              onPress={closeFirstChatModal}
-              activeOpacity={0.85}
+            <ScrollView
+              style={styles.chatOnboardingScroll}
+              contentContainerStyle={styles.chatOnboardingScrollContent}
+              showsVerticalScrollIndicator
+              keyboardShouldPersistTaps="handled"
             >
-              <Text style={styles.firstFooterModalOkText}>{i18n.t('ok')}</Text>
-            </TouchableOpacity>
+              <View style={styles.firstFooterModalFeatureRow}>
+                <Image
+                  source={require('../assets/images/tap-gesture.png')}
+                  style={styles.firstFooterTapImage}
+                  resizeMode="contain"
+                />
+                <Text style={styles.firstFooterModalFeatureText}>
+                  {i18n.t('chat_onboarding_tap_category')}
+                </Text>
+              </View>
+              <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
+                <Ionicons name="finger-print" size={22} color="#604a3e" />
+                <Text style={styles.firstFooterModalFeatureText}>
+                  {i18n.t('chat_onboarding_long_press_specific')}
+                </Text>
+              </View>
+              <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
+                <Ionicons name="volume-mute" size={22} color="#604a3e" />
+                <Text style={styles.firstFooterModalFeatureText}>
+                  {i18n.t('chat_onboarding_mute')}
+                </Text>
+              </View>
+              <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
+                <Ionicons name="alert-circle" size={22} color="#604a3e" />
+                <Text style={styles.firstFooterModalFeatureText}>
+                  {i18n.t('chat_onboarding_long_press_report')}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.firstFooterModalOkButton, { marginTop: 20 }]}
+                onPress={closeFirstChatModal}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.firstFooterModalOkText}>{i18n.t('ok')}</Text>
+              </TouchableOpacity>
+            </ScrollView>
           </View>
         )}
 
@@ -4535,6 +4544,7 @@ const closeIdentityModal = useCallback(() => {
             contentContainerStyle={styles.stickyMessagesContent}
             onContentSizeChange={() => stickyScrollViewAnimatedRef.current?.scrollToEnd({ animated: true })}
             showsVerticalScrollIndicator={true}
+            keyboardShouldPersistTaps="always"
           >
             {allMessages.map((msg) => (
               msg.isMe ? (
@@ -4560,6 +4570,7 @@ const closeIdentityModal = useCallback(() => {
             contentContainerStyle={styles.stickyMessagesContent}
             onContentSizeChange={() => stickyScrollViewRef.current?.scrollToEnd({ animated: true })}
             showsVerticalScrollIndicator={true}
+            keyboardShouldPersistTaps="always"
           >
             {allMessages.map((msg) => (
               msg.isMe ? (
@@ -4629,6 +4640,7 @@ const closeIdentityModal = useCallback(() => {
           showsHorizontalScrollIndicator={false}
           style={styles.chatSoundChoiceScroller}
           contentContainerStyle={styles.chatSoundChoiceRow}
+          keyboardShouldPersistTaps="always"
         >
           <TouchableOpacity
             style={styles.chatSoundChoiceButton}
@@ -4943,6 +4955,12 @@ const closeIdentityModal = useCallback(() => {
             <Ionicons name="finger-print" size={22} color="#604a3e" />
             <Text style={styles.firstFooterModalFeatureText}>
               {i18n.t('friendlist_onboarding_long_press')}
+            </Text>
+          </View>
+          <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
+            <Ionicons name="arrow-back" size={22} color="#604a3e" />
+            <Text style={styles.firstFooterModalFeatureText}>
+              {i18n.t('friendlist_onboarding_swipe_left_block')}
             </Text>
           </View>
           <TouchableOpacity
@@ -5677,7 +5695,13 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
   chatOnboardingInlineCard: {
-    marginBottom: 10,
+    marginBottom: 0,
+  },
+  chatOnboardingScroll: {
+    flexGrow: 0,
+  },
+  chatOnboardingScrollContent: {
+    paddingBottom: 8,
   },
   chatOnboardingHeaderRow: {
     flexDirection: 'row',
@@ -5798,6 +5822,13 @@ const styles = StyleSheet.create({
   stickyMessagesContent: {
     flexGrow: 1,
     justifyContent: 'flex-end',
+    paddingHorizontal: 8,
+    width: '100%',
+  },
+  bubbleReceivedWrapper: {
+    alignSelf: 'flex-start',
+    width: '100%',
+    maxWidth: '100%',
   },
   bubbleReceived: {
     alignSelf: 'flex-start',
@@ -5807,7 +5838,7 @@ const styles = StyleSheet.create({
     padding: 8,
     paddingHorizontal: 12,
     marginBottom: 6,
-    maxWidth: '80%',
+    maxWidth: '90%',
     shadowColor: '#000',
     shadowOpacity: 0.05,
     shadowRadius: 2,
@@ -5830,6 +5861,7 @@ const styles = StyleSheet.create({
   bubbleTextReceived: {
     color: '#333',
     fontSize: 18,
+    flexShrink: 1,
   },
   bubbleTextSent: {
     color: '#333',
