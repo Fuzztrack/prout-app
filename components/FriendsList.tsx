@@ -5236,7 +5236,7 @@ const closeIdentityModal = useCallback(() => {
                 </View>
               </ScrollView>
               <View style={styles.pickDefaultCategorySection}>
-                <Text style={styles.pickDefaultCategoryTitle}>Choose your default sound notification category</Text>
+                <Text style={styles.pickDefaultCategoryTitle}>{i18n.t('default_sound_category_title')}</Text>
                 <View style={styles.pickDefaultCategoryTrack}>
                   <View
                     pointerEvents="none"
