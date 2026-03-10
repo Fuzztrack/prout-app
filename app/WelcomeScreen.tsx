@@ -14,7 +14,8 @@ export default function WelcomeScreen() {
     await Notifications.requestPermissionsAsync();
     await ensureContactPermissionWithDisclosure();
     await AsyncStorage.setItem('hasSeenWelcome', 'true');
-    safeReplace(router, '/eula-accept');
+    // skipInitialCheck: false pour que l’index réaffiche l’EULA si besoin (ex. iPad)
+    safeReplace(router, '/eula-accept', { skipInitialCheck: false });
   };
 
   return (

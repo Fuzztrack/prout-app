@@ -42,7 +42,7 @@ import {
 } from '../lib/runtimeSounds';
 import { supabase } from '../lib/supabase';
 import { SearchBar } from './SearchBar';
-import SoundcheckSelector, { SOUND_CATEGORY_KEY, type SoundCategory } from './SoundcheckSelector';
+import { SOUND_CATEGORY_KEY, type SoundCategory } from './SoundcheckSelector';
 
 const FIRST_FRIENDLIST_FOOTER_MODAL_KEY = 'first_friendlist_footer_modal_seen_v1';
 const FIRST_FRIENDLIST_FEATURES_MODAL_KEY = 'first_friendlist_features_modal_seen_v1';
@@ -790,7 +790,6 @@ export function FriendsList({
   const [friendSoundCategoryByFriend, setFriendSoundCategoryByFriend] = useState<Record<string, SoundCategory>>({});
   const [friendSoundKeyByFriend, setFriendSoundKeyByFriend] = useState<Record<string, string>>({});
   const [friendSoundModalVisible, setFriendSoundModalVisible] = useState(false);
-  const [friendSoundModalStep, setFriendSoundModalStep] = useState<'selector' | 'pickup'>('selector');
   const [friendSoundModalFriend, setFriendSoundModalFriend] = useState<any>(null);
   const [globalDefaultCategory, setGlobalDefaultCategory] = useState<SoundCategory>('trll');
   const selectedDefaultCategoryIndex = useMemo(() => {
@@ -1850,31 +1849,9 @@ const handleLongPressSoundCategory = useCallback((friend: any) => {
   if (isModalTransitionActive()) return;
   if (identityModalVisible || isFirstFriendlistModalVisible || isFirstFriendlistFeaturesModalVisible || isFirstFriendlistZenModalVisible || isFirstFriendlistSearchModalVisible || isFirstChatModalVisible) return;
   markModalTransition();
-  setFriendSoundModalStep('pickup');
   setFriendSoundModalFriend(friend);
   setFriendSoundModalVisible(true);
 }, [identityModalVisible, isFirstFriendlistModalVisible, isFirstFriendlistFeaturesModalVisible, isFirstFriendlistZenModalVisible, isFirstFriendlistSearchModalVisible, isModalTransitionActive, markModalTransition]);
-
-const handleSelectFriendSoundCategory = useCallback((category: SoundCategory) => {
-  const friendId = friendSoundModalFriend?.id;
-  if (!friendId) return;
-  setFriendSoundCategoryByFriend((prev) => {
-    const next = { ...prev, [friendId]: category };
-    AsyncStorage.setItem(FRIEND_SOUND_CATEGORY_MAP_KEY, JSON.stringify(next)).catch(() => {});
-    return next;
-  });
-  // Repasser en mode "hasard" quand on sélectionne une catégorie.
-  setFriendSoundKeyByFriend((prev) => {
-    if (!prev[friendId]) return prev;
-    const { [friendId]: _removed, ...rest } = prev;
-    return rest;
-  });
-}, [friendSoundModalFriend?.id]);
-
-const handleOpenFriendSoundPickModal = useCallback(() => {
-  if (!friendSoundModalFriend?.id) return;
-  setFriendSoundModalStep('pickup');
-}, [friendSoundModalFriend?.id]);
 
 const handleSelectFriendSpecificSoundKey = useCallback((soundKey: string) => {
   const friendId = friendSoundModalFriend?.id;
@@ -1883,18 +1860,15 @@ const handleSelectFriendSpecificSoundKey = useCallback((soundKey: string) => {
     return { ...prev, [friendId]: soundKey };
   });
   markModalTransition();
-  setFriendSoundModalStep('selector');
   setFriendSoundModalVisible(false);
 }, [friendSoundModalFriend?.id, markModalTransition]);
 
 const closeFriendSoundModal = useCallback(() => {
   markModalTransition();
-  setFriendSoundModalStep('selector');
   setFriendSoundModalVisible(false);
 }, [markModalTransition]);
 
 const closeFriendSoundPickModal = useCallback(() => {
-  setFriendSoundModalStep('pickup');
   setFriendSoundModalVisible(false);
 }, []);
 
@@ -5212,44 +5186,8 @@ const closeIdentityModal = useCallback(() => {
         animationOutTiming={120}
         useNativeDriver
       >
-        <View
-          style={[
-            styles.friendSoundModalCard,
-            friendSoundModalStep !== 'selector' ? styles.friendSoundModalCardExpanded : undefined,
-          ]}
-        >
-          {friendSoundModalStep === 'selector' ? (
-            <>
-              <Text style={styles.friendSoundModalTitle}>
-                {i18n.t('friend_sound_modal_title_random')}
-              </Text>
-              <View style={styles.friendSoundModalSelectorWrap}>
-                <SoundcheckSelector
-                  initialCategory={friendSoundModalFriend?.id ? (friendSoundCategoryByFriend[friendSoundModalFriend.id] || 'trll') : 'trll'}
-                  onCategoryChange={handleSelectFriendSoundCategory}
-                  soundEnabled={false}
-                  compact
-                />
-              </View>
-              <Text style={styles.friendSoundModalOrTitle}>{i18n.t('friend_sound_modal_or')}</Text>
-              <TouchableOpacity
-                style={styles.friendSoundModalPickButton}
-                onPress={handleOpenFriendSoundPickModal}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.friendSoundModalPickButtonText}>{i18n.t('friend_sound_modal_pick_button')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.firstFooterModalOkButton}
-                onPress={closeFriendSoundModal}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.firstFooterModalOkText}>{i18n.t('ok')}</Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <>
-              <ScrollView
+        <View style={[styles.friendSoundModalCard, styles.friendSoundModalCardExpanded]}>
+          <ScrollView
                 style={styles.friendSoundPickScroll}
                 contentContainerStyle={styles.friendSoundPickScrollContent}
                 showsVerticalScrollIndicator
@@ -5326,8 +5264,6 @@ const closeIdentityModal = useCallback(() => {
               >
                 <Text style={styles.firstFooterModalOkText}>{i18n.t('back')}</Text>
               </TouchableOpacity>
-            </>
-          )}
         </View>
       </Modal>
 
@@ -5930,50 +5866,6 @@ const styles = StyleSheet.create({
   },
   friendSoundModalCardExpanded: {
     minHeight: SCREEN_HEIGHT - 70,
-  },
-  friendSoundModalTitle: {
-    color: '#604a3e',
-    fontSize: 16,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: 2,
-  },
-  friendSoundModalSelectorWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: -18,
-    marginBottom: 22,
-    transform: [{ scale: 0.88 }],
-  },
-  friendSoundModalOrTitle: {
-    color: '#604a3e',
-    fontSize: 15,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginTop: 12,
-    marginBottom: 2,
-  },
-  friendSoundModalPickButton: {
-    alignSelf: 'center',
-    backgroundColor: '#A2E4D4',
-    borderWidth: 2,
-    borderColor: '#1a1a1a',
-    borderRadius: 26,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    minWidth: 230,
-    marginBottom: 22,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  friendSoundModalPickButtonText: {
-    color: '#1a1a1a',
-    fontWeight: '700',
-    fontSize: 16,
-    textAlign: 'center',
   },
   friendSoundPickModalCard: {
     backgroundColor: '#ebb89b',
