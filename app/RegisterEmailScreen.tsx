@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { CustomButton } from '../components/CustomButton';
+import { buildAcceptedEulaMetadata, setLocalEulaAccepted } from '../lib/eula';
 import { safeReplace } from '../lib/navigation';
 import { getRedirectUrl, supabase } from '../lib/supabase';
 import i18n from '../lib/i18n';
@@ -15,32 +16,36 @@ export default function RegisterEmailScreen() {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleSignup = async () => {
     if (!pseudo.trim()) return Alert.alert("Oups", "Il nous faut un Pseudo !");
     if (!email.trim()) return Alert.alert("Oups", "L'email est obligatoire.");
     if (!password || password.length < 6) return Alert.alert(i18n.t('security'), i18n.t('password_min_length'));
+    if (!agreed || loading) return;
 
     setLoading(true);
     
     try {
       const cleanPhone = phone.trim() === '' ? null : phone.trim();
+      const acceptedAt = new Date().toISOString();
 
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password: password,
         options: {
           emailRedirectTo: getRedirectUrl(),
-          data: { 
+          data: buildAcceptedEulaMetadata({
             pseudo: pseudo.trim(),
             phone: cleanPhone,
             pseudo_validated: true
-          } 
+          }, acceptedAt),
         }
       });
 
       if (error) throw error;
+      await setLocalEulaAccepted();
 
       // Si une session est créée (email confirmé automatiquement ou pas de confirmation requise)
       if (data.session && data.user) {
@@ -128,7 +133,7 @@ export default function RegisterEmailScreen() {
         
         <View style={styles.header}>
             <Image 
-                source={require('../assets/images/Prrt.png')} 
+                source={require('../assets/images/proot.png')} 
                 style={styles.headerImage} 
                 resizeMode="contain" 
             />
@@ -191,11 +196,25 @@ export default function RegisterEmailScreen() {
             </View>
         </View>
 
+        <TouchableOpacity
+          style={styles.checkboxRow}
+          onPress={() => setAgreed(prev => !prev)}
+          activeOpacity={0.8}
+          disabled={loading}
+        >
+          <Ionicons
+            name={agreed ? 'checkmark-circle' : 'ellipse-outline'}
+            size={24}
+            color={agreed ? '#604a3e' : 'rgba(96, 74, 62, 0.6)'}
+          />
+          <Text style={styles.checkboxLabel}>{i18n.t('eula_accept_checkbox')}</Text>
+        </TouchableOpacity>
+
         <View style={styles.footer}>
             <CustomButton 
                 title={loading ? i18n.t('creating_account') : i18n.t('sign_up')} 
                 onPress={handleSignup} 
-                disabled={loading} 
+                disabled={loading || !agreed} 
                 color="#604a3e" 
                 textColor="#ebb89b" 
             />
@@ -264,6 +283,19 @@ const styles = StyleSheet.create({
   eyeIcon: { padding: 5 },
 
   helperText: { fontSize: 12, color: '#604a3e', marginTop: 5, marginLeft: 5, opacity: 0.7 },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  checkboxLabel: {
+    flex: 1,
+    color: '#604a3e',
+    fontSize: 15,
+    lineHeight: 20,
+  },
 
   footer: { marginTop: 10 }
   ,

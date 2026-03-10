@@ -1,9 +1,9 @@
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useRef, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { CustomButton } from '../components/CustomButton';
+import { hasAcceptedEulaLocally, isUserEulaAccepted, syncLocalEulaAcceptanceFromUser } from '../lib/eula';
 import { safePush, safeReplace } from '../lib/navigation';
 import { getRedirectUrl, supabase } from '../lib/supabase';
 import i18n from '../lib/i18n';
@@ -30,8 +30,7 @@ export default function AuthChoiceScreen() {
   };
 
   const ensureEulaAccepted = async () => {
-    const eulaAccepted = await AsyncStorage.getItem('eula_accepted');
-    if (eulaAccepted === 'true') return true;
+    if (await hasAcceptedEulaLocally()) return true;
     replaceWithSkip('/eula-accept');
     return false;
   };
@@ -114,9 +113,9 @@ export default function AuthChoiceScreen() {
   useEffect(() => {
     let mounted = true;
     const guardEula = async () => {
-      const accepted = await AsyncStorage.getItem('eula_accepted');
+      const accepted = await hasAcceptedEulaLocally();
       if (!mounted) return;
-      if (accepted !== 'true') {
+      if (!accepted) {
         replaceWithSkip('/eula-accept');
       }
     };
@@ -193,7 +192,11 @@ export default function AuthChoiceScreen() {
                     
                     // Stocker le prénom dans les métadonnées pour les prochaines connexions
                     const { error: updateMetaError } = await supabase.auth.updateUser({
-                      data: { pseudo: firstName, pseudo_validated: false }
+                      data: {
+                        ...(user?.user_metadata ?? {}),
+                        pseudo: firstName,
+                        pseudo_validated: false,
+                      }
                     });
                     if (updateMetaError) {
                       console.error('❌ Erreur mise à jour métadonnées:', updateMetaError);
@@ -276,6 +279,17 @@ export default function AuthChoiceScreen() {
               // Recharger les métadonnées après la mise à jour
               const { data: { user: updatedUser } } = await supabase.auth.getUser();
               const finalPseudoFromMetadata = updatedUser?.user_metadata?.pseudo || pseudoFromMetadata;
+
+              if (!isUserEulaAccepted(updatedUser)) {
+                console.log('➡️ OAuth OK → EULA acceptation requise');
+                if (typeof (global as any).__isOAuthFlow === 'function') {
+                  (global as any).__isOAuthFlow(false);
+                }
+                replaceWithSkip('/eula-accept');
+                return true;
+              }
+
+              await syncLocalEulaAcceptanceFromUser(updatedUser);
               
               // Vérifier le profil et naviguer
               const { data: profile } = await supabase
@@ -496,7 +510,7 @@ export default function AuthChoiceScreen() {
       >
         <View style={styles.header}>
           <Image 
-            source={require('../assets/images/Prrt.png')} 
+            source={require('../assets/images/proot.png')} 
             style={styles.headerImage}
             resizeMode="contain"
           />

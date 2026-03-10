@@ -79,7 +79,7 @@ export function AppHeader({
           ]}
         >
           <Image
-            source={require('../assets/images/Prrt.png')}
+            source={require('../assets/images/proot.png')}
             style={[styles.logo, { height: logoHeight, width: logoWidth }]}
             resizeMode="contain"
           />

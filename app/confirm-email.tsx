@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { isUserEulaAccepted, syncLocalEulaAcceptanceFromUser } from '../lib/eula';
 import { safeReplace } from '../lib/navigation';
 import { supabase } from '../lib/supabase';
 import i18n from '../lib/i18n';
@@ -25,6 +26,13 @@ export default function ConfirmEmailScreen() {
         const pseudoFromMetadata = user?.user_metadata?.pseudo;
         const phoneFromMetadata = user?.user_metadata?.phone;
         const pseudoValidated = user?.user_metadata?.pseudo_validated === true;
+
+        if (!isUserEulaAccepted(user)) {
+          safeReplace(router, '/eula-accept');
+          return;
+        }
+
+        await syncLocalEulaAcceptanceFromUser(user);
         
         const { data: profile } = await supabase
           .from('user_profiles')
@@ -129,7 +137,7 @@ export default function ConfirmEmailScreen() {
         }
       } catch (e) {
         console.error("❌ Erreur lors de la vérification du profil:", e);
-        safeReplace(router, pseudoValidated ? '/(tabs)' : '/CompleteProfileScreen');
+        safeReplace(router, '/AuthChoiceScreen');
       }
     };
 

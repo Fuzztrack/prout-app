@@ -14,8 +14,11 @@ export default function EulaScreen() {
         <Text style={styles.title}>{i18n.t('eula_title')}</Text>
         <Text style={styles.body}>{i18n.t('eula_intro')}</Text>
 
-        <Text style={styles.sectionTitle}>{i18n.t('eula_section_1_title')}</Text>
-        <Text style={styles.body}>{i18n.t('eula_section_1_body')}</Text>
+        <View style={styles.zeroToleranceCard}>
+          <Text style={styles.zeroToleranceBadge}>ZERO TOLERANCE</Text>
+          <Text style={styles.zeroToleranceTitle}>{i18n.t('eula_section_1_title')}</Text>
+          <Text style={styles.zeroToleranceText}>{i18n.t('eula_section_1_body')}</Text>
+        </View>
 
         <Text style={styles.sectionTitle}>{i18n.t('eula_section_2_title')}</Text>
         <Text style={styles.body}>{i18n.t('eula_section_2_body')}</Text>
@@ -25,6 +28,9 @@ export default function EulaScreen() {
 
         <Text style={styles.sectionTitle}>{i18n.t('eula_section_4_title')}</Text>
         <Text style={styles.body}>{i18n.t('eula_section_4_body')}</Text>
+
+        <Text style={styles.sectionTitle}>{i18n.t('eula_section_5_title')}</Text>
+        <Text style={styles.body}>{i18n.t('eula_section_5_body')}</Text>
 
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={22} color="#604a3e" />
@@ -39,6 +45,29 @@ const styles = StyleSheet.create({
   wrapper: { flex: 1, backgroundColor: '#ebb89b' },
   container: { flexGrow: 1, paddingHorizontal: 20, paddingBottom: 40 },
   title: { color: '#604a3e', fontSize: 22, fontWeight: '700', marginBottom: 16 },
+  zeroToleranceCard: {
+    marginTop: 12,
+    marginBottom: 8,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(96, 74, 62, 0.28)',
+    backgroundColor: 'rgba(255, 255, 255, 0.62)',
+    padding: 14,
+  },
+  zeroToleranceBadge: {
+    color: '#ffffff',
+    backgroundColor: '#604a3e',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    fontSize: 11,
+    fontWeight: '800',
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  zeroToleranceTitle: { color: '#604a3e', fontSize: 16, fontWeight: '700', marginBottom: 6 },
+  zeroToleranceText: { color: '#604a3e', fontSize: 15, lineHeight: 22, opacity: 0.92 },
   sectionTitle: { color: '#604a3e', fontSize: 17, fontWeight: '700', marginTop: 14, marginBottom: 8 },
   body: { color: '#604a3e', fontSize: 15, lineHeight: 22, opacity: 0.9 },
   backButton: {

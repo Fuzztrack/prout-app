@@ -1,16 +1,16 @@
 {
   "expo": {
-    "name": "Prrt!",
+    "name": "Proot!",
     "slug": "prrtapp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./asset/images/Prrt_icon.png",
-    "scheme": "prrtapp",
+    "scheme": "prootapp",
     "userInterfaceStyle": "automatic",
     "backgroundColor": "#ebb89b",
     "newArchEnabled": true,
     "splash": {
-      "image": "./Assets/Images/Prrt.png",
+      "image": "./Assets/Images/proot.png",
       "resizeMode": "contain",
       "backgroundColor": "#ebb89b"
     },
@@ -20,12 +20,12 @@
       "buildNumber": "8",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
-        "CFBundleDisplayName": "Prrt!",
+        "CFBundleDisplayName": "Proot!",
         "UIBackgroundModes": [
           "remote-notification"
         ],
         "ITSAppUsesNonExemptEncryption": false,
-        "NSContactsUsageDescription": "This app uploads phone numbers from your contacts to Prrt!'s secure servers to automatically find your friends. This data is not shared with third parties.",
+        "NSContactsUsageDescription": "This app uploads phone numbers from your contacts to Proot!'s secure servers to automatically find your friends. This data is not shared with third parties.",
         "NSPhotoLibraryUsageDescription": "This app needs access to your photos so you can choose a profile picture.",
         "NSPhotoLibraryAddUsageDescription": "This app needs access to your photos so you can choose a profile picture.",
         "NSCameraUsageDescription": "This app needs access to your camera so you can take a profile picture."
@@ -69,7 +69,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./Assets/Images/Prrt.png",
+          "image": "./Assets/Images/proot.png",
           "resizeMode": "contain",
           "backgroundColor": "#ebb89b"
         }
@@ -110,7 +110,7 @@
       [
         "expo-contacts",
         {
-          "contactsPermission": "This app uploads phone numbers from your contacts to Prrt!'s secure servers to automatically find your friends. This data is not shared with third parties."
+          "contactsPermission": "This app uploads phone numbers from your contacts to Proot!'s secure servers to automatically find your friends. This data is not shared with third parties."
         }
       ],
       "expo-localization",

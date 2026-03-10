@@ -3,9 +3,10 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { CustomButton } from '../components/CustomButton';
+import { isUserEulaAccepted, syncLocalEulaAcceptanceFromUser } from '../lib/eula';
+import i18n from '../lib/i18n';
 import { safeReplace } from '../lib/navigation';
 import { supabase } from '../lib/supabase';
-import i18n from '../lib/i18n';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -20,13 +21,13 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     setLoading(true);
     console.log('🔐 Tentative de connexion...');
-    
+
     // Timeout de sécurité : si la navigation ne se fait pas en 5 secondes, réactiver le bouton
     const timeoutId = setTimeout(() => {
       console.warn('⏱️ Timeout de connexion - réactivation du bouton');
       setLoading(false);
     }, 5000);
-    
+
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
@@ -47,6 +48,14 @@ export default function LoginScreen() {
       console.log('✅ Connexion réussie, vérification du profil...');
       const sessionUser = data.session.user;
       const pseudoValidated = sessionUser.user_metadata?.pseudo_validated === true;
+
+      if (!isUserEulaAccepted(sessionUser)) {
+        console.log('➡️ Navigation vers /eula-accept (acceptation requise)');
+        safeReplace(router, '/eula-accept');
+        return;
+      }
+
+      await syncLocalEulaAcceptanceFromUser(sessionUser);
 
       const { data: profile } = await supabase
         .from('user_profiles')
@@ -87,7 +96,7 @@ export default function LoginScreen() {
 
     const trimmedEmail = email.trim().toLowerCase();
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    
+
     if (!emailRegex.test(trimmedEmail)) {
       Alert.alert(i18n.t('error'), i18n.t('invalid_email_format'));
       return;
@@ -103,7 +112,7 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      const scheme = Platform.OS === 'ios' ? 'prrtapp' : 'proutapp';
+      const scheme = Platform.OS === 'ios' ? 'prootapp' : 'proutapp';
       const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
         redirectTo: `${scheme}://reset-password`,
       });
@@ -139,17 +148,17 @@ export default function LoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === "ios" ? "padding" : "height"} 
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.container}
     >
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
-          <Image 
-            source={require('../assets/images/Prrt.png')} 
+          <Image
+            source={require('../assets/images/proot.png')}
             style={styles.headerImage}
             resizeMode="contain"
           />
@@ -174,19 +183,19 @@ export default function LoginScreen() {
             style={styles.passwordInput}
             placeholderTextColor="#999"
           />
-          <TouchableOpacity 
-            onPress={() => setShowPassword(!showPassword)} 
+          <TouchableOpacity
+            onPress={() => setShowPassword(!showPassword)}
             style={styles.eyeIcon}
           >
-            <Ionicons 
-              name={showPassword ? "eye-off" : "eye"} 
-              size={24} 
-              color="#604a3e" 
+            <Ionicons
+              name={showPassword ? "eye-off" : "eye"}
+              size={24}
+              color="#604a3e"
             />
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={handleResetPassword}
           disabled={loading}
           style={styles.forgotPasswordLink}
@@ -194,9 +203,9 @@ export default function LoginScreen() {
           <Text style={styles.forgotPasswordText}>{i18n.t('forgot_password')}</Text>
         </TouchableOpacity>
 
-        <CustomButton 
-          title={loading ? i18n.t('logging_in') : i18n.t('login')} 
-          onPress={handleLogin} 
+        <CustomButton
+          title={loading ? i18n.t('logging_in') : i18n.t('login')}
+          onPress={handleLogin}
           disabled={loading || !isFormValid}
           color="#604a3e"
           textColor="#ebb89b"
@@ -219,10 +228,10 @@ const styles = StyleSheet.create({
   header: { alignItems: 'center', marginBottom: 30 },
   headerImage: { width: 150, height: 120, marginBottom: 20 },
   title: { fontSize: 28, fontWeight: 'bold', color: '#604a3e', textAlign: 'center' },
-  input: { 
-    backgroundColor: 'white', 
-    padding: 15, 
-    borderRadius: 8, 
+  input: {
+    backgroundColor: 'white',
+    padding: 15,
+    borderRadius: 8,
     marginBottom: 15,
     fontSize: 16,
     color: '#333'

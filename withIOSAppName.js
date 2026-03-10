@@ -7,7 +7,7 @@ const withIOSAppName = (config) => {
     const bundleId = config.ios?.bundleIdentifier || config.modResults?.CFBundleIdentifier;
     const isLegacyProutBundle = bundleId === 'com.fuzztrack.proutapp';
     // Par défaut on force "Prrt!" (nouveau bundle), et on ne met "Prout" que si on détecte explicitement l'ancien bundle.
-    const displayName = isLegacyProutBundle ? 'Prout' : 'Prrt!';
+    const displayName = isLegacyProutBundle ? 'Prout' : 'Proot!';
 
     // Nom affiché iOS (Springboard + dialogues système type OAuth)
     config.modResults.CFBundleDisplayName = displayName;

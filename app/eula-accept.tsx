@@ -1,8 +1,8 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -12,22 +12,43 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { acceptEulaForCurrentUser, EULA_ACCEPTED_KEY } from '../lib/eula';
 import i18n from '../lib/i18n';
-
-const EULA_ACCEPTED_KEY = 'eula_accepted';
 
 export default function EulaAcceptScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [agreed, setAgreed] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
+
+  const handleScroll = (event: any) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const paddingToBottom = 24;
+    const isAtBottom =
+      layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
+    if (isAtBottom && !hasScrolledToBottom) {
+      setHasScrolledToBottom(true);
+    }
+  };
 
   const handleAccept = async () => {
-    if (!agreed) return;
+    if (!agreed || saving) return;
+    setSaving(true);
     try {
-      await AsyncStorage.setItem(EULA_ACCEPTED_KEY, 'true');
-      router.replace('/');
-    } catch (e) {
+      const user = await acceptEulaForCurrentUser();
+      if (user) {
+        // Utilisateur déjà connecté → on l’envoie vers l’app principale
+        router.replace('/(tabs)');
+      } else {
+        // Pas de session (premier lancement avant auth) → on renvoie vers le choix d’auth
+        router.replace('/AuthChoiceScreen');
+      }
+    } catch (e: any) {
       console.warn('❌ Impossible de sauvegarder l’acceptation EULA:', e);
+      Alert.alert(i18n.t('error'), e?.message || i18n.t('connection_error'));
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -46,6 +67,8 @@ export default function EulaAcceptScreen() {
             },
           ]}
           showsVerticalScrollIndicator
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
         >
           <Text style={styles.title}>{i18n.t('eula_title')}</Text>
           <Text style={styles.body}>{i18n.t('eula_intro')}</Text>
@@ -64,6 +87,9 @@ export default function EulaAcceptScreen() {
 
           <Text style={styles.sectionTitle}>{i18n.t('eula_section_4_title')}</Text>
           <Text style={styles.body}>{i18n.t('eula_section_4_body')}</Text>
+
+          <Text style={styles.sectionTitle}>{i18n.t('eula_section_5_title')}</Text>
+          <Text style={styles.body}>{i18n.t('eula_section_5_body')}</Text>
         </ScrollView>
 
         <View
@@ -78,6 +104,7 @@ export default function EulaAcceptScreen() {
           <TouchableOpacity
             style={styles.checkboxRow}
             onPress={() => setAgreed(!agreed)}
+            disabled={saving || !hasScrolledToBottom}
             activeOpacity={0.7}
           >
             <Ionicons
@@ -91,7 +118,7 @@ export default function EulaAcceptScreen() {
           <TouchableOpacity
             style={[styles.acceptButton, !agreed && styles.acceptButtonDisabled]}
             onPress={handleAccept}
-            disabled={!agreed}
+            disabled={!agreed || saving}
             activeOpacity={0.8}
           >
             <Text style={styles.acceptButtonText}>{i18n.t('eula_accept_button')}</Text>

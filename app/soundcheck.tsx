@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Device from 'expo-device';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -16,16 +15,9 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import i18n from '@/lib/i18n';
 import { Audio } from 'expo-av';
 import { SOUND_ASSETS, SOUND_KEYS_BY_CATEGORY } from '@/lib/runtimeSounds';
-import { SOUND_CATEGORY_KEY, type SoundCategory } from '@/components/SoundcheckSelector';
-
 const BACKGROUND_COLOR = '#ebb89b';
 const TRLL_KEYS = SOUND_KEYS_BY_CATEGORY.trll || [];
 const BZZZ_KEYS = SOUND_KEYS_BY_CATEGORY.bzzz || [];
-const DEFAULT_SOUND_OPTIONS: Array<{ category: SoundCategory; image: any }> = [
-  { category: 'trll', image: require('../assets/images/tweet.png') },
-  { category: 'bzzz', image: require('../assets/images/buzz.png') },
-];
-
 function getSoundDisplayName(soundKey: string) {
   const translated = i18n.t(`prout_names.${soundKey}`) as any;
   if (typeof translated === 'string' && translated !== `prout_names.${soundKey}`) {
@@ -46,8 +38,6 @@ export default function SoundcheckScreen() {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const currentSoundRef = useRef<Audio.Sound | null>(null);
-  const [defaultCategory, setDefaultCategory] = useState<SoundCategory>('trll');
-
   // Taille du titre: on se base sur le vrai ratio de sound.png pour éviter
   // les "marges" visuelles créées par un ratio arbitraire + resizeMode="contain".
   const soundTitleAsset = Image.resolveAssetSource(require('../assets/images/sound.png'));
@@ -77,32 +67,6 @@ export default function SoundcheckScreen() {
 
   const playableTrllKeys = useMemo(() => TRLL_KEYS.filter((k) => !!SOUND_ASSETS[k]), []);
   const playableBzzzKeys = useMemo(() => BZZZ_KEYS.filter((k) => !!SOUND_ASSETS[k]), []);
-  const selectedDefaultCategoryIndex = useMemo(() => {
-    const foundIndex = DEFAULT_SOUND_OPTIONS.findIndex((option) => option.category === defaultCategory);
-    return foundIndex >= 0 ? foundIndex : 0;
-  }, [defaultCategory]);
-
-  useEffect(() => {
-    let mounted = true;
-    AsyncStorage.getItem(SOUND_CATEGORY_KEY)
-      .then((saved) => {
-        if (!mounted || !saved) return;
-        if (saved === 'trll' || saved === 'bzzz') {
-          setDefaultCategory(saved);
-        }
-      })
-      .catch(() => {});
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  const handleSelectDefaultCategory = useCallback(async (category: SoundCategory) => {
-    setDefaultCategory(category);
-    try {
-      await AsyncStorage.setItem(SOUND_CATEGORY_KEY, category);
-    } catch (_) {}
-  }, []);
 
   const playSelectedSound = useCallback(async (soundKey: string) => {
     const asset = SOUND_ASSETS[soundKey];
@@ -213,28 +177,6 @@ export default function SoundcheckScreen() {
             </View>
           </ScrollView>
         </View>
-        <View style={[styles.defaultCategorySection, { paddingBottom: Math.max(10, insets.bottom) }]}>
-          <Text style={styles.defaultCategoryTitle}>Choose your default sound notification category</Text>
-          <View style={styles.defaultCategoryTrack}>
-            <View
-              pointerEvents="none"
-              style={[
-                styles.defaultCategoryIndicator,
-                { left: `${selectedDefaultCategoryIndex * (100 / 2)}%` },
-              ]}
-            />
-            {DEFAULT_SOUND_OPTIONS.map((option) => (
-              <TouchableOpacity
-                key={option.category}
-                style={styles.defaultCategoryStep}
-                onPress={() => handleSelectDefaultCategory(option.category)}
-                activeOpacity={0.85}
-              >
-                <Image source={option.image} style={styles.defaultCategoryIcon} resizeMode="contain" />
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
       </View>
     </SafeAreaView>
   );
@@ -338,44 +280,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
-  },
-  defaultCategorySection: {
-    paddingHorizontal: 12,
-    paddingTop: 8,
-  },
-  defaultCategoryTitle: {
-    color: '#604a3e',
-    fontSize: 14,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  defaultCategoryTrack: {
-    position: 'relative',
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(96, 74, 62, 0.18)',
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.32)',
-    overflow: 'hidden',
-    minHeight: 62,
-  },
-  defaultCategoryIndicator: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: '50%',
-    backgroundColor: 'rgba(162, 228, 212, 0.72)',
-  },
-  defaultCategoryStep: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-  },
-  defaultCategoryIcon: {
-    width: 84,
-    height: 32,
   },
 });

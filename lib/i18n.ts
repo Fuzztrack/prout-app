@@ -15,8 +15,8 @@ const i18n = new I18n({
     later: "Plus tard",
     confirm: "Confirmer",
     info: "Information",
-    
-    // Prrt! Names
+
+    // Proot! Names
     prout_names: {
       prout1: "La Petite Bourrasque",
       prout2: "Le Crépitant",
@@ -53,7 +53,7 @@ const i18n = new I18n({
       'identity-request': "Demande d'identité",
       'identity-response': "Réponse d'identité",
     },
-    
+
     // Auth & Onboarding
     welcome: "Bienvenue !",
     continue_with_social: "Continuer avec Google ou Apple",
@@ -66,11 +66,11 @@ const i18n = new I18n({
     no_account_signup: "Pas de compte ? S'inscrire",
     forgot_password: "Mot de passe oublié ?",
     password_label: "Mot de passe",
-    
+
     // Home & Navigation
-    share_message: "Rejoins-moi sur l'appli \"Prrt!\", mon pseudo est %{pseudo} : http://www.prrtapp.com",
+    share_message: "Rejoins-moi sur l'appli \"Proot!\", mon pseudo est %{pseudo} : http://prootapp.com",
     tab_list: "Amis",
-    
+
     // Friends List
     friends_requests: "🔔 Demandes d'amis",
     identity_requests: "🕵️ Demandes d'identité",
@@ -106,8 +106,8 @@ const i18n = new I18n({
     report_submit_success_title: "Merci",
     report_submit_success_body: "Merci. Ce signalement sera examiné par notre équipe sous 24 heures.",
     real_name: "Vrai nom",
-    
-    // Actions Prrt!
+
+    // Actions Proot!
     zen_mode_active_me_title: "Mode Zen Actif 🧘‍♂️",
     zen_mode_active_me_body: "Vous ne pouvez pas envoyer de notifications en mode Zen. Désactivez-le dans votre profil pour reprendre les hostilités.",
     zen_mode_active_friend_title: "Chut ! 🤫",
@@ -117,7 +117,7 @@ const i18n = new I18n({
     cooldown_alert: "Trop rapide !",
     cooldown_message: "Attendez un peu avant d'envoyer une autre notification.",
     not_connected: "Vous n'êtes pas connecté.",
-    
+
     // Search
     search_title: "Rechercher un nouvel ami",
     search_placeholder: "Entrez un pseudo...",
@@ -129,7 +129,7 @@ const i18n = new I18n({
     no_results: "Aucun utilisateur trouvé.",
     request_sent: "Demande d'ami envoyée !",
     already_linked: "Vous êtes déjà en lien avec cette personne.",
-    
+
     // Complicité
     complicity_title: "L'Indice de Résonance",
     complicity_subtitle: "Score de complicité",
@@ -152,11 +152,12 @@ const i18n = new I18n({
     soundcheck_hint: "Choisissez votre catégorie d'onde sonore et\nécoutez une preview aléatoire",
     soundcheck_bzzz_description: "Sons digitaux",
     soundcheck_trll_description: "Sons d'oiseaux",
-    soundcheck_prrt_description: "Sons Prrt classiques",
+    soundcheck_prrt_description: "Sons Proot classiques",
+    more_sounds_coming: "D'autres sons arrivent bientôt… 🎵",
     friend_sound_modal_title_random: "Laissez le hasard décider !",
     friend_sound_modal_or: "Ou",
     friend_sound_modal_pick_button: "Choisissez votre son",
-    
+
     // Profil
     edit_profile: "Modifier votre profil",
     pseudo: "Pseudo",
@@ -175,24 +176,26 @@ const i18n = new I18n({
     contact_support: "Contacter le support",
     profile_eula: "EULA",
     eula_title: "Contrat de licence utilisateur final (EULA)",
-    eula_intro: "En utilisant Prrt!, vous acceptez les conditions suivantes :",
+    eula_intro: "En utilisant Proot!, vous acceptez les conditions suivantes :",
     eula_section_1_title: "1. Politique de tolérance zéro",
-    eula_section_1_body: "Prrt! applique une tolérance zéro pour les contenus répréhensibles, y compris le harcèlement, les discours haineux, les menaces, l'exploitation sexuelle et les images explicites.",
+    eula_section_1_body: "Proot! applique une tolérance zéro pour les contenus répréhensibles, y compris le harcèlement, les discours haineux, les menaces, l'exploitation sexuelle et les images explicites.",
     eula_section_2_title: "2. Comportement abusif",
     eula_section_2_body: "Les utilisateurs ayant un comportement abusif peuvent être suspendus ou définitivement exclus de la plateforme.",
     eula_section_3_title: "3. Modération et suppression de contenu",
     eula_section_3_body: "Le développeur se réserve le droit de supprimer du contenu et/ou de restreindre des comptes dans les 24 heures après réception d’un signalement valide.",
     eula_section_4_title: "4. Outils de sécurité",
     eula_section_4_body: "Les utilisateurs sont encouragés à utiliser les outils de sécurité intégrés, notamment Bloquer et Signaler, pour contribuer à un environnement sûr.",
-    eula_accept_checkbox: "J'accepte les termes et conditions ci-dessus",
+    eula_section_5_title: "5. Contact",
+    eula_section_5_body: "Pour tout signalement, question ou abus, vous pouvez nous contacter à tout moment à l'adresse suivante :\nhello@prootapp.com\n\nNous nous engageons à répondre dans les 24 heures suivant la réception d'un signalement valide.",
+    eula_accept_checkbox: "J'accepte l'EULA et la politique de tolérance zéro contre les contenus répréhensibles et les utilisateurs abusifs",
     eula_accept_button: "J'accepte et continue",
     privacy_policy: "Politique de confidentialité",
     privacy_policy_title: "Politique de Confidentialité",
-    privacy_policy_app_title: "Politique de Confidentialité de l'application Prrt!",
+    privacy_policy_app_title: "Politique de Confidentialité de l'application Proot!",
     privacy_policy_last_update: "Dernière mise à jour : 8 Décembre 2025",
-    privacy_policy_intro: "Bienvenue sur Prrt! (ci-après \"l'Application\"). Nous prenons la confidentialité de vos données très au sérieux. Cette politique décrit quelles données nous collectons, comment nous les utilisons et quels sont vos droits, en conformité avec le Règlement Général sur la Protection des Données (RGPD).",
+    privacy_policy_intro: "Bienvenue sur Proot! (ci-après \"l'Application\"). Nous prenons la confidentialité de vos données très au sérieux. Cette politique décrit quelles données nous collectons, comment nous les utilisons et quels sont vos droits, en conformité avec le Règlement Général sur la Protection des Données (RGPD).",
     privacy_policy_section1_title: "1. Responsable du traitement",
-    privacy_policy_section1_content: "L'Application est éditée par The Prrt! Corporation (ci-après \"Nous\"). Pour toute question relative à vos données, vous pouvez nous contacter à : hello@theproutapp.com",
+    privacy_policy_section1_content: "L'Application est éditée par The Proot! Corporation (ci-après \"Nous\"). Pour toute question relative à vos données, vous pouvez nous contacter à : hello@prootapp.com",
     privacy_policy_section2_title: "2. Les données que nous collectons",
     privacy_policy_section2_intro: "Nous collectons uniquement les données strictement nécessaires au fonctionnement du service d'envoi de notifications sonores entre amis.",
     privacy_policy_section2a_title: "A. Données que vous nous fournissez",
@@ -200,37 +203,37 @@ const i18n = new I18n({
     privacy_policy_section2b_title: "B. Données collectées automatiquement",
     privacy_policy_section2b_content: "- Identifiant de l'appareil (Device ID) et Token de Notification (Push Token) : Nécessaires pour acheminer les notifications sonores sur votre téléphone via les services d'Apple (APNs) et Google (FCM).\n- Données techniques : Modèle de téléphone, version du système d'exploitation (iOS/Android) pour le débogage technique.",
     privacy_policy_section2c_title: "C. Accès aux Contacts (Carnet d'adresses)",
-    privacy_policy_section2c_content: "L'Application vous demande l'autorisation d'accéder à vos contacts téléphoniques.\n- But : Cet accès sert uniquement à vérifier si vos contacts utilisent déjà l'Application \"Prrt!\" afin de les ajouter automatiquement à votre liste d'amis.\n- Confidentialité : Nous ne stockons pas votre carnet d'adresses complet sur nos serveurs. Nous envoyons les numéros de téléphone de manière sécurisée (hashée ou chiffrée lors du transit) pour effectuer une comparaison (\"matching\") avec notre base d'utilisateurs, puis le résultat est renvoyé. Les contacts qui n'utilisent pas l'application ne sont ni contactés, ni enregistrés.",
+    privacy_policy_section2c_content: "L'Application vous demande l'autorisation d'accéder à vos contacts téléphoniques.\n- But : Cet accès sert uniquement à vérifier si vos contacts utilisent déjà l'Application \"Proot!\" afin de les ajouter automatiquement à votre liste d'amis.\n- Confidentialité : Nous ne stockons pas votre carnet d'adresses complet sur nos serveurs. Nous envoyons les numéros de téléphone de manière sécurisée (hashée ou chiffrée lors du transit) pour effectuer une comparaison (\"matching\") avec notre base d'utilisateurs, puis le résultat est renvoyé. Les contacts qui n'utilisent pas l'application ne sont ni contactés, ni enregistrés.",
     privacy_policy_section3_title: "3. Comment nous utilisons vos données",
-    privacy_policy_section3_content: "Vos données sont utilisées exclusivement pour :\n- Vous connecter : Gestion de votre compte sécurisé via Supabase.\n- Le service \"Prrt!\" : Envoyer et recevoir des notifications sonores instantanées.\n- La mise en relation : Vous permettre de trouver vos amis et d'être trouvé.\n- Le support : Répondre à vos demandes via email.\nNous ne vendons, ne louons et ne partageons jamais vos données personnelles à des tiers à des fins commerciales ou publicitaires.",
+    privacy_policy_section3_content: "Vos données sont utilisées exclusivement pour :\n- Vous connecter : Gestion de votre compte sécurisé via Supabase.\n- Le service \"Proot!\" : Envoyer et recevoir des notifications sonores instantanées.\n- La mise en relation : Vous permettre de trouver vos amis et d'être trouvé.\n- Le support : Répondre à vos demandes via email.\nNous ne vendons, ne louons et ne partageons jamais vos données personnelles à des tiers à des fins commerciales ou publicitaires.",
     privacy_policy_section4_title: "4. Partage et Sous-traitants",
     privacy_policy_section4_content: "Pour faire fonctionner l'Application, nous utilisons des services tiers de confiance. Vos données peuvent transiter par leurs serveurs :\n- Supabase (Base de données & Auth) : Hébergement sécurisé des comptes utilisateurs.\n- Expo (Infrastructure mobile) : Service technique pour l'envoi des notifications Push.\n- Google Firebase (FCM) : Acheminement des notifications sur Android.\n- Apple (APNs) : Acheminement des notifications sur iOS.\n- Render : Hébergement de notre serveur backend.\nCes prestataires sont soumis à des obligations strictes de sécurité et de confidentialité.",
     privacy_policy_section5_title: "5. Suppression des données et Vos Droits",
     privacy_policy_section5_intro: "Conformément au RGPD, vous disposez d'un droit d'accès, de modification et de suppression de vos données.",
     privacy_policy_section5_how_to_delete: "Comment supprimer votre compte ?",
-    privacy_policy_section5_delete_content: "Vous pouvez demander la suppression complète de votre compte et de toutes vos données associées à tout moment :\n- En nous envoyant un email simple à hello@theproutapp.com.\n- Via le bouton \"Supprimer mon compte\" dans les paramètres de l'Application.\nUne fois la demande traitée, toutes vos données (pseudo, téléphone, email, amis, historique) sont définitivement effacées de nos serveurs.",
+    privacy_policy_section5_delete_content: "Vous pouvez demander la suppression complète de votre compte et de toutes vos données associées à tout moment :\n- En nous envoyant un email simple à hello@prootapp.com.\n- Via le bouton \"Supprimer mon compte\" dans les paramètres de l'Application.\nUne fois la demande traitée, toutes vos données (pseudo, téléphone, email, amis, historique) sont définitivement effacées de nos serveurs.",
     privacy_policy_section6_title: "6. Sécurité",
     privacy_policy_section6_content: "Toutes les communications entre l'Application et nos serveurs sont chiffrées (HTTPS/SSL). Vos mots de passe ne sont jamais stockés en clair, ils sont hachés et sécurisés par notre fournisseur d'authentification.",
     privacy_policy_section7_title: "7. Modifications",
     privacy_policy_section7_content: "Nous pouvons mettre à jour cette politique de temps à autre. La version la plus récente sera toujours disponible via l'Application ou sur notre site web.",
-    privacy_policy_contact: "Contact : hello@theproutapp.com",
+    privacy_policy_contact: "Contact : hello@prootapp.com",
     no_change: "Aucun changement détecté",
     update_success: "Succès",
     update_success_msg: "%{fields} mis à jour avec succès !",
-    
+
     // Zen Mode
     zen_mode: "Mode Zen",
     zen_description: "Activez le mode Zen pour ne plus recevoir de notifications (ni pouvoir en envoyer). Idéal pour dormir ! 😴",
     zen_confirm_title: "Mode Zen 🌙",
     zen_confirm_body: "Vous ne recevrez plus de notifications, et ne pourrez plus en envoyer.",
     activate: "Activer",
-    
+
     // Silent Mode
     silent_mode: "Envois silencieux",
     silent_mode_title: "Envois silencieux 🤫",
     silent_mode_description: "Pour envoyer vos notifications en toute discrétion !",
     haptic_feedback: "Retour haptique",
-    
+
     // Identity Reveal
     who_are_you: "Qui es-tu ? 👀",
     who_are_you_subtitle: "%{requester} souhaite connaître ton identité.",
@@ -240,7 +243,7 @@ const i18n = new I18n({
     reveal_error: "Impossible de partager ton identité.",
     reveal_missing_id: "Identifiant du demandeur manquant.",
     reveal_missing_name: "Merci d’indiquer votre nom ou un alias.",
-    
+
     // Tuto
     tuto_header: "Comment ça marche ?",
     tuto_notif_title: "Pas de notifications ?",
@@ -257,13 +260,13 @@ const i18n = new I18n({
     tuto_silent_desc: "Vous pouvez activer ce mode pour envoyer vos notifications en toute discrétion !",
     tuto_4_title: "Sourdine",
     tuto_4_desc: "En swipant à gauche le nom d'un contact, vous pouvez le mettre en sourdine.",
-    
+
     // Onboarding
-    onboarding_welcome_title: "Prrt!",
+    onboarding_welcome_title: "Proot!",
     onboarding_welcome_subtitle: "Dites bonjour... autrement !",
     onboarding_welcome_desc: "",
-    onboarding_notifications_title: "Le cœur du Prrt!",
-    onboarding_notifications_desc: "Tout l'intérêt de communiquer avec vos amis sur Prrt!, ce sont les notifications. Acceptez-les pour jouer le jeu !",
+    onboarding_notifications_title: "Le cœur du Proot!",
+    onboarding_notifications_desc: "Tout l'intérêt de communiquer avec vos amis sur Proot!, ce sont les notifications. Acceptez-les pour jouer le jeu !",
     onboarding_sound_title: "Montez le volume",
     onboarding_sound_desc: "Pensez à vérifier que vous avez le son activé (et pas en silencieux) pour profiter de la mélodie.",
     onboarding_gesture_title: "À vous de jouer",
@@ -274,7 +277,7 @@ const i18n = new I18n({
     message_read: "Lu",
     onboarding_skip: "Passer",
     onboarding_start: "C'est parti !",
-    
+
     // Common UI
     greeting: "Bonjour",
     profile_title: "Profil",
@@ -285,7 +288,7 @@ const i18n = new I18n({
     pseudo_placeholder: "Ex: CaptainProut",
     email_placeholder: "exemple@email.com",
     phone_format_placeholder: "06 12 34 56 78",
-    
+
     // Footer & Help
     footer_help_text: "Swipez vers la droite pour envoyer une notification sonore, cliquez avant de swiper pour ajouter un message et faites un appui long pour choisir la catégorie de son ou un son spécifique !",
     footer_sound_category_info: "Le son des notifications sera choisi aléatoirement parmi la catégorie d’onde sonore sélectionnée !",
@@ -301,23 +304,23 @@ const i18n = new I18n({
     chat_onboarding_tap_category: "Changez la catégorie de sons aléatoires par un simple tap.",
     chat_onboarding_long_press_specific: "Un appuie long vous permet de choisir un son spécifique.",
     chat_onboarding_mute: "Vous permet de discuter sans sons.",
-    
+
     // Notifications & Errors
     notifications_not_enabled: "%{pseudo} n'a pas activé les notifications. Le token n'est pas disponible dans la base de données.",
     app_uninstalled: "%{pseudo} n'a plus l'application installée !",
     silent_notifications_warning: "Vos notifications sont silencieuses !",
-    
+
     // Identity Reveal
     identity_revealed_title: "Identité révélée",
     identity_revealed_body: "Ton ami a partagé son identité.",
-    
+
     // Zen Mode Options
     choose_duration: "Choisissez une durée",
     zen_job_label: "Save my job ! (9h-19h, lun-ven)",
     zen_night_label: "Save my night ! (22h-8h)",
     zen_job_short: "Save my job !",
     zen_night_short: "Save my night !",
-    
+
     // Menu Items
     search_friend: "Rechercher un ami",
     manage_profile: "Gérer votre profil",
@@ -335,7 +338,7 @@ const i18n = new I18n({
     cannot_retrieve_account: "Impossible de récupérer votre compte",
     cannot_load_profile: "Impossible de charger votre profil",
     not_defined_phone: "Non renseigné",
-    
+
     // Password Reset
     reset_link_invalid: "Ce lien de réinitialisation est invalide ou a expiré. Veuillez demander un nouveau lien.",
     cannot_verify_session: "Impossible de vérifier votre session. Veuillez réessayer.",
@@ -355,18 +358,18 @@ const i18n = new I18n({
     back_to_login: "Retour à la connexion",
     invalid_email_format: "Veuillez entrer un email valide",
     reset_email_error: "Une erreur est survenue lors de l'envoi de l'email",
-    
+
     // Email Confirmation
     verifying_profile: "Vérification du profil...",
     finalizing_connection: "Finalisation de la connexion...",
-    
+
     // Registration
     account_created_title: "Compte créé ! 📬",
     account_created_body: "Un email de confirmation vient d'être envoyé.\nCliquez sur le lien reçu pour activer votre compte.",
     creating_account: "Création en cours...",
     sign_up: "S'inscrire",
     security: "Sécurité",
-    
+
     // Search & Invitations
     already_linked_info: "Vous êtes déjà en lien avec cette personne.",
     request_sent_success: "Demande d'ami envoyée !",
@@ -413,14 +416,14 @@ const i18n = new I18n({
     phone_helper: "Permet à vos amis de vous retrouver plus facilement.",
     cancel_and_logout: "Annuler et se déconnecter",
     complete_profile_title: "Finalisation",
-    complete_profile_subtitle: "Votre compte est actif, mais votre profil Prrt! est manquant. Choisissez un pseudo pour le (re)créer.",
+    complete_profile_subtitle: "Votre compte est actif, mais votre profil Proot! est manquant. Choisissez un pseudo pour le (re)créer.",
     complete_profile_pseudo_placeholder: "Votre pseudo *",
     complete_profile_saving: "Sauvegarde...",
     complete_profile_cta: "C'est parti !",
     cancel_and_return: "Annuler et Retour",
     update_button: "Mise à jour",
     no_friends_identity: "Aucun ami encore. Ajoutez des amis pour demander leur identité.",
-    
+
     // Profile Edit
     change_pseudo_confirm: "Voulez-vous changer votre pseudo de \"%{current}\" à \"%{new}\" ?",
     set_email_confirm: "Voulez-vous définir votre email à \"%{email}\" ?\n\nActuellement, vous utilisez un email temporaire.",
@@ -475,14 +478,14 @@ const i18n = new I18n({
     google_error: "Erreur Google",
     web_notifications_unavailable: "Les notifications push ne sont pas disponibles sur le web.",
     create_profile_info: "Pour créer un profil, utilisez la page d'inscription qui crée automatiquement le compte auth et le profil.",
-    
+
     // Auth Choice
     already_have_account: "J'ai déjà un compte (Email)",
-    
+
     // Invitation Share
-    invite_message_with_pseudo: "Rejoins moi sur \"Prrt!\", mon pseudo est %{pseudo}",
-    invite_message: "Rejoins moi sur \"Prrt!\"",
-    
+    invite_message_with_pseudo: "Rejoins moi sur \"Proot!\", mon pseudo est %{pseudo}",
+    invite_message: "Rejoins moi sur \"Proot!\"",
+
     // Login
     session_invalid: "Session invalide après connexion",
     connection_error: "Une erreur est survenue lors de la connexion",
@@ -495,7 +498,7 @@ const i18n = new I18n({
     cannot_send_reset_email: "Impossible d'envoyer l'email de réinitialisation",
     reset_email_sent_title: "Email envoyé 📧",
     reset_email_sent_body: "Un email de réinitialisation a été envoyé à votre adresse.\n\nVérifiez votre boîte de réception (et vos spams) et suivez les instructions pour réinitialiser votre mot de passe.",
-    
+
     // Notifications Permission
     push_not_available_web: "Les notifications push ne sont pas disponibles sur le web.",
     push_requires_device: "Les notifications push nécessitent un appareil réel. Les simulateurs ne peuvent pas obtenir de token.",
@@ -503,18 +506,18 @@ const i18n = new I18n({
     permission_denied_title: "Permission refusée",
     permission_denied_body: "Les notifications push nécessitent la permission de notifications. Vous pourrez l'activer plus tard dans les paramètres.",
     notification_permission_title: "Autorisation de notifications",
-    notification_permission_message: "Prrt! est une application de notifications. Pour recevoir et envoyer des notifications à vos amis, vous devez autoriser les notifications.",
+    notification_permission_message: "Proot! est une application de notifications. Pour recevoir et envoyer des notifications à vos amis, vous devez autoriser les notifications.",
     accept_notifications_message: "Acceptez les notifications pour jouer le jeu ! 😊",
     authorize_notifications: "Autoriser les notifications",
-    
+
     // Contact Permission
     contact_permission_title: "Ça reste en nous !",
-    contact_permission_message: "Pour identifier automatiquement les amis qui utilisent déjà Prrt!, l'app doit envoyer les numéros de vos contacts vers nos serveurs sécurisés.\n\nC'est optionnel : vous pourrez toujours ajouter des amis manuellement par leur pseudo plus tard.",
+    contact_permission_message: "Pour identifier automatiquement les amis qui utilisent déjà Proot!, l'app doit envoyer les numéros de vos contacts vers nos serveurs sécurisés.\n\nC'est optionnel : vous pourrez toujours ajouter des amis manuellement par leur pseudo plus tard.",
     contact_consent_title: "Contacts : utilisation et partage",
-    contact_consent_message: "Pour identifier automatiquement les amis qui utilisent déjà Prrt!, l'app doit envoyer les numéros de vos contacts vers nos serveurs sécurisés.\n\nC'est optionnel : vous pourrez toujours ajouter des amis manuellement par leur pseudo plus tard.",
+    contact_consent_message: "Pour identifier automatiquement les amis qui utilisent déjà Proot!, l'app doit envoyer les numéros de vos contacts vers nos serveurs sécurisés.\n\nC'est optionnel : vous pourrez toujours ajouter des amis manuellement par leur pseudo plus tard.",
     refuse: "Refuser",
     next: "Suivant",
-    
+
     // Network
     connection_error_title: "Impossible de se connecter",
     connection_error_body: "Vérifiez votre réseau.",
@@ -534,8 +537,8 @@ const i18n = new I18n({
     later: "Later",
     confirm: "Confirm",
     info: "Info",
-    
-    // Prrt! Names
+
+    // Proot! Names
     prout_names: {
       prout1: "The Little Gust",
       prout2: "The Crackling",
@@ -572,7 +575,7 @@ const i18n = new I18n({
       'identity-request': "Identity request",
       'identity-response': "Identity answer",
     },
-    
+
     // Auth & Onboarding
     welcome: "Welcome!",
     continue_with_social: "Continue with Google or Apple",
@@ -585,11 +588,11 @@ const i18n = new I18n({
     no_account_signup: "No account? Sign Up",
     forgot_password: "Forgot password?",
     password_label: "Password",
-    
+
     // Home & Navigation
-    share_message: "Join me on the \"Prrt!\" app, my username is %{pseudo}: http://www.prrtapp.com",
+    share_message: "Join me on the \"Proot!\" app, my username is %{pseudo}: http://prootapp.com",
     tab_list: "Friends",
-    
+
     // Friends List
     friends_requests: "🔔 Friend Requests",
     identity_requests: "🕵️ Identity Requests",
@@ -625,8 +628,8 @@ const i18n = new I18n({
     report_submit_success_title: "Thank you",
     report_submit_success_body: "Thank you. This report will be reviewed by our team within 24 hours.",
     real_name: "Real name",
-    
-    // Actions Prrt!
+
+    // Actions Proot!
     zen_mode_active_me_title: "Zen Mode Active 🧘‍♂️",
     zen_mode_active_me_body: "You cannot send notifications in Zen mode. Disable it in your profile to resume hostilities.",
     zen_mode_active_friend_title: "Hush! 🤫",
@@ -636,7 +639,7 @@ const i18n = new I18n({
     cooldown_alert: "Too fast!",
     cooldown_message: "Wait a bit before sending another notification.",
     not_connected: "You are not connected.",
-    
+
     // Search
     search_title: "Find a new friend",
     search_placeholder: "Enter a username...",
@@ -648,7 +651,7 @@ const i18n = new I18n({
     no_results: "No user found.",
     request_sent: "Friend request sent!",
     already_linked: "You are already linked with this person.",
-    
+
     // Complicity
     complicity_title: "The Resonance Index",
     complicity_subtitle: "Complicity Score",
@@ -671,10 +674,11 @@ const i18n = new I18n({
     soundcheck_bzzz_description: "Digital sounds",
     soundcheck_trll_description: "Bird sounds",
     soundcheck_prrt_description: "Human sounds",
+    more_sounds_coming: "More sounds coming soon… 🎵",
     friend_sound_modal_title_random: "Let chance decide!",
     friend_sound_modal_or: "Or",
     friend_sound_modal_pick_button: "Choose your sound",
-    
+
     // Profil
     edit_profile: "Edit Profile",
     pseudo: "Username",
@@ -710,24 +714,26 @@ const i18n = new I18n({
     contact_support: "Contact Support",
     profile_eula: "EULA",
     eula_title: "End User License Agreement (EULA)",
-    eula_intro: "By using Prrt!, you agree to the following terms:",
+    eula_intro: "By using Proot!, you agree to the following terms:",
     eula_section_1_title: "1. Zero Tolerance Policy",
-    eula_section_1_body: "Prrt! has zero tolerance for objectionable content, including harassment, hate speech, threats, sexual exploitation, and explicit imagery.",
+    eula_section_1_body: "Proot! has zero tolerance for objectionable content, including harassment, hate speech, threats, sexual exploitation, and explicit imagery.",
     eula_section_2_title: "2. Abusive Behavior",
     eula_section_2_body: "Users who engage in abusive behavior may be suspended or permanently removed from the platform.",
     eula_section_3_title: "3. Content Moderation & Removal",
     eula_section_3_body: "The developer reserves the right to remove content and/or restrict accounts within 24 hours after a valid report is received.",
     eula_section_4_title: "4. User Safety Tools",
     eula_section_4_body: "Users are encouraged to use in-app safety tools, including Block and Report, to help maintain a safe environment.",
-    eula_accept_checkbox: "I agree to the terms and conditions above",
+    eula_section_5_title: "5. Contact",
+    eula_section_5_body: "For any report, question, or abuse, you can reach us at any time at the following address:\nhello@prootapp.com\n\nWe are committed to responding within 24 hours of receiving a valid report.",
+    eula_accept_checkbox: "I agree to the EULA and the zero tolerance policy against objectionable content and abusive users",
     eula_accept_button: "I Accept and Continue",
     privacy_policy: "Privacy Policy",
     privacy_policy_title: "Privacy Policy",
-    privacy_policy_app_title: "Privacy Policy of the Prrt! application",
+    privacy_policy_app_title: "Privacy Policy of the Proot! application",
     privacy_policy_last_update: "Last updated: December 8, 2025",
-    privacy_policy_intro: "Welcome to Prrt! (hereinafter \"the Application\"). We take the privacy of your data very seriously. This policy describes what data we collect, how we use it, and what your rights are, in compliance with the General Data Protection Regulation (GDPR).",
+    privacy_policy_intro: "Welcome to Proot! (hereinafter \"the Application\"). We take the privacy of your data very seriously. This policy describes what data we collect, how we use it, and what your rights are, in compliance with the General Data Protection Regulation (GDPR).",
     privacy_policy_section1_title: "1. Data Controller",
-    privacy_policy_section1_content: "The Application is published by The Prrt! Corporation (hereinafter \"We\"). For any questions regarding your data, you can contact us at: hello@theproutapp.com",
+    privacy_policy_section1_content: "The Application is published by The Proot! Corporation (hereinafter \"We\"). For any questions regarding your data, you can contact us at: hello@prootapp.com",
     privacy_policy_section2_title: "2. Data We Collect",
     privacy_policy_section2_intro: "We collect only the data strictly necessary for the operation of the sound notification service between friends.",
     privacy_policy_section2a_title: "A. Data You Provide",
@@ -735,37 +741,37 @@ const i18n = new I18n({
     privacy_policy_section2b_title: "B. Automatically Collected Data",
     privacy_policy_section2b_content: "- Device ID and Push Notification Token: Necessary to route sound notifications to your phone via Apple (APNs) and Google (FCM) services.\n- Technical Data: Phone model, operating system version (iOS/Android) for technical debugging.",
     privacy_policy_section2c_title: "C. Contact Access (Address Book)",
-    privacy_policy_section2c_content: "The Application requests permission to access your phone contacts.\n- Purpose: This access is used solely to check if your contacts already use the \"Prrt!\" Application to automatically add them to your friends list.\n- Privacy: We do not store your complete address book on our servers. We send phone numbers securely (hashed or encrypted in transit) to perform a comparison (\"matching\") with our user database, then the result is returned. Contacts who do not use the application are neither contacted nor recorded.",
+    privacy_policy_section2c_content: "The Application requests permission to access your phone contacts.\n- Purpose: This access is used solely to check if your contacts already use the \"Proot!\" Application to automatically add them to your friends list.\n- Privacy: We do not store your complete address book on our servers. We send phone numbers securely (hashed or encrypted in transit) to perform a comparison (\"matching\") with our user database, then the result is returned. Contacts who do not use the application are neither contacted nor recorded.",
     privacy_policy_section3_title: "3. How We Use Your Data",
-    privacy_policy_section3_content: "Your data is used exclusively for:\n- Logging in: Management of your secure account via Supabase.\n- The \"Prrt!\" service: Sending and receiving instant sound notifications.\n- Matching: Allowing you to find your friends and be found.\n- Support: Responding to your requests via email.\nWe never sell, rent, or share your personal data with third parties for commercial or advertising purposes.",
+    privacy_policy_section3_content: "Your data is used exclusively for:\n- Logging in: Management of your secure account via Supabase.\n- The \"Proot!\" service: Sending and receiving instant sound notifications.\n- Matching: Allowing you to find your friends and be found.\n- Support: Responding to your requests via email.\nWe never sell, rent, or share your personal data with third parties for commercial or advertising purposes.",
     privacy_policy_section4_title: "4. Sharing and Subcontractors",
     privacy_policy_section4_content: "To operate the Application, we use trusted third-party services. Your data may transit through their servers:\n- Supabase (Database & Auth): Secure hosting of user accounts.\n- Expo (Mobile Infrastructure): Technical service for sending Push notifications.\n- Google Firebase (FCM): Routing notifications on Android.\n- Apple (APNs): Routing notifications on iOS.\n- Render: Hosting of our backend server.\nThese providers are subject to strict security and confidentiality obligations.",
     privacy_policy_section5_title: "5. Data Deletion and Your Rights",
     privacy_policy_section5_intro: "In accordance with GDPR, you have the right to access, modify, and delete your data.",
     privacy_policy_section5_how_to_delete: "How to delete your account?",
-    privacy_policy_section5_delete_content: "You can request the complete deletion of your account and all associated data at any time:\n- By sending us a simple email to hello@theproutapp.com.\n- Via the \"Delete my account\" button in the Application settings.\nOnce the request is processed, all your data (username, phone, email, friends, history) is permanently erased from our servers.",
+    privacy_policy_section5_delete_content: "You can request the complete deletion of your account and all associated data at any time:\n- By sending us a simple email to hello@prootapp.com.\n- Via the \"Delete my account\" button in the Application settings.\nOnce the request is processed, all your data (username, phone, email, friends, history) is permanently erased from our servers.",
     privacy_policy_section6_title: "6. Security",
     privacy_policy_section6_content: "All communications between the Application and our servers are encrypted (HTTPS/SSL). Your passwords are never stored in plain text, they are hashed and secured by our authentication provider.",
     privacy_policy_section7_title: "7. Modifications",
     privacy_policy_section7_content: "We may update this policy from time to time. The most recent version will always be available via the Application or on our website.",
-    privacy_policy_contact: "Contact: hello@theproutapp.com",
+    privacy_policy_contact: "Contact: hello@prootapp.com",
     no_change: "No changes detected",
     update_success: "Success",
     update_success_msg: "%{fields} updated successfully!",
-    
+
     // Zen Mode
     zen_mode: "Zen Mode",
     zen_description: "Enable Zen Mode to stop receiving notifications (and sending them). Ideal for sleeping! 😴",
     zen_confirm_title: "Zen Mode 🌙",
     zen_confirm_body: "You will no longer receive notifications, and won't be able to send any.",
     activate: "Activate",
-    
+
     // Silent Mode
     silent_mode: "Silent sends",
     silent_mode_title: "Silent sends 🤫",
     haptic_feedback: "Haptic feedback",
     silent_mode_description: "To send your notifications discreetly!",
-    
+
     // Identity Reveal
     who_are_you: "Who are you? 👀",
     who_are_you_subtitle: "%{requester} wants to know who you are.",
@@ -775,7 +781,7 @@ const i18n = new I18n({
     reveal_error: "Unable to share your identity.",
     reveal_missing_id: "Requester ID missing.",
     reveal_missing_name: "Please enter your name or an alias.",
-    
+
     // Tuto
     tuto_header: "How it works?",
     tuto_notif_title: "No notifications?",
@@ -792,13 +798,13 @@ const i18n = new I18n({
     tuto_silent_desc: "You can enable this mode to send your notifications discreetly!",
     tuto_4_title: "Mute",
     tuto_4_desc: "By swiping left on a contact's name, you can mute them.",
-    
+
     // Onboarding
-    onboarding_welcome_title: "Prrt!",
+    onboarding_welcome_title: "Proot!",
     onboarding_welcome_subtitle: "Say hello... differently!",
     onboarding_welcome_desc: "",
-    onboarding_notifications_title: "The Heart of Prrt!",
-    onboarding_notifications_desc: "The whole point of communicating with your friends on Prrt! is the notifications. Please accept them to play the game!",
+    onboarding_notifications_title: "The Heart of Proot!",
+    onboarding_notifications_desc: "The whole point of communicating with your friends on Proot! is the notifications. Please accept them to play the game!",
     onboarding_sound_title: "Turn up the volume",
     onboarding_sound_desc: "Make sure you have sound enabled (and not on silent) to enjoy the melody.",
     onboarding_gesture_title: "Your turn",
@@ -809,7 +815,7 @@ const i18n = new I18n({
     message_read: "Read",
     onboarding_skip: "Skip",
     onboarding_start: "Let's go!",
-    
+
     // Common UI
     greeting: "Hello",
     profile_title: "Profile",
@@ -820,7 +826,7 @@ const i18n = new I18n({
     pseudo_placeholder: "Ex: CaptainProut",
     email_placeholder: "example@email.com",
     phone_format_placeholder: "+1 234 567 8900",
-    
+
     // Footer & Help
     footer_help_text: "Swipe right to send a sound notification, tap before swiping to add a message and long-press to choose the sound category or a specific sound!",
     footer_sound_category_info: "Notification sounds will be randomly chosen from your selected sound wave category!",
@@ -836,23 +842,23 @@ const i18n = new I18n({
     chat_onboarding_tap_category: "Change the random sound category with a simple tap.",
     chat_onboarding_long_press_specific: "A long press lets you choose a specific sound.",
     chat_onboarding_mute: "Allows you to chat without sounds.",
-    
+
     // Notifications & Errors
     notifications_not_enabled: "%{pseudo} has not enabled notifications. The token is not available in the database.",
     app_uninstalled: "%{pseudo} no longer has the app installed!",
     silent_notifications_warning: "Your notifications are silent!",
-    
+
     // Identity Reveal
     identity_revealed_title: "Identity revealed",
     identity_revealed_body: "Your friend has shared their identity.",
-    
+
     // Zen Mode Options
     choose_duration: "Choose a duration",
     zen_job_label: "Save my job ! (9am-7pm, Mon-Fri)",
     zen_night_label: "Save my night ! (10pm-8am)",
     zen_job_short: "Save my job !",
     zen_night_short: "Save my night !",
-    
+
     // Menu Items
     search_friend: "Find a friend",
     manage_profile: "Manage your profile",
@@ -870,7 +876,7 @@ const i18n = new I18n({
     cannot_retrieve_account: "Unable to retrieve your account",
     cannot_load_profile: "Unable to load your profile",
     not_defined_phone: "Not provided",
-    
+
     // Password Reset
     reset_link_invalid: "This reset link is invalid or has expired. Please request a new link.",
     cannot_verify_session: "Unable to verify your session. Please try again.",
@@ -890,18 +896,18 @@ const i18n = new I18n({
     back_to_login: "Back to login",
     invalid_email_format: "Please enter a valid email",
     reset_email_error: "An error occurred while sending the email",
-    
+
     // Email Confirmation
     verifying_profile: "Verifying profile...",
     finalizing_connection: "Finalizing connection...",
-    
+
     // Registration
     account_created_title: "Account created! 📬",
     account_created_body: "A confirmation email has been sent.\nClick on the link received to activate your account.",
     creating_account: "Creating...",
     sign_up: "Sign Up",
     security: "Security",
-    
+
     // Search & Invitations
     already_linked_info: "You are already linked with this person.",
     request_sent_success: "Friend request sent!",
@@ -948,14 +954,14 @@ const i18n = new I18n({
     phone_helper: "Allows your friends to find you more easily.",
     cancel_and_logout: "Cancel and log out",
     complete_profile_title: "Final setup",
-    complete_profile_subtitle: "Your account is active, but your Prrt! profile is missing. Choose a username to (re)create it.",
+    complete_profile_subtitle: "Your account is active, but your Proot! profile is missing. Choose a username to (re)create it.",
     complete_profile_pseudo_placeholder: "Your username *",
     complete_profile_saving: "Saving...",
     complete_profile_cta: "Let's go!",
     cancel_and_return: "Cancel and Return",
     update_button: "Update",
     no_friends_identity: "No friends yet. Add friends to request their identity.",
-    
+
     // Profile Edit
     change_pseudo_confirm: "Do you want to change your username from \"%{current}\" to \"%{new}\"?",
     set_email_confirm: "Do you want to set your email to \"%{email}\"?\n\nCurrently, you are using a temporary email.",
@@ -990,14 +996,14 @@ const i18n = new I18n({
     enter_new_phone: "Please enter a new phone number",
     verification_error: "An error occurred during verification",
     account_deleted_title: "Account deleted",
-    
+
     // Auth Choice
     already_have_account: "I already have an account (Email)",
-    
+
     // Invitation Share
-    invite_message_with_pseudo: "Join me on \"Prrt!\", my username is %{pseudo}",
-    invite_message: "Join me on \"Prrt!\"",
-    
+    invite_message_with_pseudo: "Join me on \"Proot!\", my username is %{pseudo}",
+    invite_message: "Join me on \"Proot!\"",
+
     // Login
     session_invalid: "Invalid session after login",
     connection_error: "An error occurred during login",
@@ -1010,7 +1016,7 @@ const i18n = new I18n({
     cannot_send_reset_email: "Unable to send reset email",
     reset_email_sent_title: "Email sent 📧",
     reset_email_sent_body: "A reset email has been sent to your address.\n\nCheck your inbox (and spam) and follow the instructions to reset your password.",
-    
+
     // Notifications Permission
     push_not_available_web: "Push notifications are not available on the web.",
     push_requires_device: "Push notifications require a real device. Simulators cannot get a token.",
@@ -1018,18 +1024,18 @@ const i18n = new I18n({
     permission_denied_title: "Permission denied",
     permission_denied_body: "Push notifications require notification permission. You can enable it later in settings.",
     notification_permission_title: "Notification Authorization",
-    notification_permission_message: "Prrt! is a notification app. To receive and send notifications to your friends, you must authorize notifications.",
+    notification_permission_message: "Proot! is a notification app. To receive and send notifications to your friends, you must authorize notifications.",
     accept_notifications_message: "Accept notifications to play the game! 😊",
     authorize_notifications: "Authorize notifications",
-    
+
     // Contact Permission
     contact_permission_title: "It stays with us!",
-    contact_permission_message: "To automatically identify friends already using Prrt!, the app needs to upload phone numbers from your contacts to our secure servers.\n\nThis is optional: You can still add friends manually by their username later.",
+    contact_permission_message: "To automatically identify friends already using Proot!, the app needs to upload phone numbers from your contacts to our secure servers.\n\nThis is optional: You can still add friends manually by their username later.",
     contact_consent_title: "Contacts: use and sharing",
-    contact_consent_message: "To automatically identify friends already using Prrt!, the app needs to upload phone numbers from your contacts to our secure servers.\n\nThis is optional: You can still add friends manually by their username later.",
+    contact_consent_message: "To automatically identify friends already using Proot!, the app needs to upload phone numbers from your contacts to our secure servers.\n\nThis is optional: You can still add friends manually by their username later.",
     refuse: "Refuse",
     next: "Next",
-    
+
     // Network
     connection_error_title: "Connection Failed",
     connection_error_body: "Check your network.",
@@ -1049,8 +1055,8 @@ const i18n = new I18n({
     later: "Más tarde",
     confirm: "Confirmar",
     info: "Información",
-    
-    // Prrt! Names
+
+    // Proot! Names
     prout_names: {
       prout1: "La Pequeña Ráfaga",
       prout2: "El Crepitante",
@@ -1087,7 +1093,7 @@ const i18n = new I18n({
       'identity-request': "Solicitud de identidad",
       'identity-response': "Respuesta de identidad",
     },
-    
+
     // Auth & Onboarding
     welcome: "¡Bienvenido!",
     continue_with_social: "Continuar con Google o Apple",
@@ -1100,11 +1106,11 @@ const i18n = new I18n({
     no_account_signup: "¿No tienes cuenta? Regístrate",
     forgot_password: "¿Olvidaste tu contraseña?",
     password_label: "Contraseña",
-    
+
     // Home & Navigation
-    share_message: "Únete a mí en la app \"Prrt!\", mi usuario es %{pseudo}: http://www.prrtapp.com",
+    share_message: "Únete a mí en la app \"Proot!\", mi usuario es %{pseudo}: http://prootapp.com",
     tab_list: "Amigos",
-    
+
     // Friends List
     friends_requests: "🔔 Solicitudes de amistad",
     identity_requests: "🕵️ Solicitudes de identidad",
@@ -1140,8 +1146,8 @@ const i18n = new I18n({
     report_submit_success_title: "Gracias",
     report_submit_success_body: "Gracias. Este reporte será revisado por nuestro equipo en un plazo de 24 horas.",
     real_name: "Nombre real",
-    
-    // Actions Prrt!
+
+    // Actions Proot!
     zen_mode_active_me_title: "Modo Zen Activo 🧘‍♂️",
     zen_mode_active_me_body: "No puedes enviar notificaciones en modo Zen. Desactívalo en tu perfil para reanudar las hostilidades.",
     zen_mode_active_friend_title: "¡Chis! 🤫",
@@ -1151,7 +1157,7 @@ const i18n = new I18n({
     cooldown_alert: "¡Demasiado rápido!",
     cooldown_message: "Espera un poco antes de enviar otra notificación.",
     not_connected: "No estás conectado.",
-    
+
     // Search
     search_title: "Buscar un nuevo amigo",
     search_placeholder: "Ingresa un nombre de usuario...",
@@ -1163,7 +1169,7 @@ const i18n = new I18n({
     no_results: "No se encontró ningún usuario.",
     request_sent: "¡Solicitud de amistad enviada!",
     already_linked: "Ya estás vinculado con esta persona.",
-    
+
     // Complicidad
     complicity_title: "El Índice de Resonancia",
     complicity_subtitle: "Puntuación de complicidad",
@@ -1185,11 +1191,12 @@ const i18n = new I18n({
     soundcheck_hint: "Elige tu categoría de onda sonora y\nescucha una vista previa aleatoria",
     soundcheck_bzzz_description: "Sonidos digitales",
     soundcheck_trll_description: "Sonidos de pájaros",
-    soundcheck_prrt_description: "Sonidos clasicos de Prrt",
+    soundcheck_prrt_description: "Sonidos clasicos de Proot!",
+    more_sounds_coming: "Más sonidos próximamente… 🎵",
     friend_sound_modal_title_random: "¡Deja que el azar decida!",
     friend_sound_modal_or: "O",
     friend_sound_modal_pick_button: "Elige tu sonido",
-    
+
     // Profil
     edit_profile: "Editar perfil",
     pseudo: "Nombre de usuario",
@@ -1226,24 +1233,24 @@ const i18n = new I18n({
     contact_support: "Contactar soporte",
     profile_eula: "EULA",
     eula_title: "Acuerdo de licencia de usuario final (EULA)",
-    eula_intro: "Al usar Prrt!, aceptas los siguientes términos:",
+    eula_intro: "Al usar Proot!, aceptas los siguientes términos:",
     eula_section_1_title: "1. Política de tolerancia cero",
-    eula_section_1_body: "Prrt! tiene tolerancia cero frente al contenido objetable, incluido el acoso, los discursos de odio, las amenazas, la explotación sexual y las imágenes explícitas.",
+    eula_section_1_body: "Proot! tiene tolerancia cero frente al contenido objetable, incluido el acoso, los discursos de odio, las amenazas, la explotación sexual y las imágenes explícitas.",
     eula_section_2_title: "2. Comportamiento abusivo",
     eula_section_2_body: "Los usuarios que incurran en comportamiento abusivo pueden ser suspendidos o eliminados permanentemente de la plataforma.",
     eula_section_3_title: "3. Moderación y retirada de contenido",
     eula_section_3_body: "El desarrollador se reserva el derecho de eliminar contenido y/o restringir cuentas dentro de las 24 horas posteriores a la recepción de un reporte válido.",
     eula_section_4_title: "4. Herramientas de seguridad",
     eula_section_4_body: "Se anima a los usuarios a utilizar las herramientas de seguridad de la app, incluyendo Bloquear y Reportar, para mantener un entorno seguro.",
-    eula_accept_checkbox: "Acepto los términos y condiciones anteriores",
+    eula_accept_checkbox: "Acepto el EULA y la política de tolerancia cero frente al contenido objetable y los usuarios abusivos",
     eula_accept_button: "Acepto y continúo",
     privacy_policy: "Política de privacidad",
     privacy_policy_title: "Política de Privacidad",
-    privacy_policy_app_title: "Política de Privacidad de la aplicación Prrt!",
+    privacy_policy_app_title: "Política de Privacidad de la aplicación Proot!",
     privacy_policy_last_update: "Última actualización: 8 de Diciembre de 2025",
-    privacy_policy_intro: "Bienvenido a Prrt! (en adelante \"la Aplicación\"). Nos tomamos muy en serio la privacidad de tus datos. Esta política describe qué datos recopilamos, cómo los utilizamos y cuáles son tus derechos, en cumplimiento del Reglamento General de Protección de Datos (RGPD).",
+    privacy_policy_intro: "Bienvenido a Proot! (en adelante \"la Aplicación\"). Nos tomamos muy en serio la privacidad de tus datos. Esta política describe qué datos recopilamos, cómo los utilizamos y cuáles son tus derechos, en cumplimiento del Reglamento General de Protección de Datos (RGPD).",
     privacy_policy_section1_title: "1. Responsable del tratamiento",
-    privacy_policy_section1_content: "La Aplicación es editada por The Prrt! Corporation (en adelante \"Nosotros\"). Para cualquier pregunta relacionada con tus datos, puedes contactarnos en: hello@theproutapp.com",
+    privacy_policy_section1_content: "La Aplicación es editada por The Proot! Corporation (en adelante \"Nosotros\"). Para cualquier pregunta relacionada con tus datos, puedes contactarnos en: hello@prootapp.com",
     privacy_policy_section2_title: "2. Los datos que recopilamos",
     privacy_policy_section2_intro: "Recopilamos únicamente los datos estrictamente necesarios para el funcionamiento del servicio de envío de notificaciones sonoras entre amigos.",
     privacy_policy_section2a_title: "A. Datos que nos proporcionas",
@@ -1251,37 +1258,37 @@ const i18n = new I18n({
     privacy_policy_section2b_title: "B. Datos recopilados automáticamente",
     privacy_policy_section2b_content: "- Identificador del dispositivo (Device ID) y Token de Notificación (Push Token): Necesarios para enrutar las notificaciones sonoras a tu teléfono a través de los servicios de Apple (APNs) y Google (FCM).\n- Datos técnicos: Modelo de teléfono, versión del sistema operativo (iOS/Android) para depuración técnica.",
     privacy_policy_section2c_title: "C. Acceso a Contactos (Libreta de direcciones)",
-    privacy_policy_section2c_content: "La Aplicación solicita permiso para acceder a tus contactos telefónicos.\n- Propósito: Este acceso se utiliza únicamente para verificar si tus contactos ya utilizan la Aplicación \"Prrt!\" para agregarlos automáticamente a tu lista de amigos.\n- Privacidad: No almacenamos tu libreta de direcciones completa en nuestros servidores. Enviamos los números de teléfono de forma segura (hasheados o cifrados durante el tránsito) para realizar una comparación (\"matching\") con nuestra base de datos de usuarios, luego se devuelve el resultado. Los contactos que no utilizan la aplicación no son contactados ni registrados.",
+    privacy_policy_section2c_content: "La Aplicación solicita permiso para acceder a tus contactos telefónicos.\n- Propósito: Este acceso se utiliza únicamente para verificar si tus contactos ya utilizan la Aplicación \"Proot!\" para agregarlos automáticamente a tu lista de amigos.\n- Privacidad: No almacenamos tu libreta de direcciones completa en nuestros servidores. Enviamos los números de teléfono de forma segura (hasheados o cifrados durante el tránsito) para realizar una comparación (\"matching\") con nuestra base de datos de usuarios, luego se devuelve el resultado. Los contactos que no utilizan la aplicación no son contactados ni registrados.",
     privacy_policy_section3_title: "3. Cómo utilizamos tus datos",
-    privacy_policy_section3_content: "Tus datos se utilizan exclusivamente para:\n- Iniciar sesión: Gestión de tu cuenta segura a través de Supabase.\n- El servicio \"Prrt!\": Enviar y recibir notificaciones sonoras instantáneas.\n- La conexión: Permitirte encontrar a tus amigos y ser encontrado.\n- El soporte: Responder a tus solicitudes por correo electrónico.\nNunca vendemos, alquilamos ni compartimos tus datos personales con terceros con fines comerciales o publicitarios.",
+    privacy_policy_section3_content: "Tus datos se utilizan exclusivamente para:\n- Iniciar sesión: Gestión de tu cuenta segura a través de Supabase.\n- El servicio \"Proot!\": Enviar y recibir notificaciones sonoras instantáneas.\n- La conexión: Permitirte encontrar a tus amigos y ser encontrado.\n- El soporte: Responder a tus solicitudes por correo electrónico.\nNunca vendemos, alquilamos ni compartimos tus datos personales con terceros con fines comerciales o publicitarios.",
     privacy_policy_section4_title: "4. Compartir y Subcontratistas",
     privacy_policy_section4_content: "Para hacer funcionar la Aplicación, utilizamos servicios de terceros de confianza. Tus datos pueden transitar por sus servidores:\n- Supabase (Base de datos y Auth): Alojamiento seguro de cuentas de usuario.\n- Expo (Infraestructura móvil): Servicio técnico para el envío de notificaciones Push.\n- Google Firebase (FCM): Enrutamiento de notificaciones en Android.\n- Apple (APNs): Enrutamiento de notificaciones en iOS.\n- Render: Alojamiento de nuestro servidor backend.\nEstos proveedores están sujetos a obligaciones estrictas de seguridad y confidencialidad.",
     privacy_policy_section5_title: "5. Eliminación de datos y Tus Derechos",
     privacy_policy_section5_intro: "De acuerdo con el RGPD, tienes derecho a acceder, modificar y eliminar tus datos.",
     privacy_policy_section5_how_to_delete: "¿Cómo eliminar tu cuenta?",
-    privacy_policy_section5_delete_content: "Puedes solicitar la eliminación completa de tu cuenta y todos los datos asociados en cualquier momento:\n- Enviándonos un correo electrónico simple a hello@theproutapp.com.\n- A través del botón \"Eliminar mi cuenta\" en la configuración de la Aplicación.\nUna vez procesada la solicitud, todos tus datos (nombre de usuario, teléfono, correo electrónico, amigos, historial) se eliminan permanentemente de nuestros servidores.",
+    privacy_policy_section5_delete_content: "Puedes solicitar la eliminación completa de tu cuenta y todos los datos asociados en cualquier momento:\n- Enviándonos un correo electrónico simple a hello@prootapp.com.\n- A través del botón \"Eliminar mi cuenta\" en la configuración de la Aplicación.\nUna vez procesada la solicitud, todos tus datos (nombre de usuario, teléfono, correo electrónico, amigos, historial) se eliminan permanentemente de nuestros servidores.",
     privacy_policy_section6_title: "6. Seguridad",
     privacy_policy_section6_content: "Todas las comunicaciones entre la Aplicación y nuestros servidores están cifradas (HTTPS/SSL). Tus contraseñas nunca se almacenan en texto plano, están hasheadas y aseguradas por nuestro proveedor de autenticación.",
     privacy_policy_section7_title: "7. Modificaciones",
     privacy_policy_section7_content: "Podemos actualizar esta política de vez en cuando. La versión más reciente estará siempre disponible a través de la Aplicación o en nuestro sitio web.",
-    privacy_policy_contact: "Contacto: hello@theproutapp.com",
+    privacy_policy_contact: "Contacto: hello@prootapp.com",
     no_change: "No se detectaron cambios",
     update_success: "Éxito",
     update_success_msg: "¡%{fields} actualizado con éxito!",
-    
+
     // Zen Mode
     zen_mode: "Modo Zen",
     zen_description: "Activa el modo Zen para dejar de recibir notificaciones (y poder enviarlas). ¡Ideal para dormir! 😴",
     zen_confirm_title: "Modo Zen 🌙",
     zen_confirm_body: "Ya no recibirás notificaciones y no podrás enviar ninguna.",
     activate: "Activar",
-    
+
     // Silent Mode
     silent_mode: "Envíos silenciosos",
     silent_mode_title: "Envíos silenciosos 🤫",
     haptic_feedback: "Retroalimentación háptica",
     silent_mode_description: "¡Para enviar tus notificaciones con total discreción!",
-    
+
     // Identity Reveal
     who_are_you: "¿Quién eres? 👀",
     who_are_you_subtitle: "%{requester} quiere saber tu identidad.",
@@ -1291,7 +1298,7 @@ const i18n = new I18n({
     reveal_error: "No se pudo compartir tu identidad.",
     reveal_missing_id: "Falta el ID del solicitante.",
     reveal_missing_name: "Por favor indica tu nombre o un alias.",
-    
+
     // Tuto
     tuto_header: "¿Cómo funciona?",
     tuto_notif_title: "¿No hay notificaciones?",
@@ -1308,13 +1315,13 @@ const i18n = new I18n({
     tuto_silent_desc: "¡Puedes activar este modo para enviar tus notificaciones con total discreción!",
     tuto_4_title: "Silenciar",
     tuto_4_desc: "Deslizando hacia la izquierda el nombre de un contacto, puedes silenciarlo.",
-    
+
     // Onboarding
-    onboarding_welcome_title: "Prrt!",
+    onboarding_welcome_title: "Proot!",
     onboarding_welcome_subtitle: "Di hola... ¡de otra manera!",
     onboarding_welcome_desc: "",
-    onboarding_notifications_title: "El corazón del Prrt!",
-    onboarding_notifications_desc: "Todo el interés de comunicarse con tus amigos en Prrt! son las notificaciones. ¡Acéptalas para jugar!",
+    onboarding_notifications_title: "El corazón del Proot!",
+    onboarding_notifications_desc: "Todo el interés de comunicarse con tus amigos en Proot! son las notificaciones. ¡Acéptalas para jugar!",
     onboarding_sound_title: "Sube el volumen",
     onboarding_sound_desc: "Asegúrate de tener el sonido activado (y no en silencioso) para disfrutar de la melodía.",
     onboarding_gesture_title: "A ti te toca",
@@ -1325,7 +1332,7 @@ const i18n = new I18n({
     message_read: "Leído",
     onboarding_skip: "Omitir",
     onboarding_start: "¡Vamos!",
-    
+
     // Common UI
     greeting: "Hola",
     profile_title: "Perfil",
@@ -1336,7 +1343,7 @@ const i18n = new I18n({
     pseudo_placeholder: "Ej: CaptainProut",
     email_placeholder: "ejemplo@email.com",
     phone_format_placeholder: "+34 612 34 56 78",
-    
+
     // Footer & Help
     footer_help_text: "Desliza hacia la derecha para enviar una notificación sonora, toca antes de deslizar para agregar un mensaje y mantén presionado para elegir la categoría de sonido o un sonido específico!",
     footer_sound_category_info: "El sonido de las notificaciones se elegirá aleatoriamente entre la categoría de onda sonora seleccionada.",
@@ -1352,23 +1359,23 @@ const i18n = new I18n({
     chat_onboarding_tap_category: "Cambia la categoría de sonidos aleatorios con un simple toque.",
     chat_onboarding_long_press_specific: "Un toque largo te permite elegir un sonido específico.",
     chat_onboarding_mute: "Te permite chatear sin sonidos.",
-    
+
     // Notifications & Errors
     notifications_not_enabled: "%{pseudo} no ha activado las notificaciones. El token no está disponible en la base de datos.",
     app_uninstalled: "%{pseudo} ya no tiene la aplicación instalada!",
     silent_notifications_warning: "¡Tus notificaciones están silenciosas!",
-    
+
     // Identity Reveal
     identity_revealed_title: "Identidad revelada",
     identity_revealed_body: "Tu amigo ha compartido su identidad.",
-    
+
     // Zen Mode Options
     choose_duration: "Elige una duración",
     zen_job_label: "¡Salva mi trabajo! (9h-19h, lun-vie)",
     zen_night_label: "¡Salva mi noche! (22h-8h)",
     zen_job_short: "¡Salva mi trabajo!",
     zen_night_short: "¡Salva mi noche!",
-    
+
     // Menu Items
     search_friend: "Buscar un amigo",
     manage_profile: "Gestiona tu perfil",
@@ -1376,7 +1383,7 @@ const i18n = new I18n({
     review_app_functions: "Revisar funciones de la app",
     who_is_who: "¿Quién es quién?",
     privacy_policy_menu: "Política de privacidad",
-    
+
     // Logout & Account
     logout_success_title: "Desconexión exitosa",
     logout_success_body: "¡Ya no recibirás notificaciones!",
@@ -1386,7 +1393,7 @@ const i18n = new I18n({
     cannot_retrieve_account: "No se puede recuperar tu cuenta",
     cannot_load_profile: "No se puede cargar tu perfil",
     not_defined_phone: "No proporcionado",
-    
+
     // Password Reset
     reset_link_invalid: "Este enlace de restablecimiento es inválido o ha expirado. Por favor solicita un nuevo enlace.",
     cannot_verify_session: "No se puede verificar tu sesión. Por favor intenta de nuevo.",
@@ -1406,18 +1413,18 @@ const i18n = new I18n({
     back_to_login: "Volver al inicio de sesión",
     invalid_email_format: "Por favor ingresa un email válido",
     reset_email_error: "Ocurrió un error al enviar el email",
-    
+
     // Email Confirmation
     verifying_profile: "Verificando perfil...",
     finalizing_connection: "Finalizando conexión...",
-    
+
     // Registration
     account_created_title: "¡Cuenta creada! 📬",
     account_created_body: "Se ha enviado un email de confirmación.\nHaz clic en el enlace recibido para activar tu cuenta.",
     creating_account: "Creando...",
     sign_up: "Registrarse",
     security: "Seguridad",
-    
+
     // Search & Invitations
     already_linked_info: "Ya estás vinculado con esta persona.",
     request_sent_success: "¡Solicitud de amistad enviada!",
@@ -1464,14 +1471,14 @@ const i18n = new I18n({
     phone_helper: "Permite que tus amigos te encuentren más fácilmente.",
     cancel_and_logout: "Cancelar y cerrar sesión",
     complete_profile_title: "Finalización",
-    complete_profile_subtitle: "Tu cuenta está activa, pero falta tu perfil de Prrt!. Elige un nombre de usuario para (re)crearlo.",
+    complete_profile_subtitle: "Tu cuenta está activa, pero falta tu perfil de Proot!. Elige un nombre de usuario para (re)crearlo.",
     complete_profile_pseudo_placeholder: "Tu nombre de usuario *",
     complete_profile_saving: "Guardando...",
     complete_profile_cta: "¡Vamos!",
     cancel_and_return: "Cancelar y Volver",
     update_button: "Actualizar",
     no_friends_identity: "Aún no hay amigos. Agrega amigos para solicitar su identidad.",
-    
+
     // Profile Edit
     change_pseudo_confirm: "¿Quieres cambiar tu nombre de usuario de \"%{current}\" a \"%{new}\"?",
     set_email_confirm: "¿Quieres establecer tu email a \"%{email}\"?\n\nActualmente estás usando un email temporal.",
@@ -1508,14 +1515,14 @@ const i18n = new I18n({
     enter_new_email: "Por favor ingresa un nuevo email",
     verification_error: "Ocurrió un error durante la verificación",
     account_deleted_title: "Cuenta eliminada",
-    
+
     // Auth Choice
     already_have_account: "Ya tengo una cuenta (Email)",
-    
+
     // Invitation Share
-    invite_message_with_pseudo: "Únete a mí en \"Prrt!\", mi nombre de usuario es %{pseudo}",
-    invite_message: "Únete a mí en \"Prrt!\"",
-    
+    invite_message_with_pseudo: "Únete a mí en \"Proot!\", mi nombre de usuario es %{pseudo}",
+    invite_message: "Únete a mí en \"Proot!\"",
+
     // Login
     session_invalid: "Sesión inválida después del inicio de sesión",
     connection_error: "Ocurrió un error durante el inicio de sesión",
@@ -1528,7 +1535,7 @@ const i18n = new I18n({
     cannot_send_reset_email: "No se puede enviar el email de restablecimiento",
     reset_email_sent_title: "Email enviado 📧",
     reset_email_sent_body: "Se ha enviado un email de restablecimiento a tu dirección.\n\nVerifica tu bandeja de entrada (y spam) y sigue las instrucciones para restablecer tu contraseña.",
-    
+
     // Notifications Permission
     push_not_available_web: "Las notificaciones push no están disponibles en la web.",
     push_requires_device: "Las notificaciones push requieren un dispositivo real. Los simuladores no pueden obtener un token.",
@@ -1536,18 +1543,18 @@ const i18n = new I18n({
     permission_denied_title: "Permiso denegado",
     permission_denied_body: "Las notificaciones push requieren permiso de notificaciones. Puedes activarlo más tarde en la configuración.",
     notification_permission_title: "Autorización de notificaciones",
-    notification_permission_message: "Prrt! es una aplicación de notificaciones. Para recibir y enviar notificaciones a tus amigos, debes autorizar las notificaciones.",
+    notification_permission_message: "Proot! es una aplicación de notificaciones. Para recibir y enviar notificaciones a tus amigos, debes autorizar las notificaciones.",
     accept_notifications_message: "¡Acepta las notificaciones para jugar! 😊",
     authorize_notifications: "Autorizar notificaciones",
-    
+
     // Contact Permission
     contact_permission_title: "¡Se queda con nosotros!",
-    contact_permission_message: "Para identificar automáticamente a los amigos que ya usan Prrt!, la app debe subir los números de tus contactos a nuestros servidores seguros.\n\nEs opcional: podrás seguir añadiendo amigos manualmente por su nombre de usuario más tarde.",
+    contact_permission_message: "Para identificar automáticamente a los amigos que ya usan Proot!, la app debe subir los números de tus contactos a nuestros servidores seguros.\n\nEs opcional: podrás seguir añadiendo amigos manualmente por su nombre de usuario más tarde.",
     contact_consent_title: "Contactos: uso y compartir",
-    contact_consent_message: "Para identificar automáticamente a los amigos que ya usan Prrt!, la app debe subir los números de tus contactos a nuestros servidores seguros.\n\nEs opcional: podrás seguir añadiendo amigos manualmente por su nombre de usuario más tarde.",
+    contact_consent_message: "Para identificar automáticamente a los amigos que ya usan Proot!, la app debe subir los números de tus contactos a nuestros servidores seguros.\n\nEs opcional: podrás seguir añadiendo amigos manualmente por su nombre de usuario más tarde.",
     refuse: "Rechazar",
     next: "Siguiente",
-    
+
     // Network
     connection_error_title: "No se pudo conectar",
     connection_error_body: "Verifica tu red.",
@@ -1567,8 +1574,8 @@ const i18n = new I18n({
     later: "Mais tarde",
     confirm: "Confirmar",
     info: "Informação",
-    
-    // Prrt! Names (Zueira mode)
+
+    // Proot! Names (Zueira mode)
     prout_names: {
       prout1: "A Brisa Leve",
       prout2: "O Pipoco",
@@ -1605,7 +1612,7 @@ const i18n = new I18n({
       'identity-request': "Pedido de identidade",
       'identity-response': "Resposta de identidade",
     },
-    
+
     // Auth & Onboarding
     welcome: "Bem-vindo!",
     continue_with_social: "Continuar com Google ou Apple",
@@ -1618,11 +1625,11 @@ const i18n = new I18n({
     no_account_signup: "Sem conta? Cadastre-se",
     forgot_password: "Esqueceu a senha?",
     password_label: "Senha",
-    
+
     // Home & Navigation
-    share_message: "Vem para o app \"Prrt!\", meu usuário é %{pseudo}: http://www.prrtapp.com",
+    share_message: "Vem para o app \"Proot!\", meu usuário é %{pseudo}: http://prootapp.com",
     tab_list: "Amigos",
-    
+
     // Friends List
     friends_requests: "🔔 Pedidos de amizade",
     identity_requests: "🕵️ Pedidos de identidade",
@@ -1658,8 +1665,8 @@ const i18n = new I18n({
     report_submit_success_title: "Obrigado",
     report_submit_success_body: "Obrigado. Esta denúncia será analisada pela nossa equipe em até 24 horas.",
     real_name: "Nome real",
-    
-    // Actions Prrt!
+
+    // Actions Proot!
     zen_mode_active_me_title: "Modo Zen Ativo 🧘‍♂️",
     zen_mode_active_me_body: "Sem peidos no modo Zen. Desative no perfil pra voltar à guerra.",
     zen_mode_active_friend_title: "Xiu! 🤫",
@@ -1669,7 +1676,7 @@ const i18n = new I18n({
     cooldown_alert: "Calma aí!",
     cooldown_message: "Espera um pouco antes de mandar outro.",
     not_connected: "Você não tá conectado.",
-    
+
     // Search
     search_title: "Achar amigo",
     search_placeholder: "Digita um nome...",
@@ -1681,7 +1688,7 @@ const i18n = new I18n({
     no_results: "Nenhum peidorreiro encontrado.",
     request_sent: "Pedido enviado!",
     already_linked: "Vocês já tão conectados.",
-    
+
     // Complicidade
     complicity_title: "O Índice de Ressonância",
     complicity_subtitle: "Pontuação de cumplicidade",
@@ -1704,10 +1711,11 @@ const i18n = new I18n({
     soundcheck_bzzz_description: "Sons digitais",
     soundcheck_trll_description: "Sons de pássaros",
     soundcheck_prrt_description: "Sons classicos do Prrt",
+    more_sounds_coming: "Mais sons em breve… 🎵",
     friend_sound_modal_title_random: "Deixe o acaso decidir!",
     friend_sound_modal_or: "Ou",
     friend_sound_modal_pick_button: "Escolha seu som",
-    
+
     // Profil
     edit_profile: "Editar Perfil",
     pseudo: "Nome de usuário",
@@ -1741,24 +1749,24 @@ const i18n = new I18n({
     contact_support: "Falar com suporte",
     profile_eula: "EULA",
     eula_title: "Contrato de Licença do Usuário Final (EULA)",
-    eula_intro: "Ao usar o Prrt!, você concorda com os seguintes termos:",
+    eula_intro: "Ao usar o Proot!, você concorda com os seguintes termos:",
     eula_section_1_title: "1. Política de Tolerância Zero",
-    eula_section_1_body: "O Prrt! tem tolerância zero para conteúdos impróprios, incluindo assédio, discurso de ódio, ameaças, exploração sexual e imagens explícitas.",
+    eula_section_1_body: "O Proot! tem tolerância zero para conteúdos impróprios, incluindo assédio, discurso de ódio, ameaças, exploração sexual e imagens explícitas.",
     eula_section_2_title: "2. Comportamento Abusivo",
     eula_section_2_body: "Usuários que adotarem comportamento abusivo podem ser suspensos ou removidos permanentemente da plataforma.",
     eula_section_3_title: "3. Moderação e Remoção de Conteúdo",
     eula_section_3_body: "O desenvolvedor se reserva o direito de remover conteúdo e/ou restringir contas em até 24 horas após o recebimento de uma denúncia válida.",
     eula_section_4_title: "4. Ferramentas de Segurança",
     eula_section_4_body: "Os usuários são incentivados a usar as ferramentas de segurança do app, incluindo Bloquear e Denunciar, para manter um ambiente seguro.",
-    eula_accept_checkbox: "Aceito os termos e condições acima",
+    eula_accept_checkbox: "Aceito o EULA e a política de tolerância zero contra conteúdo impróprio e usuários abusivos",
     eula_accept_button: "Aceito e continuo",
     privacy_policy: "Política de Privacidade",
     privacy_policy_title: "Política de Privacidade",
-    privacy_policy_app_title: "Política de Privacidade do Prrt!",
+    privacy_policy_app_title: "Política de Privacidade do Proot!",
     privacy_policy_last_update: "Última atualização: 8 de Dezembro de 2025",
-    privacy_policy_intro: "Bem-vindo ao Prrt!. Levamos seus dados a sério. Aqui tá explicado o que a gente pega e o que faz com isso.",
+    privacy_policy_intro: "Bem-vindo ao Proot!. Levamos seus dados a sério. Aqui tá explicado o que a gente pega e o que faz com isso.",
     privacy_policy_section1_title: "1. Quem manda",
-    privacy_policy_section1_content: "App feito pela The Prrt! Corporation. Dúvidas? Manda email: hello@theproutapp.com",
+    privacy_policy_section1_content: "App feito pela The Proot! Corporation. Dúvidas? Manda email: hello@prootapp.com",
     privacy_policy_section2_title: "2. O que a gente pega",
     privacy_policy_section2_intro: "Só o básico pra funcionar.",
     privacy_policy_section2a_title: "A. Dados que você dá",
@@ -1774,29 +1782,29 @@ const i18n = new I18n({
     privacy_policy_section5_title: "5. Seus direitos",
     privacy_policy_section5_intro: "Você pode ver, mudar ou apagar seus dados.",
     privacy_policy_section5_how_to_delete: "Como apagar a conta?",
-    privacy_policy_section5_delete_content: "Pode pedir pra apagar tudo:\n- Email pra hello@theproutapp.com.\n- Botão \"Excluir conta\" no app.\nApagou, já era.",
+    privacy_policy_section5_delete_content: "Pode pedir pra apagar tudo:\n- Email pra hello@prootapp.com.\n- Botão \"Excluir conta\" no app.\nApagou, já era.",
     privacy_policy_section6_title: "6. Segurança",
     privacy_policy_section6_content: "Tudo criptografado (HTTPS/SSL). Senhas hashadas e seguras.",
     privacy_policy_section7_title: "7. Mudanças",
     privacy_policy_section7_content: "A gente pode atualizar isso aqui. A versão nova sempre vai estar no app.",
-    privacy_policy_contact: "Contato: hello@theproutapp.com",
+    privacy_policy_contact: "Contato: hello@prootapp.com",
     no_change: "Nada mudou",
     update_success: "Sucesso",
     update_success_msg: "%{fields} atualizado!",
-    
+
     // Zen Mode
     zen_mode: "Modo Zen",
     zen_description: "Ativa pra não receber nada (nem enviar). Bom pra dormir! 😴",
     zen_confirm_title: "Modo Zen 🌙",
     zen_confirm_body: "Você não vai receber nem enviar nada.",
     activate: "Ativar",
-    
+
     // Silent Mode
     silent_mode: "Envio silencioso",
     silent_mode_title: "Envio silencioso 🤫",
     haptic_feedback: "Feedback háptico",
     silent_mode_description: "Pra mandar na encolha!",
-    
+
     // Identity Reveal
     who_are_you: "Quem é tu? 👀",
     who_are_you_subtitle: "%{requester} quer saber quem é você.",
@@ -1806,14 +1814,14 @@ const i18n = new I18n({
     reveal_error: "Não deu pra enviar.",
     reveal_missing_id: "Falta o ID.",
     reveal_missing_name: "Coloca um nome aí.",
-    
+
     // Tuto
     tuto_header: "Como funciona?",
     tuto_notif_title: "Sem notificação?",
     tuto_notif_desc: "Vê se tá liberado nas configurações.",
     tuto_sound_title: "Sem som?",
     tuto_sound_desc: "Vê se não tá no mudo.",
-    tuto_1_title: "Mandar um Prrt!",
+    tuto_1_title: "Mandar um Proot!",
     tuto_1_desc: "Arrasta o nome do amigo pra direita! É surpresa, nunca se sabe o que vem!",
     tuto_2_title: "Mensagens efêmeras",
     tuto_2_desc: "Clica no nome do amigo pra mandar um recado no chat efêmero!",
@@ -1823,13 +1831,13 @@ const i18n = new I18n({
     tuto_silent_desc: "Manda sem fazer barulho no seu cel!",
     tuto_4_title: "Silenciar",
     tuto_4_desc: "Arrasta pra esquerda pra calar a boca do amigo.",
-    
+
     // Onboarding
-    onboarding_welcome_title: "Prrt!",
+    onboarding_welcome_title: "Proot!",
     onboarding_welcome_subtitle: "Diga olá... de forma diferente!",
     onboarding_welcome_desc: "",
-    onboarding_notifications_title: "O coração do Prrt!",
-    onboarding_notifications_desc: "Todo o interesse de se comunicar com seus amigos no Prrt! são as notificações. Aceite-as para jogar!",
+    onboarding_notifications_title: "O coração do Proot!",
+    onboarding_notifications_desc: "Todo o interesse de se comunicar com seus amigos no Proot! são as notificações. Aceite-as para jogar!",
     onboarding_sound_title: "Aumenta o som",
     onboarding_sound_desc: "Deixa o som ligado pra curtir a melodia.",
     onboarding_gesture_title: "Sua vez",
@@ -1840,7 +1848,7 @@ const i18n = new I18n({
     message_read: "Lido",
     onboarding_skip: "Pular",
     onboarding_start: "Bora!",
-    
+
     // Common UI
     greeting: "E aí",
     profile_title: "Perfil",
@@ -1851,7 +1859,7 @@ const i18n = new I18n({
     pseudo_placeholder: "Ex: CapitãoPeido",
     email_placeholder: "exemplo@email.com",
     phone_format_placeholder: "+55 11 99999 9999",
-    
+
     // Footer & Help
     footer_help_text: "Direita pra enviar uma notificação sonora, clica antes pra escrever e mantenha pressionado para escolher a categoria de som ou um som específico!",
     footer_sound_category_info: "O som das notificações será escolhido aleatoriamente dentro da categoria de onda sonora selecionada!",
@@ -1867,23 +1875,23 @@ const i18n = new I18n({
     chat_onboarding_tap_category: "Mude a categoria de sons aleatórios com um simples toque.",
     chat_onboarding_long_press_specific: "Um toque longo permite escolher um som específico.",
     chat_onboarding_mute: "Permite conversar sem sons.",
-    
+
     // Notifications & Errors
     notifications_not_enabled: "%{pseudo} não ativou notificação. Sem token.",
     app_uninstalled: "%{pseudo} desinstalou o app!",
     silent_notifications_warning: "Suas notificações tão no mudo!",
-    
+
     // Identity Reveal
     identity_revealed_title: "Identidade revelada",
     identity_revealed_body: "Seu amigo contou quem é.",
-    
+
     // Zen Mode Options
     choose_duration: "Escolhe o tempo",
     zen_job_label: "Salva meu emprego! (9h-19h, Seg-Sex)",
     zen_night_label: "Salva meu sono! (22h-8h)",
     zen_job_short: "Trabalho!",
     zen_night_short: "Sono!",
-    
+
     // Menu Items
     search_friend: "Buscar amigo",
     manage_profile: "Gerenciar perfil",
@@ -1891,7 +1899,7 @@ const i18n = new I18n({
     review_app_functions: "Ver funções",
     who_is_who: "Quem é quem?",
     privacy_policy_menu: "Privacidade",
-    
+
     // Logout & Account
     logout_success_title: "Saiu com sucesso",
     logout_success_body: "Acabou os peidos!",
@@ -1901,7 +1909,7 @@ const i18n = new I18n({
     cannot_retrieve_account: "Não achei a conta",
     cannot_load_profile: "Não carregou perfil",
     not_defined_phone: "Não informado",
-    
+
     // Password Reset
     reset_link_invalid: "Link inválido ou expirado.",
     cannot_verify_session: "Sessão inválida.",
@@ -1921,18 +1929,18 @@ const i18n = new I18n({
     back_to_login: "Voltar pro login",
     invalid_email_format: "Email inválido",
     reset_email_error: "Erro ao enviar email",
-    
+
     // Email Confirmation
     verifying_profile: "Verificando...",
     finalizing_connection: "Finalizando...",
-    
+
     // Registration
     account_created_title: "Conta criada! 📬",
     account_created_body: "Email enviado.\nClica no link pra ativar.",
     creating_account: "Criando...",
     sign_up: "Cadastrar",
     security: "Segurança",
-    
+
     // Search & Invitations
     already_linked_info: "Já tão conectados.",
     request_sent_success: "Pedido enviado!",
@@ -1979,14 +1987,14 @@ const i18n = new I18n({
     phone_helper: "Pros amigos te acharem.",
     cancel_and_logout: "Cancelar e sair",
     complete_profile_title: "Finalização",
-    complete_profile_subtitle: "Sua conta está ativa, mas seu perfil do Prrt! está ausente. Escolha um nome de usuário para (re)criá-lo.",
+    complete_profile_subtitle: "Sua conta está ativa, mas seu perfil do Proot! está ausente. Escolha um nome de usuário para (re)criá-lo.",
     complete_profile_pseudo_placeholder: "Seu nome de usuário *",
     complete_profile_saving: "Salvando...",
     complete_profile_cta: "Vamos lá!",
     cancel_and_return: "Cancelar e voltar",
     update_button: "Atualizar",
     no_friends_identity: "Sem amigos. Adiciona pra pedir ID.",
-    
+
     // Profile Edit
     change_pseudo_confirm: "Mudar nome de \"%{current}\" pra \"%{new}\"?",
     set_email_confirm: "Mudar email pra \"%{email}\"?",
@@ -2023,14 +2031,14 @@ const i18n = new I18n({
     enter_new_email: "Digita novo email",
     verification_error: "Erro na verificação",
     account_deleted_title: "Conta apagada",
-    
+
     // Auth Choice
     already_have_account: "Já tenho conta (Email)",
-    
+
     // Invitation Share
-    invite_message_with_pseudo: "Vem pro \"Prrt!\", meu usuário é %{pseudo}",
-    invite_message: "Vem pro \"Prrt!\"",
-    
+    invite_message_with_pseudo: "Vem pro \"Proot!\", meu usuário é %{pseudo}",
+    invite_message: "Vem pro \"Proot!\"",
+
     // Login
     session_invalid: "Sessão inválida",
     connection_error: "Erro ao conectar",
@@ -2043,7 +2051,7 @@ const i18n = new I18n({
     cannot_send_reset_email: "Erro ao enviar email",
     reset_email_sent_title: "Email enviado 📧",
     reset_email_sent_body: "Email de reset enviado.\n\nVê sua caixa (e spam) e segue as instruções.",
-    
+
     // Notifications Permission
     push_not_available_web: "Sem notificações na web.",
     push_requires_device: "Precisa de dispositivo real.",
@@ -2051,18 +2059,18 @@ const i18n = new I18n({
     permission_denied_title: "Permissão negada",
     permission_denied_body: "Precisa de permissão de notificação.",
     notification_permission_title: "Autorização de notificações",
-    notification_permission_message: "Prrt! é app de notificação. Pra receber e enviar peidos, precisa autorizar.",
+    notification_permission_message: "Proot! é app de notificação. Pra receber e enviar peidos, precisa autorizar.",
     accept_notifications_message: "Aceita as notificações pra jogar! 😊",
     authorize_notifications: "Autorizar notificações",
-    
+
     // Contact Permission
     contact_permission_title: "Fica só com a gente!",
-    contact_permission_message: "Para identificar automaticamente amigos que já usam o Prrt!, o app precisa enviar os números dos seus contatos para nossos servidores seguros.\n\nÉ opcional: você ainda pode adicionar amigos manualmente pelo nome de usuário depois.",
+    contact_permission_message: "Para identificar automaticamente amigos que já usam o Proot!, o app precisa enviar os números dos seus contatos para nossos servidores seguros.\n\nÉ opcional: você ainda pode adicionar amigos manualmente pelo nome de usuário depois.",
     contact_consent_title: "Contatos: uso e compartilhamento",
-    contact_consent_message: "Para identificar automaticamente amigos que já usam o Prrt!, o app precisa enviar os números dos seus contatos para nossos servidores seguros.\n\nÉ opcional: você ainda pode adicionar amigos manualmente pelo nome de usuário depois.",
+    contact_consent_message: "Para identificar automaticamente amigos que já usam o Proot!, o app precisa enviar os números dos seus contatos para nossos servidores seguros.\n\nÉ opcional: você ainda pode adicionar amigos manualmente pelo nome de usuário depois.",
     refuse: "Recusar",
     next: "Próximo",
-    
+
     // Network
     connection_error_title: "Não conectou",
     connection_error_body: "Vê sua rede.",
@@ -2082,8 +2090,8 @@ const i18n = new I18n({
     later: "Später",
     confirm: "Bestätigen",
     info: "Information",
-    
-    // Prrt! Names
+
+    // Proot! Names
     prout_names: {
       prout1: "Das kleine Lüftchen",
       prout2: "Der Knusperer",
@@ -2120,7 +2128,7 @@ const i18n = new I18n({
       'identity-request': "Identitätsanfrage",
       'identity-response': "Identitätsantwort",
     },
-    
+
     // Auth & Onboarding
     welcome: "Willkommen!",
     continue_with_social: "Mit Google oder Apple fortfahren",
@@ -2133,11 +2141,11 @@ const i18n = new I18n({
     no_account_signup: "Kein Konto? Registrieren",
     forgot_password: "Passwort vergessen?",
     password_label: "Passwort",
-    
+
     // Home & Navigation
-    share_message: "Komm zu mir in der App \"Prrt!\", mein Benutzername ist %{pseudo}: http://www.prrtapp.com",
+    share_message: "Komm zu mir in der App \"Proot!\", mein Benutzername ist %{pseudo}: http://prootapp.com",
     tab_list: "Freunde",
-    
+
     // Friends List
     friends_requests: "🔔 Freundschaftsanfragen",
     identity_requests: "🕵️ Identitätsanfragen",
@@ -2173,8 +2181,8 @@ const i18n = new I18n({
     report_submit_success_title: "Danke",
     report_submit_success_body: "Danke. Diese Meldung wird innerhalb von 24 Stunden von unserem Team geprüft.",
     real_name: "Echter Name",
-    
-    // Actions Prrt!
+
+    // Actions Proot!
     zen_mode_active_me_title: "Zen-Modus aktiv 🧘‍♂️",
     zen_mode_active_me_body: "Keine Fürze im Zen-Modus. Deaktiviere im Profil, um zurück zur Schlacht zu gehen.",
     zen_mode_active_friend_title: "Psst! 🤫",
@@ -2184,7 +2192,7 @@ const i18n = new I18n({
     cooldown_alert: "Ruhig!",
     cooldown_message: "Warte ein wenig, bevor du einen weiteren sendest.",
     not_connected: "Du bist nicht verbunden.",
-    
+
     // Search
     search_title: "Freund finden",
     search_placeholder: "Name eingeben...",
@@ -2196,7 +2204,7 @@ const i18n = new I18n({
     no_results: "Kein Furzer gefunden.",
     request_sent: "Anfrage gesendet!",
     already_linked: "Ihr seid bereits verbunden.",
-    
+
     // Komplizenschaft
     complicity_title: "Der Resonanz-Index",
     complicity_subtitle: "Komplizenschafts-Punktzahl",
@@ -2219,10 +2227,11 @@ const i18n = new I18n({
     soundcheck_bzzz_description: "Digitale Geräusche",
     soundcheck_trll_description: "Vogelgeräusche",
     soundcheck_prrt_description: "Klassische Prrt-Sounds",
+    more_sounds_coming: "Weitere Sounds kommen bald… 🎵",
     friend_sound_modal_title_random: "Lass den Zufall entscheiden!",
     friend_sound_modal_or: "Oder",
     friend_sound_modal_pick_button: "Wähle deinen Sound",
-    
+
     // Profil
     edit_profile: "Profil bearbeiten",
     pseudo: "Benutzername",
@@ -2256,24 +2265,24 @@ const i18n = new I18n({
     contact_support: "Support kontaktieren",
     profile_eula: "EULA",
     eula_title: "Endnutzer-Lizenzvereinbarung (EULA)",
-    eula_intro: "Durch die Nutzung von Prrt! stimmst du den folgenden Bedingungen zu:",
+    eula_intro: "Durch die Nutzung von Proot! stimmst du den folgenden Bedingungen zu:",
     eula_section_1_title: "1. Null-Toleranz-Richtlinie",
-    eula_section_1_body: "Prrt! verfolgt eine Null-Toleranz-Richtlinie für anstößige Inhalte, einschließlich Belästigung, Hassrede, Drohungen, sexueller Ausbeutung und expliziter Bilder.",
+    eula_section_1_body: "Proot! verfolgt eine Null-Toleranz-Richtlinie für anstößige Inhalte, einschließlich Belästigung, Hassrede, Drohungen, sexueller Ausbeutung und expliziter Bilder.",
     eula_section_2_title: "2. Missbräuchliches Verhalten",
     eula_section_2_body: "Benutzer mit missbräuchlichem Verhalten können gesperrt oder dauerhaft von der Plattform entfernt werden.",
     eula_section_3_title: "3. Inhaltsmoderation und Entfernung",
     eula_section_3_body: "Der Entwickler behält sich das Recht vor, Inhalte zu entfernen und/oder Konten innerhalb von 24 Stunden nach Eingang einer gültigen Meldung einzuschränken.",
     eula_section_4_title: "4. Sicherheitswerkzeuge",
     eula_section_4_body: "Benutzer werden ermutigt, die integrierten Sicherheitswerkzeuge wie Blockieren und Melden zu verwenden, um eine sichere Umgebung zu erhalten.",
-    eula_accept_checkbox: "Ich akzeptiere die oben genannten Allgemeinen Geschäftsbedingungen",
+    eula_accept_checkbox: "Ich akzeptiere die EULA und die Null-Toleranz-Richtlinie gegen anstößige Inhalte und missbräuchliche Nutzer",
     eula_accept_button: "Akzeptieren und fortfahren",
     privacy_policy: "Datenschutzerklärung",
     privacy_policy_title: "Datenschutzerklärung",
-    privacy_policy_app_title: "Datenschutzerklärung von Prrt!",
+    privacy_policy_app_title: "Datenschutzerklärung von Proot!",
     privacy_policy_last_update: "Letzte Aktualisierung: 8. Dezember 2025",
-    privacy_policy_intro: "Willkommen bei Prrt!. Wir nehmen deine Daten ernst. Hier ist erklärt, was wir sammeln und was wir damit machen.",
+    privacy_policy_intro: "Willkommen bei Proot!. Wir nehmen deine Daten ernst. Hier ist erklärt, was wir sammeln und was wir damit machen.",
     privacy_policy_section1_title: "1. Wer wir sind",
-    privacy_policy_section1_content: "App von The Prrt! Corporation. Fragen? E-Mail: hello@theproutapp.com",
+    privacy_policy_section1_content: "App von The Proot! Corporation. Fragen? E-Mail: hello@prootapp.com",
     privacy_policy_section2_title: "2. Was wir sammeln",
     privacy_policy_section2_intro: "Nur das Nötige zum Funktionieren.",
     privacy_policy_section2a_title: "A. Daten, die du gibst",
@@ -2289,29 +2298,29 @@ const i18n = new I18n({
     privacy_policy_section5_title: "5. Deine Rechte",
     privacy_policy_section5_intro: "Du kannst deine Daten einsehen, ändern oder löschen.",
     privacy_policy_section5_how_to_delete: "Wie lösche ich das Konto?",
-    privacy_policy_section5_delete_content: "Du kannst alles löschen lassen:\n- E-Mail an hello@theproutapp.com.\n- Button \"Konto löschen\" in der App.\nGelöscht, fertig.",
+    privacy_policy_section5_delete_content: "Du kannst alles löschen lassen:\n- E-Mail an hello@prootapp.com.\n- Button \"Konto löschen\" in der App.\nGelöscht, fertig.",
     privacy_policy_section6_title: "6. Sicherheit",
     privacy_policy_section6_content: "Alles verschlüsselt (HTTPS/SSL). Passwörter gehasht und sicher.",
     privacy_policy_section7_title: "7. Änderungen",
     privacy_policy_section7_content: "Wir können das hier aktualisieren. Die neue Version ist immer in der App.",
-    privacy_policy_contact: "Kontakt: hello@theproutapp.com",
+    privacy_policy_contact: "Kontakt: hello@prootapp.com",
     no_change: "Nichts geändert",
     update_success: "Erfolg",
     update_success_msg: "%{fields} aktualisiert!",
-    
+
     // Zen Mode
     zen_mode: "Zen-Modus",
     zen_description: "Aktiviere, um nichts zu erhalten (oder zu senden). Gut zum Schlafen! 😴",
     zen_confirm_title: "Zen-Modus 🌙",
     zen_confirm_body: "Du wirst nichts erhalten oder senden.",
     activate: "Aktivieren",
-    
+
     // Silent Mode
     silent_mode: "Leiser Versand",
     silent_mode_title: "Leiser Versand 🤫",
     haptic_feedback: "Haptisches Feedback",
     silent_mode_description: "Um heimlich zu senden!",
-    
+
     // Identity Reveal
     who_are_you: "Wer bist du? 👀",
     who_are_you_subtitle: "%{requester} möchte wissen, wer du bist.",
@@ -2321,14 +2330,14 @@ const i18n = new I18n({
     reveal_error: "Konnte nicht gesendet werden.",
     reveal_missing_id: "ID fehlt.",
     reveal_missing_name: "Gib einen Namen ein.",
-    
+
     // Tuto
     tuto_header: "Wie funktioniert es?",
     tuto_notif_title: "Keine Benachrichtigung?",
     tuto_notif_desc: "Prüfe, ob es in den Einstellungen aktiviert ist.",
     tuto_sound_title: "Kein Ton?",
     tuto_sound_desc: "Prüfe, ob es nicht stummgeschaltet ist.",
-    tuto_1_title: "Einen Prrt! senden",
+    tuto_1_title: "Einen Proot! senden",
     tuto_1_desc: "Ziehe den Namen des Freundes nach rechts! Es ist eine Überraschung, man weiß nie, was kommt!",
     tuto_2_title: "Vergängliche Nachrichten",
     tuto_2_desc: "Klicke auf den Namen des Freundes, um eine Nachricht im vergänglichen Chat zu senden!",
@@ -2338,13 +2347,13 @@ const i18n = new I18n({
     tuto_silent_desc: "Sende ohne Lärm auf deinem Handy!",
     tuto_4_title: "Stummschalten",
     tuto_4_desc: "Ziehe nach links, um den Freund stummzuschalten.",
-    
+
     // Onboarding
-    onboarding_welcome_title: "Prrt!",
+    onboarding_welcome_title: "Proot!",
     onboarding_welcome_subtitle: "Sag hallo... anders!",
     onboarding_welcome_desc: "",
-    onboarding_notifications_title: "Das Herz von Prrt!",
-    onboarding_notifications_desc: "Der ganze Sinn der Kommunikation mit deinen Freunden auf Prrt! sind die Benachrichtigungen. Bitte akzeptiere sie, um das Spiel zu spielen!",
+    onboarding_notifications_title: "Das Herz von Proot!",
+    onboarding_notifications_desc: "Der ganze Sinn der Kommunikation mit deinen Freunden auf Proot! sind die Benachrichtigungen. Bitte akzeptiere sie, um das Spiel zu spielen!",
     onboarding_sound_title: "Drehe die Lautstärke auf",
     onboarding_sound_desc: "Lass den Ton an, um die Melodie zu genießen.",
     onboarding_gesture_title: "Du bist dran",
@@ -2355,7 +2364,7 @@ const i18n = new I18n({
     message_read: "Gelesen",
     onboarding_skip: "Überspringen",
     onboarding_start: "Los geht's!",
-    
+
     // Common UI
     greeting: "Hallo",
     profile_title: "Profil",
@@ -2366,7 +2375,7 @@ const i18n = new I18n({
     pseudo_placeholder: "z.B. KapitänFurz",
     email_placeholder: "beispiel@email.com",
     phone_format_placeholder: "+49 30 12345678",
-    
+
     // Footer & Help
     footer_help_text: "Rechts zum Senden einer Tonbenachrichtigung, vorher klicken zum Schreiben und lange drücken, um die Soundkategorie oder einen bestimmten Sound auszuwählen!",
     footer_sound_category_info: "Der Benachrichtigungston wird zufällig aus der ausgewählten Schallwellen-Kategorie gewählt!",
@@ -2382,23 +2391,23 @@ const i18n = new I18n({
     chat_onboarding_tap_category: "Ändere die zufällige Sound-Kategorie mit einem einfachen Tippen.",
     chat_onboarding_long_press_specific: "Ein langes Drücken ermöglicht es dir, einen spezifischen Sound auszuwählen.",
     chat_onboarding_mute: "Ermöglicht es dir, ohne Sounds zu chatten.",
-    
+
     // Notifications & Errors
     notifications_not_enabled: "%{pseudo} hat Benachrichtigungen nicht aktiviert. Kein Token.",
     app_uninstalled: "%{pseudo} hat die App deinstalliert!",
     silent_notifications_warning: "Deine Benachrichtigungen sind stummgeschaltet!",
-    
+
     // Identity Reveal
     identity_revealed_title: "Identität enthüllt",
     identity_revealed_body: "Dein Freund hat gesagt, wer er/sie ist.",
-    
+
     // Zen Mode Options
     choose_duration: "Dauer wählen",
     zen_job_label: "Rette meinen Job! (9-19 Uhr, Mo-Fr)",
     zen_night_label: "Rette meinen Schlaf! (22-8 Uhr)",
     zen_job_short: "Arbeit!",
     zen_night_short: "Schlaf!",
-    
+
     // Menu Items
     search_friend: "Freund suchen",
     manage_profile: "Profil verwalten",
@@ -2406,7 +2415,7 @@ const i18n = new I18n({
     review_app_functions: "Funktionen ansehen",
     who_is_who: "Wer ist wer?",
     privacy_policy_menu: "Datenschutz",
-    
+
     // Logout & Account
     logout_success_title: "Erfolgreich abgemeldet",
     logout_success_body: "Keine Fürze mehr!",
@@ -2416,7 +2425,7 @@ const i18n = new I18n({
     cannot_retrieve_account: "Konto nicht gefunden",
     cannot_load_profile: "Profil konnte nicht geladen werden",
     not_defined_phone: "Nicht angegeben",
-    
+
     // Password Reset
     reset_link_invalid: "Link ungültig oder abgelaufen.",
     cannot_verify_session: "Sitzung ungültig.",
@@ -2436,18 +2445,18 @@ const i18n = new I18n({
     back_to_login: "Zurück zur Anmeldung",
     invalid_email_format: "Ungültiges E-Mail-Format",
     reset_email_error: "Fehler beim Senden der E-Mail",
-    
+
     // Email Confirmation
     verifying_profile: "Überprüfen...",
     finalizing_connection: "Abschließen...",
-    
+
     // Registration
     account_created_title: "Konto erstellt! 📬",
     account_created_body: "E-Mail gesendet.\nKlicke auf den Link zum Aktivieren.",
     creating_account: "Erstellen...",
     sign_up: "Registrieren",
     security: "Sicherheit",
-    
+
     // Search & Invitations
     already_linked_info: "Ihr seid bereits verbunden.",
     request_sent_success: "Anfrage gesendet!",
@@ -2494,14 +2503,14 @@ const i18n = new I18n({
     phone_helper: "Damit Freunde dich finden.",
     cancel_and_logout: "Abbrechen und abmelden",
     complete_profile_title: "Abschluss",
-    complete_profile_subtitle: "Dein Konto ist aktiv, aber dein Prrt!-Profil fehlt. Wähle einen Benutzernamen, um es (neu) zu erstellen.",
+    complete_profile_subtitle: "Dein Konto ist aktiv, aber dein Proot!-Profil fehlt. Wähle einen Benutzernamen, um es (neu) zu erstellen.",
     complete_profile_pseudo_placeholder: "Dein Benutzername *",
     complete_profile_saving: "Speichern...",
     complete_profile_cta: "Los geht's!",
     cancel_and_return: "Abbrechen und zurück",
     update_button: "Aktualisieren",
     no_friends_identity: "Keine Freunde. Füge hinzu, um ID anzufragen.",
-    
+
     // Profile Edit
     change_pseudo_confirm: "Namen von \"%{current}\" zu \"%{new}\" ändern?",
     set_email_confirm: "E-Mail zu \"%{email}\" ändern?",
@@ -2538,14 +2547,14 @@ const i18n = new I18n({
     enter_new_email: "Neue E-Mail eingeben",
     verification_error: "Fehler bei der Überprüfung",
     account_deleted_title: "Konto gelöscht",
-    
+
     // Auth Choice
     already_have_account: "Ich habe bereits ein Konto (E-Mail)",
-    
+
     // Invitation Share
-    invite_message_with_pseudo: "Tritt mir auf \"Prrt!\" bei, mein Benutzername ist %{pseudo}",
-    invite_message: "Tritt mir auf \"Prrt!\" bei",
-    
+    invite_message_with_pseudo: "Tritt mir auf \"Proot!\" bei, mein Benutzername ist %{pseudo}",
+    invite_message: "Tritt mir auf \"Proot!\" bei",
+
     // Login
     session_invalid: "Sitzung ungültig",
     connection_error: "Fehler beim Verbinden",
@@ -2558,7 +2567,7 @@ const i18n = new I18n({
     cannot_send_reset_email: "Fehler beim Senden der E-Mail",
     reset_email_sent_title: "E-Mail gesendet 📧",
     reset_email_sent_body: "E-Mail zum Zurücksetzen gesendet.\n\nPrüfe dein Postfach (und Spam) und folge den Anweisungen.",
-    
+
     // Notifications Permission
     push_not_available_web: "Keine Benachrichtigungen im Web.",
     push_requires_device: "Echtes Gerät erforderlich.",
@@ -2566,18 +2575,18 @@ const i18n = new I18n({
     permission_denied_title: "Berechtigung verweigert",
     permission_denied_body: "Benachrichtigungsberechtigung erforderlich.",
     notification_permission_title: "Benachrichtigungsberechtigung",
-    notification_permission_message: "Prrt! ist eine Benachrichtigungs-App. Um Fürze zu erhalten und zu senden, musst du autorisieren.",
+    notification_permission_message: "Proot! ist eine Benachrichtigungs-App. Um Fürze zu erhalten und zu senden, musst du autorisieren.",
     accept_notifications_message: "Akzeptiere die Benachrichtigungen zum Spielen! 😊",
     authorize_notifications: "Benachrichtigungen autorisieren",
-    
+
     // Contact Permission
     contact_permission_title: "Bleib bei uns!",
-    contact_permission_message: "Um Freunde, die Prrt! bereits nutzen, automatisch zu erkennen, muss die App Telefonnummern aus deinen Kontakten auf unsere sicheren Server hochladen.\n\nDas ist optional: Du kannst später weiterhin Freunde manuell über ihren Benutzernamen hinzufügen.",
+    contact_permission_message: "Um Freunde, die Proot! bereits nutzen, automatisch zu erkennen, muss die App Telefonnummern aus deinen Kontakten auf unsere sicheren Server hochladen.\n\nDas ist optional: Du kannst später weiterhin Freunde manuell über ihren Benutzernamen hinzufügen.",
     contact_consent_title: "Kontakte: Verwendung und Teilen",
-    contact_consent_message: "Um Freunde, die Prrt! bereits nutzen, automatisch zu erkennen, muss die App Telefonnummern aus deinen Kontakten auf unsere sicheren Server hochladen.\n\nDas ist optional: Du kannst später weiterhin Freunde manuell über ihren Benutzernamen hinzufügen.",
+    contact_consent_message: "Um Freunde, die Proot! bereits nutzen, automatisch zu erkennen, muss die App Telefonnummern aus deinen Kontakten auf unsere sicheren Server hochladen.\n\nDas ist optional: Du kannst später weiterhin Freunde manuell über ihren Benutzernamen hinzufügen.",
     refuse: "Ablehnen",
     next: "Weiter",
-    
+
     // Network
     connection_error_title: "Konnte nicht verbinden",
     connection_error_body: "Prüfe dein Netzwerk.",
@@ -2597,8 +2606,8 @@ const i18n = new I18n({
     later: "Più tardi",
     confirm: "Conferma",
     info: "Informazione",
-    
-    // Prrt! Names
+
+    // Proot! Names
     prout_names: {
       prout1: "La Brezza Leggera",
       prout2: "Il Crepitio",
@@ -2635,7 +2644,7 @@ const i18n = new I18n({
       'identity-request': "Richiesta d'identità",
       'identity-response': "Risposta d'identità",
     },
-    
+
     // Auth & Onboarding
     welcome: "Benvenuto!",
     continue_with_social: "Continua con Google o Apple",
@@ -2648,11 +2657,11 @@ const i18n = new I18n({
     no_account_signup: "Nessun account? Registrati",
     forgot_password: "Password dimenticata?",
     password_label: "Password",
-    
+
     // Home & Navigation
-    share_message: "Unisciti a me sull'app \"Prrt!\", il mio username è %{pseudo}: http://www.prrtapp.com",
+    share_message: "Unisciti a me sull'app \"Proot!\", il mio username è %{pseudo}: http://prootapp.com",
     tab_list: "Amici",
-    
+
     // Friends List
     friends_requests: "🔔 Richieste di amicizia",
     identity_requests: "🕵️ Richieste di identità",
@@ -2688,8 +2697,8 @@ const i18n = new I18n({
     report_submit_success_title: "Grazie",
     report_submit_success_body: "Grazie. Questa segnalazione verrà esaminata dal nostro team entro 24 ore.",
     real_name: "Nome reale",
-    
-    // Actions Prrt!
+
+    // Actions Proot!
     zen_mode_active_me_title: "Modalità Zen Attiva 🧘‍♂️",
     zen_mode_active_me_body: "Niente scoregge in modalità Zen. Disattiva nel profilo per tornare alla battaglia.",
     zen_mode_active_friend_title: "Zitto! 🤫",
@@ -2699,7 +2708,7 @@ const i18n = new I18n({
     cooldown_alert: "Calma!",
     cooldown_message: "Aspetta un po' prima di inviarne un altro.",
     not_connected: "Non sei connesso.",
-    
+
     // Search
     search_title: "Trova amico",
     search_placeholder: "Inserisci un nome...",
@@ -2711,7 +2720,7 @@ const i18n = new I18n({
     no_results: "Nessun scoreggiatore trovato.",
     request_sent: "Richiesta inviata!",
     already_linked: "Siete già collegati.",
-    
+
     // Complicità
     complicity_title: "L'Indice di Risonanza",
     complicity_subtitle: "Punteggio di complicità",
@@ -2734,10 +2743,11 @@ const i18n = new I18n({
     soundcheck_bzzz_description: "Suoni digitali",
     soundcheck_trll_description: "Suoni di uccelli",
     soundcheck_prrt_description: "Suoni classici di Prrt",
+    more_sounds_coming: "Altri suoni in arrivo… 🎵",
     friend_sound_modal_title_random: "Lascia decidere il caso!",
     friend_sound_modal_or: "Oppure",
     friend_sound_modal_pick_button: "Scegli il tuo suono",
-    
+
     // Profil
     edit_profile: "Modifica Profilo",
     pseudo: "Nome utente",
@@ -2771,24 +2781,24 @@ const i18n = new I18n({
     contact_support: "Contatta il supporto",
     profile_eula: "EULA",
     eula_title: "Contratto di licenza con l'utente finale (EULA)",
-    eula_intro: "Utilizzando Prrt!, accetti i seguenti termini:",
+    eula_intro: "Utilizzando Proot!, accetti i seguenti termini:",
     eula_section_1_title: "1. Politica di tolleranza zero",
-    eula_section_1_body: "Prrt! adotta una tolleranza zero verso contenuti inappropriati, inclusi molestie, discorsi d'odio, minacce, sfruttamento sessuale e immagini esplicite.",
+    eula_section_1_body: "Proot! adotta una tolleranza zero verso contenuti inappropriati, inclusi molestie, discorsi d'odio, minacce, sfruttamento sessuale e immagini esplicite.",
     eula_section_2_title: "2. Comportamento abusivo",
     eula_section_2_body: "Gli utenti che adottano comportamenti abusivi possono essere sospesi o rimossi permanentemente dalla piattaforma.",
     eula_section_3_title: "3. Moderazione e rimozione dei contenuti",
     eula_section_3_body: "Lo sviluppatore si riserva il diritto di rimuovere contenuti e/o limitare account entro 24 ore dalla ricezione di una segnalazione valida.",
     eula_section_4_title: "4. Strumenti di sicurezza",
     eula_section_4_body: "Gli utenti sono incoraggiati a usare gli strumenti di sicurezza dell'app, inclusi Blocca e Segnala, per mantenere un ambiente sicuro.",
-    eula_accept_checkbox: "Accetto i termini e le condizioni sopra indicati",
+    eula_accept_checkbox: "Accetto l'EULA e la politica di tolleranza zero contro contenuti offensivi e utenti abusivi",
     eula_accept_button: "Accetto e continuo",
     privacy_policy: "Privacy Policy",
     privacy_policy_title: "Privacy Policy",
-    privacy_policy_app_title: "Privacy Policy di Prrt!",
+    privacy_policy_app_title: "Privacy Policy di Proot!",
     privacy_policy_last_update: "Ultimo aggiornamento: 8 Dicembre 2025",
-    privacy_policy_intro: "Benvenuto su Prrt!. Prendiamo seriamente i tuoi dati. Qui è spiegato cosa raccogliamo e cosa ne facciamo.",
+    privacy_policy_intro: "Benvenuto su Proot!. Prendiamo seriamente i tuoi dati. Qui è spiegato cosa raccogliamo e cosa ne facciamo.",
     privacy_policy_section1_title: "1. Chi siamo",
-    privacy_policy_section1_content: "App di The Prrt! Corporation. Domande? Email: hello@theproutapp.com",
+    privacy_policy_section1_content: "App di The Proot! Corporation. Domande? Email: hello@prootapp.com",
     privacy_policy_section2_title: "2. Cosa raccogliamo",
     privacy_policy_section2_intro: "Solo il necessario per funzionare.",
     privacy_policy_section2a_title: "A. Dati che fornisci",
@@ -2804,29 +2814,29 @@ const i18n = new I18n({
     privacy_policy_section5_title: "5. I tuoi diritti",
     privacy_policy_section5_intro: "Puoi visualizzare, modificare o eliminare i tuoi dati.",
     privacy_policy_section5_how_to_delete: "Come eliminare l'account?",
-    privacy_policy_section5_delete_content: "Puoi chiedere di eliminare tutto:\n- Email a hello@theproutapp.com.\n- Pulsante \"Elimina account\" nell'app.\nEliminato, fatto.",
+    privacy_policy_section5_delete_content: "Puoi chiedere di eliminare tutto:\n- Email a hello@prootapp.com.\n- Pulsante \"Elimina account\" nell'app.\nEliminato, fatto.",
     privacy_policy_section6_title: "6. Sicurezza",
     privacy_policy_section6_content: "Tutto crittografato (HTTPS/SSL). Password hashate e sicure.",
     privacy_policy_section7_title: "7. Modifiche",
     privacy_policy_section7_content: "Possiamo aggiornare questo. La nuova versione sarà sempre nell'app.",
-    privacy_policy_contact: "Contatto: hello@theproutapp.com",
+    privacy_policy_contact: "Contatto: hello@prootapp.com",
     no_change: "Niente cambiato",
     update_success: "Successo",
     update_success_msg: "%{fields} aggiornato!",
-    
+
     // Zen Mode
     zen_mode: "Modalità Zen",
     zen_description: "Attiva per non ricevere nulla (né inviare). Buono per dormire! 😴",
     zen_confirm_title: "Modalità Zen 🌙",
     zen_confirm_body: "Non riceverai né invierai nulla.",
     activate: "Attiva",
-    
+
     // Silent Mode
     silent_mode: "Invio silenzioso",
     silent_mode_title: "Invio silenzioso 🤫",
     haptic_feedback: "Feedback aptico",
     silent_mode_description: "Per inviare di nascosto!",
-    
+
     // Identity Reveal
     who_are_you: "Chi sei? 👀",
     who_are_you_subtitle: "%{requester} vuole sapere chi sei.",
@@ -2836,14 +2846,14 @@ const i18n = new I18n({
     reveal_error: "Impossibile inviare.",
     reveal_missing_id: "ID mancante.",
     reveal_missing_name: "Inserisci un nome.",
-    
+
     // Tuto
     tuto_header: "Come funziona?",
     tuto_notif_title: "Nessuna notifica?",
     tuto_notif_desc: "Controlla se è abilitato nelle impostazioni.",
     tuto_sound_title: "Nessun suono?",
     tuto_sound_desc: "Controlla se non è silenziato.",
-    tuto_1_title: "Inviare un Prrt!",
+    tuto_1_title: "Inviare un Proot!",
     tuto_1_desc: "Trascina il nome dell'amico a destra! È una sorpresa, non si sa mai cosa viene!",
     tuto_2_title: "Messaggi effimeri",
     tuto_2_desc: "Clicca sul nome dell'amico per inviare un messaggio nella chat effimera!",
@@ -2853,13 +2863,13 @@ const i18n = new I18n({
     tuto_silent_desc: "Invia senza fare rumore sul tuo telefono!",
     tuto_4_title: "Silenzia",
     tuto_4_desc: "Trascina a sinistra per silenziare l'amico.",
-    
+
     // Onboarding
-    onboarding_welcome_title: "Prrt!",
+    onboarding_welcome_title: "Proot!",
     onboarding_welcome_subtitle: "Di ciao... diversamente!",
     onboarding_welcome_desc: "",
-    onboarding_notifications_title: "Il cuore di Prrt!",
-    onboarding_notifications_desc: "Tutto il punto di comunicare con i tuoi amici su Prrt! sono le notifiche. Accettale per giocare!",
+    onboarding_notifications_title: "Il cuore di Proot!",
+    onboarding_notifications_desc: "Tutto il punto di comunicare con i tuoi amici su Proot! sono le notifiche. Accettale per giocare!",
     onboarding_sound_title: "Alza il volume",
     onboarding_sound_desc: "Lascia il suono acceso per goderti la melodia.",
     onboarding_gesture_title: "Tocca a te",
@@ -2870,7 +2880,7 @@ const i18n = new I18n({
     message_read: "Letto",
     onboarding_skip: "Salta",
     onboarding_start: "Inizia!",
-    
+
     // Common UI
     greeting: "Ciao",
     profile_title: "Profilo",
@@ -2881,7 +2891,7 @@ const i18n = new I18n({
     pseudo_placeholder: "Es: CapitanoScoreggia",
     email_placeholder: "esempio@email.com",
     phone_format_placeholder: "+39 06 12345678",
-    
+
     // Footer & Help
     footer_help_text: "Destra per inviare una notifica sonora, clicca prima per scrivere e tieni premuto per scegliere la categoria di suono o un suono specifico!",
     footer_sound_category_info: "Il suono delle notifiche verrà scelto casualmente dalla categoria di onda sonora selezionata!",
@@ -2897,23 +2907,23 @@ const i18n = new I18n({
     chat_onboarding_tap_category: "Cambia la categoria di suoni casuali con un semplice tocco.",
     chat_onboarding_long_press_specific: "Una pressione prolungata ti permette di scegliere un suono specifico.",
     chat_onboarding_mute: "Ti permette di chattare senza suoni.",
-    
+
     // Notifications & Errors
     notifications_not_enabled: "%{pseudo} non ha abilitato le notifiche. Nessun token.",
     app_uninstalled: "%{pseudo} ha disinstallato l'app!",
     silent_notifications_warning: "Le tue notifiche sono silenziate!",
-    
+
     // Identity Reveal
     identity_revealed_title: "Identità rivelata",
     identity_revealed_body: "Il tuo amico ha detto chi è.",
-    
+
     // Zen Mode Options
     choose_duration: "Scegli la durata",
     zen_job_label: "Salva il mio lavoro! (9-19, Lun-Ven)",
     zen_night_label: "Salva il mio sonno! (22-8)",
     zen_job_short: "Lavoro!",
     zen_night_short: "Sonno!",
-    
+
     // Menu Items
     search_friend: "Cerca amico",
     manage_profile: "Gestisci profilo",
@@ -2921,7 +2931,7 @@ const i18n = new I18n({
     review_app_functions: "Vedi funzioni",
     who_is_who: "Chi è chi?",
     privacy_policy_menu: "Privacy",
-    
+
     // Logout & Account
     logout_success_title: "Disconnesso con successo",
     logout_success_body: "Niente più scoregge!",
@@ -2931,7 +2941,7 @@ const i18n = new I18n({
     cannot_retrieve_account: "Account non trovato",
     cannot_load_profile: "Impossibile caricare il profilo",
     not_defined_phone: "Non fornito",
-    
+
     // Password Reset
     reset_link_invalid: "Link non valido o scaduto.",
     cannot_verify_session: "Sessione non valida.",
@@ -2951,18 +2961,18 @@ const i18n = new I18n({
     back_to_login: "Torna al login",
     invalid_email_format: "Formato email non valido",
     reset_email_error: "Errore durante l'invio dell'email",
-    
+
     // Email Confirmation
     verifying_profile: "Verifica...",
     finalizing_connection: "Finalizzazione...",
-    
+
     // Registration
     account_created_title: "Account creato! 📬",
     account_created_body: "Email inviata.\nClicca sul link per attivare.",
     creating_account: "Creazione...",
     sign_up: "Registrati",
     security: "Sicurezza",
-    
+
     // Search & Invitations
     already_linked_info: "Siete già collegati.",
     request_sent_success: "Richiesta inviata!",
@@ -3009,14 +3019,14 @@ const i18n = new I18n({
     phone_helper: "Perché gli amici ti trovino.",
     cancel_and_logout: "Annulla e disconnetti",
     complete_profile_title: "Finalizzazione",
-    complete_profile_subtitle: "Il tuo account è attivo, ma il tuo profilo Prrt! manca. Scegli un nome utente per (ri)crearlo.",
+    complete_profile_subtitle: "Il tuo account è attivo, ma il tuo profilo Proot! manca. Scegli un nome utente per (ri)crearlo.",
     complete_profile_pseudo_placeholder: "Il tuo nome utente *",
     complete_profile_saving: "Salvataggio...",
     complete_profile_cta: "Iniziamo!",
     cancel_and_return: "Annulla e torna indietro",
     update_button: "Aggiorna",
     no_friends_identity: "Nessun amico. Aggiungi per richiedere ID.",
-    
+
     // Profile Edit
     change_pseudo_confirm: "Cambiare nome da \"%{current}\" a \"%{new}\"?",
     set_email_confirm: "Cambiare email a \"%{email}\"?",
@@ -3053,14 +3063,14 @@ const i18n = new I18n({
     enter_new_email: "Inserisci nuova email",
     verification_error: "Errore durante la verifica",
     account_deleted_title: "Account eliminato",
-    
+
     // Auth Choice
     already_have_account: "Ho già un account (Email)",
-    
+
     // Invitation Share
-    invite_message_with_pseudo: "Unisciti a me su \"Prrt!\", il mio username è %{pseudo}",
-    invite_message: "Unisciti a me su \"Prrt!\"",
-    
+    invite_message_with_pseudo: "Unisciti a me su \"Proot!\", il mio username è %{pseudo}",
+    invite_message: "Unisciti a me su \"Proot!\"",
+
     // Login
     session_invalid: "Sessione non valida",
     connection_error: "Errore durante la connessione",
@@ -3073,7 +3083,7 @@ const i18n = new I18n({
     cannot_send_reset_email: "Errore durante l'invio dell'email",
     reset_email_sent_title: "Email inviata 📧",
     reset_email_sent_body: "Email di reset inviata.\n\nControlla la tua casella (e spam) e segui le istruzioni.",
-    
+
     // Notifications Permission
     push_not_available_web: "Nessuna notifica sul web.",
     push_requires_device: "Dispositivo reale richiesto.",
@@ -3081,18 +3091,18 @@ const i18n = new I18n({
     permission_denied_title: "Autorizzazione negata",
     permission_denied_body: "Autorizzazione alle notifiche richiesta.",
     notification_permission_title: "Autorizzazione alle notifiche",
-    notification_permission_message: "Prrt! è un'app di notifiche. Per ricevere e inviare scoregge, devi autorizzare.",
+    notification_permission_message: "Proot! è un'app di notifiche. Per ricevere e inviare scoregge, devi autorizzare.",
     accept_notifications_message: "Accetta le notifiche per giocare! 😊",
     authorize_notifications: "Autorizza notifiche",
-    
+
     // Contact Permission
     contact_permission_title: "Resta con noi!",
-    contact_permission_message: "Per identificare automaticamente gli amici che usano già Prrt!, l'app deve caricare i numeri di telefono dei tuoi contatti sui nostri server sicuri.\n\nÈ facoltativo: potrai comunque aggiungere amici manualmente tramite il loro nome utente in seguito.",
+    contact_permission_message: "Per identificare automaticamente gli amici che usano già Proot!, l'app deve caricare i numeri di telefono dei tuoi contatti sui nostri server sicuri.\n\nÈ facoltativo: potrai comunque aggiungere amici manualmente tramite il loro nome utente in seguito.",
     contact_consent_title: "Contatti: uso e condivisione",
-    contact_consent_message: "Per identificare automaticamente gli amici che usano già Prrt!, l'app deve caricare i numeri di telefono dei tuoi contatti sui nostri server sicuri.\n\nÈ facoltativo: potrai comunque aggiungere amici manualmente tramite il loro nome utente in seguito.",
+    contact_consent_message: "Per identificare automaticamente gli amici che usano già Proot!, l'app deve caricare i numeri di telefono dei tuoi contatti sui nostri server sicuri.\n\nÈ facoltativo: potrai comunque aggiungere amici manualmente tramite il loro nome utente in seguito.",
     refuse: "Rifiuta",
     next: "Avanti",
-    
+
     // Network
     connection_error_title: "Impossibile connettersi",
     connection_error_body: "Controlla la tua rete.",
@@ -3124,10 +3134,10 @@ function getDeviceLanguage(): string {
     }
 
     const firstLocale = locales[0];
-    
+
     // Sur iOS, utiliser 'locale' si disponible, sinon 'languageCode'
     let languageCode = firstLocale.languageCode;
-    
+
     // Si on a une locale complète (ex: "en-US"), extraire le code de langue de base
     if (firstLocale.languageTag) {
       const baseLanguage = firstLocale.languageTag.split(/[-_]/)[0];
@@ -3141,7 +3151,7 @@ function getDeviceLanguage(): string {
     // Mapper les langues supportées
     const supportedLanguages = ['fr', 'en', 'es', 'pt', 'de', 'it'];
     const detectedLanguage = languageCode?.toLowerCase() || 'en';
-    
+
     // Si la langue détectée est supportée, l'utiliser
     if (supportedLanguages.includes(detectedLanguage)) {
       // Mapper 'pt' vers 'pt-BR'
@@ -3150,12 +3160,12 @@ function getDeviceLanguage(): string {
       }
       return detectedLanguage;
     }
-    
+
     // Vérifications spécifiques par préfixe
     if (detectedLanguage.startsWith('en')) {
       return 'en';
     }
-    
+
     if (detectedLanguage.startsWith('fr')) {
       return 'fr';
     }
@@ -3163,19 +3173,19 @@ function getDeviceLanguage(): string {
     if (detectedLanguage.startsWith('es')) {
       return 'es';
     }
-    
+
     if (detectedLanguage.startsWith('pt')) {
       return 'pt-BR';
     }
-    
+
     if (detectedLanguage.startsWith('de')) {
       return 'de';
     }
-    
+
     if (detectedLanguage.startsWith('it')) {
       return 'it';
     }
-    
+
     // Fallback sur anglais
     return 'en';
   } catch (error) {

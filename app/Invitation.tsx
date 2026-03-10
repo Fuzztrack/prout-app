@@ -786,7 +786,7 @@ export default function InvitationScreen() {
       <View style={styles.header}>
         <TouchableOpacity onPress={() => safePush(router, '/(tabs)', { skipInitialCheck: false })} activeOpacity={0.7}>
           <Image 
-            source={require('../assets/images/Prrt.png')} 
+            source={require('../assets/images/proot.png')} 
             style={styles.headerImage}
             resizeMode="contain"
           />

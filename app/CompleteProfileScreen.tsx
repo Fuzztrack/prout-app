@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity } from 'react-native';
 import { CustomButton } from '../components/CustomButton';
+import { buildAcceptedEulaMetadata } from '../lib/eula';
 import { normalizePhone } from '../lib/normalizePhone';
 import { safePush, safeReplace } from '../lib/navigation';
 import { supabase } from '../lib/supabase';
@@ -57,6 +58,7 @@ export default function CompleteProfileScreen() {
 
     try {
       if (!userId) throw new Error(i18n.t('cannot_identify_account'));
+      const { data: { user } } = await supabase.auth.getUser();
 
       // Normaliser le téléphone si fourni (non obligatoire)
       const normalizedPhone = phone.trim() ? normalizePhone(phone.trim()) : null;
@@ -77,10 +79,11 @@ export default function CompleteProfileScreen() {
 
       try {
         await supabase.auth.updateUser({
-          data: {
+          data: buildAcceptedEulaMetadata({
+            ...(user?.user_metadata ?? {}),
             pseudo: pseudo.trim(),
             pseudo_validated: true,
-          },
+          }),
         });
       } catch (metaError) {
         console.warn('⚠️ Impossible de mettre à jour les métadonnées pseudo:', metaError);
@@ -115,7 +118,7 @@ export default function CompleteProfileScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <TouchableOpacity onPress={() => safePush(router, '/(tabs)', { skipInitialCheck: false })} activeOpacity={0.7}>
-          <Image source={require('../assets/images/Prrt.png')} style={styles.image} resizeMode="contain" />
+          <Image source={require('../assets/images/proot.png')} style={styles.image} resizeMode="contain" />
         </TouchableOpacity>
         
         <Text style={styles.title}>{i18n.t('complete_profile_title')}</Text>

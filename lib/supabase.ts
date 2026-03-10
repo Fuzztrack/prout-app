@@ -17,7 +17,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     // 🛑 MODIFICATION ICI : On met false pour gérer le token manuellement sur mobile
-    detectSessionInUrl: false, 
+    detectSessionInUrl: false,
   },
 });
 
@@ -25,7 +25,7 @@ export const getRedirectUrl = () => {
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     return window.location.origin;
   }
-  // iOS : app Prrt! (com.prrt.app) avec scheme prrtapp. Android : scheme proutapp inchangé.
-  const scheme = Platform.OS === 'ios' ? 'prrtapp' : 'proutapp';
+  // iOS : app Proot! (com.prrt.app) avec scheme prootapp. Android : scheme proutapp inchangé.
+  const scheme = Platform.OS === 'ios' ? 'prootapp' : 'proutapp';
   return `${scheme}://confirm-email`;
 };

@@ -3,9 +3,9 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import i18n from '../../lib/i18n';
 import { safePush, safeReplace } from '../../lib/navigation';
 import { supabase } from '../../lib/supabase';
-import i18n from '../../lib/i18n';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -18,7 +18,7 @@ export default function ProfileScreen() {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (!user) {
         safeReplace(router, '/AuthChoiceScreen', { skipInitialCheck: false });
         return;
@@ -51,14 +51,14 @@ export default function ProfileScreen() {
       i18n.t('logout_confirm'),
       [
         { text: i18n.t('cancel'), style: "cancel" },
-        { 
-          text: i18n.t('logout_disconnect'), 
-          style: "destructive", 
+        {
+          text: i18n.t('logout_disconnect'),
+          style: "destructive",
           onPress: async () => {
             try {
               // Récupérer l'utilisateur avant déconnexion
               const { data: { user } } = await supabase.auth.getUser();
-              
+
               // Supprimer le token FCM pour désactiver les notifications
               if (user) {
                 await supabase
@@ -67,10 +67,10 @@ export default function ProfileScreen() {
                   .eq('id', user.id);
                 console.log('✅ Token FCM supprimé lors de la déconnexion');
               }
-              
+
               // Déconnexion
               await supabase.auth.signOut();
-              
+
               // Afficher le message
               Alert.alert(
                 i18n.t('logout_success_title'),
@@ -82,17 +82,17 @@ export default function ProfileScreen() {
               await supabase.auth.signOut();
               safeReplace(router, '/AuthChoiceScreen');
             }
-          } 
+          }
         }
       ]
     );
   };
 
   const handleContactSupport = () => {
-    const email = 'hello@theproutapp.com';
+    const email = 'hello@prootapp.com';
     const subject = 'Support ProutApp';
     const mailtoUrl = `mailto:${email}?subject=${encodeURIComponent(subject)}`;
-    
+
     Linking.openURL(mailtoUrl).catch(() => {
       Alert.alert(i18n.t('error'), i18n.t('cannot_open_email_app', { email }));
     });
@@ -111,65 +111,65 @@ export default function ProfileScreen() {
       <ScrollView contentContainerStyle={[styles.container, { paddingTop: insets.top + 20 }]}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => safePush(router, '/(tabs)', { skipInitialCheck: false })} activeOpacity={0.7}>
-            <Image 
-              source={require('../../assets/images/Prrt.png')} 
-              style={styles.headerImage} 
-              resizeMode="contain" 
+            <Image
+              source={require('../../assets/images/proot.png')}
+              style={styles.headerImage}
+              resizeMode="contain"
             />
           </TouchableOpacity>
         </View>
 
-      {/* Avatar */}
-      <View style={styles.avatarContainer}>
-        {profile?.avatar_url ? (
-          <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
-        ) : (
-          <View style={styles.avatarPlaceholder}>
-            <Text style={styles.avatarPlaceholderText}>
-              {profile?.pseudo ? profile.pseudo.charAt(0).toUpperCase() : '?'}
-            </Text>
-          </View>
-        )}
-      </View>
+        {/* Avatar */}
+        <View style={styles.avatarContainer}>
+          {profile?.avatar_url ? (
+            <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Text style={styles.avatarPlaceholderText}>
+                {profile?.pseudo ? profile.pseudo.charAt(0).toUpperCase() : '?'}
+              </Text>
+            </View>
+          )}
+        </View>
 
-      <View style={styles.infoContainer}>
-        <Text style={styles.pseudo}>
-          <Text style={styles.label}>{i18n.t('pseudo')}: </Text>
-          {profile?.pseudo || i18n.t('not_defined')}
-        </Text>
-        <Text style={styles.email}>
-          <Text style={styles.label}>{i18n.t('email')}: </Text>
-          {email}
-        </Text>
-        <Text style={styles.phone}>
-          <Text style={styles.label}>{i18n.t('phone')}: </Text>
-          {profile?.phone || i18n.t('not_defined_phone')}
-        </Text>
-      </View>
+        <View style={styles.infoContainer}>
+          <Text style={styles.pseudo}>
+            <Text style={styles.label}>{i18n.t('pseudo')}: </Text>
+            {profile?.pseudo || i18n.t('not_defined')}
+          </Text>
+          <Text style={styles.email}>
+            <Text style={styles.label}>{i18n.t('email')}: </Text>
+            {email}
+          </Text>
+          <Text style={styles.phone}>
+            <Text style={styles.label}>{i18n.t('phone')}: </Text>
+            {profile?.phone || i18n.t('not_defined_phone')}
+          </Text>
+        </View>
 
-      <TouchableOpacity style={styles.editButton} onPress={() => safePush(router, '/edit-profile', { skipInitialCheck: false })}>
-        <Ionicons name="create-outline" size={24} color="#604a3e" />
-        <Text style={styles.editText}>{i18n.t('edit_profile')}</Text>
-      </TouchableOpacity>
+        <TouchableOpacity style={styles.editButton} onPress={() => safePush(router, '/edit-profile', { skipInitialCheck: false })}>
+          <Ionicons name="create-outline" size={24} color="#604a3e" />
+          <Text style={styles.editText}>{i18n.t('edit_profile')}</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-        <Ionicons name="arrow-back" size={24} color="#604a3e" />
-        <Text style={styles.backText}>{i18n.t('back')}</Text>
-      </TouchableOpacity>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color="#604a3e" />
+          <Text style={styles.backText}>{i18n.t('back')}</Text>
+        </TouchableOpacity>
 
-      <View style={styles.spacer} />
+        <View style={styles.spacer} />
 
-      <TouchableOpacity style={styles.logoutLink} onPress={handleLogout}>
-        <Text style={styles.logoutLinkText}>{i18n.t('logout')}</Text>
-      </TouchableOpacity>
+        <TouchableOpacity style={styles.logoutLink} onPress={handleLogout}>
+          <Text style={styles.logoutLinkText}>{i18n.t('logout')}</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity onPress={handleContactSupport} style={styles.supportLink}>
-        <Text style={styles.supportLinkText}>{i18n.t('contact_support')}</Text>
-      </TouchableOpacity>
-      <TouchableOpacity onPress={() => safePush(router, '/eula', { skipInitialCheck: false })} style={styles.supportLink}>
-        <Text style={styles.supportLinkText}>{i18n.t('profile_eula')}</Text>
-      </TouchableOpacity>
-      <Text style={styles.versionText}>Prrt! version 1.0.0</Text>
+        <TouchableOpacity onPress={handleContactSupport} style={styles.supportLink}>
+          <Text style={styles.supportLinkText}>{i18n.t('contact_support')}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => safePush(router, '/eula', { skipInitialCheck: false })} style={styles.supportLink}>
+          <Text style={styles.supportLinkText}>{i18n.t('profile_eula')}</Text>
+        </TouchableOpacity>
+        <Text style={styles.versionText}>Proot! version 1.0.0</Text>
       </ScrollView>
     </View>
   );
@@ -230,9 +230,9 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     marginTop: 10,
   },
-  logoutLinkText: { 
-    color: '#604a3e', 
-    fontSize: 14, 
+  logoutLinkText: {
+    color: '#604a3e',
+    fontSize: 14,
     textDecorationLine: 'underline',
     opacity: 0.8,
   },
@@ -242,9 +242,9 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     marginTop: 10,
   },
-  supportLinkText: { 
-    color: '#604a3e', 
-    fontSize: 14, 
+  supportLinkText: {
+    color: '#604a3e',
+    fontSize: 14,
     textDecorationLine: 'underline',
     opacity: 0.8
   },

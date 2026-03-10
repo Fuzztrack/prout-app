@@ -1,12 +1,11 @@
 // app/WelcomeScreen.tsx
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Contacts from 'expo-contacts';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CustomButton } from '../components/CustomButton';
-import { safeReplace } from '../lib/navigation';
 import { ensureContactPermissionWithDisclosure } from '../lib/contactConsent';
+import { safeReplace } from '../lib/navigation';
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -19,27 +18,27 @@ export default function WelcomeScreen() {
   };
 
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === "ios" ? "padding" : "height"} 
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.container}
     >
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
-          <Image 
-            source={require('../assets/images/Prrt.png')} 
+          <Image
+            source={require('../assets/images/proot.png')}
             style={styles.headerImage}
             resizeMode="contain"
           />
         </View>
-        <Text style={styles.title}>Bienvenue sur Prrt! 💨</Text>
+        <Text style={styles.title}>Bienvenue sur Proot! 💨</Text>
         <Text style={styles.text}>
           Pour fonctionner, nous avons besoin de vos contacts (noms et numéros) pour trouver vos amis. Ces données sont synchronisées sur nos serveurs Supabase (utfwujyymaikraaigvuv.supabase.co) et ne sont pas partagées en dehors de l’app.
         </Text>
-        <CustomButton 
-          title="C'est parti !" 
+        <CustomButton
+          title="C'est parti !"
           onPress={handleContinue}
           color="#604a3e"
           textColor="#ebb89b"

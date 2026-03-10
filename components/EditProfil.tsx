@@ -1,12 +1,12 @@
-import React, { useEffect, useState } from 'react';
-import { ActionSheetIOS, ActivityIndicator, Alert, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { supabase, supabaseAnonKey, supabaseUrl } from '../lib/supabase';
-import { normalizePhone } from '../lib/normalizePhone';
 import { useRouter } from 'expo-router';
-import { safeReplace } from '../lib/navigation';
+import { useEffect, useState } from 'react';
+import { ActionSheetIOS, ActivityIndicator, Alert, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import i18n from '../lib/i18n';
+import { safeReplace } from '../lib/navigation';
+import { normalizePhone } from '../lib/normalizePhone';
+import { supabase, supabaseAnonKey, supabaseUrl } from '../lib/supabase';
 
 export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void; onProfileUpdated?: (newPseudo: string) => void }) {
   const router = useRouter(); // Toujours nécessaire pour la déconnexion
@@ -24,10 +24,10 @@ export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void;
   // Fonction pour gérer les erreurs Supabase
   const handleSupabaseError = (error: any, defaultMessage: string) => {
     console.error('Erreur Supabase:', error);
-    if (error?.message?.includes('network') || 
-        error?.message?.includes('fetch') || 
-        error?.code === 'PGRST116' || 
-        error?.code === 'PGRST301') {
+    if (error?.message?.includes('network') ||
+      error?.message?.includes('fetch') ||
+      error?.code === 'PGRST116' ||
+      error?.code === 'PGRST301') {
       Alert.alert(i18n.t('error'), i18n.t('connection_error_body'));
     } else {
       Alert.alert(i18n.t('error'), defaultMessage);
@@ -231,7 +231,7 @@ export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void;
 
         // Récupérer l'utilisateur depuis la session
         const { data: { user }, error: userError } = await supabase.auth.getUser();
-        
+
         if (userError || !user) {
           Alert.alert(i18n.t('error'), i18n.t('cannot_retrieve_account'));
           onClose();
@@ -497,8 +497,8 @@ export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void;
       i18n.t('logout_confirm'),
       [
         { text: i18n.t('cancel'), style: 'cancel' },
-        { 
-          text: i18n.t('logout'), 
+        {
+          text: i18n.t('logout'),
           style: 'destructive',
           onPress: async () => {
             setLoading(true);
@@ -511,7 +511,7 @@ export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void;
   };
 
   const contactSupport = () => {
-    Linking.openURL('mailto:hello@theproutapp.com?subject=Support Prout');
+    Linking.openURL('mailto:hello@prootapp.com?subject=Support Proot');
   };
 
   if (!userId) {
@@ -522,7 +522,7 @@ export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void;
         visible={true}
         onRequestClose={onClose}
       >
-        <KeyboardAvoidingView 
+        <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.modalOverlay}
         >
@@ -550,7 +550,7 @@ export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void;
       visible={true}
       onRequestClose={onClose}
     >
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.modalOverlay}
       >
@@ -565,8 +565,8 @@ export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void;
           <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
             {/* Avatar */}
             <View style={styles.avatarSection}>
-              <TouchableOpacity 
-                onPress={handlePickAvatar} 
+              <TouchableOpacity
+                onPress={handlePickAvatar}
                 disabled={uploadingAvatar || loading}
                 style={styles.avatarContainer}
               >
@@ -589,10 +589,10 @@ export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void;
 
             <View style={styles.section}>
               <Text style={styles.label}>{i18n.t('pseudo')}</Text>
-              <TextInput 
+              <TextInput
                 placeholder={i18n.t('pseudo')}
-                value={pseudo} 
-                onChangeText={setPseudo} 
+                value={pseudo}
+                onChangeText={setPseudo}
                 style={styles.input}
                 placeholderTextColor="#999"
               />
@@ -624,8 +624,8 @@ export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void;
             </View>
 
             {/* Bouton de mise à jour */}
-            <TouchableOpacity 
-              style={styles.updateAllButton} 
+            <TouchableOpacity
+              style={styles.updateAllButton}
               onPress={handleUpdateAll}
               disabled={loading}
             >
@@ -640,8 +640,8 @@ export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void;
             </TouchableOpacity>
 
             {/* Bouton de déconnexion */}
-            <TouchableOpacity 
-              style={styles.logoutButton} 
+            <TouchableOpacity
+              style={styles.logoutButton}
               onPress={handleLogout}
               disabled={loading}
             >
@@ -656,12 +656,12 @@ export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void;
                 <Ionicons name="mail-outline" size={20} color="#604a3e" />
                 <Text style={styles.supportText}>{i18n.t('contact_support')}</Text>
               </TouchableOpacity>
-              <Text style={styles.versionText}>Prout ! version 1.0.0</Text>
+              <Text style={styles.versionText}>Proot! version 1.0.0</Text>
 
               <View style={styles.deleteButtonContainer}>
-                <TouchableOpacity 
-                  style={styles.deleteButton} 
-                  onPress={unsubscribe} 
+                <TouchableOpacity
+                  style={styles.deleteButton}
+                  onPress={unsubscribe}
                   disabled={loading}
                 >
                   <Ionicons name="trash-outline" size={20} color="#ff4444" />
@@ -734,38 +734,38 @@ const styles = StyleSheet.create({
     marginBottom: 5,
     marginLeft: 5,
   },
-  input: { 
-    backgroundColor: 'white', 
-    padding: 15, 
-    borderRadius: 12, 
+  input: {
+    backgroundColor: 'white',
+    padding: 15,
+    borderRadius: 12,
     color: '#333',
     fontSize: 16,
     borderWidth: 1,
     borderColor: 'rgba(96, 74, 62, 0.2)'
   },
   updateAllButton: {
-    flexDirection: 'row', 
-    alignItems: 'center', 
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#604a3e', 
-    padding: 15, 
+    backgroundColor: '#604a3e',
+    padding: 15,
     borderRadius: 15,
     marginTop: 10,
-    marginBottom: 20, 
-    borderWidth: 1, 
+    marginBottom: 20,
+    borderWidth: 1,
     borderColor: 'rgba(96, 74, 62, 0.2)'
   },
   updateAllText: { color: '#ebb89b', fontWeight: 'bold', fontSize: 18, marginLeft: 10 },
-  
+
   logoutButton: {
-    flexDirection: 'row', 
-    alignItems: 'center', 
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(96, 74, 62, 0.1)', 
-    padding: 15, 
+    backgroundColor: 'rgba(96, 74, 62, 0.1)',
+    padding: 15,
     borderRadius: 15,
-    marginBottom: 20, 
-    borderWidth: 1, 
+    marginBottom: 20,
+    borderWidth: 1,
     borderColor: 'rgba(96, 74, 62, 0.2)',
   },
   logoutText: { color: '#604a3e', fontWeight: 'bold', fontSize: 16, marginLeft: 10 },
@@ -773,10 +773,10 @@ const styles = StyleSheet.create({
   spacer: { flex: 1, minHeight: 20 },
   deleteButtonContainer: { marginTop: 10 },
   bottomSection: { marginBottom: 20 },
-  
+
   supportButton: {
-    flexDirection: 'row', 
-    alignItems: 'center', 
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
     padding: 10,
     marginBottom: 5,
@@ -797,13 +797,13 @@ const styles = StyleSheet.create({
   },
 
   deleteButton: {
-    flexDirection: 'row', 
-    alignItems: 'center', 
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
-    padding: 10, 
+    padding: 10,
   },
   deleteText: { color: '#ff4444', fontWeight: 'bold', fontSize: 14, marginLeft: 8 },
-  
+
   avatarSection: {
     alignItems: 'center',
     marginBottom: 30,
@@ -850,7 +850,7 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: '#ebb89b',
   },
-  
+
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { fontSize: 18, color: '#604a3e', marginTop: 10 },
 });

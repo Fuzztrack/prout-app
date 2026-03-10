@@ -329,8 +329,13 @@ export default function EditProfilScreen() {
                   setCurrentPseudo(trimmedPseudo);
                   setPseudo(trimmedPseudo);
                   try {
+                    const { data: { user } } = await supabase.auth.getUser();
                     await supabase.auth.updateUser({
-                      data: { pseudo: trimmedPseudo, pseudo_validated: true },
+                      data: {
+                        ...(user?.user_metadata ?? {}),
+                        pseudo: trimmedPseudo,
+                        pseudo_validated: true,
+                      },
                     });
                   } catch (metaError) {
                     console.warn('⚠️ Impossible de mettre à jour les métadonnées pseudo:', metaError);

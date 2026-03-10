@@ -26,7 +26,7 @@ export function AppleAuthButton({ onSuccess, onError }: AppleAuthButtonProps) {
         onPress={async () => {
           try {
             setLoading(true);
-            
+
             // Demander l'authentification Apple native
             const credential = await AppleAuthentication.signInAsync({
               requestedScopes: [
@@ -71,11 +71,11 @@ export function AppleAuthButton({ onSuccess, onError }: AppleAuthButtonProps) {
   const handleAppleLogin = async () => {
     setLoading(true);
     try {
-      // iOS : prrtapp (app Prrt!), Android : proutapp (inchangé)
-      const redirectUrl = Platform.OS === 'web' 
+      // iOS : prootapp (app Proot!), Android : proutapp (inchangé)
+      const redirectUrl = Platform.OS === 'web'
         ? (typeof window !== 'undefined' ? window.location.origin : '')
-        : (Platform.OS === 'ios' ? 'prrtapp://login-callback' : 'proutapp://login-callback');
-      
+        : (Platform.OS === 'ios' ? 'prootapp://login-callback' : 'proutapp://login-callback');
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'apple',
         options: {

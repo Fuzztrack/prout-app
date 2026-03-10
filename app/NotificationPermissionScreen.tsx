@@ -83,7 +83,7 @@ export default function NotificationPermissionScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Image 
-          source={require('../assets/images/Prrt.png')} 
+          source={require('../assets/images/proot.png')} 
           style={styles.headerImage}
           resizeMode="contain"
         />
