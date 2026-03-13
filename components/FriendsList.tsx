@@ -4927,7 +4927,7 @@ const closeIdentityModal = useCallback(() => {
             : baseColor;
 
           return (
-            <View style={{ position: 'relative', marginBottom: 5 }}>
+            <View style={{ position: 'relative', marginBottom: 0 }}>
               <SwipeableFriendRow
                 ref={(ref) => { rowRefs.current[item.id] = ref; }}
                 friend={item}

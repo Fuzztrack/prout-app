@@ -59,7 +59,7 @@ export function AppHeader({
 }: AppHeaderProps) {
   const AnimatedContainer = shakeX && shakeY ? Animated.View : View;
   const { height: screenHeight } = useWindowDimensions();
-  const logoHeight = Math.min(140, Math.max(60, Math.round(screenHeight * 0.12)));
+  const logoHeight = Math.min(160, Math.max(70, Math.round(screenHeight * 0.14)));
   const logoWidth = Math.round(logoHeight * (200 / 140));
   const animatedStyle = shakeX && shakeY ? {
     transform: [
@@ -111,24 +111,11 @@ export function AppHeader({
       {/* 2. LA BARRE DE NAVIGATION */}
       <View style={styles.navBar}>
         {/* Ligne 1 : Menu principal (Complicité, Soundcheck, Zen, Silencieux, Recherche, Profil) — masqué quand menu liste ouvert */}
-        <View style={styles.menuRow}>
-          <View style={styles.rightIconsContainer}>
+        <View style={[styles.menuRow, { justifyContent: 'space-between' }]}>
+          {/* Icônes à gauche */}
+          <View style={styles.leftIconsContainer}>
             {!(isProfileMenuOpen || isProfileOpen) && (
               <>
-                {/* Complicité - Coupe */}
-                {onComplicityPress && (
-                  <TouchableOpacity
-                    onPress={onComplicityPress}
-                    style={[styles.iconButton, { justifyContent: 'center', alignItems: 'center', minHeight: 28, marginTop: 2 }]}
-                  >
-                    <Ionicons
-                      name="trophy"
-                      size={22}
-                      color="#ffffff"
-                    />
-                  </TouchableOpacity>
-                )}
-
                 {/* Soundcheck! - Onde sonore */}
                 {onSoundcheckPress && (
                   <TouchableOpacity
@@ -200,10 +187,26 @@ export function AppHeader({
                     />
                   </TouchableOpacity>
                 )}
+
+                {/* Complicité - Coupe */}
+                {onComplicityPress && (
+                  <TouchableOpacity
+                    onPress={onComplicityPress}
+                    style={[styles.iconButton, { justifyContent: 'center', alignItems: 'center', minHeight: 28, marginTop: 2 }]}
+                  >
+                    <Ionicons
+                      name="trophy"
+                      size={22}
+                      color="#ffffff"
+                    />
+                  </TouchableOpacity>
+                )}
               </>
             )}
-            
-            {/* Menu Profil / Fermer (toujours visible pour pouvoir fermer le menu) */}
+          </View>
+
+          {/* Menu Profil / Fermer — à droite */}
+          <View style={styles.rightIconsContainer}>
             {onProfileMenuPress && (
               <TouchableOpacity 
                 onPress={onProfileMenuPress} 
@@ -245,10 +248,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   logoContainer: {
-    alignItems: 'flex-start',
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
     marginTop: -5,
     marginBottom: 2,
-    marginLeft: 10,
+    zIndex: 0,
   },
   logo: {
     width: 120,
@@ -268,13 +274,15 @@ const styles = StyleSheet.create({
   profileVignette: {
     alignItems: 'center',
     justifyContent: 'center',
-    maxWidth: 92,
+    maxWidth: 80,
     marginTop: 2,
+    zIndex: 1,
+    marginLeft: 'auto',
   },
   profileAvatarWrap: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#ffffff',
     padding: 2,
     borderWidth: 1,
@@ -283,12 +291,12 @@ const styles = StyleSheet.create({
   profileAvatar: {
     width: '100%',
     height: '100%',
-    borderRadius: 26,
+    borderRadius: 21,
   },
   profileAvatarFallback: {
     width: '100%',
     height: '100%',
-    borderRadius: 26,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#f2ebe7',
@@ -299,11 +307,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#ffffff',
   },
+  leftIconsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   rightIconsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginLeft: 'auto',
   },
   iconButton: {
     padding: 4,
