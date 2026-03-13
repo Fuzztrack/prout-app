@@ -18,6 +18,8 @@ import { SOUND_ASSETS, SOUND_KEYS_BY_CATEGORY } from '@/lib/runtimeSounds';
 const BACKGROUND_COLOR = '#ebb89b';
 const TRLL_KEYS = SOUND_KEYS_BY_CATEGORY.trll || [];
 const BZZZ_KEYS = SOUND_KEYS_BY_CATEGORY.bzzz || [];
+const POP_KEYS = SOUND_KEYS_BY_CATEGORY.pop || [];
+const MOOD_KEYS = SOUND_KEYS_BY_CATEGORY.mood || [];
 function getSoundDisplayName(soundKey: string) {
   const translated = i18n.t(`prout_names.${soundKey}`) as any;
   if (typeof translated === 'string' && translated !== `prout_names.${soundKey}`) {
@@ -67,6 +69,8 @@ export default function SoundcheckScreen() {
 
   const playableTrllKeys = useMemo(() => TRLL_KEYS.filter((k) => !!SOUND_ASSETS[k]), []);
   const playableBzzzKeys = useMemo(() => BZZZ_KEYS.filter((k) => !!SOUND_ASSETS[k]), []);
+  const playablePopKeys = useMemo(() => POP_KEYS.filter((k) => !!SOUND_ASSETS[k]), []);
+  const playableMoodKeys = useMemo(() => MOOD_KEYS.filter((k) => !!SOUND_ASSETS[k]), []);
 
   const playSelectedSound = useCallback(async (soundKey: string) => {
     const asset = SOUND_ASSETS[soundKey];
@@ -142,7 +146,24 @@ export default function SoundcheckScreen() {
             <View style={styles.libraryColumns}>
               <View style={styles.libraryColumn}>
                 <View style={styles.libraryHeaderCol}>
+                  <Image source={require('../assets/images/mood.png')} style={styles.libraryHeaderImage} resizeMode="contain" />
+                  <Text style={styles.libraryHeaderSubtitle}>{i18n.t('soundcheck_subtitle_mood')}</Text>
+                </View>
+                {playableMoodKeys.map((soundKey) => (
+                  <TouchableOpacity
+                    key={soundKey}
+                    style={styles.libraryItem}
+                    onPress={() => playSelectedSound(soundKey)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.libraryItemText}>
+                      {getSoundDisplayName(soundKey)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+                <View style={[styles.libraryHeaderCol, { marginTop: 16 }]}>
                   <Image source={require('../assets/images/tweet.png')} style={styles.libraryHeaderImage} resizeMode="contain" />
+                  <Text style={styles.libraryHeaderSubtitle}>{i18n.t('soundcheck_subtitle_tweet')}</Text>
                 </View>
                 {playableTrllKeys.map((soundKey) => (
                   <TouchableOpacity
@@ -159,7 +180,24 @@ export default function SoundcheckScreen() {
               </View>
               <View style={styles.libraryColumn}>
                 <View style={styles.libraryHeaderCol}>
+                  <Image source={require('../assets/images/pop.png')} style={[styles.libraryHeaderImage, { width: 78, height: 32 }]} resizeMode="contain" />
+                  <Text style={styles.libraryHeaderSubtitle}>{i18n.t('soundcheck_subtitle_pop')}</Text>
+                </View>
+                {playablePopKeys.map((soundKey) => (
+                  <TouchableOpacity
+                    key={soundKey}
+                    style={styles.libraryItem}
+                    onPress={() => playSelectedSound(soundKey)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.libraryItemText}>
+                      {getSoundDisplayName(soundKey)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+                <View style={[styles.libraryHeaderCol, { marginTop: 16 }]}>
                   <Image source={require('../assets/images/buzz.png')} style={styles.libraryHeaderImage} resizeMode="contain" />
+                  <Text style={styles.libraryHeaderSubtitle}>{i18n.t('soundcheck_subtitle_buzz')}</Text>
                 </View>
                 {playableBzzzKeys.map((soundKey) => (
                   <TouchableOpacity
@@ -240,6 +278,14 @@ const styles = StyleSheet.create({
     width: 98,
     height: 40,
     marginBottom: 2,
+  },
+  libraryHeaderSubtitle: {
+    fontSize: 11,
+    fontStyle: 'italic',
+    color: '#604a3e',
+    textAlign: 'center',
+    marginTop: 1,
+    marginBottom: 4,
   },
   libraryHeaderDefinition: {
     color: '#604a3e',

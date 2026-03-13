@@ -60,10 +60,17 @@ const CHAT_MODAL_TOP_SAFE_MARGIN = Platform.OS === 'ios' ? 96 : 84;
 const SWIPE_THRESHOLD = 150; // Seuil pour déclencher l'action
 const TAP_THRESHOLD = 12; // Distance max pour considérer un tap
 
-type ChatMessageSoundChoice = 'trll' | 'bzzz';
+type ChatMessageSoundChoice = 'trll' | 'bzzz' | 'pop' | 'mood';
 const PICKUP_TRLL_KEYS = (SOUND_KEYS_BY_CATEGORY.trll || []).filter((key) => !!SOUND_ASSETS[key]);
 const PICKUP_BZZZ_KEYS = (SOUND_KEYS_BY_CATEGORY.bzzz || []).filter((key) => !!SOUND_ASSETS[key]);
+const PICKUP_POP_KEYS = (SOUND_KEYS_BY_CATEGORY.pop || []).filter((key) => !!SOUND_ASSETS[key]);
+const PICKUP_MOOD_KEYS = (SOUND_KEYS_BY_CATEGORY.mood || []).filter((key) => !!SOUND_ASSETS[key]);
+const MAX_PICKUP_ROWS = Math.ceil(Math.max(PICKUP_TRLL_KEYS.length, PICKUP_BZZZ_KEYS.length, PICKUP_POP_KEYS.length, PICKUP_MOOD_KEYS.length) / 2);
+const CHAT_SPECIFIC_ROW_HEIGHT = 34;
+const CHAT_SPECIFIC_MIN_HEIGHT = MAX_PICKUP_ROWS * CHAT_SPECIFIC_ROW_HEIGHT;
 const DEFAULT_SOUND_OPTIONS: Array<{ category: SoundCategory; image: any }> = [
+  { category: 'mood', image: require('../assets/images/mood.png') },
+  { category: 'pop', image: require('../assets/images/pop.png') },
   { category: 'trll', image: require('../assets/images/tweet.png') },
   { category: 'bzzz', image: require('../assets/images/buzz.png') },
 ];
@@ -83,8 +90,8 @@ function pickRandomWithoutImmediateRepeat(arr: string[], lastValue?: string) {
 async function getSelectedSoundCategory(): Promise<SoundCategory> {
   try {
     const saved = await AsyncStorage.getItem(SOUND_CATEGORY_KEY);
-    if (saved === 'bzzz' || saved === 'trll') {
-      return saved;
+    if (saved === 'bzzz' || saved === 'trll' || saved === 'pop' || saved === 'mood') {
+      return saved as SoundCategory;
     }
   } catch (_) {}
   return 'trll';
@@ -1783,6 +1790,8 @@ const selectChatMessageSoundChoice = useCallback((choice: ChatMessageSoundChoice
 }, []);
 
 const openChatSpecificSoundList = useCallback((choice: ChatMessageSoundChoice) => {
+  // UX type WhatsApp : long-press pour ouvrir la liste → on ferme le clavier
+  Keyboard.dismiss();
   setChatMessageSoundChoice(choice);
   AsyncStorage.setItem(CHAT_MESSAGE_SOUND_CHOICE_KEY, choice).catch(() => {});
   setChatSpecificSoundListCategory(choice);
@@ -1795,6 +1804,11 @@ const handleSelectChatSpecificSound = useCallback((soundKey: string) => {
     [expandedFriendId]: soundKey,
   }));
   setChatSpecificSoundListCategory(null);
+
+  // Rouvrir le clavier et refocus l'input après la sélection
+  setTimeout(() => {
+    textInputRefs.current[expandedFriendId]?.focus?.();
+  }, 50);
 }, [expandedFriendId]);
 
 const toggleChatMute = useCallback(() => {
@@ -1832,7 +1846,7 @@ useEffect(() => {
   AsyncStorage.getItem(SOUND_CATEGORY_KEY)
     .then((saved) => {
       if (!mounted || !saved) return;
-      if (saved === 'trll' || saved === 'bzzz') setGlobalDefaultCategory(saved);
+      if (saved === 'trll' || saved === 'bzzz' || saved === 'pop' || saved === 'mood') setGlobalDefaultCategory(saved as SoundCategory);
     })
     .catch(() => {});
   return () => { mounted = false; };
@@ -4484,6 +4498,14 @@ const closeIdentityModal = useCallback(() => {
              {i18n.t('sticky_chat_with', { pseudo: displayFriend.pseudo })}
            </Text>
            <View style={styles.stickyHeaderActions}>
+             <TouchableOpacity onPress={toggleChatMute} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}} style={{ marginRight: 12 }}>
+               <Ionicons
+                 name={isChatMuteEnabled ? 'volume-mute' : 'volume-medium'}
+                 size={22}
+                 color="#604a3e"
+                 style={!isChatMuteEnabled ? { opacity: 0.4 } : undefined}
+               />
+             </TouchableOpacity>
              <TouchableOpacity onPress={() => handlePressHeaderRef.current()} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
                <Ionicons name="close-circle" size={24} color="#604a3e" />
              </TouchableOpacity>
@@ -4644,6 +4666,39 @@ const closeIdentityModal = useCallback(() => {
         >
           <TouchableOpacity
             style={styles.chatSoundChoiceButton}
+            onPress={() => selectChatMessageSoundChoice('mood')}
+            onLongPress={() => openChatSpecificSoundList('mood')}
+            delayLongPress={280}
+            activeOpacity={0.8}
+          >
+            <Image
+              source={require('../assets/images/mood.png')}
+              style={[
+                styles.chatSoundChoiceImage,
+                chatMessageSoundChoice !== 'mood' && styles.chatSoundChoiceImageInactive,
+              ]}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.chatSoundChoiceButton}
+            onPress={() => selectChatMessageSoundChoice('pop')}
+            onLongPress={() => openChatSpecificSoundList('pop')}
+            delayLongPress={280}
+            activeOpacity={0.8}
+          >
+            <Image
+              source={require('../assets/images/pop.png')}
+              style={[
+                styles.chatSoundChoiceImage,
+                { width: 62, height: 42 },
+                chatMessageSoundChoice !== 'pop' && styles.chatSoundChoiceImageInactive,
+              ]}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.chatSoundChoiceButton}
             onPress={() => selectChatMessageSoundChoice('trll')}
             onLongPress={() => openChatSpecificSoundList('trll')}
             delayLongPress={280}
@@ -4674,24 +4729,16 @@ const closeIdentityModal = useCallback(() => {
               resizeMode="contain"
             />
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.chatMuteChoiceButton}
-            onPress={toggleChatMute}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name={isChatMuteEnabled ? 'volume-mute' : 'volume-medium'}
-              size={24}
-              color="#604a3e"
-              style={!isChatMuteEnabled ? styles.chatSoundChoiceImageInactive : undefined}
-            />
-          </TouchableOpacity>
         </ScrollView>
         {!!chatSpecificSoundListCategory && (
-          <View style={styles.chatSpecificSoundList}>
+          <View style={[styles.chatSpecificSoundList, { minHeight: CHAT_SPECIFIC_MIN_HEIGHT }]}>
             {(chatSpecificSoundListCategory === 'trll'
               ? PICKUP_TRLL_KEYS
-              : PICKUP_BZZZ_KEYS).map((soundKey) => (
+              : chatSpecificSoundListCategory === 'bzzz'
+              ? PICKUP_BZZZ_KEYS
+              : chatSpecificSoundListCategory === 'pop'
+              ? PICKUP_POP_KEYS
+              : PICKUP_MOOD_KEYS).map((soundKey) => (
               <TouchableOpacity
                 key={soundKey}
                 style={[
@@ -5213,6 +5260,24 @@ const closeIdentityModal = useCallback(() => {
                 <View style={styles.friendSoundPickColumns}>
                   <View style={styles.friendSoundPickColumn}>
                     <View style={styles.friendSoundPickHeaderCell}>
+                      <Image source={require('../assets/images/mood.png')} style={styles.friendSoundPickHeaderImage} resizeMode="contain" />
+                    </View>
+                    {PICKUP_MOOD_KEYS.map((soundKey) => (
+                      <TouchableOpacity
+                        key={soundKey}
+                        style={[
+                          styles.friendSoundPickItemButton,
+                          friendSoundModalFriend?.id && friendSoundKeyByFriend[friendSoundModalFriend.id] === soundKey
+                            ? styles.friendSoundPickItemButtonActive
+                            : undefined,
+                        ]}
+                        onPress={() => handleSelectFriendSpecificSoundKey(soundKey)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.friendSoundPickItemText}>{getDisplaySoundLabel(soundKey)}</Text>
+                      </TouchableOpacity>
+                    ))}
+                    <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
                       <Image source={require('../assets/images/tweet.png')} style={styles.friendSoundPickHeaderImage} resizeMode="contain" />
                     </View>
                     {PICKUP_TRLL_KEYS.map((soundKey) => (
@@ -5233,6 +5298,24 @@ const closeIdentityModal = useCallback(() => {
                   </View>
                   <View style={styles.friendSoundPickColumn}>
                     <View style={styles.friendSoundPickHeaderCell}>
+                      <Image source={require('../assets/images/pop.png')} style={[styles.friendSoundPickHeaderImage, { width: 68, height: 29 }]} resizeMode="contain" />
+                    </View>
+                    {PICKUP_POP_KEYS.map((soundKey) => (
+                      <TouchableOpacity
+                        key={soundKey}
+                        style={[
+                          styles.friendSoundPickItemButton,
+                          friendSoundModalFriend?.id && friendSoundKeyByFriend[friendSoundModalFriend.id] === soundKey
+                            ? styles.friendSoundPickItemButtonActive
+                            : undefined,
+                        ]}
+                        onPress={() => handleSelectFriendSpecificSoundKey(soundKey)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.friendSoundPickItemText}>{getDisplaySoundLabel(soundKey)}</Text>
+                      </TouchableOpacity>
+                    ))}
+                    <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
                       <Image source={require('../assets/images/buzz.png')} style={styles.friendSoundPickHeaderImage} resizeMode="contain" />
                     </View>
                     {PICKUP_BZZZ_KEYS.map((soundKey) => (
@@ -5260,7 +5343,7 @@ const closeIdentityModal = useCallback(() => {
                     pointerEvents="none"
                     style={[
                       styles.pickDefaultCategoryIndicator,
-                      { left: `${selectedDefaultCategoryIndex * 50}%` },
+                      { left: `${selectedDefaultCategoryIndex * (100 / DEFAULT_SOUND_OPTIONS.length)}%` },
                     ]}
                   />
                   {DEFAULT_SOUND_OPTIONS.map((option) => (
@@ -5270,7 +5353,7 @@ const closeIdentityModal = useCallback(() => {
                       onPress={() => handleSelectGlobalDefaultCategory(option.category)}
                       activeOpacity={0.85}
                     >
-                      <Image source={option.image} style={styles.pickDefaultCategoryIcon} resizeMode="contain" />
+                      <Image source={option.image} style={[styles.pickDefaultCategoryIcon, option.category === 'pop' && { width: 62, height: 24 }, option.category === 'trll' && { width: 90, height: 34 }]} resizeMode="contain" />
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -5466,6 +5549,7 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 2,
     marginBottom: 4,
+    paddingBottom: 50,
   },
   chatSpecificSoundButton: {
     backgroundColor: 'rgba(255,255,255,0.85)',
@@ -5986,7 +6070,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     bottom: 0,
-    width: '50%',
+    width: '25%',
     backgroundColor: 'rgba(162, 228, 212, 0.72)',
   },
   pickDefaultCategoryStep: {

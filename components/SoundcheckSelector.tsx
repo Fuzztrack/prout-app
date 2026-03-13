@@ -33,25 +33,31 @@ export async function stopCurrentPreviewSound() {
 const MINT = '#A2E4D4';
 
 export const SOUND_CATEGORY_KEY = 'sound_category';
-export type SoundCategory = 'trll' | 'bzzz';
+export type SoundCategory = 'trll' | 'bzzz' | 'pop' | 'mood';
 
 // Convention d'angles (demandée) :
 // 0° = 3h, sens horaire (y vers le bas).
 const CATEGORIES: { id: SoundCategory; angle: number; label: string; source: any }[] = [
-  { id: 'trll', angle: 210, label: 'TRLL!', source: require('../assets/images/tweet.png') }, // 10h
-  { id: 'bzzz', angle: 330, label: 'BZZZ!', source: require('../assets/images/buzz.png') }, // 2h
+  { id: 'trll', angle: 180, label: 'TRLL!', source: require('../assets/images/tweet.png') }, // 9h
+  { id: 'mood', angle: 270, label: 'MOOD!', source: require('../assets/images/mood.png') }, // 12h
+  { id: 'bzzz', angle: 0, label: 'BZZZ!', source: require('../assets/images/buzz.png') }, // 3h
+  { id: 'pop', angle: 90, label: 'POP!', source: require('../assets/images/pop.png') }, // 6h
 ];
 
 // Ajustements fins par logo (pour un rendu visuel équilibré)
 const RADIAL_FACTOR: Record<SoundCategory, number> = {
-  trll: 0.96, // trll légèrement plus éloigné du centre
-  bzzz: 0.98, // légèrement plus éloigné du centre
+  trll: 0.96,
+  bzzz: 0.98,
+  pop: 0.96,
+  mood: 0.96,
 };
 
 // Offsets fins (px) pour équilibrer visuellement sans toucher aux angles de crans
 const POSITION_OFFSET: Record<SoundCategory, { dx: number; dy: number }> = {
   trll: { dx: 0, dy: 0 },
-  bzzz: { dx: 0, dy: -8 }, // légèrement plus bas qu'avant
+  bzzz: { dx: 0, dy: 0 },
+  pop: { dx: 0, dy: 0 },
+  mood: { dx: 0, dy: 0 },
 };
 
 // L'indicateur est dessiné en haut (12h = 270° dans notre convention).
@@ -132,7 +138,9 @@ export default function SoundcheckSelector({
     // Offsets fins (px) adaptés à l'échelle
     const offsetsScaled: Record<SoundCategory, { dx: number; dy: number }> = {
       trll: { dx: 0, dy: 0 },
-      bzzz: { dx: 0, dy: Math.round(-8 * (logoBox / 112)) },
+      bzzz: { dx: 0, dy: 0 },
+      pop: { dx: 0, dy: 0 },
+      mood: { dx: 0, dy: 0 },
     };
 
     return {
