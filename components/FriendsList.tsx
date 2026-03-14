@@ -52,7 +52,8 @@ const FIRST_CHAT_MODAL_KEY = 'first_chat_modal_seen_v2';
 const CHAT_MESSAGE_SOUND_CHOICE_KEY = 'chat_message_sound_choice_v1';
 const CHAT_MESSAGE_MUTE_KEY = 'chat_message_mute_v2';
 const FRIEND_SOUND_CATEGORY_MAP_KEY = 'friend_sound_category_map_v1';
-const IOS_SOUNDWAVE_IMAGE = require('../assets/images/soundwave.png');
+const IOS_SOUNDWAVE_IMAGE = require('../assets/images/proothail.png');
+const IOS_SENT_IMAGE = require('../assets/images/animprout4.png');
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -340,6 +341,7 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
   const maxSwipeLeft = SCREEN_WIDTH * 0.7; // Maximum 70% de l'écran vers la gauche
   const introOffset = useSharedValue(0);
   const selectedSoundBadgeOffset = useSharedValue(selectedSoundKey ? 0 : 160);
+  const [showSentImage, setShowSentImage] = useState(false);
   const introDirectionRef = useRef(Math.random() > 0.5 ? 1 : -1);
   const avatarPressActiveRef = useRef(false);
   const suppressNextPressRef = useRef(false);
@@ -392,7 +394,9 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
   
   // Fonction pour déclencher l'action (swipe droite)
   const triggerAction = () => {
+    setShowSentImage(true);
     onSendProut();
+    setTimeout(() => setShowSentImage(false), 600);
   };
 
   useImperativeHandle(ref, () => ({
@@ -504,20 +508,20 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
     const positiveX = Math.max(0, translationX.value);
     const scale = interpolate(
       positiveX,
-      [0, maxSwipeRight],
-      [0.5, 4.0],
+      [0, maxSwipeRight * 0.3, maxSwipeRight],
+      [0.8, 1.2, 4.0],
       Extrapolation.CLAMP
     );
     const translateX = interpolate(
       positiveX,
       [0, maxSwipeRight],
-      [-72, 34],
+      [-20, 34],
       Extrapolation.CLAMP
     );
     
     return {
-      transform: [{ translateX }, { scale }],
-      opacity: translationX.value > 0 ? 1 : 0, // Cacher l'image si swipe gauche
+      transform: [{ translateX }, { translateY: -8 }, { scale }],
+      opacity: translationX.value > 0 ? 1 : 0,
     };
   });
 
@@ -564,10 +568,10 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
         <Text style={styles.deleteText}>{i18n.t('block_user')}</Text>
       </Animated.View>
 
-      {/* Background droite partagé iOS + Android : soundwave avec animation unique */}
+      {/* Background droite partagé iOS + Android : image avec animation unique */}
       <View style={styles.swipeBackground} collapsable={false}>
         <Animated.Image
-          source={IOS_SOUNDWAVE_IMAGE}
+          source={showSentImage ? IOS_SENT_IMAGE : IOS_SOUNDWAVE_IMAGE}
           style={[styles.animImage, animatedImageScale]}
           resizeMode="contain"
         />
