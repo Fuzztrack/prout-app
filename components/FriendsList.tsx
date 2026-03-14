@@ -67,7 +67,7 @@ const PICKUP_POP_KEYS = (SOUND_KEYS_BY_CATEGORY.pop || []).filter((key) => !!SOU
 const PICKUP_MOOD_KEYS = (SOUND_KEYS_BY_CATEGORY.mood || []).filter((key) => !!SOUND_ASSETS[key]);
 const MAX_PICKUP_ROWS = Math.ceil(Math.max(PICKUP_TRLL_KEYS.length, PICKUP_BZZZ_KEYS.length, PICKUP_POP_KEYS.length, PICKUP_MOOD_KEYS.length) / 2);
 const CHAT_SPECIFIC_ROW_HEIGHT = 34;
-const CHAT_SPECIFIC_MIN_HEIGHT = MAX_PICKUP_ROWS * CHAT_SPECIFIC_ROW_HEIGHT;
+const CHAT_SPECIFIC_MIN_HEIGHT = MAX_PICKUP_ROWS * CHAT_SPECIFIC_ROW_HEIGHT + 50;
 const DEFAULT_SOUND_OPTIONS: Array<{ category: SoundCategory; image: any }> = [
   { category: 'mood', image: require('../assets/images/mood.png') },
   { category: 'pop', image: require('../assets/images/pop.png') },
@@ -312,6 +312,8 @@ type SwipeableFriendRowProps = {
   isMuted?: boolean;
   introDelay?: number;
   introTrigger?: number;
+  selectedSoundKey?: string;
+  onClearSelectedSound?: () => void;
 };
 
 // Composant SwipeableFriendRow : Swipe to Action avec animation frame-by-frame (version Reanimated pour iOS fluide)
@@ -330,11 +332,14 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
   isMuted = false, 
   introDelay = 0,
   introTrigger = 0,
+  selectedSoundKey,
+  onClearSelectedSound,
 }, ref) => {
   const translationX = useSharedValue(0);
   const maxSwipeRight = SCREEN_WIDTH * 0.7; // Maximum 70% de l'écran vers la droite
   const maxSwipeLeft = SCREEN_WIDTH * 0.7; // Maximum 70% de l'écran vers la gauche
   const introOffset = useSharedValue(0);
+  const selectedSoundBadgeOffset = useSharedValue(selectedSoundKey ? 0 : 160);
   const introDirectionRef = useRef(Math.random() > 0.5 ? 1 : -1);
   const avatarPressActiveRef = useRef(false);
   const suppressNextPressRef = useRef(false);
@@ -375,6 +380,15 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
       withSpring(0, { damping: 12, stiffness: 140 })
     );
   }, [introDelay, introOffset, introTrigger]);
+
+  useEffect(() => {
+    if (selectedSoundKey) {
+      selectedSoundBadgeOffset.value = 160;
+      selectedSoundBadgeOffset.value = withTiming(0, { duration: 280 });
+    } else {
+      selectedSoundBadgeOffset.value = withTiming(160, { duration: 160 });
+    }
+  }, [selectedSoundBadgeOffset, selectedSoundKey]);
   
   // Fonction pour déclencher l'action (swipe droite)
   const triggerAction = () => {
@@ -522,6 +536,20 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
     };
   });
 
+  const animatedSelectedSoundBadgeStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      selectedSoundBadgeOffset.value,
+      [0, 160],
+      [1, 0],
+      Extrapolation.CLAMP
+    );
+
+    return {
+      transform: [{ translateX: selectedSoundBadgeOffset.value }],
+      opacity,
+    };
+  });
+
   return (
     <View style={[styles.swipeableRowShadowWrapper, Platform.OS === 'ios' && { backgroundColor }]}>
       <View style={[styles.swipeableRow, { backgroundColor }]} collapsable={false}>
@@ -624,6 +652,28 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
               ) : null}
             </View>
           </GHTouchableOpacity>
+          {selectedSoundKey ? (
+            <Animated.View
+              style={[
+                styles.friendSelectedSoundBadge,
+                animatedSelectedSoundBadgeStyle,
+              ]}
+            >
+              <Text
+                style={styles.friendSelectedSoundBadgeText}
+                numberOfLines={1}
+              >
+                {getDisplaySoundLabel(selectedSoundKey)}
+              </Text>
+              <GHTouchableOpacity
+                onPress={() => onClearSelectedSound?.()}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={{ marginLeft: 4 }}
+              >
+                <Ionicons name="close-circle" size={14} color="#3a2a22" />
+              </GHTouchableOpacity>
+            </Animated.View>
+          ) : null}
         </Animated.View>
       </GestureDetector>
       </View>
@@ -1785,9 +1835,28 @@ useEffect(() => {
 
 const selectChatMessageSoundChoice = useCallback((choice: ChatMessageSoundChoice) => {
   setChatMessageSoundChoice(choice);
-  setChatSpecificSoundListCategory(null);
   AsyncStorage.setItem(CHAT_MESSAGE_SOUND_CHOICE_KEY, choice).catch(() => {});
-}, []);
+  if (expandedFriendId) {
+    setPendingChatSoundKeyByFriend((prev) => {
+      if (!prev[expandedFriendId]) return prev;
+      const { [expandedFriendId]: _removed, ...rest } = prev;
+      return rest;
+    });
+  }
+  if (chatSpecificSoundListCategory) {
+    setChatSpecificSoundListCategory(choice);
+  }
+}, [chatSpecificSoundListCategory, expandedFriendId]);
+
+const closeChatSpecificSoundList = useCallback(() => {
+  if (!chatSpecificSoundListCategory) return;
+  setChatSpecificSoundListCategory(null);
+  if (expandedFriendId) {
+    setTimeout(() => {
+      textInputRefs.current[expandedFriendId]?.focus?.();
+    }, 50);
+  }
+}, [chatSpecificSoundListCategory, expandedFriendId]);
 
 const openChatSpecificSoundList = useCallback((choice: ChatMessageSoundChoice) => {
   // UX type WhatsApp : long-press pour ouvrir la liste → on ferme le clavier
@@ -4567,6 +4636,7 @@ const closeIdentityModal = useCallback(() => {
             onContentSizeChange={() => stickyScrollViewAnimatedRef.current?.scrollToEnd({ animated: true })}
             showsVerticalScrollIndicator={true}
             keyboardShouldPersistTaps="always"
+            onTouchStart={closeChatSpecificSoundList}
           >
             {allMessages.map((msg) => (
               msg.isMe ? (
@@ -4593,6 +4663,7 @@ const closeIdentityModal = useCallback(() => {
             onContentSizeChange={() => stickyScrollViewRef.current?.scrollToEnd({ animated: true })}
             showsVerticalScrollIndicator={true}
             keyboardShouldPersistTaps="always"
+            onTouchStart={closeChatSpecificSoundList}
           >
             {allMessages.map((msg) => (
               msg.isMe ? (
@@ -4613,6 +4684,23 @@ const closeIdentityModal = useCallback(() => {
           </ScrollView>
         )}
 
+        {!!pendingChatSoundKeyByFriend[displayFriend.id] && (
+          <TouchableOpacity
+            style={styles.chatPendingSoundTag}
+            onPress={() => {
+              setPendingChatSoundKeyByFriend((prev) => {
+                const { [displayFriend.id]: _removed, ...rest } = prev;
+                return rest;
+              });
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.chatPendingSoundTagText}>
+              {getDisplaySoundLabel(pendingChatSoundKeyByFriend[displayFriend.id])}
+            </Text>
+            <Ionicons name="close-circle" size={14} color="#604a3e" style={{ marginLeft: 4 }} />
+          </TouchableOpacity>
+        )}
         <View style={[styles.messageInputRow, { alignItems: 'flex-end', marginBottom: 1 }]}>
           <TextInput
             ref={(ref) => { textInputRefs.current[displayFriend.id] = ref; }}
@@ -4638,6 +4726,9 @@ const closeIdentityModal = useCallback(() => {
               if (Platform.OS === 'android') {
                 refocusOnBlurAttemptedRef.current = false;
               }
+              if (chatSpecificSoundListCategory) {
+                setChatSpecificSoundListCategory(null);
+              }
             }}
             // Plus de onBlur agressif qui ferme le clavier sur Samsung
             onLayout={() => {}}
@@ -4657,6 +4748,7 @@ const closeIdentityModal = useCallback(() => {
             <Ionicons name="send" size={18} color="#604a3e" />
           </TouchableOpacity>
         </View>
+        <View style={[styles.chatSoundZone, !chatSpecificSoundListCategory && { borderBottomWidth: 0 }]}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -4731,7 +4823,9 @@ const closeIdentityModal = useCallback(() => {
           </TouchableOpacity>
         </ScrollView>
         {!!chatSpecificSoundListCategory && (
-          <View style={[styles.chatSpecificSoundList, { minHeight: CHAT_SPECIFIC_MIN_HEIGHT }]}>
+          <View>
+          <View style={styles.chatSoundZoneSeparator} />
+          <View style={[styles.chatSpecificSoundList, { height: CHAT_SPECIFIC_MIN_HEIGHT }]}>
             {(chatSpecificSoundListCategory === 'trll'
               ? PICKUP_TRLL_KEYS
               : chatSpecificSoundListCategory === 'bzzz'
@@ -4752,7 +4846,9 @@ const closeIdentityModal = useCallback(() => {
               </TouchableOpacity>
             ))}
           </View>
+          </View>
         )}
+        </View>
       </View>
     );
   }, [
@@ -4770,6 +4866,7 @@ const closeIdentityModal = useCallback(() => {
     fadingOutReceivedMessages,
     selectChatMessageSoundChoice,
     openChatSpecificSoundList,
+    closeChatSpecificSoundList,
     handleSelectChatSpecificSound,
     toggleChatMute,
     openReportReasonSheet,
@@ -4944,6 +5041,14 @@ const closeIdentityModal = useCallback(() => {
                 isMuted={item.is_muted || false}
                 introDelay={index * 40}
                 introTrigger={listIntroTrigger}
+                selectedSoundKey={friendSoundKeyByFriend[item.id]}
+                onClearSelectedSound={() => {
+                  setFriendSoundKeyByFriend((prev) => {
+                    if (!prev[item.id]) return prev;
+                    const { [item.id]: _removed, ...rest } = prev;
+                    return rest;
+                  });
+                }}
               />
             </View>
           );
@@ -5511,6 +5616,18 @@ const styles = StyleSheet.create({
   messageInputContainerAndroid: { marginBottom: 0, paddingBottom: 0 },
   messageLabel: { color: '#604a3e', fontWeight: '600', marginBottom: 6 },
   messageInputRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 0, gap: 8 },
+  chatSoundZone: {
+    borderBottomWidth: 1.5,
+    borderBottomColor: 'rgba(96, 74, 62, 0.45)',
+    marginTop: 4,
+    marginHorizontal: -10,
+    paddingHorizontal: 10,
+    paddingTop: 2,
+    paddingBottom: 2,
+  },
+  chatSoundZoneSeparator: {
+    display: 'none',
+  },
   chatSoundChoiceScroller: {
     marginTop: 4,
     marginBottom: 4,
@@ -5532,6 +5649,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  chatPendingSoundTag: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#A2E4D4',
+    borderWidth: 1,
+    borderColor: '#1a1a1a',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginBottom: 4,
+    marginLeft: 4,
+  },
+  chatPendingSoundTagText: {
+    color: '#604a3e',
+    fontSize: 13,
+    fontWeight: '600',
+  },
   chatMuteChoiceButton: {
     width: 56,
     height: 56,
@@ -5546,14 +5681,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
+    alignContent: 'flex-start',
     gap: 8,
-    marginTop: 2,
-    marginBottom: 4,
+    marginTop: 4,
+    paddingHorizontal: 10,
+    paddingTop: 8,
     paddingBottom: 50,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(96, 74, 62, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(96, 74, 62, 0.1)',
+    borderRadius: 8,
   },
   chatSpecificSoundButton: {
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.55)',
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: 'rgba(96, 74, 62, 0.2)',
     paddingHorizontal: 10,
@@ -5639,6 +5781,26 @@ const styles = StyleSheet.create({
     padding: 12,
     height: '100%',
     width: '100%',
+  },
+  friendSelectedSoundBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 8,
+    maxWidth: '52%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#e8b99a',
+    borderWidth: 1,
+    borderColor: 'rgba(96, 74, 62, 0.4)',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    zIndex: 3,
+  },
+  friendSelectedSoundBadgeText: {
+    color: '#3a2a22',
+    fontWeight: '600',
+    fontSize: 11,
   },
   toast: {
     position: 'absolute',
