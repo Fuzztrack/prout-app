@@ -61,19 +61,25 @@ const CHAT_MODAL_TOP_SAFE_MARGIN = Platform.OS === 'ios' ? 96 : 84;
 const SWIPE_THRESHOLD = 150; // Seuil pour déclencher l'action
 const TAP_THRESHOLD = 12; // Distance max pour considérer un tap
 
-type ChatMessageSoundChoice = 'trll' | 'bzzz' | 'pop' | 'mood';
+type ChatMessageSoundChoice = 'trll' | 'bzzz' | 'pop' | 'mood' | 'toot';
 const PICKUP_TRLL_KEYS = (SOUND_KEYS_BY_CATEGORY.trll || []).filter((key) => !!SOUND_ASSETS[key]);
 const PICKUP_BZZZ_KEYS = (SOUND_KEYS_BY_CATEGORY.bzzz || []).filter((key) => !!SOUND_ASSETS[key]);
 const PICKUP_POP_KEYS = (SOUND_KEYS_BY_CATEGORY.pop || []).filter((key) => !!SOUND_ASSETS[key]);
 const PICKUP_MOOD_KEYS = (SOUND_KEYS_BY_CATEGORY.mood || []).filter((key) => !!SOUND_ASSETS[key]);
-const MAX_PICKUP_ROWS = Math.ceil(Math.max(PICKUP_TRLL_KEYS.length, PICKUP_BZZZ_KEYS.length, PICKUP_POP_KEYS.length, PICKUP_MOOD_KEYS.length) / 2);
+const PICKUP_TOOT_KEYS = (SOUND_KEYS_BY_CATEGORY.toot || []).filter((key) => !!SOUND_ASSETS[key]);
+const MAX_PICKUP_ROWS = Math.ceil(Math.max(PICKUP_TRLL_KEYS.length, PICKUP_BZZZ_KEYS.length, PICKUP_POP_KEYS.length, PICKUP_MOOD_KEYS.length, PICKUP_TOOT_KEYS.length) / 2);
 const CHAT_SPECIFIC_ROW_HEIGHT = 34;
 const CHAT_SPECIFIC_MIN_HEIGHT = MAX_PICKUP_ROWS * CHAT_SPECIFIC_ROW_HEIGHT + 50;
 const DEFAULT_SOUND_OPTIONS: Array<{ category: SoundCategory; image: any }> = [
   { category: 'mood', image: require('../assets/images/mood.png') },
   { category: 'pop', image: require('../assets/images/pop.png') },
   { category: 'trll', image: require('../assets/images/tweet.png') },
+  { category: 'toot', image: require('../assets/images/toot.png') },
   { category: 'bzzz', image: require('../assets/images/buzz.png') },
+];
+const DEFAULT_SOUND_OPTION_ROWS = [
+  DEFAULT_SOUND_OPTIONS.slice(0, 3),
+  DEFAULT_SOUND_OPTIONS.slice(3),
 ];
 
 function pickRandom<T>(arr: T[]) {
@@ -91,7 +97,7 @@ function pickRandomWithoutImmediateRepeat(arr: string[], lastValue?: string) {
 async function getSelectedSoundCategory(): Promise<SoundCategory> {
   try {
     const saved = await AsyncStorage.getItem(SOUND_CATEGORY_KEY);
-    if (saved === 'bzzz' || saved === 'trll' || saved === 'pop' || saved === 'mood') {
+    if (saved === 'bzzz' || saved === 'trll' || saved === 'pop' || saved === 'mood' || saved === 'toot') {
       return saved as SoundCategory;
     }
   } catch (_) {}
@@ -853,10 +859,6 @@ export function FriendsList({
   const [friendSoundModalVisible, setFriendSoundModalVisible] = useState(false);
   const [friendSoundModalFriend, setFriendSoundModalFriend] = useState<any>(null);
   const [globalDefaultCategory, setGlobalDefaultCategory] = useState<SoundCategory>('trll');
-  const selectedDefaultCategoryIndex = useMemo(() => {
-    const idx = DEFAULT_SOUND_OPTIONS.findIndex((o) => o.category === globalDefaultCategory);
-    return idx >= 0 ? idx : 0;
-  }, [globalDefaultCategory]);
   const [isFirstFriendlistModalVisible, setIsFirstFriendlistModalVisible] = useState(false);
   const [isFirstFriendlistFeaturesModalVisible, setIsFirstFriendlistFeaturesModalVisible] = useState(false);
   const [isFirstFriendlistZenModalVisible, setIsFirstFriendlistZenModalVisible] = useState(false);
@@ -1818,7 +1820,7 @@ useEffect(() => {
         AsyncStorage.getItem(CHAT_MESSAGE_SOUND_CHOICE_KEY),
         AsyncStorage.getItem(CHAT_MESSAGE_MUTE_KEY),
       ]);
-      if (savedChoice === 'trll' || savedChoice === 'bzzz') {
+      if (savedChoice === 'trll' || savedChoice === 'bzzz' || savedChoice === 'pop' || savedChoice === 'mood' || savedChoice === 'toot') {
         setChatMessageSoundChoice(savedChoice);
       } else if (savedChoice === 'mute') {
         // Ancien format: "mute" dans le choix principal.
@@ -1919,7 +1921,7 @@ useEffect(() => {
   AsyncStorage.getItem(SOUND_CATEGORY_KEY)
     .then((saved) => {
       if (!mounted || !saved) return;
-      if (saved === 'trll' || saved === 'bzzz' || saved === 'pop' || saved === 'mood') setGlobalDefaultCategory(saved as SoundCategory);
+      if (saved === 'trll' || saved === 'bzzz' || saved === 'pop' || saved === 'mood' || saved === 'toot') setGlobalDefaultCategory(saved as SoundCategory);
     })
     .catch(() => {});
   return () => { mounted = false; };
@@ -4795,6 +4797,22 @@ const closeIdentityModal = useCallback(() => {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.chatSoundChoiceButton}
+            onPress={() => selectChatMessageSoundChoice('toot')}
+            onLongPress={() => openChatSpecificSoundList('toot')}
+            delayLongPress={280}
+            activeOpacity={0.8}
+          >
+            <Image
+              source={require('../assets/images/toot.png')}
+              style={[
+                styles.chatSoundChoiceImage,
+                chatMessageSoundChoice !== 'toot' && styles.chatSoundChoiceImageInactive,
+              ]}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.chatSoundChoiceButton}
             onPress={() => selectChatMessageSoundChoice('trll')}
             onLongPress={() => openChatSpecificSoundList('trll')}
             delayLongPress={280}
@@ -4832,6 +4850,8 @@ const closeIdentityModal = useCallback(() => {
           <View style={[styles.chatSpecificSoundList, { height: CHAT_SPECIFIC_MIN_HEIGHT }]}>
             {(chatSpecificSoundListCategory === 'trll'
               ? PICKUP_TRLL_KEYS
+              : chatSpecificSoundListCategory === 'toot'
+              ? PICKUP_TOOT_KEYS
               : chatSpecificSoundListCategory === 'bzzz'
               ? PICKUP_BZZZ_KEYS
               : chatSpecificSoundListCategory === 'pop'
@@ -5425,6 +5445,24 @@ const closeIdentityModal = useCallback(() => {
                       </TouchableOpacity>
                     ))}
                     <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
+                      <Image source={require('../assets/images/toot.png')} style={[styles.friendSoundPickHeaderImage, { width: 78, height: 32 }]} resizeMode="contain" />
+                    </View>
+                    {PICKUP_TOOT_KEYS.map((soundKey) => (
+                      <TouchableOpacity
+                        key={soundKey}
+                        style={[
+                          styles.friendSoundPickItemButton,
+                          friendSoundModalFriend?.id && friendSoundKeyByFriend[friendSoundModalFriend.id] === soundKey
+                            ? styles.friendSoundPickItemButtonActive
+                            : undefined,
+                        ]}
+                        onPress={() => handleSelectFriendSpecificSoundKey(soundKey)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.friendSoundPickItemText}>{getDisplaySoundLabel(soundKey)}</Text>
+                      </TouchableOpacity>
+                    ))}
+                    <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
                       <Image source={require('../assets/images/buzz.png')} style={styles.friendSoundPickHeaderImage} resizeMode="contain" />
                     </View>
                     {PICKUP_BZZZ_KEYS.map((soundKey) => (
@@ -5447,23 +5485,39 @@ const closeIdentityModal = useCallback(() => {
               </ScrollView>
               <View style={styles.pickDefaultCategorySection}>
                 <Text style={styles.pickDefaultCategoryTitle}>{i18n.t('default_sound_category_title')}</Text>
-                <View style={styles.pickDefaultCategoryTrack}>
-                  <View
-                    pointerEvents="none"
-                    style={[
-                      styles.pickDefaultCategoryIndicator,
-                      { left: `${selectedDefaultCategoryIndex * (100 / DEFAULT_SOUND_OPTIONS.length)}%` },
-                    ]}
-                  />
-                  {DEFAULT_SOUND_OPTIONS.map((option) => (
-                    <TouchableOpacity
-                      key={option.category}
-                      style={styles.pickDefaultCategoryStep}
-                      onPress={() => handleSelectGlobalDefaultCategory(option.category)}
-                      activeOpacity={0.85}
+                <View style={styles.pickDefaultCategoryGrid}>
+                  {DEFAULT_SOUND_OPTION_ROWS.map((row, rowIndex) => (
+                    <View
+                      key={`default-row-${rowIndex}`}
+                      style={[
+                        styles.pickDefaultCategoryTrack,
+                        rowIndex > 0 && styles.pickDefaultCategoryTrackSecondRow,
+                      ]}
                     >
-                      <Image source={option.image} style={[styles.pickDefaultCategoryIcon, option.category === 'pop' && { width: 62, height: 24 }, option.category === 'trll' && { width: 90, height: 34 }]} resizeMode="contain" />
-                    </TouchableOpacity>
+                      {row.map((option) => (
+                        <TouchableOpacity
+                          key={option.category}
+                          style={[
+                            styles.pickDefaultCategoryStep,
+                            rowIndex > 0 && styles.pickDefaultCategoryStepSecondRow,
+                            option.category === globalDefaultCategory && styles.pickDefaultCategoryStepActive,
+                          ]}
+                          onPress={() => handleSelectGlobalDefaultCategory(option.category)}
+                          activeOpacity={0.85}
+                        >
+                          <Image
+                            source={option.image}
+                            style={[
+                              styles.pickDefaultCategoryIcon,
+                              option.category === 'pop' && { width: 62, height: 24 },
+                              option.category === 'trll' && { width: 90, height: 34 },
+                              option.category === 'toot' && { width: 70, height: 28 },
+                            ]}
+                            resizeMode="contain"
+                          />
+                        </TouchableOpacity>
+                      ))}
+                    </View>
                   ))}
                 </View>
               </View>
@@ -6221,29 +6275,37 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 6,
   },
-  pickDefaultCategoryTrack: {
-    position: 'relative',
-    flexDirection: 'row',
-    alignItems: 'center',
+  pickDefaultCategoryGrid: {
+    width: '100%',
     borderWidth: 1,
     borderColor: 'rgba(96, 74, 62, 0.18)',
     borderRadius: 14,
     backgroundColor: 'rgba(255,255,255,0.32)',
     overflow: 'hidden',
+  },
+  pickDefaultCategoryTrack: {
+    flexDirection: 'row',
+    alignItems: 'center',
     minHeight: 54,
   },
-  pickDefaultCategoryIndicator: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: '25%',
-    backgroundColor: 'rgba(162, 228, 212, 0.72)',
+  pickDefaultCategoryTrackSecondRow: {
+    justifyContent: 'center',
   },
   pickDefaultCategoryStep: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 8,
+  },
+  pickDefaultCategoryStepActive: {
+    backgroundColor: 'rgba(162, 228, 212, 0.72)',
+    borderWidth: 2,
+    borderColor: 'rgba(96, 74, 62, 0.45)',
+    borderRadius: 10,
+  },
+  pickDefaultCategoryStepSecondRow: {
+    flex: 0,
+    marginHorizontal: 12,
   },
   pickDefaultCategoryIcon: {
     width: 80,

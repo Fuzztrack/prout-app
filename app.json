@@ -99,7 +99,12 @@
             "./assets/sounds/mood2.wav",
             "./assets/sounds/mood3.wav",
             "./assets/sounds/mood4.wav",
-            "./assets/sounds/mood5.wav"
+            "./assets/sounds/mood5.wav",
+            "./assets/sounds/toot1.wav",
+            "./assets/sounds/toot6.wav",
+            "./assets/sounds/toot8.wav",
+            "./assets/sounds/toot9.wav",
+            "./assets/sounds/toot17.wav"
           ]
         }
       ],

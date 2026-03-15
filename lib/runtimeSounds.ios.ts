@@ -1,7 +1,8 @@
 const TRLL_KEYS = ['trrl1', 'trrl2', 'trrl3', 'trrl4', 'trrl5'];
 const BZZZ_KEYS = ['bzzz1', 'bzzz2', 'bzzz3', 'bzzz4', 'bzzz5'];
-const POP_KEYS = ['pop1', 'pop2', 'pop3', 'pop4', 'pop5'];
+const POP_KEYS = ['pop1', 'pop4', 'pop2', 'pop3', 'pop5'];
 const MOOD_KEYS = ['mood1', 'mood2', 'mood3', 'mood4', 'mood5'];
+const TOOT_KEYS = ['toot1', 'toot6', 'toot8', 'toot9', 'toot17'];
 
 const TRLL_ASSETS = [
   require('../assets/sounds/trrl1.wav'),
@@ -35,11 +36,20 @@ const MOOD_ASSETS = [
   require('../assets/sounds/mood5.wav'),
 ];
 
+const TOOT_ASSETS = [
+  require('../assets/sounds/toot1.wav'),
+  require('../assets/sounds/toot6.wav'),
+  require('../assets/sounds/toot8.wav'),
+  require('../assets/sounds/toot9.wav'),
+  require('../assets/sounds/toot17.wav'),
+];
+
 export const SOUND_KEYS_BY_CATEGORY: Record<string, string[]> = {
   trll: TRLL_KEYS,
   bzzz: BZZZ_KEYS,
   pop: POP_KEYS,
   mood: MOOD_KEYS,
+  toot: TOOT_KEYS,
 };
 
 export const SOUND_ASSETS: Record<string, any> = {
@@ -63,6 +73,11 @@ export const SOUND_ASSETS: Record<string, any> = {
   mood3: require('../assets/sounds/mood3.wav'),
   mood4: require('../assets/sounds/mood4.wav'),
   mood5: require('../assets/sounds/mood5.wav'),
+  toot1: require('../assets/sounds/toot1.wav'),
+  toot6: require('../assets/sounds/toot6.wav'),
+  toot8: require('../assets/sounds/toot8.wav'),
+  toot9: require('../assets/sounds/toot9.wav'),
+  toot17: require('../assets/sounds/toot17.wav'),
 };
 
 export const PREVIEW_SOUNDS_BY_CATEGORY: Record<string, any[]> = {
@@ -70,6 +85,7 @@ export const PREVIEW_SOUNDS_BY_CATEGORY: Record<string, any[]> = {
   bzzz: BZZZ_ASSETS,
   pop: POP_ASSETS,
   mood: MOOD_ASSETS,
+  toot: TOOT_ASSETS,
 };
 
 export const DIRECT_SEND_FALLBACK_CATEGORY = 'trll';

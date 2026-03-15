@@ -26,6 +26,11 @@ const IOS_NOTIFICATION_SOUNDS = [
   './assets/sounds/mood3.wav',
   './assets/sounds/mood4.wav',
   './assets/sounds/mood5.wav',
+  './assets/sounds/toot1.wav',
+  './assets/sounds/toot6.wav',
+  './assets/sounds/toot8.wav',
+  './assets/sounds/toot9.wav',
+  './assets/sounds/toot17.wav',
 ];
 
 function withIOSPrrtSounds(config) {
@@ -36,7 +41,7 @@ function withIOSPrrtSounds(config) {
   if (notifIndex !== -1 && plugins[notifIndex][1]) {
     plugins[notifIndex][1].sounds = IOS_NOTIFICATION_SOUNDS;
     console.log(
-      '[withIOSPrrtSounds] sons notifications (bzzz/trrl/pop/mood) configurés.'
+      '[withIOSPrrtSounds] sons notifications (bzzz/trrl/pop/mood/toot) configurés.'
     );
   }
 

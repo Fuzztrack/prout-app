@@ -20,6 +20,7 @@ const TRLL_KEYS = SOUND_KEYS_BY_CATEGORY.trll || [];
 const BZZZ_KEYS = SOUND_KEYS_BY_CATEGORY.bzzz || [];
 const POP_KEYS = SOUND_KEYS_BY_CATEGORY.pop || [];
 const MOOD_KEYS = SOUND_KEYS_BY_CATEGORY.mood || [];
+const TOOT_KEYS = SOUND_KEYS_BY_CATEGORY.toot || [];
 function getSoundDisplayName(soundKey: string) {
   const translated = i18n.t(`prout_names.${soundKey}`) as any;
   if (typeof translated === 'string' && translated !== `prout_names.${soundKey}`) {
@@ -71,6 +72,7 @@ export default function SoundcheckScreen() {
   const playableBzzzKeys = useMemo(() => BZZZ_KEYS.filter((k) => !!SOUND_ASSETS[k]), []);
   const playablePopKeys = useMemo(() => POP_KEYS.filter((k) => !!SOUND_ASSETS[k]), []);
   const playableMoodKeys = useMemo(() => MOOD_KEYS.filter((k) => !!SOUND_ASSETS[k]), []);
+  const playableTootKeys = useMemo(() => TOOT_KEYS.filter((k) => !!SOUND_ASSETS[k]), []);
 
   const playSelectedSound = useCallback(async (soundKey: string) => {
     const asset = SOUND_ASSETS[soundKey];
@@ -184,6 +186,22 @@ export default function SoundcheckScreen() {
                   <Text style={styles.libraryHeaderSubtitle}>{i18n.t('soundcheck_subtitle_pop')}</Text>
                 </View>
                 {playablePopKeys.map((soundKey) => (
+                  <TouchableOpacity
+                    key={soundKey}
+                    style={styles.libraryItem}
+                    onPress={() => playSelectedSound(soundKey)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.libraryItemText}>
+                      {getSoundDisplayName(soundKey)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+                <View style={[styles.libraryHeaderCol, { marginTop: 16 }]}>
+                  <Image source={require('../assets/images/toot.png')} style={[styles.libraryHeaderImage, { width: 84, height: 34 }]} resizeMode="contain" />
+                  <Text style={styles.libraryHeaderSubtitle}>{i18n.t('soundcheck_subtitle_toot')}</Text>
+                </View>
+                {playableTootKeys.map((soundKey) => (
                   <TouchableOpacity
                     key={soundKey}
                     style={styles.libraryItem}
