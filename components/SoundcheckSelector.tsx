@@ -37,13 +37,24 @@ export type SoundCategory = 'trll' | 'bzzz' | 'pop' | 'mood' | 'toot';
 
 // Convention d'angles (demandée) :
 // 0° = 3h, sens horaire (y vers le bas).
-const CATEGORIES: { id: SoundCategory; angle: number; label: string; source: any }[] = [
-  { id: 'mood', angle: 270, label: 'MOOD!', source: require('../assets/images/mood.png') },
-  { id: 'pop', angle: 342, label: 'POP!', source: require('../assets/images/pop.png') },
-  { id: 'trll', angle: 54, label: 'TRLL!', source: require('../assets/images/tweet.png') },
-  { id: 'toot', angle: 126, label: 'TOOT!', source: require('../assets/images/toot.png') },
-  { id: 'bzzz', angle: 198, label: 'BZZZ!', source: require('../assets/images/buzz.png') },
-];
+const TOOT_LOGO_IMAGE = Platform.OS === 'android'
+  ? require('../assets/images/proot.png')
+  : require('../assets/images/toot.png');
+const CATEGORIES: { id: SoundCategory; angle: number; label: string; source: any }[] = Platform.OS === 'android'
+  ? [
+      { id: 'toot', angle: 126, label: 'TOOT!', source: TOOT_LOGO_IMAGE },
+      { id: 'mood', angle: 270, label: 'MOOD!', source: require('../assets/images/mood.png') },
+      { id: 'pop', angle: 342, label: 'POP!', source: require('../assets/images/pop.png') },
+      { id: 'trll', angle: 54, label: 'TRLL!', source: require('../assets/images/tweet.png') },
+      { id: 'bzzz', angle: 198, label: 'BZZZ!', source: require('../assets/images/buzz.png') },
+    ]
+  : [
+      { id: 'mood', angle: 270, label: 'MOOD!', source: require('../assets/images/mood.png') },
+      { id: 'pop', angle: 342, label: 'POP!', source: require('../assets/images/pop.png') },
+      { id: 'trll', angle: 54, label: 'TRLL!', source: require('../assets/images/tweet.png') },
+      { id: 'toot', angle: 126, label: 'TOOT!', source: TOOT_LOGO_IMAGE },
+      { id: 'bzzz', angle: 198, label: 'BZZZ!', source: require('../assets/images/buzz.png') },
+    ];
 
 // Ajustements fins par logo (pour un rendu visuel équilibré)
 const RADIAL_FACTOR: Record<SoundCategory, number> = {
@@ -358,6 +369,14 @@ export default function SoundcheckSelector({
                 style={[
                   styles.logoImage,
                   { opacity: isActive ? 1 : 0.4, width: layout.logoImg, height: layout.logoImg },
+                  cat.id === 'mood' && Platform.OS === 'android' && {
+                    width: Math.round(layout.logoImg * 0.94),
+                    height: Math.round(layout.logoImg * 0.94),
+                  },
+                  cat.id === 'toot' && Platform.OS === 'android' && {
+                    width: Math.round(layout.logoImg * 1.22),
+                    height: Math.round(layout.logoImg * 1.22),
+                  },
                 ]}
                 resizeMode="contain"
               />

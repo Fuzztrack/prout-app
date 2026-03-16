@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as Device from 'expo-device';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ScrollView,
   Image,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -21,6 +21,11 @@ const BZZZ_KEYS = SOUND_KEYS_BY_CATEGORY.bzzz || [];
 const POP_KEYS = SOUND_KEYS_BY_CATEGORY.pop || [];
 const MOOD_KEYS = SOUND_KEYS_BY_CATEGORY.mood || [];
 const TOOT_KEYS = SOUND_KEYS_BY_CATEGORY.toot || [];
+const TOOT_LOGO_IMAGE = Platform.OS === 'android'
+  ? require('../assets/images/proot.png')
+  : require('../assets/images/toot.png');
+const TOOT_HEADER_SIZE = Platform.OS === 'android' ? { width: 102, height: 42 } : { width: 84, height: 34 };
+const MOOD_HEADER_SIZE = Platform.OS === 'android' ? { width: 94, height: 38 } : undefined;
 function getSoundDisplayName(soundKey: string) {
   const translated = i18n.t(`prout_names.${soundKey}`) as any;
   if (typeof translated === 'string' && translated !== `prout_names.${soundKey}`) {
@@ -147,10 +152,36 @@ export default function SoundcheckScreen() {
           >
             <View style={styles.libraryColumns}>
               <View style={styles.libraryColumn}>
+                {Platform.OS === 'android' && (
+                  <>
+                    <View style={styles.libraryHeaderCol}>
+                      <Image source={TOOT_LOGO_IMAGE} style={[styles.libraryHeaderImage, TOOT_HEADER_SIZE]} resizeMode="contain" />
+                      <Text style={styles.libraryHeaderSubtitle}>{i18n.t('soundcheck_subtitle_toot')}</Text>
+                    </View>
+                    {playableTootKeys.map((soundKey) => (
+                      <TouchableOpacity
+                        key={soundKey}
+                        style={styles.libraryItem}
+                        onPress={() => playSelectedSound(soundKey)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.libraryItemText}>
+                          {getSoundDisplayName(soundKey)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                    <View style={[styles.libraryHeaderCol, { marginTop: 16 }]}>
+                      <Image source={require('../assets/images/mood.png')} style={[styles.libraryHeaderImage, MOOD_HEADER_SIZE]} resizeMode="contain" />
+                      <Text style={styles.libraryHeaderSubtitle}>{i18n.t('soundcheck_subtitle_mood')}</Text>
+                    </View>
+                  </>
+                )}
+                {Platform.OS !== 'android' && (
                 <View style={styles.libraryHeaderCol}>
-                  <Image source={require('../assets/images/mood.png')} style={styles.libraryHeaderImage} resizeMode="contain" />
+                  <Image source={require('../assets/images/mood.png')} style={[styles.libraryHeaderImage, MOOD_HEADER_SIZE]} resizeMode="contain" />
                   <Text style={styles.libraryHeaderSubtitle}>{i18n.t('soundcheck_subtitle_mood')}</Text>
                 </View>
+                )}
                 {playableMoodKeys.map((soundKey) => (
                   <TouchableOpacity
                     key={soundKey}
@@ -163,22 +194,26 @@ export default function SoundcheckScreen() {
                     </Text>
                   </TouchableOpacity>
                 ))}
-                <View style={[styles.libraryHeaderCol, { marginTop: 16 }]}>
-                  <Image source={require('../assets/images/tweet.png')} style={styles.libraryHeaderImage} resizeMode="contain" />
-                  <Text style={styles.libraryHeaderSubtitle}>{i18n.t('soundcheck_subtitle_tweet')}</Text>
-                </View>
-                {playableTrllKeys.map((soundKey) => (
-                  <TouchableOpacity
-                    key={soundKey}
-                    style={styles.libraryItem}
-                    onPress={() => playSelectedSound(soundKey)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.libraryItemText}>
-                      {getSoundDisplayName(soundKey)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                {Platform.OS !== 'android' && (
+                  <>
+                    <View style={[styles.libraryHeaderCol, { marginTop: 16 }]}>
+                      <Image source={require('../assets/images/buzz.png')} style={styles.libraryHeaderImage} resizeMode="contain" />
+                      <Text style={styles.libraryHeaderSubtitle}>{i18n.t('soundcheck_subtitle_buzz')}</Text>
+                    </View>
+                    {playableBzzzKeys.map((soundKey) => (
+                      <TouchableOpacity
+                        key={soundKey}
+                        style={styles.libraryItem}
+                        onPress={() => playSelectedSound(soundKey)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.libraryItemText}>
+                          {getSoundDisplayName(soundKey)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </>
+                )}
               </View>
               <View style={styles.libraryColumn}>
                 <View style={styles.libraryHeaderCol}>
@@ -197,11 +232,31 @@ export default function SoundcheckScreen() {
                     </Text>
                   </TouchableOpacity>
                 ))}
+                {Platform.OS !== 'android' && (
+                  <>
+                    <View style={[styles.libraryHeaderCol, { marginTop: 16 }]}>
+                      <Image source={TOOT_LOGO_IMAGE} style={[styles.libraryHeaderImage, TOOT_HEADER_SIZE]} resizeMode="contain" />
+                      <Text style={styles.libraryHeaderSubtitle}>{i18n.t('soundcheck_subtitle_toot')}</Text>
+                    </View>
+                    {playableTootKeys.map((soundKey) => (
+                      <TouchableOpacity
+                        key={soundKey}
+                        style={styles.libraryItem}
+                        onPress={() => playSelectedSound(soundKey)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.libraryItemText}>
+                          {getSoundDisplayName(soundKey)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </>
+                )}
                 <View style={[styles.libraryHeaderCol, { marginTop: 16 }]}>
-                  <Image source={require('../assets/images/toot.png')} style={[styles.libraryHeaderImage, { width: 84, height: 34 }]} resizeMode="contain" />
-                  <Text style={styles.libraryHeaderSubtitle}>{i18n.t('soundcheck_subtitle_toot')}</Text>
+                  <Image source={require('../assets/images/tweet.png')} style={styles.libraryHeaderImage} resizeMode="contain" />
+                  <Text style={styles.libraryHeaderSubtitle}>{i18n.t('soundcheck_subtitle_tweet')}</Text>
                 </View>
-                {playableTootKeys.map((soundKey) => (
+                {playableTrllKeys.map((soundKey) => (
                   <TouchableOpacity
                     key={soundKey}
                     style={styles.libraryItem}
@@ -213,22 +268,26 @@ export default function SoundcheckScreen() {
                     </Text>
                   </TouchableOpacity>
                 ))}
-                <View style={[styles.libraryHeaderCol, { marginTop: 16 }]}>
-                  <Image source={require('../assets/images/buzz.png')} style={styles.libraryHeaderImage} resizeMode="contain" />
-                  <Text style={styles.libraryHeaderSubtitle}>{i18n.t('soundcheck_subtitle_buzz')}</Text>
-                </View>
-                {playableBzzzKeys.map((soundKey) => (
-                  <TouchableOpacity
-                    key={soundKey}
-                    style={styles.libraryItem}
-                    onPress={() => playSelectedSound(soundKey)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.libraryItemText}>
-                      {getSoundDisplayName(soundKey)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                {Platform.OS === 'android' && (
+                  <>
+                    <View style={[styles.libraryHeaderCol, { marginTop: 16 }]}>
+                      <Image source={require('../assets/images/buzz.png')} style={styles.libraryHeaderImage} resizeMode="contain" />
+                      <Text style={styles.libraryHeaderSubtitle}>{i18n.t('soundcheck_subtitle_buzz')}</Text>
+                    </View>
+                    {playableBzzzKeys.map((soundKey) => (
+                      <TouchableOpacity
+                        key={soundKey}
+                        style={styles.libraryItem}
+                        onPress={() => playSelectedSound(soundKey)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.libraryItemText}>
+                          {getSoundDisplayName(soundKey)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </>
+                )}
               </View>
             </View>
           </ScrollView>

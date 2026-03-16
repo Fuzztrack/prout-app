@@ -70,13 +70,29 @@ const PICKUP_TOOT_KEYS = (SOUND_KEYS_BY_CATEGORY.toot || []).filter((key) => !!S
 const MAX_PICKUP_ROWS = Math.ceil(Math.max(PICKUP_TRLL_KEYS.length, PICKUP_BZZZ_KEYS.length, PICKUP_POP_KEYS.length, PICKUP_MOOD_KEYS.length, PICKUP_TOOT_KEYS.length) / 2);
 const CHAT_SPECIFIC_ROW_HEIGHT = 34;
 const CHAT_SPECIFIC_MIN_HEIGHT = MAX_PICKUP_ROWS * CHAT_SPECIFIC_ROW_HEIGHT + 50;
-const DEFAULT_SOUND_OPTIONS: Array<{ category: SoundCategory; image: any }> = [
-  { category: 'mood', image: require('../assets/images/mood.png') },
-  { category: 'pop', image: require('../assets/images/pop.png') },
-  { category: 'trll', image: require('../assets/images/tweet.png') },
-  { category: 'toot', image: require('../assets/images/toot.png') },
-  { category: 'bzzz', image: require('../assets/images/buzz.png') },
-];
+const TOOT_LOGO_IMAGE = Platform.OS === 'android'
+  ? require('../assets/images/proot.png')
+  : require('../assets/images/toot.png');
+const TOOT_CHAT_ICON_SIZE = Platform.OS === 'android' ? { width: 86, height: 58 } : undefined;
+const TOOT_PICK_HEADER_SIZE = Platform.OS === 'android' ? { width: 96, height: 40 } : { width: 78, height: 32 };
+const MOOD_PICK_HEADER_SIZE = Platform.OS === 'android' ? { width: 88, height: 38 } : undefined;
+const TOOT_CURSOR_ICON_SIZE = Platform.OS === 'android' ? { width: 86, height: 35 } : { width: 70, height: 28 };
+const MOOD_CURSOR_ICON_SIZE = Platform.OS === 'android' ? { width: 76, height: 28 } : undefined;
+const DEFAULT_SOUND_OPTIONS: Array<{ category: SoundCategory; image: any }> = Platform.OS === 'android'
+  ? [
+      { category: 'toot', image: TOOT_LOGO_IMAGE },
+      { category: 'mood', image: require('../assets/images/mood.png') },
+      { category: 'pop', image: require('../assets/images/pop.png') },
+      { category: 'trll', image: require('../assets/images/tweet.png') },
+      { category: 'bzzz', image: require('../assets/images/buzz.png') },
+    ]
+  : [
+      { category: 'mood', image: require('../assets/images/mood.png') },
+      { category: 'pop', image: require('../assets/images/pop.png') },
+      { category: 'trll', image: require('../assets/images/tweet.png') },
+      { category: 'toot', image: TOOT_LOGO_IMAGE },
+      { category: 'bzzz', image: require('../assets/images/buzz.png') },
+    ];
 const DEFAULT_SOUND_OPTION_ROWS = [
   DEFAULT_SOUND_OPTIONS.slice(0, 3),
   DEFAULT_SOUND_OPTIONS.slice(3),
@@ -1194,6 +1210,7 @@ export function FriendsList({
   const CONVERSATION_READ_DEDUP_MS = 3_000;
   const CONVERSATION_READ_MIN_INTERVAL_MS = 2_500;
   const CHAT_VERBOSE_LOGS = false;
+  const CHAT_CONTROL_LOGS = false;
 
   // Protection anti-spam des refresh globaux
   const loadDataInFlightRef = useRef(false);
@@ -1395,7 +1412,7 @@ export function FriendsList({
   useEffect(() => {
     if (prevExpandedRef.current && !expandedFriendId) {
       const prevId = prevExpandedRef.current;
-      console.log(`🔒 [CLIENT] Fermeture du chat pour friendId: ${prevId}`);
+      if (CHAT_CONTROL_LOGS) console.log(`🔒 [CLIENT] Fermeture du chat pour friendId: ${prevId}`);
       
       // IMPORTANT : Mettre à jour la ref IMMÉDIATEMENT pour que loadData sache que le chat est fermé
       // Sinon loadData croit qu'il est encore ouvert et garde les messages !
@@ -1426,12 +1443,12 @@ export function FriendsList({
         });
         const afterCount = filtered.length;
         const dropped = beforeCount - afterCount;
-        console.log(`📨 [CLIENT] Messages reçus conservés (logique Snapchat): ${afterCount} sur ${beforeCount} (friendId: ${prevId})`);
+        if (CHAT_CONTROL_LOGS) console.log(`📨 [CLIENT] Messages reçus conservés (logique Snapchat): ${afterCount} sur ${beforeCount} (friendId: ${prevId})`);
         return filtered;
       });
 
       const cachedForPrev = unreadCache[prevId] || [];
-      console.log(`🗑️ [CLIENT] Cache unread nettoyé: ${cachedForPrev.length} messages pour ${prevId}`);
+      if (CHAT_CONTROL_LOGS) console.log(`🗑️ [CLIENT] Cache unread nettoyé: ${cachedForPrev.length} messages pour ${prevId}`);
       setUnreadCache(prev => ({ ...prev, [prevId]: [] }));
       if (cachedForPrev.length > 0) {
         setFadingOutReceivedMessages(prev => {
@@ -1447,15 +1464,15 @@ export function FriendsList({
       // - Messages lus : restent visibles aussi (session gelée)
       // La purge complète se fera seulement si les messages sont supprimés du serveur
       // (après 5 secondes) ET que le chat est fermé
-      console.log(`📤 [CLIENT] Fermeture chat Snapchat - Conservation de tous les messages pour ${prevId}`);
+      if (CHAT_CONTROL_LOGS) console.log(`📤 [CLIENT] Fermeture chat Snapchat - Conservation de tous les messages pour ${prevId}`);
       setLastSentMessages(prev => {
         const msgs = prev[prevId];
         if (!Array.isArray(msgs)) {
-          console.log(`ℹ️ [CLIENT] Aucun message envoyé pour ${prevId}`);
+          if (CHAT_CONTROL_LOGS) console.log(`ℹ️ [CLIENT] Aucun message envoyé pour ${prevId}`);
           return prev;
         }
 
-        console.log(`📤 [CLIENT] Messages envoyés conservés (logique Snapchat):`, {
+        if (CHAT_CONTROL_LOGS) console.log(`📤 [CLIENT] Messages envoyés conservés (logique Snapchat):`, {
           totalMessages: msgs.length,
           readMessages: msgs.filter(m => m.status === 'read').length,
           unreadMessages: msgs.filter(m => m.status !== 'read').length
@@ -1470,7 +1487,7 @@ export function FriendsList({
       // PRRT! Protocol : Force sync à la fermeture pour être sûr que l'état local correspond au serveur
       // (supprime les messages qui ont été lus/supprimés sur le serveur mais dont on aurait raté le broadcast)
       // Comme expandedFriendIdRef est maintenant null (ou changé), loadData va nettoyer les messages absents du serveur.
-      console.log(`🔄 [CLIENT] Force sync loadData après fermeture du chat`);
+      if (CHAT_CONTROL_LOGS) console.log(`🔄 [CLIENT] Force sync loadData après fermeture du chat`);
       loadData(false, false, false);
     }
     prevExpandedRef.current = expandedFriendId;
@@ -1879,12 +1896,16 @@ const handleSelectChatSpecificSound = useCallback((soundKey: string) => {
     [expandedFriendId]: soundKey,
   }));
   setChatSpecificSoundListCategory(null);
+  // Après un choix spécifique, on revient visuellement sur la catégorie par défaut choisie
+  // dans "choose your sound", sans effacer le son spécifique en attente.
+  setChatMessageSoundChoice(globalDefaultCategory as ChatMessageSoundChoice);
+  AsyncStorage.setItem(CHAT_MESSAGE_SOUND_CHOICE_KEY, globalDefaultCategory).catch(() => {});
 
   // Rouvrir le clavier et refocus l'input après la sélection
   setTimeout(() => {
     textInputRefs.current[expandedFriendId]?.focus?.();
   }, 50);
-}, [expandedFriendId]);
+}, [expandedFriendId, globalDefaultCategory]);
 
 const toggleChatMute = useCallback(() => {
   setChatSpecificSoundListCategory(null);
@@ -3887,10 +3908,14 @@ const closeIdentityModal = useCallback(() => {
       lastStickyOpenAtRef.current = Date.now();
       refocusOnHideAttemptedRef.current = false;
       refocusOnBlurAttemptedRef.current = false;
+    // A l'ouverture du chat, on aligne la catégorie affichée sur la catégorie
+    // par défaut choisie dans "choose your sound".
+    setChatMessageSoundChoice(globalDefaultCategory as ChatMessageSoundChoice);
+    AsyncStorage.setItem(CHAT_MESSAGE_SOUND_CHOICE_KEY, globalDefaultCategory).catch(() => {});
     } else {
       lastStickyOpenAtRef.current = null;
     }
-  }, [expandedFriendId]);
+}, [expandedFriendId, globalDefaultCategory]);
 
   useEffect(() => {
     if (isSearchVisible) {
@@ -4158,7 +4183,7 @@ const closeIdentityModal = useCallback(() => {
               { shouldPlay: true, volume: 1.0 }
             );
             if (__DEV__) {
-              console.log(`[AUDIO_DEBUG] local send sound key=${randomKey}`);
+              if (CHAT_VERBOSE_LOGS) console.log(`[AUDIO_DEBUG] local send sound key=${randomKey}`);
             }
             // Libérer la ressource après lecture
             sound.setOnPlaybackStatusUpdate(async (status) => {
@@ -4264,7 +4289,7 @@ const closeIdentityModal = useCallback(() => {
 
       // Envoyer le push via backend avec le token FCM et le bon pseudo
       // ⚠️ On ne passe PAS la locale de l'expéditeur : le backend récupère celle du destinataire depuis Supabase
-      console.log(`📤 [CLIENT] Envoi message via backend pour ${recipient.id}, customMessage: ${customMessage ? 'OUI' : 'NON'}`);
+      if (CHAT_VERBOSE_LOGS) console.log(`📤 [CLIENT] Envoi message via backend pour ${recipient.id}, customMessage: ${customMessage ? 'OUI' : 'NON'}`);
       await sendProutViaBackend(
         fcmToken,
         senderPseudo,
@@ -4277,7 +4302,7 @@ const closeIdentityModal = useCallback(() => {
           // locale: i18n.locale || 'fr', // ❌ RETIRÉ : le backend utilise la locale du destinataire
         }
       );
-      console.log(`✅ [CLIENT] Message envoyé via backend, attente de la création dans pending_messages...`);
+      if (CHAT_VERBOSE_LOGS) console.log(`✅ [CLIENT] Message envoyé via backend, attente de la création dans pending_messages...`);
       
       // Mise à jour optimiste locale immédiate : mettre à jour last_interaction_at localement
       // pour que le tri soit instantané, puis recharger depuis Supabase pour la synchronisation
@@ -4291,7 +4316,7 @@ const closeIdentityModal = useCallback(() => {
         return sortFriends(updatedUsers);
       });
       if (customMessage) {
-        console.log(`📤 [CLIENT] Ajout message envoyé à lastSentMessages (sans ID pour l'instant) pour ${recipient.id}`);
+        if (CHAT_VERBOSE_LOGS) console.log(`📤 [CLIENT] Ajout message envoyé à lastSentMessages (sans ID pour l'instant) pour ${recipient.id}`);
         setLastSentMessages(prev => {
           const existingMessages = prev[recipient.id] || [];
           // Ajouter 1ms au timestamp pour garantir que le message de A apparaît après les messages de B
@@ -4305,7 +4330,7 @@ const closeIdentityModal = useCallback(() => {
           };
           lastSentSetAtRef.current = Date.now();
           saveLastSentMessagesCache(next);
-          console.log(`📤 [CLIENT] Message envoyé ajouté (total: ${next[recipient.id]?.length || 0} messages pour ${recipient.id})`);
+          if (CHAT_VERBOSE_LOGS) console.log(`📤 [CLIENT] Message envoyé ajouté (total: ${next[recipient.id]?.length || 0} messages pour ${recipient.id})`);
           return next;
         });
       }
@@ -4313,9 +4338,9 @@ const closeIdentityModal = useCallback(() => {
       // Le backend met à jour last_interaction_at pour les deux relations (A→B et B→A)
       // Recharger les données depuis Supabase pour synchroniser avec le backend
       // IMPORTANT : Attendre un peu pour que le message soit créé dans pending_messages avant de charger
-      console.log(`🔄 [CLIENT] Appel loadData après envoi du message...`);
+      if (CHAT_VERBOSE_LOGS) console.log(`🔄 [CLIENT] Appel loadData après envoi du message...`);
       setTimeout(() => {
-        console.log(`🔄 [CLIENT] loadData appelé après délai de 500ms`);
+        if (CHAT_VERBOSE_LOGS) console.log(`🔄 [CLIENT] loadData appelé après délai de 500ms`);
         loadData(false, false, false);
       }, 500);
 
@@ -4762,6 +4787,25 @@ const closeIdentityModal = useCallback(() => {
           contentContainerStyle={styles.chatSoundChoiceRow}
           keyboardShouldPersistTaps="always"
         >
+          {Platform.OS === 'android' && (
+            <TouchableOpacity
+              style={styles.chatSoundChoiceButton}
+              onPress={() => selectChatMessageSoundChoice('toot')}
+              onLongPress={() => openChatSpecificSoundList('toot')}
+              delayLongPress={280}
+              activeOpacity={0.8}
+            >
+              <Image
+                source={TOOT_LOGO_IMAGE}
+                style={[
+                  styles.chatSoundChoiceImage,
+                  TOOT_CHAT_ICON_SIZE,
+                  chatMessageSoundChoice !== 'toot' && styles.chatSoundChoiceImageInactive,
+                ]}
+                resizeMode="contain"
+              />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             style={styles.chatSoundChoiceButton}
             onPress={() => selectChatMessageSoundChoice('mood')}
@@ -4795,22 +4839,25 @@ const closeIdentityModal = useCallback(() => {
               resizeMode="contain"
             />
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.chatSoundChoiceButton}
-            onPress={() => selectChatMessageSoundChoice('toot')}
-            onLongPress={() => openChatSpecificSoundList('toot')}
-            delayLongPress={280}
-            activeOpacity={0.8}
-          >
-            <Image
-              source={require('../assets/images/toot.png')}
-              style={[
-                styles.chatSoundChoiceImage,
-                chatMessageSoundChoice !== 'toot' && styles.chatSoundChoiceImageInactive,
-              ]}
-              resizeMode="contain"
-            />
-          </TouchableOpacity>
+          {Platform.OS !== 'android' && (
+            <TouchableOpacity
+              style={styles.chatSoundChoiceButton}
+              onPress={() => selectChatMessageSoundChoice('toot')}
+              onLongPress={() => openChatSpecificSoundList('toot')}
+              delayLongPress={280}
+              activeOpacity={0.8}
+            >
+              <Image
+                source={TOOT_LOGO_IMAGE}
+                style={[
+                  styles.chatSoundChoiceImage,
+                  TOOT_CHAT_ICON_SIZE,
+                  chatMessageSoundChoice !== 'toot' && styles.chatSoundChoiceImageInactive,
+                ]}
+                resizeMode="contain"
+              />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             style={styles.chatSoundChoiceButton}
             onPress={() => selectChatMessageSoundChoice('trll')}
@@ -4841,6 +4888,18 @@ const closeIdentityModal = useCallback(() => {
                 chatMessageSoundChoice !== 'bzzz' && styles.chatSoundChoiceImageInactive,
               ]}
               resizeMode="contain"
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.chatMuteChoiceButton}
+            onPress={toggleChatMute}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name={isChatMuteEnabled ? 'volume-mute' : 'volume-medium'}
+              size={26}
+              color="#604a3e"
+              style={!isChatMuteEnabled ? { opacity: 0.4 } : undefined}
             />
           </TouchableOpacity>
         </ScrollView>
@@ -5388,8 +5447,30 @@ const closeIdentityModal = useCallback(() => {
               >
                 <View style={styles.friendSoundPickColumns}>
                   <View style={styles.friendSoundPickColumn}>
+                    {Platform.OS === 'android' && (
+                      <>
+                        <View style={styles.friendSoundPickHeaderCell}>
+                          <Image source={TOOT_LOGO_IMAGE} style={[styles.friendSoundPickHeaderImage, TOOT_PICK_HEADER_SIZE]} resizeMode="contain" />
+                        </View>
+                        {PICKUP_TOOT_KEYS.map((soundKey) => (
+                          <TouchableOpacity
+                            key={soundKey}
+                            style={[
+                              styles.friendSoundPickItemButton,
+                              friendSoundModalFriend?.id && friendSoundKeyByFriend[friendSoundModalFriend.id] === soundKey
+                                ? styles.friendSoundPickItemButtonActive
+                                : undefined,
+                            ]}
+                            onPress={() => handleSelectFriendSpecificSoundKey(soundKey)}
+                            activeOpacity={0.8}
+                          >
+                            <Text style={styles.friendSoundPickItemText}>{getDisplaySoundLabel(soundKey)}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </>
+                    )}
                     <View style={styles.friendSoundPickHeaderCell}>
-                      <Image source={require('../assets/images/mood.png')} style={styles.friendSoundPickHeaderImage} resizeMode="contain" />
+                      <Image source={require('../assets/images/mood.png')} style={[styles.friendSoundPickHeaderImage, MOOD_PICK_HEADER_SIZE]} resizeMode="contain" />
                     </View>
                     {PICKUP_MOOD_KEYS.map((soundKey) => (
                       <TouchableOpacity
@@ -5406,24 +5487,28 @@ const closeIdentityModal = useCallback(() => {
                         <Text style={styles.friendSoundPickItemText}>{getDisplaySoundLabel(soundKey)}</Text>
                       </TouchableOpacity>
                     ))}
-                    <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
-                      <Image source={require('../assets/images/tweet.png')} style={styles.friendSoundPickHeaderImage} resizeMode="contain" />
-                    </View>
-                    {PICKUP_TRLL_KEYS.map((soundKey) => (
-                      <TouchableOpacity
-                        key={soundKey}
-                        style={[
-                          styles.friendSoundPickItemButton,
-                          friendSoundModalFriend?.id && friendSoundKeyByFriend[friendSoundModalFriend.id] === soundKey
-                            ? styles.friendSoundPickItemButtonActive
-                            : undefined,
-                        ]}
-                        onPress={() => handleSelectFriendSpecificSoundKey(soundKey)}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.friendSoundPickItemText}>{getDisplaySoundLabel(soundKey)}</Text>
-                      </TouchableOpacity>
-                    ))}
+                    {Platform.OS !== 'android' && (
+                      <>
+                        <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
+                          <Image source={require('../assets/images/buzz.png')} style={styles.friendSoundPickHeaderImage} resizeMode="contain" />
+                        </View>
+                        {PICKUP_BZZZ_KEYS.map((soundKey) => (
+                          <TouchableOpacity
+                            key={soundKey}
+                            style={[
+                              styles.friendSoundPickItemButton,
+                              friendSoundModalFriend?.id && friendSoundKeyByFriend[friendSoundModalFriend.id] === soundKey
+                                ? styles.friendSoundPickItemButtonActive
+                                : undefined,
+                            ]}
+                            onPress={() => handleSelectFriendSpecificSoundKey(soundKey)}
+                            activeOpacity={0.8}
+                          >
+                            <Text style={styles.friendSoundPickItemText}>{getDisplaySoundLabel(soundKey)}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </>
+                    )}
                   </View>
                   <View style={styles.friendSoundPickColumn}>
                     <View style={styles.friendSoundPickHeaderCell}>
@@ -5444,10 +5529,32 @@ const closeIdentityModal = useCallback(() => {
                         <Text style={styles.friendSoundPickItemText}>{getDisplaySoundLabel(soundKey)}</Text>
                       </TouchableOpacity>
                     ))}
+                    {Platform.OS !== 'android' && (
+                      <>
+                        <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
+                          <Image source={TOOT_LOGO_IMAGE} style={[styles.friendSoundPickHeaderImage, TOOT_PICK_HEADER_SIZE]} resizeMode="contain" />
+                        </View>
+                        {PICKUP_TOOT_KEYS.map((soundKey) => (
+                          <TouchableOpacity
+                            key={soundKey}
+                            style={[
+                              styles.friendSoundPickItemButton,
+                              friendSoundModalFriend?.id && friendSoundKeyByFriend[friendSoundModalFriend.id] === soundKey
+                                ? styles.friendSoundPickItemButtonActive
+                                : undefined,
+                            ]}
+                            onPress={() => handleSelectFriendSpecificSoundKey(soundKey)}
+                            activeOpacity={0.8}
+                          >
+                            <Text style={styles.friendSoundPickItemText}>{getDisplaySoundLabel(soundKey)}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </>
+                    )}
                     <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
-                      <Image source={require('../assets/images/toot.png')} style={[styles.friendSoundPickHeaderImage, { width: 78, height: 32 }]} resizeMode="contain" />
+                      <Image source={require('../assets/images/tweet.png')} style={styles.friendSoundPickHeaderImage} resizeMode="contain" />
                     </View>
-                    {PICKUP_TOOT_KEYS.map((soundKey) => (
+                    {PICKUP_TRLL_KEYS.map((soundKey) => (
                       <TouchableOpacity
                         key={soundKey}
                         style={[
@@ -5462,24 +5569,28 @@ const closeIdentityModal = useCallback(() => {
                         <Text style={styles.friendSoundPickItemText}>{getDisplaySoundLabel(soundKey)}</Text>
                       </TouchableOpacity>
                     ))}
-                    <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
-                      <Image source={require('../assets/images/buzz.png')} style={styles.friendSoundPickHeaderImage} resizeMode="contain" />
-                    </View>
-                    {PICKUP_BZZZ_KEYS.map((soundKey) => (
-                      <TouchableOpacity
-                        key={soundKey}
-                        style={[
-                          styles.friendSoundPickItemButton,
-                          friendSoundModalFriend?.id && friendSoundKeyByFriend[friendSoundModalFriend.id] === soundKey
-                            ? styles.friendSoundPickItemButtonActive
-                            : undefined,
-                        ]}
-                        onPress={() => handleSelectFriendSpecificSoundKey(soundKey)}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.friendSoundPickItemText}>{getDisplaySoundLabel(soundKey)}</Text>
-                      </TouchableOpacity>
-                    ))}
+                    {Platform.OS === 'android' && (
+                      <>
+                        <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
+                          <Image source={require('../assets/images/buzz.png')} style={styles.friendSoundPickHeaderImage} resizeMode="contain" />
+                        </View>
+                        {PICKUP_BZZZ_KEYS.map((soundKey) => (
+                          <TouchableOpacity
+                            key={soundKey}
+                            style={[
+                              styles.friendSoundPickItemButton,
+                              friendSoundModalFriend?.id && friendSoundKeyByFriend[friendSoundModalFriend.id] === soundKey
+                                ? styles.friendSoundPickItemButtonActive
+                                : undefined,
+                            ]}
+                            onPress={() => handleSelectFriendSpecificSoundKey(soundKey)}
+                            activeOpacity={0.8}
+                          >
+                            <Text style={styles.friendSoundPickItemText}>{getDisplaySoundLabel(soundKey)}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </>
+                    )}
                   </View>
                 </View>
               </ScrollView>
@@ -5509,9 +5620,10 @@ const closeIdentityModal = useCallback(() => {
                             source={option.image}
                             style={[
                               styles.pickDefaultCategoryIcon,
+                              option.category === 'mood' && MOOD_CURSOR_ICON_SIZE,
                               option.category === 'pop' && { width: 62, height: 24 },
                               option.category === 'trll' && { width: 90, height: 34 },
-                              option.category === 'toot' && { width: 70, height: 28 },
+                              option.category === 'toot' && TOOT_CURSOR_ICON_SIZE,
                             ]}
                             resizeMode="contain"
                           />
