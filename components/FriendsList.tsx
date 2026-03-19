@@ -117,7 +117,8 @@ async function getSelectedSoundCategory(): Promise<SoundCategory> {
       return saved as SoundCategory;
     }
   } catch (_) {}
-  return 'trll';
+  // 1er démarrage : sur Android, on veut par défaut "toot" (proot).
+  return Platform.OS === 'android' ? 'toot' : 'trll';
 }
 
 function getDisplaySoundLabel(soundKey: string) {
@@ -866,7 +867,9 @@ export function FriendsList({
   const [identityRequests, setIdentityRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true); // Commencer à true pour éviter le flash
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [chatMessageSoundChoice, setChatMessageSoundChoice] = useState<ChatMessageSoundChoice>('trll');
+  const [chatMessageSoundChoice, setChatMessageSoundChoice] = useState<ChatMessageSoundChoice>(
+    Platform.OS === 'android' ? 'toot' : 'trll'
+  );
   const [isChatMuteEnabled, setIsChatMuteEnabled] = useState(false);
   const [chatSpecificSoundListCategory, setChatSpecificSoundListCategory] = useState<ChatMessageSoundChoice | null>(null);
   const [pendingChatSoundKeyByFriend, setPendingChatSoundKeyByFriend] = useState<Record<string, string>>({});
@@ -874,7 +877,9 @@ export function FriendsList({
   const [friendSoundKeyByFriend, setFriendSoundKeyByFriend] = useState<Record<string, string>>({});
   const [friendSoundModalVisible, setFriendSoundModalVisible] = useState(false);
   const [friendSoundModalFriend, setFriendSoundModalFriend] = useState<any>(null);
-  const [globalDefaultCategory, setGlobalDefaultCategory] = useState<SoundCategory>('trll');
+  const [globalDefaultCategory, setGlobalDefaultCategory] = useState<SoundCategory>(
+    Platform.OS === 'android' ? 'toot' : 'trll'
+  );
   const [isFirstFriendlistModalVisible, setIsFirstFriendlistModalVisible] = useState(false);
   const [isFirstFriendlistFeaturesModalVisible, setIsFirstFriendlistFeaturesModalVisible] = useState(false);
   const [isFirstFriendlistZenModalVisible, setIsFirstFriendlistZenModalVisible] = useState(false);
@@ -5467,28 +5472,69 @@ const closeIdentityModal = useCallback(() => {
                             <Text style={styles.friendSoundPickItemText}>{getDisplaySoundLabel(soundKey)}</Text>
                           </TouchableOpacity>
                         ))}
+                        <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
+                          <Image source={require('../assets/images/tweet.png')} style={styles.friendSoundPickHeaderImage} resizeMode="contain" />
+                        </View>
+                        {PICKUP_TRLL_KEYS.map((soundKey) => (
+                          <TouchableOpacity
+                            key={soundKey}
+                            style={[
+                              styles.friendSoundPickItemButton,
+                              friendSoundModalFriend?.id && friendSoundKeyByFriend[friendSoundModalFriend.id] === soundKey
+                                ? styles.friendSoundPickItemButtonActive
+                                : undefined,
+                            ]}
+                            onPress={() => handleSelectFriendSpecificSoundKey(soundKey)}
+                            activeOpacity={0.8}
+                          >
+                            <Text style={styles.friendSoundPickItemText}>{getDisplaySoundLabel(soundKey)}</Text>
+                          </TouchableOpacity>
+                        ))}
                       </>
                     )}
-                    <View style={styles.friendSoundPickHeaderCell}>
-                      <Image source={require('../assets/images/mood.png')} style={[styles.friendSoundPickHeaderImage, MOOD_PICK_HEADER_SIZE]} resizeMode="contain" />
-                    </View>
-                    {PICKUP_MOOD_KEYS.map((soundKey) => (
-                      <TouchableOpacity
-                        key={soundKey}
-                        style={[
-                          styles.friendSoundPickItemButton,
-                          friendSoundModalFriend?.id && friendSoundKeyByFriend[friendSoundModalFriend.id] === soundKey
-                            ? styles.friendSoundPickItemButtonActive
-                            : undefined,
-                        ]}
-                        onPress={() => handleSelectFriendSpecificSoundKey(soundKey)}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.friendSoundPickItemText}>{getDisplaySoundLabel(soundKey)}</Text>
-                      </TouchableOpacity>
-                    ))}
                     {Platform.OS !== 'android' && (
                       <>
+                        <View style={styles.friendSoundPickHeaderCell}>
+                          <Image source={require('../assets/images/mood.png')} style={[styles.friendSoundPickHeaderImage, MOOD_PICK_HEADER_SIZE]} resizeMode="contain" />
+                        </View>
+                        {PICKUP_MOOD_KEYS.map((soundKey) => (
+                          <TouchableOpacity
+                            key={soundKey}
+                            style={[
+                              styles.friendSoundPickItemButton,
+                              friendSoundModalFriend?.id && friendSoundKeyByFriend[friendSoundModalFriend.id] === soundKey
+                                ? styles.friendSoundPickItemButtonActive
+                                : undefined,
+                            ]}
+                            onPress={() => handleSelectFriendSpecificSoundKey(soundKey)}
+                            activeOpacity={0.8}
+                          >
+                            <Text style={styles.friendSoundPickItemText}>{getDisplaySoundLabel(soundKey)}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </>
+                    )}
+                    {/* iOS : Tweet + Buzz sous Mood, en colonne 1 */}
+                    {Platform.OS === 'ios' && (
+                      <>
+                        <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
+                          <Image source={require('../assets/images/tweet.png')} style={styles.friendSoundPickHeaderImage} resizeMode="contain" />
+                        </View>
+                        {PICKUP_TRLL_KEYS.map((soundKey) => (
+                          <TouchableOpacity
+                            key={soundKey}
+                            style={[
+                              styles.friendSoundPickItemButton,
+                              friendSoundModalFriend?.id && friendSoundKeyByFriend[friendSoundModalFriend.id] === soundKey
+                                ? styles.friendSoundPickItemButtonActive
+                                : undefined,
+                            ]}
+                            onPress={() => handleSelectFriendSpecificSoundKey(soundKey)}
+                            activeOpacity={0.8}
+                          >
+                            <Text style={styles.friendSoundPickItemText}>{getDisplaySoundLabel(soundKey)}</Text>
+                          </TouchableOpacity>
+                        ))}
                         <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
                           <Image source={require('../assets/images/buzz.png')} style={styles.friendSoundPickHeaderImage} resizeMode="contain" />
                         </View>
@@ -5529,12 +5575,12 @@ const closeIdentityModal = useCallback(() => {
                         <Text style={styles.friendSoundPickItemText}>{getDisplaySoundLabel(soundKey)}</Text>
                       </TouchableOpacity>
                     ))}
-                    {Platform.OS !== 'android' && (
+                    {Platform.OS === 'android' && (
                       <>
                         <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
-                          <Image source={TOOT_LOGO_IMAGE} style={[styles.friendSoundPickHeaderImage, TOOT_PICK_HEADER_SIZE]} resizeMode="contain" />
+                          <Image source={require('../assets/images/mood.png')} style={[styles.friendSoundPickHeaderImage, MOOD_PICK_HEADER_SIZE]} resizeMode="contain" />
                         </View>
-                        {PICKUP_TOOT_KEYS.map((soundKey) => (
+                        {PICKUP_MOOD_KEYS.map((soundKey) => (
                           <TouchableOpacity
                             key={soundKey}
                             style={[
@@ -5549,12 +5595,10 @@ const closeIdentityModal = useCallback(() => {
                             <Text style={styles.friendSoundPickItemText}>{getDisplaySoundLabel(soundKey)}</Text>
                           </TouchableOpacity>
                         ))}
-                      </>
-                    )}
                     <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
-                      <Image source={require('../assets/images/tweet.png')} style={styles.friendSoundPickHeaderImage} resizeMode="contain" />
+                      <Image source={require('../assets/images/buzz.png')} style={styles.friendSoundPickHeaderImage} resizeMode="contain" />
                     </View>
-                    {PICKUP_TRLL_KEYS.map((soundKey) => (
+                    {PICKUP_BZZZ_KEYS.map((soundKey) => (
                       <TouchableOpacity
                         key={soundKey}
                         style={[
@@ -5569,12 +5613,14 @@ const closeIdentityModal = useCallback(() => {
                         <Text style={styles.friendSoundPickItemText}>{getDisplaySoundLabel(soundKey)}</Text>
                       </TouchableOpacity>
                     ))}
-                    {Platform.OS === 'android' && (
+                      </>
+                    )}
+                    {Platform.OS !== 'android' && (
                       <>
                         <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
-                          <Image source={require('../assets/images/buzz.png')} style={styles.friendSoundPickHeaderImage} resizeMode="contain" />
+                          <Image source={TOOT_LOGO_IMAGE} style={[styles.friendSoundPickHeaderImage, TOOT_PICK_HEADER_SIZE]} resizeMode="contain" />
                         </View>
-                        {PICKUP_BZZZ_KEYS.map((soundKey) => (
+                        {PICKUP_TOOT_KEYS.map((soundKey) => (
                           <TouchableOpacity
                             key={soundKey}
                             style={[
