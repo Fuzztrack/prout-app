@@ -10,7 +10,7 @@
     "backgroundColor": "#ebb89b",
     "newArchEnabled": true,
     "splash": {
-      "image": "./Assets/Images/proot.png",
+      "image": "./assets/images/proot.png",
       "resizeMode": "contain",
       "backgroundColor": "#ebb89b"
     },
@@ -69,7 +69,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./Assets/Images/proot.png",
+          "image": "./assets/images/proot.png",
           "resizeMode": "contain",
           "backgroundColor": "#ebb89b"
         }
