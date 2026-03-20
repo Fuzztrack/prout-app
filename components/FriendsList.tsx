@@ -117,8 +117,10 @@ async function getSelectedSoundCategory(): Promise<SoundCategory> {
       return saved as SoundCategory;
     }
   } catch (_) {}
-  // 1er démarrage : sur Android, on veut par défaut "toot" (proot).
-  return Platform.OS === 'android' ? 'toot' : 'trll';
+  // 1er démarrage :
+  // - Android : par défaut "toot" (proot)
+  // - iOS : par défaut "mood"
+  return Platform.OS === 'android' ? 'toot' : 'mood';
 }
 
 function getDisplaySoundLabel(soundKey: string) {
@@ -868,7 +870,7 @@ export function FriendsList({
   const [loading, setLoading] = useState(true); // Commencer à true pour éviter le flash
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [chatMessageSoundChoice, setChatMessageSoundChoice] = useState<ChatMessageSoundChoice>(
-    Platform.OS === 'android' ? 'toot' : 'trll'
+    Platform.OS === 'android' ? 'toot' : 'mood'
   );
   const [isChatMuteEnabled, setIsChatMuteEnabled] = useState(false);
   const [chatSpecificSoundListCategory, setChatSpecificSoundListCategory] = useState<ChatMessageSoundChoice | null>(null);
@@ -878,7 +880,7 @@ export function FriendsList({
   const [friendSoundModalVisible, setFriendSoundModalVisible] = useState(false);
   const [friendSoundModalFriend, setFriendSoundModalFriend] = useState<any>(null);
   const [globalDefaultCategory, setGlobalDefaultCategory] = useState<SoundCategory>(
-    Platform.OS === 'android' ? 'toot' : 'trll'
+    Platform.OS === 'android' ? 'toot' : 'mood'
   );
   const [isFirstFriendlistModalVisible, setIsFirstFriendlistModalVisible] = useState(false);
   const [isFirstFriendlistFeaturesModalVisible, setIsFirstFriendlistFeaturesModalVisible] = useState(false);
@@ -1848,8 +1850,9 @@ useEffect(() => {
         // Ancien format: "mute" dans le choix principal.
         // On ne force plus la sourdine automatiquement pour éviter un chat
         // silencieux inattendu après migration vers le bouton mute en header.
-        setChatMessageSoundChoice('trll');
-        AsyncStorage.setItem(CHAT_MESSAGE_SOUND_CHOICE_KEY, 'trll').catch(() => {});
+        const nextDefault = Platform.OS === 'android' ? 'toot' : 'mood';
+        setChatMessageSoundChoice(nextDefault);
+        AsyncStorage.setItem(CHAT_MESSAGE_SOUND_CHOICE_KEY, nextDefault).catch(() => {});
       }
       if (savedMute === '1') {
         setIsChatMuteEnabled(true);
