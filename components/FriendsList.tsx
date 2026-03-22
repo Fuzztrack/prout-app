@@ -70,14 +70,31 @@ const PICKUP_TOOT_KEYS = (SOUND_KEYS_BY_CATEGORY.toot || []).filter((key) => !!S
 const MAX_PICKUP_ROWS = Math.ceil(Math.max(PICKUP_TRLL_KEYS.length, PICKUP_BZZZ_KEYS.length, PICKUP_POP_KEYS.length, PICKUP_MOOD_KEYS.length, PICKUP_TOOT_KEYS.length) / 2);
 const CHAT_SPECIFIC_ROW_HEIGHT = 34;
 const CHAT_SPECIFIC_MIN_HEIGHT = MAX_PICKUP_ROWS * CHAT_SPECIFIC_ROW_HEIGHT + 50;
-const TOOT_LOGO_IMAGE = Platform.OS === 'android'
+const IS_ENGLISH_LOCALE = String(i18n.locale || '').toLowerCase().startsWith('en');
+const USE_PROOT_TOOT_LOGO = Platform.OS === 'android' || !IS_ENGLISH_LOCALE;
+const TOOT_LOGO_IMAGE = USE_PROOT_TOOT_LOGO
   ? require('../assets/images/proot.png')
   : require('../assets/images/toot.png');
-const TOOT_CHAT_ICON_SIZE = Platform.OS === 'android' ? { width: 86, height: 58 } : undefined;
-const TOOT_PICK_HEADER_SIZE = Platform.OS === 'android' ? { width: 96, height: 40 } : { width: 78, height: 32 };
+const TOOT_CHAT_ICON_SIZE = Platform.OS === 'android'
+  ? { width: 82, height: 55 }
+  : USE_PROOT_TOOT_LOGO
+    ? { width: 84, height: 56 }
+    : undefined;
+// Aligné sur app/soundcheck.tsx (TOOT_HEADER_SIZE) pour le logo toot/proot
+const TOOT_PICK_HEADER_SIZE = Platform.OS === 'android'
+  ? { width: 108, height: 47 }
+  : USE_PROOT_TOOT_LOGO
+    ? { width: 104, height: 44 }
+    : { width: 80, height: 32 };
 const MOOD_PICK_HEADER_SIZE = Platform.OS === 'android' ? { width: 88, height: 38 } : undefined;
-const TOOT_CURSOR_ICON_SIZE = Platform.OS === 'android' ? { width: 86, height: 35 } : { width: 70, height: 28 };
-const MOOD_CURSOR_ICON_SIZE = Platform.OS === 'android' ? { width: 76, height: 28 } : undefined;
+// Curseur « catégorie par défaut » dans le modal choose your sound (grille 5 icônes)
+const TOOT_CURSOR_ICON_SIZE = Platform.OS === 'android'
+  ? { width: 90, height: 38 }
+  : USE_PROOT_TOOT_LOGO
+    ? { width: 90, height: 36 }
+    : { width: 72, height: 28 };
+/** Mood un peu plus petit que la base pickDefaultCategoryIcon (80×30) */
+const MOOD_DEFAULT_CATEGORY_CURSOR_SIZE = { width: 71, height: 26 };
 const DEFAULT_SOUND_OPTIONS: Array<{ category: SoundCategory; image: any }> = Platform.OS === 'android'
   ? [
       { category: 'toot', image: TOOT_LOGO_IMAGE },
@@ -5665,17 +5682,20 @@ const closeIdentityModal = useCallback(() => {
                           onPress={() => handleSelectGlobalDefaultCategory(option.category)}
                           activeOpacity={0.85}
                         >
-                          <Image
-                            source={option.image}
-                            style={[
-                              styles.pickDefaultCategoryIcon,
-                              option.category === 'mood' && MOOD_CURSOR_ICON_SIZE,
-                              option.category === 'pop' && { width: 62, height: 24 },
-                              option.category === 'trll' && { width: 90, height: 34 },
-                              option.category === 'toot' && TOOT_CURSOR_ICON_SIZE,
-                            ]}
-                            resizeMode="contain"
-                          />
+                          {/* Zone fixe : évite que le cadre actif / la taille proot redimensionne la cellule */}
+                          <View style={styles.pickDefaultCategoryIconWrap}>
+                            <Image
+                              source={option.image}
+                              style={[
+                                styles.pickDefaultCategoryIcon,
+                                option.category === 'mood' && MOOD_DEFAULT_CATEGORY_CURSOR_SIZE,
+                                option.category === 'pop' && { width: 62, height: 24 },
+                                option.category === 'trll' && { width: 90, height: 34 },
+                                option.category === 'toot' && TOOT_CURSOR_ICON_SIZE,
+                              ]}
+                              resizeMode="contain"
+                            />
+                          </View>
                         </TouchableOpacity>
                       ))}
                     </View>
@@ -6457,12 +6477,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 8,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    borderRadius: 10,
   },
   pickDefaultCategoryStepActive: {
     backgroundColor: 'rgba(162, 228, 212, 0.72)',
-    borderWidth: 2,
     borderColor: 'rgba(96, 74, 62, 0.45)',
-    borderRadius: 10,
+  },
+  pickDefaultCategoryIconWrap: {
+    width: 90,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   pickDefaultCategoryStepSecondRow: {
     flex: 0,

@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import i18n from '../lib/i18n';
 import { PREVIEW_SOUNDS_BY_CATEGORY } from '../lib/runtimeSounds';
 
 // 🔊 Preview player global (évite la cacophonie)
@@ -37,7 +38,9 @@ export type SoundCategory = 'trll' | 'bzzz' | 'pop' | 'mood' | 'toot';
 
 // Convention d'angles (demandée) :
 // 0° = 3h, sens horaire (y vers le bas).
-const TOOT_LOGO_IMAGE = Platform.OS === 'android'
+const IS_ENGLISH_LOCALE = String(i18n.locale || '').toLowerCase().startsWith('en');
+const USE_PROOT_TOOT_LOGO = Platform.OS === 'android' || !IS_ENGLISH_LOCALE;
+const TOOT_LOGO_IMAGE = USE_PROOT_TOOT_LOGO
   ? require('../assets/images/proot.png')
   : require('../assets/images/toot.png');
 const CATEGORIES: { id: SoundCategory; angle: number; label: string; source: any }[] = Platform.OS === 'android'
@@ -59,11 +62,17 @@ const CATEGORIES: { id: SoundCategory; angle: number; label: string; source: any
 // Ajustements fins par logo (pour un rendu visuel équilibré)
 const RADIAL_FACTOR: Record<SoundCategory, number> = {
   trll: 0.96,
-  bzzz: 0.98,
+  // Même rayon que les autres crans : évite un léger décalage visuel vs mood/pop/trll
+  bzzz: 0.96,
   pop: 0.96,
   mood: 0.96,
   toot: 0.96,
 };
+
+/** Agrandir proot dans le curseur : agrandir la boîte absolue (sinon l’image dépasse et est clippée → taille inchangée). */
+const PROOT_CURSOR_WRAPPER_SCALE = 1.28;
+/** Android : proot plus petit dans le curseur ; iOS garde PROOT_CURSOR_WRAPPER_SCALE */
+const ANDROID_PROOT_CURSOR_WRAPPER_SCALE = 0.94;
 
 // Offsets fins (px) pour équilibrer visuellement sans toucher aux angles de crans
 const POSITION_OFFSET: Record<SoundCategory, { dx: number; dy: number }> = {
@@ -354,28 +363,30 @@ export default function SoundcheckSelector({
           const x = Math.cos(rad) * r;
           const y = Math.sin(rad) * r;
           const off = layout.offsetsScaled[cat.id] ?? { dx: 0, dy: 0 };
-          const left = centerX + x + off.dx - layout.logoHalf;
-          const top = centerY + y + off.dy - layout.logoHalf;
+          const isProotTootSlot = cat.id === 'toot' && USE_PROOT_TOOT_LOGO;
+          const prootScale =
+            Platform.OS === 'android' ? ANDROID_PROOT_CURSOR_WRAPPER_SCALE : PROOT_CURSOR_WRAPPER_SCALE;
+          const boxSize = isProotTootSlot ? layout.logoBox * prootScale : layout.logoBox;
+          const boxHalf = boxSize / 2;
+          const left = centerX + x + off.dx - boxHalf;
+          const top = centerY + y + off.dy - boxHalf;
+          const imgSize = Math.round(boxSize * 0.93);
           const isActive = index === selectedIndex;
           return (
             <TouchableOpacity
               key={cat.id}
               activeOpacity={0.8}
               onPress={() => selectIndex(index)}
-              style={[styles.logoWrapper, { left, top, width: layout.logoBox, height: layout.logoBox }]}
+              style={[styles.logoWrapper, { left, top, width: boxSize, height: boxSize }]}
             >
               <Image
                 source={cat.source}
                 style={[
                   styles.logoImage,
-                  { opacity: isActive ? 1 : 0.4, width: layout.logoImg, height: layout.logoImg },
+                  { opacity: isActive ? 1 : 0.4, width: imgSize, height: imgSize },
                   cat.id === 'mood' && Platform.OS === 'android' && {
-                    width: Math.round(layout.logoImg * 0.94),
-                    height: Math.round(layout.logoImg * 0.94),
-                  },
-                  cat.id === 'toot' && Platform.OS === 'android' && {
-                    width: Math.round(layout.logoImg * 1.22),
-                    height: Math.round(layout.logoImg * 1.22),
+                    width: Math.round(imgSize * 0.94),
+                    height: Math.round(imgSize * 0.94),
                   },
                 ]}
                 resizeMode="contain"

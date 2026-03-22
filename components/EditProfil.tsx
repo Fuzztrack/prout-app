@@ -2,11 +2,13 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActionSheetIOS, ActivityIndicator, Alert, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActionSheetIOS, ActivityIndicator, Alert, Dimensions, Image, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import i18n from '../lib/i18n';
 import { safeReplace } from '../lib/navigation';
 import { normalizePhone } from '../lib/normalizePhone';
 import { supabase, supabaseAnonKey, supabaseUrl } from '../lib/supabase';
+
+const PREVIEW_MAX = Dimensions.get('window').width - 32;
 
 export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void; onProfileUpdated?: (newPseudo: string) => void }) {
   const router = useRouter(); // Toujours nécessaire pour la déconnexion
@@ -15,6 +17,7 @@ export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void;
   const [phone, setPhone] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarPreviewVisible, setAvatarPreviewVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [currentPseudo, setCurrentPseudo] = useState<string>('');
@@ -563,28 +566,43 @@ export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void;
           </View>
 
           <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-            {/* Avatar */}
+            {/* Avatar : tap = aperçu plein écran ; icône appareil à côté = changer la photo */}
             <View style={styles.avatarSection}>
-              <TouchableOpacity
-                onPress={handlePickAvatar}
-                disabled={uploadingAvatar || loading}
-                style={styles.avatarContainer}
-              >
-                {uploadingAvatar ? (
-                  <ActivityIndicator size="large" color="#604a3e" />
-                ) : avatarUrl ? (
-                  <Image source={{ uri: avatarUrl }} style={styles.avatar} />
-                ) : (
-                  <View style={styles.avatarPlaceholder}>
-                    <Text style={styles.avatarPlaceholderText}>
-                      {pseudo ? pseudo.charAt(0).toUpperCase() : '?'}
-                    </Text>
-                  </View>
-                )}
-                <View style={styles.avatarEditOverlay}>
-                  <Ionicons name="camera" size={24} color="#fff" />
-                </View>
-              </TouchableOpacity>
+              <View style={styles.avatarRow}>
+                <TouchableOpacity
+                  onPress={() => !uploadingAvatar && setAvatarPreviewVisible(true)}
+                  disabled={uploadingAvatar || loading}
+                  activeOpacity={0.85}
+                  style={styles.avatarContainer}
+                  accessibilityRole="image"
+                  accessibilityLabel={i18n.t('profile_photo_preview_a11y')}
+                >
+                  {uploadingAvatar ? (
+                    <ActivityIndicator size="large" color="#604a3e" />
+                  ) : avatarUrl ? (
+                    <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+                  ) : (
+                    <View style={styles.avatarPlaceholder}>
+                      <Text style={styles.avatarPlaceholderText}>
+                        {pseudo ? pseudo.charAt(0).toUpperCase() : '?'}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handlePickAvatar}
+                  disabled={uploadingAvatar || loading}
+                  style={styles.cameraSideButton}
+                  accessibilityRole="button"
+                  accessibilityLabel={i18n.t('change_profile_photo_a11y')}
+                >
+                  {uploadingAvatar ? (
+                    <ActivityIndicator size="small" color="#ebb89b" />
+                  ) : (
+                    <Ionicons name="camera" size={28} color="#ebb89b" />
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View style={styles.section}>
@@ -670,6 +688,37 @@ export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void;
               </View>
             </View>
           </ScrollView>
+          {avatarPreviewVisible && (
+            <View style={styles.avatarPreviewBackdrop}>
+              <Pressable
+                style={StyleSheet.absoluteFillObject}
+                onPress={() => setAvatarPreviewVisible(false)}
+                accessibilityLabel={i18n.t('tap_to_close_preview')}
+              />
+              <View style={styles.avatarPreviewCenter} pointerEvents="box-none">
+                {avatarUrl ? (
+                  <Pressable onPress={() => {}} accessibilityRole="image" style={styles.avatarPreviewFrame}>
+                    <Image
+                      source={{ uri: avatarUrl }}
+                      style={styles.avatarPreviewImage}
+                      resizeMode="contain"
+                    />
+                  </Pressable>
+                ) : (
+                  <Pressable onPress={() => {}} accessibilityRole="image" style={styles.avatarPreviewFrame}>
+                    <View style={styles.avatarPreviewPlaceholder}>
+                      <Text style={styles.avatarPreviewPlaceholderText}>
+                        {pseudo ? pseudo.charAt(0).toUpperCase() : '?'}
+                      </Text>
+                    </View>
+                  </Pressable>
+                )}
+              </View>
+              <View style={styles.avatarPreviewHint} pointerEvents="none">
+                <Text style={styles.avatarPreviewHintText}>{i18n.t('tap_to_close_preview')}</Text>
+              </View>
+            </View>
+          )}
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -809,6 +858,22 @@ const styles = StyleSheet.create({
     marginBottom: 30,
     marginTop: 10,
   },
+  avatarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 14,
+  },
+  cameraSideButton: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#604a3e',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#ebb89b',
+  },
   avatarContainer: {
     position: 'relative',
     width: 100,
@@ -837,18 +902,57 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#fff',
   },
-  avatarEditOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: '#604a3e',
+  avatarPreviewBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(96, 74, 62, 0.45)',
+    zIndex: 20,
+    elevation: 20,
     borderRadius: 20,
-    width: 36,
-    height: 36,
+  },
+  avatarPreviewCenter: {
+    ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 3,
-    borderColor: '#ebb89b',
+    paddingHorizontal: 24,
+    paddingVertical: 32,
+    pointerEvents: 'box-none',
+  },
+  avatarPreviewFrame: {
+    width: '100%',
+    maxWidth: PREVIEW_MAX,
+    height: PREVIEW_MAX,
+    maxHeight: PREVIEW_MAX,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarPreviewImage: {
+    width: PREVIEW_MAX,
+    height: PREVIEW_MAX,
+  },
+  avatarPreviewPlaceholder: {
+    width: Math.min(PREVIEW_MAX, 260),
+    height: Math.min(PREVIEW_MAX, 260),
+    borderRadius: Math.min(PREVIEW_MAX, 260) / 2,
+    backgroundColor: '#604a3e',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarPreviewPlaceholderText: {
+    fontSize: 96,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  avatarPreviewHint: {
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 52 : 40,
+    left: 16,
+    right: 16,
+    alignItems: 'center',
+  },
+  avatarPreviewHintText: {
+    color: '#fff',
+    fontSize: 14,
+    textAlign: 'center',
   },
 
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },

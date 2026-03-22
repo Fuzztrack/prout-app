@@ -21,11 +21,42 @@ const BZZZ_KEYS = SOUND_KEYS_BY_CATEGORY.bzzz || [];
 const POP_KEYS = SOUND_KEYS_BY_CATEGORY.pop || [];
 const MOOD_KEYS = SOUND_KEYS_BY_CATEGORY.mood || [];
 const TOOT_KEYS = SOUND_KEYS_BY_CATEGORY.toot || [];
-const TOOT_LOGO_IMAGE = Platform.OS === 'android'
+const IS_ENGLISH_LOCALE = String(i18n.locale || '').toLowerCase().startsWith('en');
+const USE_PROOT_TOOT_LOGO = Platform.OS === 'android' || !IS_ENGLISH_LOCALE;
+const TOOT_LOGO_IMAGE = USE_PROOT_TOOT_LOGO
   ? require('../assets/images/proot.png')
   : require('../assets/images/toot.png');
-const TOOT_HEADER_SIZE = Platform.OS === 'android' ? { width: 102, height: 42 } : { width: 84, height: 34 };
+// Android : proot un peu plus petit qu’avant ; iOS inchangé
+const TOOT_HEADER_SIZE = Platform.OS === 'android'
+  ? { width: 108, height: 47 }
+  : USE_PROOT_TOOT_LOGO
+    ? { width: 104, height: 44 }
+    : { width: 80, height: 32 };
 const MOOD_HEADER_SIZE = Platform.OS === 'android' ? { width: 94, height: 38 } : undefined;
+
+/**
+ * iOS — sous-titre colonne toot (soundcheck) :
+ * - anglais : "to smile" · français : "pour tout et rien"
+ * - es / pt / de / it : mêmes libellés « à la française » que sur Android (`soundcheck_subtitle_toot_android`)
+ */
+function getIOSTootSoundcheckSubtitleKey():
+  | 'soundcheck_subtitle_toot'
+  | 'soundcheck_subtitle_toot_android' {
+  const loc = String(i18n.locale || '').toLowerCase();
+  if (loc.startsWith('en') || loc.startsWith('fr')) {
+    return 'soundcheck_subtitle_toot';
+  }
+  if (
+    loc.startsWith('es') ||
+    loc.startsWith('pt') ||
+    loc.startsWith('de') ||
+    loc.startsWith('it')
+  ) {
+    return 'soundcheck_subtitle_toot_android';
+  }
+  return 'soundcheck_subtitle_toot';
+}
+
 function getSoundDisplayName(soundKey: string) {
   const translated = i18n.t(`prout_names.${soundKey}`) as any;
   if (typeof translated === 'string' && translated !== `prout_names.${soundKey}`) {
@@ -140,6 +171,7 @@ export default function SoundcheckScreen() {
             >
               <Ionicons name="arrow-back" size={24} color="#604a3e" />
             </TouchableOpacity>
+          <Text style={styles.pageSubtitleNav}>{i18n.t('soundcheck_subtitle_explore_library')}</Text>
           <View style={styles.headerSpacer} />
         </View>
       </View>
@@ -307,7 +339,9 @@ export default function SoundcheckScreen() {
                   <>
                     <View style={[styles.libraryHeaderCol, { marginTop: 16 }]}>
                       <Image source={TOOT_LOGO_IMAGE} style={[styles.libraryHeaderImage, TOOT_HEADER_SIZE]} resizeMode="contain" />
-                      <Text style={styles.libraryHeaderSubtitle}>{i18n.t('soundcheck_subtitle_toot')}</Text>
+                      <Text style={styles.libraryHeaderSubtitle}>
+                        {i18n.t(getIOSTootSoundcheckSubtitleKey())}
+                      </Text>
                     </View>
                     {playableTootKeys.map((soundKey) => (
                       <TouchableOpacity
@@ -374,6 +408,15 @@ const styles = StyleSheet.create({
   titleImage: {
     marginTop: 0,
     marginBottom: 10,
+  },
+  pageSubtitleNav: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 12,
+    fontStyle: 'italic',
+    color: '#604a3e',
+    marginTop: 0,
+    marginBottom: 0,
   },
   libraryArea: {
     flex: 1,
