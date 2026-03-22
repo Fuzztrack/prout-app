@@ -1,39 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Animated, Image, Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
-
-// Détection Google Pixel
-const isPixelDevice =
-  Platform.OS === 'android' &&
-  /google|pixel/i.test(
-    ((Platform as any).constants?.Brand as string) ||
-      ((Platform as any).constants?.Manufacturer as string) ||
-      ((Platform as any).constants?.Model as string) ||
-      ''
-  );
-
-// ⏸️ PAUSÉ pour test : Afficher la recherche sur tous les appareils (test avec react-native-keyboard-controller)
-// const isSearchSupported = Platform.OS === 'ios' || isPixelDevice;
-const isSearchSupported = true; // Test : activer pour tous les appareils
-
-// Couleur "actif" Zen/Silent dans le menu principal (contrastée avec le fond #ebb89b)
-const ACTIVE_ICON_COLOR = '#604a3e';
+import { Animated, Image, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 
 interface AppHeaderProps {
   currentPseudo?: string;
   profileAvatarUrl?: string | null;
-  isZenMode?: boolean;
-  isSilentMode?: boolean;
   isProfileMenuOpen?: boolean;
   isProfileOpen?: boolean;
+  /** Recherche / filtre dans la liste d’amis */
   isSearchVisible?: boolean;
+  onSearchToggle?: () => void;
   onProfileMenuPress?: () => void;
   onProfilePress?: () => void;
-  onSearchToggle?: () => void;
-  onAddFriendPress?: () => void;
   onComplicityPress?: () => void;
   onSoundcheckPress?: () => void;
-  onZenModeToggle?: () => void;
-  onSilentModeToggle?: () => void;
   shakeX?: Animated.Value;
   shakeY?: Animated.Value;
 }
@@ -41,19 +20,14 @@ interface AppHeaderProps {
 export function AppHeader({
   currentPseudo,
   profileAvatarUrl,
-  isZenMode = false,
-  isSilentMode = false,
   isProfileMenuOpen = false,
   isProfileOpen = false,
   isSearchVisible = false,
+  onSearchToggle,
   onProfileMenuPress,
   onProfilePress,
-  onSearchToggle,
-  onAddFriendPress,
   onComplicityPress,
   onSoundcheckPress,
-  onZenModeToggle,
-  onSilentModeToggle,
   shakeX,
   shakeY,
 }: AppHeaderProps) {
@@ -110,7 +84,7 @@ export function AppHeader({
 
       {/* 2. LA BARRE DE NAVIGATION */}
       <View style={styles.navBar}>
-        {/* Ligne 1 : Menu principal (Complicité, Soundcheck, Zen, Silencieux, Recherche, Profil) — masqué quand menu liste ouvert */}
+        {/* Ligne 1 : gauche Soundcheck + Coupe · droite Recherche liste + menu liste */}
         <View style={[styles.menuRow, { justifyContent: 'space-between' }]}>
           {/* Icônes à gauche */}
           <View style={styles.leftIconsContainer}>
@@ -130,65 +104,7 @@ export function AppHeader({
                   </TouchableOpacity>
                 )}
 
-                {/* Mode Zen */}
-                {onZenModeToggle && (
-                  <TouchableOpacity
-                    onPress={onZenModeToggle}
-                    style={[styles.iconButton, { justifyContent: 'center', alignItems: 'center', minHeight: 28, marginTop: 2 }]}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  >
-                    <Ionicons
-                      name={isZenMode ? 'moon' : 'moon-outline'}
-                      size={22}
-                      color={isZenMode ? ACTIVE_ICON_COLOR : '#ffffff'}
-                    />
-                  </TouchableOpacity>
-                )}
-
-                {/* Envois silencieux */}
-                {onSilentModeToggle && (
-                  <TouchableOpacity
-                    onPress={onSilentModeToggle}
-                    style={[styles.iconButton, { justifyContent: 'center', alignItems: 'center', minHeight: 28, marginTop: 2 }]}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  >
-                    <Ionicons
-                      name={isSilentMode ? 'volume-mute' : 'volume-mute-outline'}
-                      size={22}
-                      color={isSilentMode ? ACTIVE_ICON_COLOR : '#ffffff'}
-                    />
-                  </TouchableOpacity>
-                )}
-
-                {/* Recherche */}
-                {isSearchSupported && onSearchToggle && (
-                  <TouchableOpacity 
-                    onPress={onSearchToggle} 
-                    style={[styles.iconButton, { justifyContent: 'center', alignItems: 'center', minHeight: 28, marginTop: 2 }]}
-                  >
-                    <Ionicons 
-                      name={isSearchVisible ? "close" : "search"} 
-                      size={22} 
-                      color="#ffffff" 
-                    />
-                  </TouchableOpacity>
-                )}
-
-                {/* Ajouter un ami */}
-                {onAddFriendPress && (
-                  <TouchableOpacity
-                    onPress={onAddFriendPress}
-                    style={[styles.iconButton, { justifyContent: 'center', alignItems: 'center', minHeight: 28, marginTop: 2 }]}
-                  >
-                    <Ionicons
-                      name="person-add-outline"
-                      size={22}
-                      color="#ffffff"
-                    />
-                  </TouchableOpacity>
-                )}
-
-                {/* Complicité - Coupe */}
+                {/* Complicité - Coupe (à droite du groupe gauche) */}
                 {onComplicityPress && (
                   <TouchableOpacity
                     onPress={onComplicityPress}
@@ -205,8 +121,20 @@ export function AppHeader({
             )}
           </View>
 
-          {/* Menu Profil / Fermer — à droite */}
+          {/* À droite : Recherche dans la liste, puis menu liste */}
           <View style={styles.rightIconsContainer}>
+            {!(isProfileMenuOpen || isProfileOpen) && onSearchToggle && (
+              <TouchableOpacity
+                onPress={onSearchToggle}
+                style={[styles.iconButton, { justifyContent: 'center', alignItems: 'center', minHeight: 28, marginTop: 2 }]}
+              >
+                <Ionicons
+                  name={isSearchVisible ? 'close' : 'search'}
+                  size={22}
+                  color="#ffffff"
+                />
+              </TouchableOpacity>
+            )}
             {onProfileMenuPress && (
               <TouchableOpacity 
                 onPress={onProfileMenuPress} 

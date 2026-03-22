@@ -160,7 +160,7 @@ const i18n = new I18n({
 
     // Complicité
     complicity_title: "L'Indice de Résonance",
-    complicity_subtitle: "Score de complicité",
+    complicity_subtitle: "Score de complicité !",
     complicity_description: "Votre score augmente à chaque notification envoyée ou reçue. Les réponses rapides (moins d'1 minute) rapportent 10 fois plus de points ! Plus vous échangez, plus votre complicité grandit.",
     complicity_level_1: "Souffle Initial",
     complicity_level_2: "Accord Partagé",
@@ -193,6 +193,8 @@ const i18n = new I18n({
     friend_sound_modal_title_random: "Laissez le hasard décider !",
     friend_sound_modal_or: "Ou",
     friend_sound_modal_pick_button: "Choisissez votre son",
+    chat_sound_picker_inline_text: "Laissez faire ou",
+    chat_sound_picker_inline_button: "Choisir un son",
 
     // Profil
     edit_profile: "Modifier votre profil",
@@ -297,8 +299,8 @@ const i18n = new I18n({
     tuto_3_desc: "Besoin de calme ? Activez le mode Zen pour ne plus recevoir (ni envoyer) de notifications.",
     tuto_silent_title: "Envois silencieux",
     tuto_silent_desc: "Vous pouvez activer ce mode pour envoyer vos notifications en toute discrétion !",
-    tuto_4_title: "Sourdine",
-    tuto_4_desc: "En swipant à gauche le nom d'un contact, vous pouvez le mettre en sourdine.",
+    tuto_4_title: "Bloquez",
+    tuto_4_desc: "En swipant à gauche le nom d'un contact, vous pouvez le bloquer.",
 
     // Onboarding
     onboarding_welcome_title: "Proot!",
@@ -329,11 +331,11 @@ const i18n = new I18n({
     phone_format_placeholder: "06 12 34 56 78",
 
     // Footer & Help
-    footer_help_text: "Swipez vers la droite pour envoyer une notification sonore, cliquez avant de swiper pour ajouter un message et faites un appui long pour choisir la catégorie de son ou un son spécifique !",
+    footer_help_text: "Swipez vers la droite pour envoyer une notification aléatoire\nCliquez pour ouvrir le chat\nFaites un appui long pour choisir un son !",
     footer_sound_category_info: "Le son des notifications sera choisi aléatoirement parmi la catégorie d’onde sonore sélectionnée !",
     friendlist_onboarding_swipe: "Swipez le nom d'un ami vers la droite pour envoyer une notification.",
     friendlist_onboarding_tap: "Cliquez sur le nom d'un ami pour ouvrir le chat éphémère.",
-    friendlist_onboarding_long_press: "Faites un appui long pour choisir la catégorie de son ou un son spécifique.",
+    friendlist_onboarding_long_press: "Faites un appui long pour choisir un son spécifique.",
     friendlist_onboarding_swipe_left_block: "Swipez vers la gauche pour bloquer un contact abusif.",
     friendlist_onboarding_soundcheck: "Explorez votre bibliothèque de sons",
     friendlist_onboarding_resonance: "Consulte la complicité acoustique que tu as avec tes amis dans le tableau de résonance !",
@@ -341,9 +343,8 @@ const i18n = new I18n({
     friendlist_onboarding_silent_send: "Activez les envois silencieux pour envoyer vos notifications en toute discrétion.",
     friendlist_onboarding_search_contacts: "Cherchez des amis dans votre liste.",
     friendlist_onboarding_search_pseudo: "Recherchez un ami avec son pseudo.",
-    chat_onboarding_tap_category: "Changez la catégorie de sons aléatoires par un simple tap.",
-    chat_onboarding_long_press_specific: "Un appui long vous permet de choisir un son spécifique.",
-    chat_onboarding_mute: "Vous permet de discuter sans sons.",
+    chat_onboarding_choose_specific_sound: "Choisissez un son spécifique",
+    chat_onboarding_mute: "Vous permet de discuter en silence",
     chat_onboarding_long_press_report: "Un appui long sur un message permet de le signaler à la modération.",
 
     // Notifications & Errors
@@ -723,7 +724,7 @@ const i18n = new I18n({
 
     // Complicity
     complicity_title: "The Resonance Index",
-    complicity_subtitle: "Complicity Score",
+    complicity_subtitle: "Complicity Score!",
     complicity_level_1: "First Breeze",
     complicity_level_2: "Shared Accord",
     complicity_level_3: "Sillage of Souls",
@@ -749,12 +750,14 @@ const i18n = new I18n({
     soundcheck_subtitle_mood: "to stay in the nuance",
     soundcheck_subtitle_pop: "to celebrate friends",
     soundcheck_subtitle_toot: "to smile",
-    soundcheck_subtitle_toot_android: "To fart à la française",
+    soundcheck_subtitle_toot_android: "to toot à la française",
     soundcheck_subtitle_buzz: "to think",
     default_sound_category_title: "Choose your default sound notification category",
     friend_sound_modal_title_random: "Let chance decide!",
     friend_sound_modal_or: "Or",
     friend_sound_modal_pick_button: "Choose your sound",
+    chat_sound_picker_inline_text: "Let go or",
+    chat_sound_picker_inline_button: "Choose a sound",
 
     // Profil
     edit_profile: "Edit Profile",
@@ -876,8 +879,8 @@ const i18n = new I18n({
     tuto_3_desc: "Need some quiet? Enable Zen Mode to stop receiving (and sending) notifications.",
     tuto_silent_title: "Silent sends",
     tuto_silent_desc: "You can enable this mode to send your notifications discreetly!",
-    tuto_4_title: "Mute",
-    tuto_4_desc: "By swiping left on a contact's name, you can mute them.",
+    tuto_4_title: "Block",
+    tuto_4_desc: "By swiping left on a contact's name, you can block them.",
 
     // Onboarding
     onboarding_welcome_title: "Proot!",
@@ -908,7 +911,7 @@ const i18n = new I18n({
     phone_format_placeholder: "+1 234 567 8900",
 
     // Footer & Help
-    footer_help_text: "Swipe right to send a sound notification, tap before swiping to add a message and long-press to choose a specific sound!",
+    footer_help_text: "Swipe right to send a random notification\nTap to open the chat\nLong-press to choose a sound!",
     footer_sound_category_info: "Notification sounds will be randomly chosen from your selected sound wave category!",
     friendlist_onboarding_swipe: "Swipe a friend's name to the right to send a notification.",
     friendlist_onboarding_tap: "Tap a friend's name to open the ephemeral chat.",
@@ -920,9 +923,8 @@ const i18n = new I18n({
     friendlist_onboarding_silent_send: "Enable silent sends to send your notifications discreetly.",
     friendlist_onboarding_search_contacts: "Look for friends in your list.",
     friendlist_onboarding_search_pseudo: "Search for a friend by username.",
-    chat_onboarding_tap_category: "Change the random sound category with a simple tap.",
-    chat_onboarding_long_press_specific: "A long press lets you choose a specific sound.",
-    chat_onboarding_mute: "Allows you to chat without sounds.",
+    chat_onboarding_choose_specific_sound: "Choose a specific sound",
+    chat_onboarding_mute: "Allows you to chat in silence",
     chat_onboarding_long_press_report: "A long-press on a message lets you report it to moderation.",
 
     // Notifications & Errors
@@ -1282,7 +1284,7 @@ const i18n = new I18n({
 
     // Complicidad
     complicity_title: "El Índice de Resonancia",
-    complicity_subtitle: "Puntuación de complicidad",
+    complicity_subtitle: "¡Puntuación de complicidad!",
     complicity_level_1: "Soplo Inicial",
     complicity_level_2: "Acorde Compartido",
     complicity_level_3: "Estela de Almas",
@@ -1314,6 +1316,8 @@ const i18n = new I18n({
     friend_sound_modal_title_random: "¡Deja que el azar decida!",
     friend_sound_modal_or: "O",
     friend_sound_modal_pick_button: "Elige tu sonido",
+    chat_sound_picker_inline_text: "Déjate llevar o",
+    chat_sound_picker_inline_button: "Elegir un sonido",
 
     // Profil
     edit_profile: "Editar perfil",
@@ -1434,8 +1438,8 @@ const i18n = new I18n({
     tuto_3_desc: "¿Necesitas tranquilidad? Activa el modo Zen para dejar de recibir (y enviar) notificaciones.",
     tuto_silent_title: "Envíos silenciosos",
     tuto_silent_desc: "¡Puedes activar este modo para enviar tus notificaciones con total discreción!",
-    tuto_4_title: "Silenciar",
-    tuto_4_desc: "Deslizando hacia la izquierda el nombre de un contacto, puedes silenciarlo.",
+    tuto_4_title: "Bloquear",
+    tuto_4_desc: "Al deslizar hacia la izquierda el nombre de un contacto, puedes bloquearlo.",
 
     // Onboarding
     onboarding_welcome_title: "Proot!",
@@ -1466,11 +1470,11 @@ const i18n = new I18n({
     phone_format_placeholder: "+34 612 34 56 78",
 
     // Footer & Help
-    footer_help_text: "Desliza hacia la derecha para enviar una notificación sonora, toca antes de deslizar para agregar un mensaje y mantén presionado para elegir la categoría de sonido o un sonido específico!",
+    footer_help_text: "Desliza hacia la derecha para enviar una notificación aleatoria\nToca para abrir el chat\nMantén pulsado para elegir un sonido!",
     footer_sound_category_info: "El sonido de las notificaciones se elegirá aleatoriamente entre la categoría de onda sonora seleccionada.",
     friendlist_onboarding_swipe: "Desliza el nombre de un amigo hacia la derecha para enviar una notificación.",
     friendlist_onboarding_tap: "Toca el nombre de un amigo para abrir el chat efímero.",
-    friendlist_onboarding_long_press: "Mantén pulsado para elegir la categoría de sonido o un sonido específico.",
+    friendlist_onboarding_long_press: "Mantén pulsado para elegir un sonido específico.",
     friendlist_onboarding_swipe_left_block: "Desliza hacia la izquierda para bloquear a un contacto abusivo.",
     friendlist_onboarding_soundcheck: "Explora tu biblioteca de sonidos",
     friendlist_onboarding_resonance: "Consulta la complicidad acústica que tienes con tus amigos en el panel de Resonancia.",
@@ -1478,9 +1482,8 @@ const i18n = new I18n({
     friendlist_onboarding_silent_send: "Activa los envíos silenciosos para enviar tus notificaciones con discreción.",
     friendlist_onboarding_search_contacts: "Busca amigos en tu lista.",
     friendlist_onboarding_search_pseudo: "Busca a un amigo con su seudónimo.",
-    chat_onboarding_tap_category: "Cambia la categoría de sonidos aleatorios con un simple toque.",
-    chat_onboarding_long_press_specific: "Un toque largo te permite elegir un sonido específico.",
-    chat_onboarding_mute: "Te permite chatear sin sonidos.",
+    chat_onboarding_choose_specific_sound: "Elige un sonido específico",
+    chat_onboarding_mute: "Te permite chatear en silencio",
     chat_onboarding_long_press_report: "Un toque largo sobre un mensaje permite reportarlo al equipo de moderación.",
 
     // Notifications & Errors
@@ -1842,7 +1845,7 @@ const i18n = new I18n({
 
     // Complicidade
     complicity_title: "O Índice de Ressonância",
-    complicity_subtitle: "Pontuação de cumplicidade",
+    complicity_subtitle: "Pontuação de cumplicidade!",
     complicity_level_1: "Sopro Inicial",
     complicity_level_2: "Acorde Compartilhado",
     complicity_level_3: "Rastro de Almas",
@@ -1874,6 +1877,8 @@ const i18n = new I18n({
     friend_sound_modal_title_random: "Deixe o acaso decidir!",
     friend_sound_modal_or: "Ou",
     friend_sound_modal_pick_button: "Escolha seu som",
+    chat_sound_picker_inline_text: "Deixa rolar ou",
+    chat_sound_picker_inline_button: "Escolher um som",
 
     // Profil
     edit_profile: "Editar Perfil",
@@ -1991,8 +1996,8 @@ const i18n = new I18n({
     tuto_3_desc: "Quer paz? Ativa o Zen.",
     tuto_silent_title: "Envio ninja",
     tuto_silent_desc: "Manda sem fazer barulho no seu cel!",
-    tuto_4_title: "Silenciar",
-    tuto_4_desc: "Arrasta pra esquerda pra calar a boca do amigo.",
+    tuto_4_title: "Bloquear",
+    tuto_4_desc: "Ao deslizar para a esquerda no nome de um contato, você pode bloqueá-lo.",
 
     // Onboarding
     onboarding_welcome_title: "Proot!",
@@ -2023,11 +2028,11 @@ const i18n = new I18n({
     phone_format_placeholder: "+55 11 99999 9999",
 
     // Footer & Help
-    footer_help_text: "Direita pra enviar uma notificação sonora, clica antes pra escrever e mantenha pressionado para escolher a categoria de som ou um som específico!",
+    footer_help_text: "Deslize para a direita para enviar uma notificação aleatória\nToque para abrir o chat\nMantenha pressionado para escolher um som!",
     footer_sound_category_info: "O som das notificações será escolhido aleatoriamente dentro da categoria de onda sonora selecionada!",
     friendlist_onboarding_swipe: "Deslize o nome de um amigo para a direita para enviar uma notificação.",
     friendlist_onboarding_tap: "Toque no nome de um amigo para abrir o chat efêmero.",
-    friendlist_onboarding_long_press: "Faça um toque longo para escolher a categoria de som ou um som específico.",
+    friendlist_onboarding_long_press: "Faça um toque longo para escolher um som específico.",
     friendlist_onboarding_swipe_left_block: "Deslize para a esquerda para bloquear um contato abusivo.",
     friendlist_onboarding_soundcheck: "Explore sua biblioteca de sons",
     friendlist_onboarding_resonance: "Veja a cumplicidade acústica que você tem com seus amigos no painel de Ressonância!",
@@ -2035,9 +2040,8 @@ const i18n = new I18n({
     friendlist_onboarding_silent_send: "Ative os envios silenciosos para mandar notificações com discrição.",
     friendlist_onboarding_search_contacts: "Procure amigos na sua lista.",
     friendlist_onboarding_search_pseudo: "Procure um amigo pelo pseudo.",
-    chat_onboarding_tap_category: "Mude a categoria de sons aleatórios com um simples toque.",
-    chat_onboarding_long_press_specific: "Um toque longo permite escolher um som específico.",
-    chat_onboarding_mute: "Permite conversar sem sons.",
+    chat_onboarding_choose_specific_sound: "Escolha um som específico",
+    chat_onboarding_mute: "Permite conversar em silêncio",
     chat_onboarding_long_press_report: "Um toque longo em uma mensagem permite denunciá-la à moderação.",
 
     // Notifications & Errors
@@ -2399,7 +2403,7 @@ const i18n = new I18n({
 
     // Komplizenschaft
     complicity_title: "Der Resonanz-Index",
-    complicity_subtitle: "Komplizenschafts-Punktzahl",
+    complicity_subtitle: "Komplizenschafts-Punktzahl!",
     complicity_level_1: "Erster Hauch",
     complicity_level_2: "Geteilter Einklang",
     complicity_level_3: "Seelen-Sillage",
@@ -2431,6 +2435,8 @@ const i18n = new I18n({
     friend_sound_modal_title_random: "Lass den Zufall entscheiden!",
     friend_sound_modal_or: "Oder",
     friend_sound_modal_pick_button: "Wähle deinen Sound",
+    chat_sound_picker_inline_text: "Lass es laufen oder",
+    chat_sound_picker_inline_button: "Einen Sound wählen",
 
     // Profil
     edit_profile: "Profil bearbeiten",
@@ -2548,8 +2554,8 @@ const i18n = new I18n({
     tuto_3_desc: "Willst du Ruhe? Aktiviere den Zen-Modus.",
     tuto_silent_title: "Ninja-Versand",
     tuto_silent_desc: "Sende ohne Lärm auf deinem Handy!",
-    tuto_4_title: "Stummschalten",
-    tuto_4_desc: "Ziehe nach links, um den Freund stummzuschalten.",
+    tuto_4_title: "Blockieren",
+    tuto_4_desc: "Wische nach links auf den Namen eines Kontakts, um ihn zu blockieren.",
 
     // Onboarding
     onboarding_welcome_title: "Proot!",
@@ -2580,11 +2586,11 @@ const i18n = new I18n({
     phone_format_placeholder: "+49 30 12345678",
 
     // Footer & Help
-    footer_help_text: "Rechts zum Senden einer Tonbenachrichtigung, vorher klicken zum Schreiben und lange drücken, um die Soundkategorie oder einen bestimmten Sound auszuwählen!",
+    footer_help_text: "Nach rechts wischen, um eine zufällige Benachrichtigung zu senden\nTippen, um den Chat zu öffnen\nLange drücken, um einen Sound auszuwählen!",
     footer_sound_category_info: "Der Benachrichtigungston wird zufällig aus der ausgewählten Schallwellen-Kategorie gewählt!",
     friendlist_onboarding_swipe: "Wische den Namen eines Freundes nach rechts, um eine Benachrichtigung zu senden.",
     friendlist_onboarding_tap: "Tippe auf den Namen eines Freundes, um den ephemeren Chat zu öffnen.",
-    friendlist_onboarding_long_press: "Halte lange gedrückt, um die Sound-Kategorie oder einen spezifischen Sound auszuwählen.",
+    friendlist_onboarding_long_press: "Halte lange gedrückt, um einen bestimmten Sound auszuwählen.",
     friendlist_onboarding_swipe_left_block: "Wische nach links, um einen missbräuchlichen Kontakt zu blockieren.",
     friendlist_onboarding_soundcheck: "Erkunde deine Sound-Bibliothek",
     friendlist_onboarding_resonance: "Sieh dir die akustische Komplizenschaft mit deinen Freunden im Resonanz-Dashboard an!",
@@ -2592,9 +2598,8 @@ const i18n = new I18n({
     friendlist_onboarding_silent_send: "Aktiviere stille Sendungen, um Benachrichtigungen diskret zu versenden.",
     friendlist_onboarding_search_contacts: "Suche Freunde in deiner Liste.",
     friendlist_onboarding_search_pseudo: "Suche einen Freund mit seinem Pseudonym.",
-    chat_onboarding_tap_category: "Ändere die zufällige Sound-Kategorie mit einem einfachen Tippen.",
-    chat_onboarding_long_press_specific: "Ein langes Drücken ermöglicht es dir, einen spezifischen Sound auszuwählen.",
-    chat_onboarding_mute: "Ermöglicht es dir, ohne Sounds zu chatten.",
+    chat_onboarding_choose_specific_sound: "Wählen Sie einen bestimmten Sound",
+    chat_onboarding_mute: "Ermöglicht es dir, in Stille zu chatten",
     chat_onboarding_long_press_report: "Ein langer Druck auf eine Nachricht ermöglicht es dir, sie an die Moderation zu melden.",
 
     // Notifications & Errors
@@ -2956,7 +2961,7 @@ const i18n = new I18n({
 
     // Complicità
     complicity_title: "L'Indice di Risonanza",
-    complicity_subtitle: "Punteggio di complicità",
+    complicity_subtitle: "Punteggio di complicità!",
     complicity_level_1: "Soffio Iniziale",
     complicity_level_2: "Accordo Condiviso",
     complicity_level_3: "Scia d'Anime",
@@ -2988,6 +2993,8 @@ const i18n = new I18n({
     friend_sound_modal_title_random: "Lascia decidere il caso!",
     friend_sound_modal_or: "Oppure",
     friend_sound_modal_pick_button: "Scegli il tuo suono",
+    chat_sound_picker_inline_text: "Lascia andare oppure",
+    chat_sound_picker_inline_button: "Scegli un suono",
 
     // Profil
     edit_profile: "Modifica Profilo",
@@ -3105,8 +3112,8 @@ const i18n = new I18n({
     tuto_3_desc: "Vuoi pace? Attiva la modalità Zen.",
     tuto_silent_title: "Invio ninja",
     tuto_silent_desc: "Invia senza fare rumore sul tuo telefono!",
-    tuto_4_title: "Silenzia",
-    tuto_4_desc: "Trascina a sinistra per silenziare l'amico.",
+    tuto_4_title: "Blocca",
+    tuto_4_desc: "Scorrendo a sinistra sul nome di un contatto, puoi bloccarlo.",
 
     // Onboarding
     onboarding_welcome_title: "Proot!",
@@ -3137,11 +3144,11 @@ const i18n = new I18n({
     phone_format_placeholder: "+39 06 12345678",
 
     // Footer & Help
-    footer_help_text: "Destra per inviare una notifica sonora, clicca prima per scrivere e tieni premuto per scegliere la categoria di suono o un suono specifico!",
+    footer_help_text: "Scorri verso destra per inviare una notifica casuale\nTocca per aprire la chat\nTieni premuto per scegliere un suono!",
     footer_sound_category_info: "Il suono delle notifiche verrà scelto casualmente dalla categoria di onda sonora selezionata!",
     friendlist_onboarding_swipe: "Scorri il nome di un amico verso destra per inviare una notifica.",
     friendlist_onboarding_tap: "Tocca il nome di un amico per aprire la chat effimera.",
-    friendlist_onboarding_long_press: "Fai una pressione prolungata per scegliere la categoria di suono o un suono specifico.",
+    friendlist_onboarding_long_press: "Fai una pressione prolungata per scegliere un suono specifico.",
     friendlist_onboarding_swipe_left_block: "Scorri verso sinistra per bloccare un contatto abusivo.",
     friendlist_onboarding_soundcheck: "Esplora la tua biblioteca di suoni",
     friendlist_onboarding_resonance: "Consulta la complicità acustica che hai con i tuoi amici nel pannello di Risonanza!",
@@ -3149,9 +3156,8 @@ const i18n = new I18n({
     friendlist_onboarding_silent_send: "Attiva gli invii silenziosi per mandare notifiche in modo discreto.",
     friendlist_onboarding_search_contacts: "Cerca amici nella tua lista.",
     friendlist_onboarding_search_pseudo: "Cerca un amico con il suo pseudonimo.",
-    chat_onboarding_tap_category: "Cambia la categoria di suoni casuali con un semplice tocco.",
-    chat_onboarding_long_press_specific: "Una pressione prolungata ti permette di scegliere un suono specifico.",
-    chat_onboarding_mute: "Ti permette di chattare senza suoni.",
+    chat_onboarding_choose_specific_sound: "Scegli un suono specifico",
+    chat_onboarding_mute: "Ti permette di chattare in silenzio",
     chat_onboarding_long_press_report: "Una pressione prolungata su un messaggio ti permette di segnalarlo alla moderazione.",
 
     // Notifications & Errors

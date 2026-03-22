@@ -649,52 +649,6 @@ export default function HomeScreen() {
 
   return (
     <>
-      {/* Modal Zen - EN DEHORS pour couvrir la StatusBar (Edge-to-Edge) */}
-      {showZenOptions && (
-        <View style={styles.zenOverlay}>
-          <View style={styles.zenCard}>
-            <Text style={styles.zenTitle}>{i18n.t('zen_confirm_title')}</Text>
-            <Text style={styles.zenSubtitle}>{i18n.t('choose_duration')}</Text>
-            {[
-              { label: '1h', type: '1h' as const },
-              { label: '8h', type: '8h' as const },
-              { label: i18n.t('zen_job_label'), type: 'job' as const },
-              { label: i18n.t('zen_night_label'), type: 'night' as const },
-            ].map((opt) => (
-              <TouchableOpacity
-                key={opt.type}
-                style={styles.zenOption}
-                onPress={async () => {
-                  setShowZenOptions(false);
-                  await handleZenSelection(opt.type);
-                }}
-              >
-                <Text style={styles.zenOptionText}>{opt.label}</Text>
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity style={styles.zenCancel} onPress={() => setShowZenOptions(false)}>
-              <Text style={styles.zenCancelText}>{i18n.t('cancel')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
-
-      {/* Modal Envois silencieux — OK = activer le mode, clic dehors = fermer sans activer */}
-      {showSilentModal && (
-        <View style={styles.zenOverlay} pointerEvents="box-none">
-          <TouchableWithoutFeedback onPress={() => setShowSilentModal(false)}>
-            <View style={StyleSheet.absoluteFill} />
-          </TouchableWithoutFeedback>
-          <View style={styles.silentModalCard}>
-            <Text style={styles.zenTitle}>{i18n.t('silent_mode_title')}</Text>
-            <Text style={styles.silentModalDescription}>{i18n.t('silent_mode_description')}</Text>
-            <TouchableOpacity style={styles.zenCancel} onPress={confirmSilentMode}>
-              <Text style={styles.zenCancelText}>{i18n.t('ok')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
-
       <View style={[styles.container, { paddingTop: insets.top }]}>
         {Platform.OS === 'ios' ? (
           <KeyboardAvoidingView 
@@ -731,19 +685,14 @@ export default function HomeScreen() {
                        <AppHeader
                          currentPseudo={currentPseudo}
                          profileAvatarUrl={currentAvatarUrl}
-                         isZenMode={isZenMode}
-                         isSilentMode={isSilentMode}
                          isProfileMenuOpen={activeView === 'profileMenu'}
                         isProfileOpen={activeView === 'profile'}
                         isSearchVisible={isSearchVisible}
                         onSearchToggle={toggleSearchVisibility}
-                        onAddFriendPress={() => { setShowSearch(true); setActiveView('list'); }}
                         onComplicityPress={handleComplicityPress}
                         onSoundcheckPress={handleSoundcheckPress}
                         onProfileMenuPress={toggleProfileMenu}
                         onProfilePress={() => setActiveView('profile')}
-                        onZenModeToggle={toggleZenMode}
-                        onSilentModeToggle={toggleSilentMode}
                         shakeX={shakeX}
                         shakeY={shakeY}
                        />
@@ -761,15 +710,11 @@ export default function HomeScreen() {
                            <AppHeader
                              currentPseudo={currentPseudo}
                             profileAvatarUrl={currentAvatarUrl}
-                             isZenMode={isZenMode}
-                             isSilentMode={isSilentMode}
                              isProfileMenuOpen={activeView === 'profileMenu'}
                              isProfileOpen={activeView === 'profile'}
                              onProfileMenuPress={toggleProfileMenu}
                             onProfilePress={() => setActiveView('profile')}
                              onSoundcheckPress={handleSoundcheckPress}
-                             onZenModeToggle={toggleZenMode}
-                             onSilentModeToggle={toggleSilentMode}
                              shakeX={shakeX}
                              shakeY={shakeY}
                            />
@@ -777,6 +722,9 @@ export default function HomeScreen() {
                          
                          <View style={styles.menuCard}>
                            {[
+                             { label: i18n.t('zen_mode'), icon: isZenMode ? 'moon' : 'moon-outline', onPress: () => { void toggleZenMode(); }, iconColor: isZenMode ? '#ebb89b' : '#604a3e' },
+                             { label: i18n.t('silent_mode'), icon: isSilentMode ? 'volume-mute' : 'volume-mute-outline', onPress: () => { toggleSilentMode(); }, iconColor: isSilentMode ? '#ebb89b' : '#604a3e' },
+                             { label: i18n.t('search_title'), icon: 'person-add-outline', onPress: () => { setActiveView('list'); setShowSearch(true); }, iconColor: showSearch ? '#ebb89b' : '#604a3e' },
                              { label: i18n.t('manage_profile'), icon: 'person-circle-outline', onPress: () => setActiveView('profile'), iconColor: '#604a3e' },
                              { label: i18n.t('invite_friend'), icon: 'share-social-outline', onPress: handleShare, iconColor: '#604a3e' },
                              { label: i18n.t('review_app_functions'), icon: 'help-circle-outline', onPress: () => setActiveView('tutorial'), iconColor: '#604a3e' },
@@ -835,19 +783,14 @@ export default function HomeScreen() {
                     <AppHeader
                       currentPseudo={currentPseudo}
                       profileAvatarUrl={currentAvatarUrl}
-                      isZenMode={isZenMode}
-                      isSilentMode={isSilentMode}
                       isProfileMenuOpen={activeView === 'profileMenu'}
                       isProfileOpen={activeView === 'profile'}
                       isSearchVisible={isSearchVisible}
                       onSearchToggle={toggleSearchVisibility}
-                      onAddFriendPress={() => { setShowSearch(true); setActiveView('list'); }}
                       onComplicityPress={handleComplicityPress}
                       onSoundcheckPress={handleSoundcheckPress}
                       onProfileMenuPress={toggleProfileMenu}
                       onProfilePress={() => setActiveView('profile')}
-                      onZenModeToggle={toggleZenMode}
-                      onSilentModeToggle={toggleSilentMode}
                       shakeX={shakeX}
                       shakeY={shakeY}
                     />
@@ -865,15 +808,11 @@ export default function HomeScreen() {
                         <AppHeader
                           currentPseudo={currentPseudo}
                           profileAvatarUrl={currentAvatarUrl}
-                          isZenMode={isZenMode}
-                          isSilentMode={isSilentMode}
                           isProfileMenuOpen={activeView === 'profileMenu'}
                           isProfileOpen={activeView === 'profile'}
                           onProfileMenuPress={toggleProfileMenu}
                           onProfilePress={() => setActiveView('profile')}
                           onSoundcheckPress={handleSoundcheckPress}
-                          onZenModeToggle={toggleZenMode}
-                          onSilentModeToggle={toggleSilentMode}
                           shakeX={shakeX}
                           shakeY={shakeY}
                         />
@@ -881,6 +820,9 @@ export default function HomeScreen() {
                       
                       <View style={styles.menuCard}>
                           {[
+                            { label: i18n.t('zen_mode'), icon: isZenMode ? 'moon' : 'moon-outline', onPress: () => { void toggleZenMode(); }, iconColor: isZenMode ? '#ebb89b' : '#604a3e' },
+                            { label: i18n.t('silent_mode'), icon: isSilentMode ? 'volume-mute' : 'volume-mute-outline', onPress: () => { toggleSilentMode(); }, iconColor: isSilentMode ? '#ebb89b' : '#604a3e' },
+                            { label: i18n.t('search_title'), icon: 'person-add-outline', onPress: () => { setActiveView('list'); setShowSearch(true); }, iconColor: showSearch ? '#ebb89b' : '#604a3e' },
                             { label: i18n.t('manage_profile'), icon: 'person-circle-outline', onPress: () => setActiveView('profile'), iconColor: '#604a3e' },
                             { label: i18n.t('invite_friend'), icon: 'share-social-outline', onPress: handleShare, iconColor: '#604a3e' },
                             { label: i18n.t('review_app_functions'), icon: 'help-circle-outline', onPress: () => setActiveView('tutorial'), iconColor: '#604a3e' },
@@ -914,6 +856,51 @@ export default function HomeScreen() {
       <SearchUser visible={showSearch} onClose={() => setShowSearch(false)} />
       <IdentityList visible={showIdentity} onClose={() => setShowIdentity(false)} />
     </View>
+
+      {/* Après le conteneur principal : au-dessus du menu liste (z-index) */}
+      {showZenOptions && (
+        <View style={styles.zenOverlay}>
+          <View style={styles.zenCard}>
+            <Text style={styles.zenTitle}>{i18n.t('zen_confirm_title')}</Text>
+            <Text style={styles.zenSubtitle}>{i18n.t('choose_duration')}</Text>
+            {[
+              { label: '1h', type: '1h' as const },
+              { label: '8h', type: '8h' as const },
+              { label: i18n.t('zen_job_label'), type: 'job' as const },
+              { label: i18n.t('zen_night_label'), type: 'night' as const },
+            ].map((opt) => (
+              <TouchableOpacity
+                key={opt.type}
+                style={styles.zenOption}
+                onPress={async () => {
+                  setShowZenOptions(false);
+                  await handleZenSelection(opt.type);
+                }}
+              >
+                <Text style={styles.zenOptionText}>{opt.label}</Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity style={styles.zenCancel} onPress={() => setShowZenOptions(false)}>
+              <Text style={styles.zenCancelText}>{i18n.t('cancel')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {showSilentModal && (
+        <View style={styles.zenOverlay} pointerEvents="box-none">
+          <TouchableWithoutFeedback onPress={() => setShowSilentModal(false)}>
+            <View style={StyleSheet.absoluteFill} />
+          </TouchableWithoutFeedback>
+          <View style={styles.silentModalCard}>
+            <Text style={styles.zenTitle}>{i18n.t('silent_mode_title')}</Text>
+            <Text style={styles.silentModalDescription}>{i18n.t('silent_mode_description')}</Text>
+            <TouchableOpacity style={styles.zenCancel} onPress={confirmSilentMode}>
+              <Text style={styles.zenCancelText}>{i18n.t('ok')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </>
   );
 }

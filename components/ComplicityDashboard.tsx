@@ -260,24 +260,32 @@ export default function ComplicityDashboard() {
             style={styles.headerImage}
             resizeMode="contain"
           />
-          <Text style={styles.headerSubtitle}>{i18n.t('complicity_subtitle')}</Text>
         </View>
 
         <View style={styles.headerNavRow}>
-          {showBackButton ? (
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={24} color={COLORS.textMain} />
+          <View style={styles.headerNavSide}>
+            {showBackButton ? (
+              <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                <Ionicons name="arrow-back" size={24} color={COLORS.textMain} />
+              </TouchableOpacity>
+            ) : (
+              <View style={[styles.backButton, { width: 40 }]} />
+            )}
+          </View>
+          <View style={styles.headerNavCenter}>
+            <Text style={styles.headerSubtitle} numberOfLines={2}>
+              {i18n.t('complicity_subtitle')}
+            </Text>
+          </View>
+          <View style={styles.headerNavSide}>
+            <TouchableOpacity
+              style={styles.helpButton}
+              onPress={() => setHelpModalVisible(true)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="help-circle-outline" size={24} color="#ffffff" />
             </TouchableOpacity>
-          ) : (
-            <View style={[styles.backButton, { width: 40 }]} />
-          )}
-          <TouchableOpacity
-            style={styles.helpButton}
-            onPress={() => setHelpModalVisible(true)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="help-circle-outline" size={24} color="#ffffff" />
-          </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -500,18 +508,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: 0,
+    width: '100%',
+  },
+  /** Largeur égale gauche / droite pour centrer le sous-titre */
+  headerNavSide: {
+    width: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+  },
+  headerNavCenter: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    minHeight: 44,
   },
   headerImage: {
     width: 310,
     height: 75,
-    marginBottom: 20,
+    marginBottom: 12,
   },
   headerSubtitle: {
-    color: COLORS.textSecondary,
+    color: COLORS.textMain,
     fontSize: 14,
-    fontStyle: 'italic',
-    marginTop: 8,
+    fontWeight: '700',
     textAlign: 'center',
+    width: '100%',
   },
   helpButton: {
     padding: 8,

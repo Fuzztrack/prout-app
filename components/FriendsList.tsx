@@ -6,7 +6,7 @@ import { Audio } from 'expo-av';
 import * as Contacts from 'expo-contacts';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { Alert, AppState, DeviceEventEmitter, Dimensions, FlatList, Image, Keyboard, KeyboardAvoidingView, Linking, NativeModules, Platform, Animated as RNAnimated, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { Alert, AppState, DeviceEventEmitter, Dimensions, FlatList, Image, Keyboard, KeyboardAvoidingView, Linking, NativeModules, Platform, Animated as RNAnimated, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { Gesture, GestureDetector, TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
 // 👇 AJOUT : Hook pour capturer la hauteur réelle du clavier (Texte OU Emoji)
 import { useKeyboardHandler } from 'react-native-keyboard-controller';
@@ -75,6 +75,8 @@ const USE_PROOT_TOOT_LOGO = Platform.OS === 'android' || !IS_ENGLISH_LOCALE;
 const TOOT_LOGO_IMAGE = USE_PROOT_TOOT_LOGO
   ? require('../assets/images/proot.png')
   : require('../assets/images/toot.png');
+/** Miniature cliquable sous le chat pour ouvrir le sélecteur de sons */
+const CHAT_PROOTHAIL_THUMB = require('../assets/images/proothail.png');
 const TOOT_CHAT_ICON_SIZE = Platform.OS === 'android'
   ? { width: 82, height: 55 }
   : USE_PROOT_TOOT_LOGO
@@ -88,8 +90,10 @@ const TOOT_PICK_HEADER_SIZE = Platform.OS === 'android'
     : { width: 80, height: 32 };
 const MOOD_PICK_HEADER_SIZE = Platform.OS === 'android' ? { width: 88, height: 38 } : undefined;
 // Curseur « catégorie par défaut » dans le modal choose your sound (grille 5 icônes)
+/** `false` = curseur masqué, défaut toujours proot (toot). Mettre à `true` pour réafficher le curseur. */
+const SHOW_DEFAULT_SOUND_CATEGORY_CURSOR = false;
 const TOOT_CURSOR_ICON_SIZE = Platform.OS === 'android'
-  ? { width: 90, height: 38 }
+  ? { width: 82, height: 34 }
   : USE_PROOT_TOOT_LOGO
     ? { width: 90, height: 36 }
     : { width: 72, height: 28 };
@@ -104,10 +108,11 @@ const DEFAULT_SOUND_OPTIONS: Array<{ category: SoundCategory; image: any }> = Pl
       { category: 'bzzz', image: require('../assets/images/buzz.png') },
     ]
   : [
-      { category: 'mood', image: require('../assets/images/mood.png') },
-      { category: 'pop', image: require('../assets/images/pop.png') },
-      { category: 'trll', image: require('../assets/images/tweet.png') },
+      // iOS : curseur — toot/proot · pop · mood · tweet · buzz
       { category: 'toot', image: TOOT_LOGO_IMAGE },
+      { category: 'pop', image: require('../assets/images/pop.png') },
+      { category: 'mood', image: require('../assets/images/mood.png') },
+      { category: 'trll', image: require('../assets/images/tweet.png') },
       { category: 'bzzz', image: require('../assets/images/buzz.png') },
     ];
 const DEFAULT_SOUND_OPTION_ROWS = [
@@ -127,17 +132,25 @@ function pickRandomWithoutImmediateRepeat(arr: string[], lastValue?: string) {
   return pickRandom(filtered);
 }
 
+/**
+ * 1er démarrage / aucune préférence enregistrée : toot (proot).
+ * (Avec curseur masqué, on ne propose plus d’autre catégorie par défaut.)
+ */
+function getDefaultSoundCategoryForFirstLaunch(): SoundCategory {
+  return 'toot';
+}
+
 async function getSelectedSoundCategory(): Promise<SoundCategory> {
+  if (!SHOW_DEFAULT_SOUND_CATEGORY_CURSOR) {
+    return 'toot';
+  }
   try {
     const saved = await AsyncStorage.getItem(SOUND_CATEGORY_KEY);
     if (saved === 'bzzz' || saved === 'trll' || saved === 'pop' || saved === 'mood' || saved === 'toot') {
       return saved as SoundCategory;
     }
   } catch (_) {}
-  // 1er démarrage :
-  // - Android : par défaut "toot" (proot)
-  // - iOS : par défaut "mood"
-  return Platform.OS === 'android' ? 'toot' : 'mood';
+  return getDefaultSoundCategoryForFirstLaunch();
 }
 
 function getDisplaySoundLabel(soundKey: string) {
@@ -887,17 +900,19 @@ export function FriendsList({
   const [loading, setLoading] = useState(true); // Commencer à true pour éviter le flash
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [chatMessageSoundChoice, setChatMessageSoundChoice] = useState<ChatMessageSoundChoice>(
-    Platform.OS === 'android' ? 'toot' : 'mood'
+    getDefaultSoundCategoryForFirstLaunch() as ChatMessageSoundChoice
   );
   const [isChatMuteEnabled, setIsChatMuteEnabled] = useState(false);
+  const [isChatSoundPickerVisible, setIsChatSoundPickerVisible] = useState(false);
   const [chatSpecificSoundListCategory, setChatSpecificSoundListCategory] = useState<ChatMessageSoundChoice | null>(null);
+  const [pendingChatSpecificSoundListCategory, setPendingChatSpecificSoundListCategory] = useState<ChatMessageSoundChoice | null>(null);
   const [pendingChatSoundKeyByFriend, setPendingChatSoundKeyByFriend] = useState<Record<string, string>>({});
   const [friendSoundCategoryByFriend, setFriendSoundCategoryByFriend] = useState<Record<string, SoundCategory>>({});
   const [friendSoundKeyByFriend, setFriendSoundKeyByFriend] = useState<Record<string, string>>({});
   const [friendSoundModalVisible, setFriendSoundModalVisible] = useState(false);
   const [friendSoundModalFriend, setFriendSoundModalFriend] = useState<any>(null);
   const [globalDefaultCategory, setGlobalDefaultCategory] = useState<SoundCategory>(
-    Platform.OS === 'android' ? 'toot' : 'mood'
+    getDefaultSoundCategoryForFirstLaunch()
   );
   const [isFirstFriendlistModalVisible, setIsFirstFriendlistModalVisible] = useState(false);
   const [isFirstFriendlistFeaturesModalVisible, setIsFirstFriendlistFeaturesModalVisible] = useState(false);
@@ -1857,20 +1872,15 @@ useEffect(() => {
 useEffect(() => {
   const loadChatSoundChoice = async () => {
     try {
-      const [savedChoice, savedMute] = await Promise.all([
+      const [, savedMute] = await Promise.all([
         AsyncStorage.getItem(CHAT_MESSAGE_SOUND_CHOICE_KEY),
         AsyncStorage.getItem(CHAT_MESSAGE_MUTE_KEY),
       ]);
-      if (savedChoice === 'trll' || savedChoice === 'bzzz' || savedChoice === 'pop' || savedChoice === 'mood' || savedChoice === 'toot') {
-        setChatMessageSoundChoice(savedChoice);
-      } else if (savedChoice === 'mute') {
-        // Ancien format: "mute" dans le choix principal.
-        // On ne force plus la sourdine automatiquement pour éviter un chat
-        // silencieux inattendu après migration vers le bouton mute en header.
-        const nextDefault = Platform.OS === 'android' ? 'toot' : 'mood';
-        setChatMessageSoundChoice(nextDefault);
-        AsyncStorage.setItem(CHAT_MESSAGE_SOUND_CHOICE_KEY, nextDefault).catch(() => {});
-      }
+      // Plus de sélection catégorie au tap : défaut toujours proot (toot) pour la randomisation.
+      const nextDefault = getDefaultSoundCategoryForFirstLaunch() as ChatMessageSoundChoice;
+      setChatMessageSoundChoice(nextDefault);
+      // Aligner le stockage (migration depuis d’anciennes préférences par catégorie).
+      AsyncStorage.setItem(CHAT_MESSAGE_SOUND_CHOICE_KEY, nextDefault).catch(() => {});
       if (savedMute === '1') {
         setIsChatMuteEnabled(true);
       }
@@ -1881,58 +1891,84 @@ useEffect(() => {
   loadChatSoundChoice();
 }, []);
 
-const selectChatMessageSoundChoice = useCallback((choice: ChatMessageSoundChoice) => {
-  setChatMessageSoundChoice(choice);
-  AsyncStorage.setItem(CHAT_MESSAGE_SOUND_CHOICE_KEY, choice).catch(() => {});
-  if (expandedFriendId) {
-    setPendingChatSoundKeyByFriend((prev) => {
-      if (!prev[expandedFriendId]) return prev;
-      const { [expandedFriendId]: _removed, ...rest } = prev;
-      return rest;
-    });
-  }
-  if (chatSpecificSoundListCategory) {
-    setChatSpecificSoundListCategory(choice);
-  }
-}, [chatSpecificSoundListCategory, expandedFriendId]);
-
 const closeChatSpecificSoundList = useCallback(() => {
-  if (!chatSpecificSoundListCategory) return;
+  if (!isChatSoundPickerVisible && !chatSpecificSoundListCategory && !pendingChatSpecificSoundListCategory) return;
+  setIsChatSoundPickerVisible(false);
+  setPendingChatSpecificSoundListCategory(null);
   setChatSpecificSoundListCategory(null);
   if (expandedFriendId) {
     setTimeout(() => {
       textInputRefs.current[expandedFriendId]?.focus?.();
     }, 50);
   }
-}, [chatSpecificSoundListCategory, expandedFriendId]);
+}, [isChatSoundPickerVisible, chatSpecificSoundListCategory, pendingChatSpecificSoundListCategory, expandedFriendId]);
 
 const openChatSpecificSoundList = useCallback((choice: ChatMessageSoundChoice) => {
-  // UX type WhatsApp : long-press pour ouvrir la liste → on ferme le clavier
+  // Le bouton "choose a sound" ouvre le picker avec une première liste.
+  // La randomisation sans son spécifique reste sur proot (toot) — pas de persistance catégorie ici.
+  // Android : attendre la vraie fermeture du clavier avant d'insérer la liste.
+  // Cela évite les allers-retours visibles du bloc input / icônes / liste.
+  setIsChatSoundPickerVisible(true);
+  if (Platform.OS === 'android' && keyboardVisibleRef.current) {
+    setPendingChatSpecificSoundListCategory(choice);
+    setChatSpecificSoundListCategory(null);
+    Keyboard.dismiss();
+    return;
+  }
   Keyboard.dismiss();
-  setChatMessageSoundChoice(choice);
-  AsyncStorage.setItem(CHAT_MESSAGE_SOUND_CHOICE_KEY, choice).catch(() => {});
+  setPendingChatSpecificSoundListCategory(null);
   setChatSpecificSoundListCategory(choice);
 }, []);
 
+const openChatSoundPicker = useCallback(() => {
+  // iOS : première liste = mood ; Android : défaut proot (toot)
+  const initial =
+    Platform.OS === 'ios'
+      ? ('mood' as ChatMessageSoundChoice)
+      : (getDefaultSoundCategoryForFirstLaunch() as ChatMessageSoundChoice);
+  openChatSpecificSoundList(initial);
+}, [openChatSpecificSoundList]);
+
+/** Tap sur une icône : change la liste affichée uniquement quand le picker est déjà visible. */
+const switchChatSoundListCategoryIfOpen = useCallback((choice: ChatMessageSoundChoice) => {
+  if (!isChatSoundPickerVisible && !chatSpecificSoundListCategory && !pendingChatSpecificSoundListCategory) {
+    return;
+  }
+  if (chatSpecificSoundListCategory) {
+    setChatSpecificSoundListCategory(choice);
+    return;
+  }
+  if (pendingChatSpecificSoundListCategory) {
+    setPendingChatSpecificSoundListCategory(choice);
+    return;
+  }
+  if (isChatSoundPickerVisible) {
+    openChatSpecificSoundList(choice);
+  }
+}, [isChatSoundPickerVisible, chatSpecificSoundListCategory, pendingChatSpecificSoundListCategory, openChatSpecificSoundList]);
+
 const handleSelectChatSpecificSound = useCallback((soundKey: string) => {
   if (!expandedFriendId) return;
+  setIsChatSoundPickerVisible(false);
+  setPendingChatSpecificSoundListCategory(null);
   setPendingChatSoundKeyByFriend((prev) => ({
     ...prev,
     [expandedFriendId]: soundKey,
   }));
   setChatSpecificSoundListCategory(null);
-  // Après un choix spécifique, on revient visuellement sur la catégorie par défaut choisie
-  // dans "choose your sound", sans effacer le son spécifique en attente.
-  setChatMessageSoundChoice(globalDefaultCategory as ChatMessageSoundChoice);
-  AsyncStorage.setItem(CHAT_MESSAGE_SOUND_CHOICE_KEY, globalDefaultCategory).catch(() => {});
+  // Après choix : pas d’icône catégorie active ; défaut proot pour les prochains envois sans son listé.
+  const ambientDefault = getDefaultSoundCategoryForFirstLaunch() as ChatMessageSoundChoice;
+  setChatMessageSoundChoice(ambientDefault);
+  AsyncStorage.setItem(CHAT_MESSAGE_SOUND_CHOICE_KEY, ambientDefault).catch(() => {});
 
   // Rouvrir le clavier et refocus l'input après la sélection
   setTimeout(() => {
     textInputRefs.current[expandedFriendId]?.focus?.();
   }, 50);
-}, [expandedFriendId, globalDefaultCategory]);
+}, [expandedFriendId]);
 
 const toggleChatMute = useCallback(() => {
+  setPendingChatSpecificSoundListCategory(null);
   setChatSpecificSoundListCategory(null);
   setIsChatMuteEnabled((prev) => {
     const next = !prev;
@@ -1963,6 +1999,7 @@ useEffect(() => {
 }, []);
 
 useEffect(() => {
+  if (!SHOW_DEFAULT_SOUND_CATEGORY_CURSOR) return;
   let mounted = true;
   AsyncStorage.getItem(SOUND_CATEGORY_KEY)
     .then((saved) => {
@@ -3929,18 +3966,37 @@ const closeIdentityModal = useCallback(() => {
   }, [expandedFriendId, appUsers]);
 
   useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    if (keyboardVisible) return;
+    if (!pendingChatSpecificSoundListCategory) return;
+    if (!expandedFriendId) {
+      setPendingChatSpecificSoundListCategory(null);
+      return;
+    }
+
+    const t = setTimeout(() => {
+      setChatSpecificSoundListCategory(pendingChatSpecificSoundListCategory);
+      setPendingChatSpecificSoundListCategory(null);
+    }, 40);
+
+    return () => clearTimeout(t);
+  }, [expandedFriendId, keyboardVisible, pendingChatSpecificSoundListCategory]);
+
+  useEffect(() => {
     if (expandedFriendId) {
       lastStickyOpenAtRef.current = Date.now();
       refocusOnHideAttemptedRef.current = false;
       refocusOnBlurAttemptedRef.current = false;
-    // A l'ouverture du chat, on aligne la catégorie affichée sur la catégorie
-    // par défaut choisie dans "choose your sound".
-    setChatMessageSoundChoice(globalDefaultCategory as ChatMessageSoundChoice);
-    AsyncStorage.setItem(CHAT_MESSAGE_SOUND_CHOICE_KEY, globalDefaultCategory).catch(() => {});
+      setIsChatSoundPickerVisible(false);
+      // A l'ouverture du chat : pas d’icône catégorie active ; défaut proot pour les envois sans son listé.
+      const ambient = getDefaultSoundCategoryForFirstLaunch() as ChatMessageSoundChoice;
+      setChatMessageSoundChoice(ambient);
+      AsyncStorage.setItem(CHAT_MESSAGE_SOUND_CHOICE_KEY, ambient).catch(() => {});
     } else {
       lastStickyOpenAtRef.current = null;
+      setIsChatSoundPickerVisible(false);
     }
-}, [expandedFriendId, globalDefaultCategory]);
+  }, [expandedFriendId]);
 
   useEffect(() => {
     if (isSearchVisible) {
@@ -4380,6 +4436,10 @@ const closeIdentityModal = useCallback(() => {
         delete next[recipient.id];
         return next;
       });
+      // Revenir au défaut proot : aucune catégorie « sélectionnée » visuellement pour le prochain message.
+      const ambientAfterSend = getDefaultSoundCategoryForFirstLaunch() as ChatMessageSoundChoice;
+      setChatMessageSoundChoice(ambientAfterSend);
+      AsyncStorage.setItem(CHAT_MESSAGE_SOUND_CHOICE_KEY, ambientAfterSend).catch(() => {});
       // Si A répond, PRRT! Protocol v2 : NE PAS FAIRE DISPARAÎTRE les messages de B tant que le chat est ouvert.
       // Le code précédent qui faisait un fade-out + clear cache est SUPPRIMÉ.
       // Les messages resteront visibles (soit via pendingMessages soit via keptReadMessagesRef)
@@ -4612,6 +4672,15 @@ const closeIdentityModal = useCallback(() => {
         return timeA - timeB;
     });
 
+    // Liste de sons ouverte (ou en attente Android) : la catégorie affichée = long press initial ou changée au tap.
+    const chatListCategoryActive =
+      chatSpecificSoundListCategory ?? pendingChatSpecificSoundListCategory ?? null;
+    const shouldShowChatSoundPicker =
+      isChatSoundPickerVisible || chatListCategoryActive != null;
+    const chatSoundListOpen = chatListCategoryActive != null;
+    const chatCategoryIconInactive = (cat: ChatMessageSoundChoice) =>
+      !chatSoundListOpen || chatListCategoryActive !== cat;
+
     return (
       <View style={styles.stickyContentLayout}>
         <TouchableOpacity 
@@ -4623,10 +4692,10 @@ const closeIdentityModal = useCallback(() => {
              {i18n.t('sticky_chat_with', { pseudo: displayFriend.pseudo })}
            </Text>
            <View style={styles.stickyHeaderActions}>
-             <TouchableOpacity onPress={toggleChatMute} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}} style={{ marginRight: 12 }}>
+             <TouchableOpacity onPress={toggleChatMute} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}} style={{ marginRight: 12 }}>
                <Ionicons
                  name={isChatMuteEnabled ? 'volume-mute' : 'volume-medium'}
-                 size={22}
+                 size={28}
                  color="#604a3e"
                  style={!isChatMuteEnabled ? { opacity: 0.4 } : undefined}
                />
@@ -4646,19 +4715,15 @@ const closeIdentityModal = useCallback(() => {
               keyboardShouldPersistTaps="handled"
             >
               <View style={styles.firstFooterModalFeatureRow}>
-                <Image
-                  source={require('../assets/images/tap-gesture.png')}
-                  style={styles.firstFooterTapImage}
-                  resizeMode="contain"
-                />
+                <View style={styles.chatOnboardingIconSlot}>
+                  <Image
+                    source={require('../assets/images/proothail.png')}
+                    style={styles.chatOnboardingProothailImage}
+                    resizeMode="contain"
+                  />
+                </View>
                 <Text style={styles.firstFooterModalFeatureText}>
-                  {i18n.t('chat_onboarding_tap_category')}
-                </Text>
-              </View>
-              <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
-                <Ionicons name="finger-print" size={22} color="#604a3e" />
-                <Text style={styles.firstFooterModalFeatureText}>
-                  {i18n.t('chat_onboarding_long_press_specific')}
+                  {i18n.t('chat_onboarding_choose_specific_sound')}
                 </Text>
               </View>
               <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
@@ -4748,6 +4813,9 @@ const closeIdentityModal = useCallback(() => {
                 const { [displayFriend.id]: _removed, ...rest } = prev;
                 return rest;
               });
+              const ambient = getDefaultSoundCategoryForFirstLaunch() as ChatMessageSoundChoice;
+              setChatMessageSoundChoice(ambient);
+              AsyncStorage.setItem(CHAT_MESSAGE_SOUND_CHOICE_KEY, ambient).catch(() => {});
             }}
             activeOpacity={0.7}
           >
@@ -4757,8 +4825,23 @@ const closeIdentityModal = useCallback(() => {
             <Ionicons name="close-circle" size={14} color="#604a3e" style={{ marginLeft: 4 }} />
           </TouchableOpacity>
         )}
-        <View style={[styles.messageInputRow, { alignItems: 'flex-end', marginBottom: 1 }]}>
-          <TextInput
+        <View style={[styles.messageInputRow, { alignItems: 'flex-end', marginBottom: 5 }]}>
+          <View style={styles.chatMessageInputLeftChunk}>
+            <TouchableOpacity
+              style={[styles.chatSoundPickerEntryThumbTouchable, styles.chatSoundPickerEntryThumbFlushLeft]}
+              onPress={openChatSoundPicker}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel={i18n.t('chat_sound_picker_inline_button')}
+              hitSlop={{ top: 8, bottom: 8, left: 0, right: 0 }}
+            >
+              <Image
+                source={CHAT_PROOTHAIL_THUMB}
+                style={styles.chatSoundPickerThumbImage}
+                resizeMode="contain"
+              />
+            </TouchableOpacity>
+            <TextInput
             ref={(ref) => { textInputRefs.current[displayFriend.id] = ref; }}
             style={styles.messageInput}
             placeholder={i18n.t('add_message_placeholder')}
@@ -4782,6 +4865,10 @@ const closeIdentityModal = useCallback(() => {
               if (Platform.OS === 'android') {
                 refocusOnBlurAttemptedRef.current = false;
               }
+              setIsChatSoundPickerVisible(false);
+              if (pendingChatSpecificSoundListCategory) {
+                setPendingChatSpecificSoundListCategory(null);
+              }
               if (chatSpecificSoundListCategory) {
                 setChatSpecificSoundListCategory(null);
               }
@@ -4790,6 +4877,7 @@ const closeIdentityModal = useCallback(() => {
             onLayout={() => {}}
             {...oldAndroidInputProps}
           />
+          </View>
           <TouchableOpacity
             onPress={() => displayDraft.trim() && handleSendProut(displayFriend)}
             style={[
@@ -4804,7 +4892,15 @@ const closeIdentityModal = useCallback(() => {
             <Ionicons name="send" size={18} color="#604a3e" />
           </TouchableOpacity>
         </View>
-        <View style={[styles.chatSoundZone, !chatSpecificSoundListCategory && { borderBottomWidth: 0 }]}>
+        {shouldShowChatSoundPicker && (
+        <View
+          style={[
+            styles.chatSoundZone,
+            !chatSoundListOpen && {
+              borderBottomWidth: 0,
+            },
+          ]}
+        >
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -4813,120 +4909,90 @@ const closeIdentityModal = useCallback(() => {
           keyboardShouldPersistTaps="always"
         >
           {Platform.OS === 'android' && (
-            <TouchableOpacity
+            <Pressable
               style={styles.chatSoundChoiceButton}
-              onPress={() => selectChatMessageSoundChoice('toot')}
-              onLongPress={() => openChatSpecificSoundList('toot')}
-              delayLongPress={280}
-              activeOpacity={0.8}
+              onPress={() => switchChatSoundListCategoryIfOpen('toot')}
             >
               <Image
                 source={TOOT_LOGO_IMAGE}
                 style={[
                   styles.chatSoundChoiceImage,
                   TOOT_CHAT_ICON_SIZE,
-                  chatMessageSoundChoice !== 'toot' && styles.chatSoundChoiceImageInactive,
+                  chatCategoryIconInactive('toot') && styles.chatSoundChoiceImageInactive,
                 ]}
                 resizeMode="contain"
               />
-            </TouchableOpacity>
+            </Pressable>
           )}
-          <TouchableOpacity
+          <Pressable
             style={styles.chatSoundChoiceButton}
-            onPress={() => selectChatMessageSoundChoice('mood')}
-            onLongPress={() => openChatSpecificSoundList('mood')}
-            delayLongPress={280}
-            activeOpacity={0.8}
+            onPress={() => switchChatSoundListCategoryIfOpen('mood')}
           >
             <Image
               source={require('../assets/images/mood.png')}
               style={[
                 styles.chatSoundChoiceImage,
-                chatMessageSoundChoice !== 'mood' && styles.chatSoundChoiceImageInactive,
+                chatCategoryIconInactive('mood') && styles.chatSoundChoiceImageInactive,
               ]}
               resizeMode="contain"
             />
-          </TouchableOpacity>
-          <TouchableOpacity
+          </Pressable>
+          <Pressable
             style={styles.chatSoundChoiceButton}
-            onPress={() => selectChatMessageSoundChoice('pop')}
-            onLongPress={() => openChatSpecificSoundList('pop')}
-            delayLongPress={280}
-            activeOpacity={0.8}
+            onPress={() => switchChatSoundListCategoryIfOpen('pop')}
           >
             <Image
               source={require('../assets/images/pop.png')}
               style={[
                 styles.chatSoundChoiceImage,
                 { width: 62, height: 42 },
-                chatMessageSoundChoice !== 'pop' && styles.chatSoundChoiceImageInactive,
+                chatCategoryIconInactive('pop') && styles.chatSoundChoiceImageInactive,
               ]}
               resizeMode="contain"
             />
-          </TouchableOpacity>
+          </Pressable>
           {Platform.OS !== 'android' && (
-            <TouchableOpacity
+            <Pressable
               style={styles.chatSoundChoiceButton}
-              onPress={() => selectChatMessageSoundChoice('toot')}
-              onLongPress={() => openChatSpecificSoundList('toot')}
-              delayLongPress={280}
-              activeOpacity={0.8}
+              onPress={() => switchChatSoundListCategoryIfOpen('toot')}
             >
               <Image
                 source={TOOT_LOGO_IMAGE}
                 style={[
                   styles.chatSoundChoiceImage,
                   TOOT_CHAT_ICON_SIZE,
-                  chatMessageSoundChoice !== 'toot' && styles.chatSoundChoiceImageInactive,
+                  chatCategoryIconInactive('toot') && styles.chatSoundChoiceImageInactive,
                 ]}
                 resizeMode="contain"
               />
-            </TouchableOpacity>
+            </Pressable>
           )}
-          <TouchableOpacity
+          <Pressable
             style={styles.chatSoundChoiceButton}
-            onPress={() => selectChatMessageSoundChoice('trll')}
-            onLongPress={() => openChatSpecificSoundList('trll')}
-            delayLongPress={280}
-            activeOpacity={0.8}
+            onPress={() => switchChatSoundListCategoryIfOpen('trll')}
           >
             <Image
               source={require('../assets/images/tweet.png')}
               style={[
                 styles.chatSoundChoiceImage,
-                chatMessageSoundChoice !== 'trll' && styles.chatSoundChoiceImageInactive,
+                chatCategoryIconInactive('trll') && styles.chatSoundChoiceImageInactive,
               ]}
               resizeMode="contain"
             />
-          </TouchableOpacity>
-          <TouchableOpacity
+          </Pressable>
+          <Pressable
             style={styles.chatSoundChoiceButton}
-            onPress={() => selectChatMessageSoundChoice('bzzz')}
-            onLongPress={() => openChatSpecificSoundList('bzzz')}
-            delayLongPress={280}
-            activeOpacity={0.8}
+            onPress={() => switchChatSoundListCategoryIfOpen('bzzz')}
           >
             <Image
               source={require('../assets/images/buzz.png')}
               style={[
                 styles.chatSoundChoiceImage,
-                chatMessageSoundChoice !== 'bzzz' && styles.chatSoundChoiceImageInactive,
+                chatCategoryIconInactive('bzzz') && styles.chatSoundChoiceImageInactive,
               ]}
               resizeMode="contain"
             />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.chatMuteChoiceButton}
-            onPress={toggleChatMute}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name={isChatMuteEnabled ? 'volume-mute' : 'volume-medium'}
-              size={26}
-              color="#604a3e"
-              style={!isChatMuteEnabled ? { opacity: 0.4 } : undefined}
-            />
-          </TouchableOpacity>
+          </Pressable>
         </ScrollView>
         {!!chatSpecificSoundListCategory && (
           <View>
@@ -4957,6 +5023,7 @@ const closeIdentityModal = useCallback(() => {
           </View>
         )}
         </View>
+        )}
       </View>
     );
   }, [
@@ -4965,15 +5032,17 @@ const closeIdentityModal = useCallback(() => {
     unreadCache,
     lastSentMessages,
     displayDraft,
-    chatMessageSoundChoice,
     isChatMuteEnabled,
+    isChatSoundPickerVisible,
     chatSpecificSoundListCategory,
+    pendingChatSpecificSoundListCategory,
     pendingChatSoundKeyByFriend,
     sendingFriendId,
     displayBackgroundColor,
     fadingOutReceivedMessages,
-    selectChatMessageSoundChoice,
     openChatSpecificSoundList,
+    openChatSoundPicker,
+    switchChatSoundListCategoryIfOpen,
     closeChatSpecificSoundList,
     handleSelectChatSpecificSound,
     toggleChatMute,
@@ -5493,9 +5562,9 @@ const closeIdentityModal = useCallback(() => {
                           </TouchableOpacity>
                         ))}
                         <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
-                          <Image source={require('../assets/images/tweet.png')} style={styles.friendSoundPickHeaderImage} resizeMode="contain" />
+                          <Image source={require('../assets/images/buzz.png')} style={styles.friendSoundPickHeaderImage} resizeMode="contain" />
                         </View>
-                        {PICKUP_TRLL_KEYS.map((soundKey) => (
+                        {PICKUP_BZZZ_KEYS.map((soundKey) => (
                           <TouchableOpacity
                             key={soundKey}
                             style={[
@@ -5616,9 +5685,9 @@ const closeIdentityModal = useCallback(() => {
                           </TouchableOpacity>
                         ))}
                     <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
-                      <Image source={require('../assets/images/buzz.png')} style={styles.friendSoundPickHeaderImage} resizeMode="contain" />
+                      <Image source={require('../assets/images/tweet.png')} style={styles.friendSoundPickHeaderImage} resizeMode="contain" />
                     </View>
-                    {PICKUP_BZZZ_KEYS.map((soundKey) => (
+                    {PICKUP_TRLL_KEYS.map((soundKey) => (
                       <TouchableOpacity
                         key={soundKey}
                         style={[
@@ -5660,6 +5729,7 @@ const closeIdentityModal = useCallback(() => {
                   </View>
                 </View>
               </ScrollView>
+              {SHOW_DEFAULT_SOUND_CATEGORY_CURSOR && (
               <View style={styles.pickDefaultCategorySection}>
                 <Text style={styles.pickDefaultCategoryTitle}>{i18n.t('default_sound_category_title')}</Text>
                 <View style={styles.pickDefaultCategoryGrid}>
@@ -5702,6 +5772,7 @@ const closeIdentityModal = useCallback(() => {
                   ))}
                 </View>
               </View>
+              )}
               <TouchableOpacity
                 style={styles.firstFooterModalOkButton}
                 onPress={closeFriendSoundPickModal}
@@ -5855,6 +5926,31 @@ const styles = StyleSheet.create({
   messageInputContainerAndroid: { marginBottom: 0, paddingBottom: 0 },
   messageLabel: { color: '#604a3e', fontWeight: '600', marginBottom: 6 },
   messageInputRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 0, gap: 8 },
+  /** Proothail collé au champ ; le `gap` du parent sépare ce bloc du bouton envoyer */
+  chatMessageInputLeftChunk: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    minWidth: 0,
+    gap: 0,
+  },
+  chatSoundPickerEntryThumbTouchable: {
+    padding: 0,
+    paddingHorizontal: 0,
+    marginLeft: 0,
+    marginRight: 0,
+    backgroundColor: 'transparent',
+  },
+  /** Compense le padding du panneau chat (10) pour coller proothail au bord gauche */
+  chatSoundPickerEntryThumbFlushLeft: {
+    marginLeft: -10,
+  },
+  chatSoundPickerThumbImage: {
+    width: 56,
+    height: 40,
+    marginLeft: 0,
+    marginRight: 0,
+  },
   chatSoundZone: {
     borderBottomWidth: 1.5,
     borderBottomColor: 'rgba(96, 74, 62, 0.45)',
@@ -6168,6 +6264,19 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     marginTop: 1,
+  },
+  /** Légèrement plus grand que les Ionicons 22 pour la queue */
+  chatOnboardingIconSlot: {
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+    marginLeft: -4,
+  },
+  chatOnboardingProothailImage: {
+    width: 30,
+    height: 30,
   },
   firstFooterModalFeatureText: {
     flex: 1,

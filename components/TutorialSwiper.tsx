@@ -53,8 +53,8 @@ const TUTORIAL_DATA = [
     id: '6',
     title: i18n.t('tuto_4_title'),
     description: i18n.t('tuto_4_desc'),
-    icon: 'volume-mute-outline',
-    color: '#FF9800',
+    icon: 'ban-outline',
+    color: '#E57373',
   },
 ];
 
