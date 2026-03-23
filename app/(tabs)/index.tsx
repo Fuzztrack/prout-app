@@ -1,3 +1,4 @@
+import { useAppStore } from '@/lib/store';
 import { AppHeader } from '@/components/AppHeader';
 import { EditProfil } from '@/components/EditProfil';
 import { FriendsList } from '@/components/FriendsList';
@@ -15,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, ActionSheetIOS, Animated, Image, Keyboard, KeyboardAvoidingView, Platform, ScrollView, Share, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, Vibration, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -24,20 +25,20 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   
   const isLoadedRef = useRef(false);
-  const [activeView, setActiveView] = useState<'list' | 'tutorial' | 'profile' | 'profileMenu'>('list');
-  const [isZenMode, setIsZenMode] = useState(false);
-  const [isSilentMode, setIsSilentMode] = useState(false);
-  const [isHapticEnabled, setIsHapticEnabled] = useState(true);
-  const [currentPseudo, setCurrentPseudo] = useState<string>('');
-  const [currentAvatarUrl, setCurrentAvatarUrl] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
+  
+  // Utilisation du Store Zustand pour l'état global
+  const { 
+    userId, pseudo: currentPseudo, avatarUrl: currentAvatarUrl, 
+    isZenMode, isSilentMode, isHapticEnabled, activeView,
+    setProfile, setZenMode, setSilentMode, setHapticEnabled, setActiveView 
+  } = useAppStore();
+
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [showIdentity, setShowIdentity] = useState(false);
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [listIntroTrigger, setListIntroTrigger] = useState(0);
+  const [listIntroTrigger, setListIntroTrigger] = useState(1);
   const friendsListRef = useRef<any>(null);
   const zenTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const zenStartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -114,7 +115,7 @@ export default function HomeScreen() {
         safeReplace(router, '/AuthChoiceScreen', { skipInitialCheck: false });
         return;
       }
-      setUserId(user.id);
+      setProfile({ userId: user.id });
       // Enregistrer le bundle iOS même sans permission notifications
       updateIosBundleId(user.id);
 
@@ -129,24 +130,23 @@ export default function HomeScreen() {
       if (Platform.OS === 'ios') {
         const hapticEnabled = await AsyncStorage.getItem('haptic_feedback_enabled');
         const isEnabled = hapticEnabled === null || hapticEnabled === 'true'; // Activé par défaut si non défini
-        setIsHapticEnabled(isEnabled);
+        setHapticEnabled(isEnabled);
       } else {
         // Sur Android, le retour haptique n'est pas disponible pour le moment
-        setIsHapticEnabled(false);
+        setHapticEnabled(false);
       }
       
       if (profile) {
-        setIsZenMode(profile.is_zen_mode || false);
+        setZenMode(profile.is_zen_mode || false);
         const pseudo = profile.pseudo || '';
-        setCurrentPseudo(pseudo);
-        setCurrentAvatarUrl(profile.avatar_url || null);
+        setProfile({ pseudo, avatarUrl: profile.avatar_url || null });
         // Mémoriser pour affichage instantané au prochain lancement
         AsyncStorage.setItem(CACHE_PSEUDO_KEY, pseudo).catch(() => {});
       }
 
       // Charger l'état Envois silencieux
       const silentModeEnabled = await AsyncStorage.getItem(SILENT_MODE_KEY);
-      setIsSilentMode(silentModeEnabled === 'true');
+      setSilentMode(silentModeEnabled === 'true');
 
       // Mise à jour token FCM en arrière-plan (fonctionne aussi dans le simulateur)
       if (Platform.OS !== 'web') {
@@ -191,19 +191,18 @@ export default function HomeScreen() {
 
       if (profile) {
         const pseudo = profile.pseudo || '';
-        setCurrentPseudo(pseudo);
-        setCurrentAvatarUrl(profile.avatar_url || null);
+        setProfile({ pseudo, avatarUrl: profile.avatar_url || null });
         AsyncStorage.setItem(CACHE_PSEUDO_KEY, pseudo).catch(() => {});
       }
     } catch {
       // noop
     }
-  }, [userId]);
+  }, [userId, setProfile]);
 
   // Précharger le pseudo depuis le cache pour afficher le bonjour instantanément
   useEffect(() => {
     AsyncStorage.getItem(CACHE_PSEUDO_KEY).then((cached) => {
-      if (cached) setCurrentPseudo(cached);
+      if (cached) setProfile({ pseudo: cached });
     }).catch(() => {});
     loadData();
   }, []);
@@ -282,24 +281,40 @@ export default function HomeScreen() {
   }, []);
 
   const toggleProfileMenu = useCallback(() => {
-    setActiveView((prev) => {
-      const next = prev === 'profileMenu' ? 'list' : 'profileMenu';
-      if (prev === 'profileMenu') {
-        triggerListIntro();
+    const next = activeView === 'profileMenu' ? 'list' : 'profileMenu';
+    setActiveView(next);
+    if (activeView === 'profileMenu') {
+      triggerListIntro();
+    }
+  }, [activeView, setActiveView, triggerListIntro]);
+
+  const toggleSearchVisibility = useCallback(() => {
+    setIsSearchVisible((prev) => {
+      const next = !prev;
+      if (!next) {
+        setSearchQuery('');
+        Keyboard.dismiss();
       }
       return next;
     });
-  }, [triggerListIntro]);
+  }, []);
 
-  const toggleSearchVisibility = useCallback(() => {
-    if (isSearchVisible) {
-      setIsSearchVisible(false);
-      setSearchQuery('');
-      Keyboard.dismiss();
-    } else {
-      setIsSearchVisible(true);
-    }
-  }, [isSearchVisible]);
+  // Mémoïser le header pour éviter qu'il ne re-render pendant qu'on tape dans la recherche
+  const headerComponent = useMemo(() => (
+    <AppHeader
+      currentPseudo={currentPseudo}
+      profileAvatarUrl={currentAvatarUrl}
+      isProfileMenuOpen={activeView === 'profileMenu'}
+      isProfileOpen={activeView === 'profile'}
+      isSearchVisible={isSearchVisible}
+      onSearchToggle={toggleSearchVisibility}
+      onSoundcheckPress={handleSoundcheckPress}
+      onProfileMenuPress={toggleProfileMenu}
+      onProfilePress={() => setActiveView('profile')}
+      shakeX={shakeX}
+      shakeY={shakeY}
+    />
+  ), [currentPseudo, currentAvatarUrl, activeView, isSearchVisible, toggleSearchVisibility, handleSoundcheckPress, toggleProfileMenu, shakeX, shakeY]);
 
   // --- MODE ZEN ---
   const clearZenAutoOff = useCallback(async () => {
@@ -322,7 +337,7 @@ export default function HomeScreen() {
     async (newMode: boolean, fromAuto = false) => {
       if (!userId) return;
 
-      setIsZenMode(newMode); // Optimistic update
+      setZenMode(newMode); // Optimistic update via Store
 
       try {
         const { error } = await supabase
@@ -332,21 +347,21 @@ export default function HomeScreen() {
 
         if (error) {
           console.error('Erreur mise à jour mode Zen:', error);
-          setIsZenMode(!newMode); // Rollback
+          setZenMode(!newMode); // Rollback via Store
         } else if (!newMode) {
           await clearZenAutoOff();
           await clearZenAutoOn();
         }
       } catch (e) {
         console.error('Erreur mode Zen:', e);
-        setIsZenMode(!newMode);
+        setZenMode(!newMode);
         if (!newMode) {
           await clearZenAutoOff();
           await clearZenAutoOn();
         }
       }
     },
-    [clearZenAutoOff, clearZenAutoOn, supabase, userId]
+    [clearZenAutoOff, clearZenAutoOn, supabase, userId, setZenMode]
   );
 
   const scheduleZenAutoOff = useCallback(
@@ -551,74 +566,35 @@ export default function HomeScreen() {
 
   const toggleHapticFeedback = async () => {
     const newValue = !isHapticEnabled;
-    console.log('🔔 [HAPTIC] Toggle appelé, nouvelle valeur:', newValue, 'Platform:', Platform.OS);
-    setIsHapticEnabled(newValue);
-    try {
-      await AsyncStorage.setItem('haptic_feedback_enabled', String(newValue));
-      console.log('🔔 [HAPTIC] Préférence sauvegardée:', newValue);
-      
-      // Note: Sur Android, on ne gère plus le retour haptique pour le moment
-      // La vibration système des notifications reste activée
-      
-      // Tester le retour haptique immédiatement pour donner un feedback visuel
-      if (newValue && Platform.OS !== 'web') {
-        try {
-          console.log('🔔 [HAPTIC] Test retour haptique, Platform:', Platform.OS);
-          if (Platform.OS === 'ios') {
-            console.log('🔔 [HAPTIC] Déclenchement iOS test (Heavy + séquence)...');
-            // Utiliser Heavy pour une vibration plus forte
-            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-            // Ajouter une deuxième vibration légère après un court délai pour prolonger l'effet
-            setTimeout(async () => {
-              await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }, 100);
-            console.log('🔔 [HAPTIC] iOS test réussi');
-          } else {
-            // Android : utiliser l'API Vibration native avec un pattern pour un retour plus fiable
-            console.log('🔔 [HAPTIC] Déclenchement Android test (Vibration native)...');
-            try {
-              // Essayer d'abord avec expo-haptics si disponible
-              try {
-                await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                console.log('🔔 [HAPTIC] expo-haptics réussi');
-              } catch (hapticError) {
-                console.log('🔔 [HAPTIC] expo-haptics échoué, utilisation Vibration native');
-                // Pattern : vibrer immédiatement pendant 200ms (plus long et perceptible)
-                Vibration.vibrate(200);
-                console.log('🔔 [HAPTIC] Vibration native déclenchée');
-              }
-            } catch (e) {
-              console.error('❌ [HAPTIC] Erreur toutes méthodes:', e);
-            }
-            console.log('🔔 [HAPTIC] Android test réussi');
-          }
-        } catch (e: any) {
-          console.error('❌ [HAPTIC] Erreur test retour haptique:', e?.message || e);
-          // Ne pas afficher d'alerte, juste logger l'erreur
+    setHapticEnabled(newValue);
+    
+    // Tester le retour haptique immédiatement pour donner un feedback visuel
+    if (newValue && Platform.OS !== 'web') {
+      try {
+        if (Platform.OS === 'ios') {
+          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+          setTimeout(async () => {
+            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }, 100);
+        } else {
+          Vibration.vibrate(200);
         }
-      } else {
-        console.log('🔔 [HAPTIC] Test ignoré (web ou désactivé)');
+      } catch (e: any) {
+        console.error('❌ [HAPTIC] Erreur test retour haptique:', e?.message || e);
       }
-    } catch (e) {
-      console.error('❌ [HAPTIC] Erreur sauvegarde retour haptique:', e);
-      setIsHapticEnabled(!newValue); // Rollback
     }
   };
 
   const toggleSilentMode = () => {
     if (isSilentMode) {
-      // Désactiver directement
-      setIsSilentMode(false);
-      AsyncStorage.setItem(SILENT_MODE_KEY, 'false');
+      setSilentMode(false);
     } else {
-      // Afficher la modale : OK = activer, clic dehors = fermer sans activer
       setShowSilentModal(true);
     }
   };
 
   const confirmSilentMode = async () => {
-    setIsSilentMode(true);
-    await AsyncStorage.setItem(SILENT_MODE_KEY, 'true');
+    setSilentMode(true);
     setShowSilentModal(false);
   };
 
@@ -669,28 +645,12 @@ export default function HomeScreen() {
                  <>
                    <FriendsList 
                      onProutSent={shakeHeader} 
-                     isZenMode={isZenMode}
-                     isSilentMode={isSilentMode}
                      isSearchVisible={isSearchVisible}
                      onSearchChange={setIsSearchVisible}
                      searchQuery={searchQuery}
                      onSearchQueryChange={setSearchQuery}
                      listIntroTrigger={listIntroTrigger}
-                     headerComponent={
-                       <AppHeader
-                         currentPseudo={currentPseudo}
-                         profileAvatarUrl={currentAvatarUrl}
-                         isProfileMenuOpen={activeView === 'profileMenu'}
-                        isProfileOpen={activeView === 'profile'}
-                        isSearchVisible={isSearchVisible}
-                        onSearchToggle={toggleSearchVisibility}
-                        onSoundcheckPress={handleSoundcheckPress}
-                        onProfileMenuPress={toggleProfileMenu}
-                        onProfilePress={() => setActiveView('profile')}
-                        shakeX={shakeX}
-                        shakeY={shakeY}
-                       />
-                     }
+                     headerComponent={headerComponent}
                    />
        
                    {activeView === 'profileMenu' && (
@@ -701,17 +661,7 @@ export default function HomeScreen() {
                          showsVerticalScrollIndicator={false}
                        >
                          <TouchableOpacity activeOpacity={1} onPress={toggleProfileMenu}>
-                           <AppHeader
-                             currentPseudo={currentPseudo}
-                            profileAvatarUrl={currentAvatarUrl}
-                             isProfileMenuOpen={activeView === 'profileMenu'}
-                             isProfileOpen={activeView === 'profile'}
-                             onProfileMenuPress={toggleProfileMenu}
-                            onProfilePress={() => setActiveView('profile')}
-                             onSoundcheckPress={handleSoundcheckPress}
-                             shakeX={shakeX}
-                             shakeY={shakeY}
-                           />
+                           {headerComponent}
                          </TouchableOpacity>
                          
                          <View style={styles.menuCard}>
@@ -767,28 +717,12 @@ export default function HomeScreen() {
               <>
                 <FriendsList 
                   onProutSent={shakeHeader} 
-                  isZenMode={isZenMode}
-                  isSilentMode={isSilentMode}
                   isSearchVisible={isSearchVisible}
                   onSearchChange={setIsSearchVisible}
                   searchQuery={searchQuery}
                   onSearchQueryChange={setSearchQuery}
                   listIntroTrigger={listIntroTrigger}
-                  headerComponent={
-                    <AppHeader
-                      currentPseudo={currentPseudo}
-                      profileAvatarUrl={currentAvatarUrl}
-                      isProfileMenuOpen={activeView === 'profileMenu'}
-                      isProfileOpen={activeView === 'profile'}
-                      isSearchVisible={isSearchVisible}
-                      onSearchToggle={toggleSearchVisibility}
-                      onSoundcheckPress={handleSoundcheckPress}
-                      onProfileMenuPress={toggleProfileMenu}
-                      onProfilePress={() => setActiveView('profile')}
-                      shakeX={shakeX}
-                      shakeY={shakeY}
-                    />
-                  }
+                  headerComponent={headerComponent}
                 />
     
                 {activeView === 'profileMenu' && (
@@ -799,17 +733,7 @@ export default function HomeScreen() {
                       showsVerticalScrollIndicator={false}
                     >
                       <TouchableOpacity activeOpacity={1} onPress={toggleProfileMenu}>
-                        <AppHeader
-                          currentPseudo={currentPseudo}
-                          profileAvatarUrl={currentAvatarUrl}
-                          isProfileMenuOpen={activeView === 'profileMenu'}
-                          isProfileOpen={activeView === 'profile'}
-                          onProfileMenuPress={toggleProfileMenu}
-                          onProfilePress={() => setActiveView('profile')}
-                          onSoundcheckPress={handleSoundcheckPress}
-                          shakeX={shakeX}
-                          shakeY={shakeY}
-                        />
+                        {headerComponent}
                       </TouchableOpacity>
                       
                       <View style={styles.menuCard}>

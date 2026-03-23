@@ -11,6 +11,18 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 // 👇 AJOUT : Provider indispensable pour gérer le clavier Android (Emoji vs Texte)
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+// ✅ INITIALISATION TANSTACK QUERY
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60, // 1 minute avant de considérer les données comme périmées
+      gcTime: 1000 * 60 * 60 * 24, // Garder en cache 24h
+      retry: 2,
+    },
+  },
+});
 
 // Empêcher le splash screen de disparaître automatiquement
 SplashScreen.preventAutoHideAsync().catch(() => {
@@ -215,8 +227,11 @@ export default function RootLayout() {
     });
 
     const notificationListener = Notifications.addNotificationReceivedListener(async (notification) => {
-      // Émettre un événement global pour dire à FriendsList de se rafraîchir
-      DeviceEventEmitter.emit('REFRESH_DATA');
+      const { title, body, data } = notification.request.content;
+      if (__DEV__) console.log('🔔 [RootLayout] Notification reçue en premier plan:', JSON.stringify(data));
+
+      // Émettre un événement global avec les données pour jouer le son et rafraîchir
+      DeviceEventEmitter.emit('REFRESH_DATA', data);
 
       // Vérifier si le retour haptique est activé (iOS uniquement)
       if (Platform.OS === 'ios') {
@@ -249,8 +264,6 @@ export default function RootLayout() {
         // Sur iOS, la notification système s'affiche déjà, donc on peut retourner ici
         return;
       }
-
-      const { title, body, data } = notification.request.content;
       
       if (data?.type === 'prout') {
         showToast(title || 'Prout !', body || '');
@@ -444,45 +457,47 @@ export default function RootLayout() {
 
   return (
     <AppErrorBoundary>
-      {/* 👇 AJOUT : KeyboardProvider enveloppe tout pour gérer les events clavier Android */}
-      <KeyboardProvider statusBarTranslucent>
-        <SafeAreaProvider>
-          <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#ebb89b' }}>
-          {/* StatusBar Edge-to-Edge : transparente pour permettre aux overlays de couvrir tout l'écran */}
-          <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
-        {!checkingOnboarding && showOnboarding ? (
-          <Onboarding onFinish={handleOnboardingFinish} />
-        ) : (
-          <>
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="index" />
-              <Stack.Screen name="WelcomeScreen" />
-              <Stack.Screen name="AuthChoiceScreen" />
-              <Stack.Screen name="LoginScreen" />
-              <Stack.Screen name="RegisterEmailScreen" />
-              <Stack.Screen name="CompleteProfileScreen" />
-              <Stack.Screen name="IdentityRevealScreen" options={{ presentation: 'modal' }} />
-              {/* SearchUserScreen est maintenant intégré dans index.tsx, plus besoin de route dédiée */}
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="soundcheck" options={{ gestureEnabled: true }} />
-              <Stack.Screen name="confirm-email" options={{ presentation: 'modal' }} />
-              <Stack.Screen name="reset-password" options={{ presentation: 'modal' }} />
-              <Stack.Screen name="eula-accept" options={{ gestureEnabled: false, presentation: 'fullScreenModal' }} />
-              <Stack.Screen name="edit-profile" options={{ presentation: 'transparentModal', animation: 'fade', headerShown: false }} />
-              <Stack.Screen name="complicity" />
-            </Stack>
+      <QueryClientProvider client={queryClient}>
+        {/* 👇 AJOUT : KeyboardProvider enveloppe tout pour gérer les events clavier Android */}
+        <KeyboardProvider statusBarTranslucent>
+          <SafeAreaProvider>
+            <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#ebb89b' }}>
+            {/* StatusBar Edge-to-Edge : transparente pour permettre aux overlays de couvrir tout l'écran */}
+            <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
+          {!checkingOnboarding && showOnboarding ? (
+            <Onboarding onFinish={handleOnboardingFinish} />
+          ) : (
+            <>
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="index" />
+                <Stack.Screen name="WelcomeScreen" />
+                <Stack.Screen name="AuthChoiceScreen" />
+                <Stack.Screen name="LoginScreen" />
+                <Stack.Screen name="RegisterEmailScreen" />
+                <Stack.Screen name="CompleteProfileScreen" />
+                <Stack.Screen name="IdentityRevealScreen" options={{ presentation: 'modal' }} />
+                {/* SearchUserScreen est maintenant intégré dans index.tsx, plus besoin de route dédiée */}
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="soundcheck" options={{ gestureEnabled: true }} />
+                <Stack.Screen name="confirm-email" options={{ presentation: 'modal' }} />
+                <Stack.Screen name="reset-password" options={{ presentation: 'modal' }} />
+                <Stack.Screen name="eula-accept" options={{ gestureEnabled: false, presentation: 'fullScreenModal' }} />
+                <Stack.Screen name="edit-profile" options={{ presentation: 'transparentModal', animation: 'fade', headerShown: false }} />
+                <Stack.Screen name="complicity" />
+              </Stack>
 
-            {toastMessage && (
-              <Animated.View style={[styles.toast, { opacity: toastOpacity }]}>
-                <Text style={styles.toastTitle}>{toastMessage.title}</Text>
-                <Text style={styles.toastBody}>{toastMessage.body}</Text>
-              </Animated.View>
-            )}
-          </>
-        )}
-        </GestureHandlerRootView>
-        </SafeAreaProvider>
-      </KeyboardProvider>
+              {toastMessage && (
+                <Animated.View style={[styles.toast, { opacity: toastOpacity }]}>
+                  <Text style={styles.toastTitle}>{toastMessage.title}</Text>
+                  <Text style={styles.toastBody}>{toastMessage.body}</Text>
+                </Animated.View>
+              )}
+            </>
+          )}
+          </GestureHandlerRootView>
+          </SafeAreaProvider>
+        </KeyboardProvider>
+      </QueryClientProvider>
     </AppErrorBoundary>
   );
 }

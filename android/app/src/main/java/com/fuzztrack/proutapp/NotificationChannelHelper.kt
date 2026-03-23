@@ -42,7 +42,7 @@ object NotificationChannelHelper {
 
             val channelName = "Prrt $soundKey"
             val resId = context.resources.getIdentifier(soundKey, "raw", context.packageName)
-            val resolvedName = if (resId != 0) soundKey else "trrl1"
+            val resolvedName = if (resId != 0) soundKey else "toot1"
             val soundUri =
                 android.net.Uri.parse("android.resource://${context.packageName}/raw/${resolvedName}")
 

@@ -1,4 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { FlashList } from '@shopify/flash-list';
 // Force git update 2
 import AsyncStorage from '@react-native-async-storage/async-storage';
 // import { useAudioPlayer } from 'expo-audio'; // Supprimé
@@ -24,6 +26,11 @@ import Animated, {
   withSpring,
   withTiming
 } from 'react-native-reanimated';
+import { SwipeableFriendRow, SwipeableFriendRowHandle } from './FriendsListComponents/SwipeableFriendRow';
+import { AnimatedCategoryHeaderImage } from './FriendsListComponents/AnimatedCategoryHeaderImage';
+import { useAppStore } from '../lib/store';
+import { useFriends, usePendingMessages, usePendingSentMessages } from '../hooks/useFriends';
+import { useSendProut } from '../hooks/useSendProut';
 import { RINGER_MODE, VolumeManager } from 'react-native-volume-manager';
 import { ensureContactPermissionWithDisclosure } from '../lib/contactConsent';
 import { normalizePhone } from '../lib/normalizePhone';
@@ -36,6 +43,7 @@ import {
 } from '../lib/sendProutBackend';
 // Import supprimé : on utilise maintenant sync_contacts (fonction SQL Supabase)
 import i18n from '../lib/i18n';
+import { getDisplaySoundLabel, playSound, getPickupKeys, pickRandom, pickRandomWithoutImmediateRepeat, getDefaultSoundCategoryForFirstLaunch, getSelectedSoundCategory } from '../lib/audioService';
 import {
   DIRECT_SEND_FALLBACK_CATEGORY,
   LOCAL_PLAYBACK_FALLBACK_KEY,
@@ -64,11 +72,11 @@ const SWIPE_THRESHOLD = 150; // Seuil pour déclencher l'action
 const TAP_THRESHOLD = 12; // Distance max pour considérer un tap
 
 type ChatMessageSoundChoice = 'trll' | 'bzzz' | 'pop' | 'mood' | 'toot';
-const PICKUP_TRLL_KEYS = (SOUND_KEYS_BY_CATEGORY.trll || []).filter((key) => !!SOUND_ASSETS[key]);
-const PICKUP_BZZZ_KEYS = (SOUND_KEYS_BY_CATEGORY.bzzz || []).filter((key) => !!SOUND_ASSETS[key]);
-const PICKUP_POP_KEYS = (SOUND_KEYS_BY_CATEGORY.pop || []).filter((key) => !!SOUND_ASSETS[key]);
-const PICKUP_MOOD_KEYS = (SOUND_KEYS_BY_CATEGORY.mood || []).filter((key) => !!SOUND_ASSETS[key]);
-const PICKUP_TOOT_KEYS = (SOUND_KEYS_BY_CATEGORY.toot || []).filter((key) => !!SOUND_ASSETS[key]);
+const PICKUP_TRLL_KEYS = getPickupKeys('trll');
+const PICKUP_BZZZ_KEYS = getPickupKeys('bzzz');
+const PICKUP_POP_KEYS = getPickupKeys('pop');
+const PICKUP_MOOD_KEYS = getPickupKeys('mood');
+const PICKUP_TOOT_KEYS = getPickupKeys('toot');
 const MAX_PICKUP_ROWS = Math.ceil(Math.max(PICKUP_TRLL_KEYS.length, PICKUP_BZZZ_KEYS.length, PICKUP_POP_KEYS.length, PICKUP_MOOD_KEYS.length, PICKUP_TOOT_KEYS.length) / 2);
 const CHAT_SPECIFIC_ROW_HEIGHT = 34;
 const CHAT_SPECIFIC_MIN_HEIGHT = MAX_PICKUP_ROWS * CHAT_SPECIFIC_ROW_HEIGHT + 50;
@@ -135,120 +143,7 @@ const CATEGORY_HEADER_POP_DELAY_MS: Record<ChatMessageSoundChoice | 'bzzz', numb
   bzzz: 1520,
 };
 
-function AnimatedCategoryHeaderImage({
-  source,
-  style,
-  delayMs = 0,
-}: {
-  source: any;
-  style?: any;
-  delayMs?: number;
-}) {
-  const scale = useSharedValue(1);
-
-  useEffect(() => {
-    scale.value = withDelay(
-      delayMs,
-      withRepeat(
-        withSequence(
-          withTiming(1.12, { duration: 180 }),
-          withTiming(1, { duration: 220 }),
-          withTiming(1, { duration: 3000 }),
-        ),
-        -1,
-        false,
-      ),
-    );
-
-    return () => {
-      cancelAnimation(scale);
-    };
-  }, [delayMs, scale]);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  return (
-    <Animated.Image
-      source={source}
-      style={[style, animatedStyle]}
-      resizeMode="contain"
-    />
-  );
-}
-
-function pickRandom<T>(arr: T[]) {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
-function pickRandomWithoutImmediateRepeat(arr: string[], lastValue?: string) {
-  if (!arr.length) return undefined;
-  if (arr.length === 1) return arr[0];
-  const filtered = lastValue ? arr.filter((item) => item !== lastValue) : arr;
-  if (!filtered.length) return arr[0];
-  return pickRandom(filtered);
-}
-
-/**
- * 1er démarrage / aucune préférence enregistrée : toot (proot).
- * (Avec curseur masqué, on ne propose plus d’autre catégorie par défaut.)
- */
-function getDefaultSoundCategoryForFirstLaunch(): SoundCategory {
-  return 'toot';
-}
-
-async function getSelectedSoundCategory(): Promise<SoundCategory> {
-  if (!SHOW_DEFAULT_SOUND_CATEGORY_CURSOR) {
-    return 'toot';
-  }
-  try {
-    const saved = await AsyncStorage.getItem(SOUND_CATEGORY_KEY);
-    if (saved === 'bzzz' || saved === 'trll' || saved === 'pop' || saved === 'mood' || saved === 'toot') {
-      return saved as SoundCategory;
-    }
-  } catch (_) {}
-  return getDefaultSoundCategoryForFirstLaunch();
-}
-
-function getDisplaySoundLabel(soundKey: string) {
-  const tOrFallback = (key: string, fallback: string) => {
-    const translated = i18n.t(key) as any;
-    if (typeof translated !== 'string') return fallback;
-    // Avec notre missingBehavior, une clé manquante renvoie la clé elle‑même → on ne veut pas l'afficher
-    if (translated === key) return fallback;
-    return translated;
-  };
-
-  const TRRL_FALLBACK: Record<string, string> = {
-    trrl1: 'Le vertige du Shaman',
-    trrl2: "L'Onde Incomprise",
-    trrl3: 'Le Philosophe Noir',
-    trrl4: 'Le Sifflet de Velours',
-    trrl5: "L'Écho du Baobab",
-  };
-
-  // Nouveau bundle (soundcheck) : libellés affichés dans le toast d’envoi
-  // - prrt{n} : mêmes noms que prout{n}
-  // - bzzz/trrl : on affiche la clé (bzzz1, trrl2, etc.) pour valider la logique
-  if (soundKey.startsWith('prrt')) {
-    const match = soundKey.match(/(\d+)/);
-    const n = match?.[1] ? parseInt(match[1], 10) : NaN;
-    if (Number.isFinite(n)) {
-      return tOrFallback(`prout_names.prout${n}`, `prout${n}`);
-    }
-    return tOrFallback('prout_names.prout1', 'prout1');
-  }
-  if (soundKey.startsWith('bzzz')) {
-    // BZZZ : noms traduits (toast)
-    return tOrFallback(`prout_names.${soundKey}`, soundKey);
-  }
-  if (soundKey.startsWith('trrl')) {
-    // TRRL : utiliser i18n si disponible, sinon afficher la clé
-    return tOrFallback(`prout_names.${soundKey}`, TRRL_FALLBACK[soundKey] ?? soundKey);
-  }
-  return tOrFallback(`prout_names.${soundKey}`, soundKey);
-}
+// Audio utility functions removed, now using audioService.ts and runtimeSounds.ts
 
 // Clés de cache pour AsyncStorage
 const CACHE_KEY_FRIENDS = 'cached_friends_list';
@@ -412,409 +307,8 @@ const saveCacheSafely = async (key: string, data: any[]) => {
   }
 };
 
-type SwipeableFriendRowHandle = {
-  startHoldSend: () => void;
-  cancelHoldSend: () => void;
-};
+// SwipeableFriendRow removed, now imported from ./FriendsListComponents/SwipeableFriendRow
 
-type SwipeableFriendRowProps = { 
-  friend: any; 
-  backgroundColor: string; 
-  onSendProut: () => void; 
-  onLongPressAvatar: () => void;
-  onLongPressRow: () => void;
-  onPressName?: () => void;
-  hasUnread?: boolean;
-  unreadMessage?: string | null;
-  onDeleteFriend: () => void;
-  onMuteFriend: () => void;
-  onUnmuteFriend?: () => void;
-  isMuted?: boolean;
-  introDelay?: number;
-  introTrigger?: number;
-  selectedSoundKey?: string;
-  onClearSelectedSound?: () => void;
-};
-
-// Composant SwipeableFriendRow : Swipe to Action avec animation frame-by-frame (version Reanimated pour iOS fluide)
-const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendRowProps>(({
-  friend, 
-  backgroundColor, 
-  onSendProut, 
-  onLongPressAvatar,
-  onLongPressRow,
-  onPressName, 
-  hasUnread = false, 
-  unreadMessage, 
-  onDeleteFriend, 
-  onMuteFriend, 
-  onUnmuteFriend, 
-  isMuted = false, 
-  introDelay = 0,
-  introTrigger = 0,
-  selectedSoundKey,
-  onClearSelectedSound,
-}, ref) => {
-  const translationX = useSharedValue(0);
-  const maxSwipeRight = SCREEN_WIDTH * 0.7; // Maximum 70% de l'écran vers la droite
-  const maxSwipeLeft = SCREEN_WIDTH * 0.7; // Maximum 70% de l'écran vers la gauche
-  const introOffset = useSharedValue(0);
-  const selectedSoundBadgeOffset = useSharedValue(selectedSoundKey ? 0 : 160);
-  const [showSentImage, setShowSentImage] = useState(false);
-  const [isRowTouchActive, setIsRowTouchActive] = useState(false);
-  const introDirectionRef = useRef(Math.random() > 0.5 ? 1 : -1);
-  const avatarPressActiveRef = useRef(false);
-  const suppressNextPressRef = useRef(false);
-  const suppressPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const markLongPressHandled = () => {
-    suppressNextPressRef.current = true;
-    if (suppressPressTimerRef.current) {
-      clearTimeout(suppressPressTimerRef.current);
-    }
-    suppressPressTimerRef.current = setTimeout(() => {
-      suppressNextPressRef.current = false;
-      suppressPressTimerRef.current = null;
-    }, 350);
-  };
-
-  const handleSafePressName = () => {
-    setIsRowTouchActive(false);
-    if (suppressNextPressRef.current) {
-      suppressNextPressRef.current = false;
-      return;
-    }
-    onPressName?.();
-  };
-
-  useEffect(() => {
-    return () => {
-      if (suppressPressTimerRef.current) {
-        clearTimeout(suppressPressTimerRef.current);
-        suppressPressTimerRef.current = null;
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    introOffset.value = introDirectionRef.current * 24;
-    introOffset.value = withDelay(
-      introDelay,
-      withSpring(0, { damping: 12, stiffness: 140 })
-    );
-  }, [introDelay, introOffset, introTrigger]);
-
-  useEffect(() => {
-    if (selectedSoundKey) {
-      selectedSoundBadgeOffset.value = 160;
-      selectedSoundBadgeOffset.value = withTiming(0, { duration: 280 });
-    } else {
-      selectedSoundBadgeOffset.value = withTiming(160, { duration: 160 });
-    }
-  }, [selectedSoundBadgeOffset, selectedSoundKey]);
-  
-  // Fonction pour déclencher l'action (swipe droite)
-  const triggerAction = () => {
-    setShowSentImage(true);
-    onSendProut();
-    setTimeout(() => setShowSentImage(false), 600);
-  };
-
-  useImperativeHandle(ref, () => ({
-    startHoldSend: () => {
-      cancelAnimation(translationX);
-      translationX.value = withTiming(maxSwipeRight, { duration: 800 }, (finished) => {
-        if (finished) {
-          runOnJS(triggerAction)();
-          translationX.value = withSpring(0, {
-            damping: 15,
-            stiffness: 150,
-          });
-        }
-      });
-    },
-    cancelHoldSend: () => {
-      cancelAnimation(translationX);
-      translationX.value = withSpring(0, {
-        damping: 15,
-        stiffness: 150,
-      });
-    },
-  }));
-
-  // Fonction pour réinitialiser la position (doit être appelée depuis le thread UI)
-  const resetPosition = () => {
-    translationX.value = withSpring(0, {
-      damping: 15,
-      stiffness: 150,
-    });
-  };
-
-  // Fonction pour afficher l'alerte de blocage (doit être définie en dehors du geste)
-  const showMuteDeleteAlert = useCallback(() => {
-    try {
-      Alert.alert(
-        i18n.t('safety_actions_title'),
-        '',
-        [
-          { text: i18n.t('cancel'), style: 'cancel', onPress: () => {} },
-          { text: i18n.t('block_user'), style: 'destructive', onPress: () => onDeleteFriend() },
-        ]
-      );
-    } catch (error) {
-      console.error('Erreur lors de l\'affichage de l\'alerte:', error);
-    }
-  }, [onDeleteFriend]);
-
-  // Geste avec Reanimated (fluide sur iOS) - Supporte gauche et droite
-  const gesture = Gesture.Pan()
-    .activeOffsetX([-20, 20]) // Tolérer plus de micro-mouvements avant de quitter le tap/long-press
-    .failOffsetY([-20, 20])   // Eviter d'annuler trop vite l'appui long
-    .onStart(() => {
-      // Reset si nécessaire
-    })
-    .onUpdate((e) => {
-      // Permettre le swipe dans les deux sens
-      const newX = Math.max(-maxSwipeLeft, Math.min(e.translationX, maxSwipeRight));
-      translationX.value = newX;
-    })
-    .onEnd((e) => {
-      const finalX = e.translationX;
-      const finalY = e.translationY;
-
-      // Si mouvement très faible : considérer comme TAP prioritaire
-      if (Math.abs(finalX) < TAP_THRESHOLD && Math.abs(finalY || 0) < TAP_THRESHOLD) {
-        runOnJS(handleSafePressName)();
-        translationX.value = withSpring(0, { damping: 15, stiffness: 150 });
-        return;
-      }
-      
-      // Swipe vers la droite (envoi de prout)
-      if (finalX >= SWIPE_THRESHOLD) {
-        runOnJS(triggerAction)();
-        translationX.value = withSpring(0, {
-          damping: 15,
-          stiffness: 150,
-        });
-      } 
-      // Swipe vers la gauche (menu actions)
-      else if (finalX <= -SWIPE_THRESHOLD) {
-        runOnJS(setIsRowTouchActive)(false);
-        translationX.value = withSpring(0, {
-          damping: 15,
-          stiffness: 150,
-        });
-        runOnJS(showMuteDeleteAlert)();
-      } 
-      // Seuil non atteint : retour à la position initiale
-      else {
-        runOnJS(setIsRowTouchActive)(false);
-        translationX.value = withSpring(0, {
-          damping: 15,
-          stiffness: 150,
-        });
-      }
-    });
-
-  // Style animé pour la ligne qui se déplace
-  const animatedLineStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ translateX: translationX.value + introOffset.value }],
-    };
-  });
-
-  // Style animé pour le zoom de l'image de fond (seulement pour swipe droite)
-  const animatedImageScale = useAnimatedStyle(() => {
-    // Ne zoomer que si on swipe vers la droite
-    const positiveX = Math.max(0, translationX.value);
-    const scale = interpolate(
-      positiveX,
-      [0, maxSwipeRight * 0.3, maxSwipeRight],
-      [0.8, 1.2, 4.0],
-      Extrapolation.CLAMP
-    );
-    const translateX = interpolate(
-      positiveX,
-      [0, maxSwipeRight],
-      [-20, 34],
-      Extrapolation.CLAMP
-    );
-    
-    return {
-      transform: [{ translateX }, { translateY: -8 }, { scale }],
-      opacity: translationX.value > 0 ? 1 : 0,
-    };
-  });
-
-  // Style animé pour le fond rouge (seulement pour swipe gauche)
-  const animatedRedBackground = useAnimatedStyle(() => {
-    const negativeX = Math.min(0, translationX.value);
-    const opacity = interpolate(
-      Math.abs(negativeX),
-      [0, SWIPE_THRESHOLD],
-      [0, 1],
-      Extrapolation.CLAMP
-    );
-    
-    return {
-      opacity,
-    };
-  });
-
-  const animatedSelectedSoundBadgeStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(
-      selectedSoundBadgeOffset.value,
-      [0, 160],
-      [1, 0],
-      Extrapolation.CLAMP
-    );
-
-    return {
-      transform: [{ translateX: selectedSoundBadgeOffset.value }],
-      opacity,
-    };
-  });
-
-  return (
-    <View style={[styles.swipeableRowShadowWrapper, Platform.OS === 'ios' && { backgroundColor }]}>
-      <View style={[styles.swipeableRow, { backgroundColor }]} collapsable={false}>
-      {/* Background gauche : Fond rouge pour suppression */}
-      <Animated.View 
-        style={[
-          styles.deleteBackground,
-          animatedRedBackground
-        ]}
-        collapsable={false}
-      >
-        <Text style={styles.deleteText}>{i18n.t('block_user')}</Text>
-      </Animated.View>
-
-      {/* Background droite partagé iOS + Android : image avec animation unique */}
-      <View style={styles.swipeBackground} collapsable={false}>
-        <Animated.Image
-          source={showSentImage ? IOS_SENT_IMAGE : IOS_SOUNDWAVE_IMAGE}
-          style={[styles.animImage, animatedImageScale]}
-          resizeMode="contain"
-        />
-      </View>
-
-      {/* Foreground : Ligne de contact */}
-      <GestureDetector gesture={gesture}>
-        <Animated.View
-          style={[
-            styles.swipeForeground,
-            {
-              backgroundColor: isRowTouchActive ? '#9fc5b8' : backgroundColor,
-            },
-            animatedLineStyle,
-          ]}
-        >
-          <GHTouchableOpacity
-            onPress={handleSafePressName}
-            onPressIn={() => {
-              if (avatarPressActiveRef.current) return;
-              setIsRowTouchActive(true);
-            }}
-            onPressOut={() => {
-              setIsRowTouchActive(false);
-            }}
-            onLongPress={() => {
-              // Si la pression est sur l'avatar, on laisse le handler avatar gérer.
-              if (avatarPressActiveRef.current) return;
-              setIsRowTouchActive(false);
-              markLongPressHandled();
-              onLongPressRow();
-            }}
-            delayLongPress={FRIEND_ROW_LONG_PRESS_DELAY_MS}
-            activeOpacity={1}
-            style={[styles.userInfo, { flex: 1 }]}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              {/* Avatar */}
-              <GHTouchableOpacity
-                onPress={handleSafePressName}
-                onPressIn={() => {
-                  avatarPressActiveRef.current = true;
-                  setIsRowTouchActive(false);
-                }}
-                onPressOut={() => {
-                  avatarPressActiveRef.current = false;
-                }}
-                onLongPress={() => {
-                  avatarPressActiveRef.current = false;
-                  setIsRowTouchActive(false);
-                  markLongPressHandled();
-                  onLongPressAvatar();
-                }}
-                delayLongPress={500}
-                activeOpacity={0.9}
-                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-              >
-                {friend.avatar_url ? (
-                  <Image 
-                    source={{ uri: friend.avatar_url }} 
-                    style={styles.friendAvatar} 
-                  />
-                ) : (
-                  <View style={styles.friendAvatarPlaceholder}>
-                    <Text style={styles.friendAvatarPlaceholderText}>
-                      {friend.pseudo ? friend.pseudo.charAt(0).toUpperCase() : '?'}
-                    </Text>
-                  </View>
-                )}
-              </GHTouchableOpacity>
-              <View style={{ width: 10 }} />
-              <Text style={styles.pseudo} numberOfLines={1}>{friend.pseudo}</Text>
-              {friend.isZenMode && (
-                <Ionicons name="moon" size={20} color="#ebb89b" style={{ marginLeft: 5 }} />
-              )}
-              {friend.is_muted && (
-                <Ionicons name="volume-mute-outline" size={20} color="#666" style={{ marginLeft: 5 }} />
-              )}
-              {hasUnread && unreadMessage ? (
-                <View style={styles.unreadInline}>
-                  <Text
-                    style={styles.unreadMessage}
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                  >
-                    "{unreadMessage}"
-                  </Text>
-                  <View style={styles.redDot} />
-                </View>
-              ) : hasUnread ? (
-                <View style={styles.redDot} />
-              ) : null}
-            </View>
-          </GHTouchableOpacity>
-          {selectedSoundKey ? (
-            <Animated.View
-              style={[
-                styles.friendSelectedSoundBadge,
-                animatedSelectedSoundBadgeStyle,
-              ]}
-            >
-              <Text
-                style={styles.friendSelectedSoundBadgeText}
-                numberOfLines={1}
-              >
-                {getDisplaySoundLabel(selectedSoundKey)}
-              </Text>
-              <GHTouchableOpacity
-                onPress={() => onClearSelectedSound?.()}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                style={{ marginLeft: 4 }}
-              >
-                <Ionicons name="close-circle" size={14} color="#3a2a22" />
-              </GHTouchableOpacity>
-            </Animated.View>
-          ) : null}
-        </Animated.View>
-      </GestureDetector>
-      </View>
-    </View>
-  );
-});
 
 // Composant pour gérer l'animation du message envoyé (PRRT! : opacité réduite quand lu)
 const DIMMED_OPACITY_READ = 0.72; // Grisé léger pour messages envoyés et lus par l'autre (reste lisible)
@@ -950,8 +444,6 @@ const oldAndroidInputProps = {
 
 export function FriendsList({ 
   onProutSent, 
-  isZenMode, 
-  isSilentMode, 
   headerComponent,
   isSearchVisible = false,
   onSearchChange,
@@ -969,11 +461,28 @@ export function FriendsList({
   onSearchQueryChange?: (query: string) => void;
   listIntroTrigger?: number;
 } = {}) {
+  const { isZenMode, isSilentMode } = useAppStore();
+  const queryClient = useQueryClient();
+  
   const [appUsers, setAppUsers] = useState<any[]>([]);
+  const [pendingMessages, setPendingMessages] = useState<PendingMessage[]>([]);
+  
+  const { data: pendingMessagesData, refetch: refetchMessages } = usePendingMessages(currentUserId);
+  const { data: pendingSentData, refetch: refetchSentMessages } = usePendingSentMessages(currentUserId);
+  const sendProutMutation = useSendProut(currentUserId);
+
+  // Synchronisation des messages (qui eux fonctionnent bien via TanStack)
+  useEffect(() => {
+    if (pendingMessagesData) {
+      setPendingMessages(pendingMessagesData);
+    }
+  }, [pendingMessagesData]);
+
   const appUsersRef = useRef<any[]>([]);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
   const [identityRequests, setIdentityRequests] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true); // Commencer à true pour éviter le flash
+
+  const [loading, setLoading] = useState(true); // Commencer à true, loadData gérera la suite
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [chatMessageSoundChoice, setChatMessageSoundChoice] = useState<ChatMessageSoundChoice>(
     getDefaultSoundCategoryForFirstLaunch() as ChatMessageSoundChoice
@@ -1002,7 +511,6 @@ export function FriendsList({
   const [currentPseudo, setCurrentPseudo] = useState<string>("Un ami");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [pendingMessages, setPendingMessages] = useState<PendingMessage[]>([]);
   const [lastSentMessages, setLastSentMessages] = useState<LastSentMap>({});
   const [showSilentWarning, setShowSilentWarning] = useState(false);
   const [dismissedSilentWarning, setDismissedSilentWarning] = useState(dismissedSilentWarningSession); // reste à true pour toute la session après clic OK
@@ -1637,13 +1145,21 @@ export function FriendsList({
 
   // Écouter l'événement global de rafraîchissement (déclenché par la réception d'une notif push)
   useEffect(() => {
-    const subscription = DeviceEventEmitter.addListener('REFRESH_DATA', () => {
+    const subscription = DeviceEventEmitter.addListener('REFRESH_DATA', async (data?: any) => {
+      // 1. Le son est géré nativement par ProutMessagingService.kt sur Android
+      // même en premier plan. On ne joue rien ici pour éviter le son doublé.
+
+      // 2. Invalider TanStack Query pour un rafraîchissement UI instantané
+      queryClient.invalidateQueries({ queryKey: ['pendingMessages'] });
+      queryClient.invalidateQueries({ queryKey: ['friends'] });
+
+      // 3. Fallback sur loadData classique
       loadData(false, false, false);
     });
     return () => {
       subscription.remove();
     };
-  }, []);
+  }, [isSilentMode, queryClient]);
 
   // Durée de vie maximale d'un message (24h)
   const MESSAGE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -1866,11 +1382,10 @@ export function FriendsList({
       // ÉTAPE 3 : Configurer Realtime et polling
       setupRealtimeSubscription();
       
-      // Polling modéré pour garantir la réception même si le Realtime échoue
-      // Intervalle plus long pour réduire les logs en boucle
-      pollingIntervalRef.current = setInterval(() => {
-        loadData(false, false, false); 
-      }, 10000) as unknown as NodeJS.Timeout;
+      /* Polling manual disabled, handled by TanStack Query hooks */
+      // pollingIntervalRef.current = setInterval(() => {
+      //   loadData(false, false, false); 
+      // }, 10000) as unknown as NodeJS.Timeout;
     };
     
     initialize();
@@ -2368,22 +1883,10 @@ const closeIdentityModal = useCallback(() => {
     loadDataInFlightRef.current = true;
     lastLoadDataAtRef.current = now;
 
-    // Ne mettre loading à true que si :
-    // 1. On n'a pas de cache à l'init ET pas de données affichées
-    // 2. OU si forceLoading est true (premier chargement)
-    if (forceLoading || (!hasCacheFromInit && appUsers.length === 0)) {
+    // Ne plus mettre loading à true ici pour éviter le flash blanc
+    // Seul le chargement initial (si la liste est vide) peut l'activer
+    if (forceLoading && appUsersRef.current.length === 0) {
       setLoading(true);
-      
-      // Timeout de sécurité pour le chargement
-      setTimeout(() => {
-        setLoading((currentLoading) => {
-          if (currentLoading) {
-            // Alert.alert("Connexion lente", "Impossible de charger la liste d'amis. Vérifiez votre réseau."); // Désactivé car trop fréquent
-            return false;
-          }
-          return currentLoading;
-        });
-      }, 8000); // 8 secondes pour être large
     }
 
     try {
@@ -3199,51 +2702,29 @@ const closeIdentityModal = useCallback(() => {
           'postgres_changes',
           {
             event: '*',
-            schema: 'public',
             table: 'pending_messages',
-            filter: `to_user_id=eq.${user.id}`,
           },
           (payload) => {
             if (payload.eventType === 'INSERT') {
               const newMessage = payload.new as any;
-              const rawContent = newMessage?.message_content || '';
-              const isEncryptedPayload =
-                typeof rawContent === 'string' &&
-                (rawContent.startsWith('ENCv1:') || rawContent.startsWith('READ:ENCv1:'));
-              if (isEncryptedPayload) {
-                loadData(false, false, false);
-                return;
-              }
               
-              // Vérifier si ce message n'est pas dans la liste noire (au cas où on reçoit un INSERT tardif)
-              if (deletedMessagesCache.has(newMessage.id)) {
-                  return;
-              }
+              // Filtrer manuellement ici pour être sûr à 100%
+              if (newMessage.to_user_id !== user.id) return;
 
-              const senderId = newMessage.from_user_id;
-              if (blockedUserIdsRef.current.has(senderId)) {
-                return;
-              }
-              const now = new Date().toISOString();
-
-              setPendingMessages((prev) => {
-                const filtered = prev.filter(m => m.id !== payload.new.id);
-                return [...filtered, { ...(payload.new as any), isPendingDelete: false } as PendingMessage];
+              // Invalidation immédiate de TanStack Query
+              queryClient.invalidateQueries({ queryKey: ['pendingMessages'] });
+              
+              // Mise à jour manuelle immédiate du cache pour une réactivité < 50ms
+              queryClient.setQueryData(['pendingMessages', user.id], (old: any[] = []) => {
+                if (old.some(m => m.id === newMessage.id)) return old;
+                return [...old, newMessage];
               });
 
-              // Mise à jour optimiste : remonter l'expéditeur immédiatement
-              if (senderId) {
-                setAppUsers(prev => {
-                  const updated = prev.map(f =>
-                    f.id === senderId ? { ...f, last_interaction_at: now } : f
-                  );
-                  return sortFriends(updated);
-                });
-              }
-
-              // Rechargement pour synchroniser avec Supabase
-              loadData(false, false, false);
+              // Le son est géré nativement (FCM), on n'en joue pas ici pour éviter le doublon.
             } else if (payload.eventType === 'DELETE') {
+              // Rechargement TanStack Query instantané
+              queryClient.invalidateQueries({ queryKey: ['pendingMessages', user.id] });
+              
               // Session gelée : Si le message est supprimé (lu), on ne le retire PAS si le chat est ouvert.
               // On le marque "en sursis" (isPendingDelete) pour l'afficher grisé.
               const deletedId = payload.old.id;
@@ -3427,8 +2908,10 @@ const closeIdentityModal = useCallback(() => {
               }
           }
         )
-        .subscribe(() => {
-          // Subscription active
+        .subscribe((status) => {
+          if (status === 'CHANNEL_ERROR') {
+            console.error('❌ [REALTIME] Erreur de connexion au canal Supabase');
+          }
         });
 
       subscriptionRef.current = channel;
@@ -3445,6 +2928,14 @@ const closeIdentityModal = useCallback(() => {
         const channelName = `room-${user.id}`;
         const broadcastChannel = supabase
           .channel(channelName)
+          .on('broadcast', { event: 'new-prout' }, (payload) => {
+            // 1. Le son est géré nativement (FCM), on s'occupe uniquement de l'UI ici.
+
+            // 2. Forcer le rafraîchissement des messages
+            queryClient.invalidateQueries({ queryKey: ['pendingMessages'] });
+            queryClient.invalidateQueries({ queryKey: ['friends'] });
+            loadData(false, false, false);
+          })
           .on('broadcast', { event: 'message-read' }, (payload) => {
             if (CHAT_VERBOSE_LOGS) {
               console.log(`📨 [CLIENT] Broadcast message-read reçu:`, {
@@ -4369,40 +3860,9 @@ const closeIdentityModal = useCallback(() => {
         onProutSent();
       }
 
-      // Jouer localement avec expo-av sans bloquer l'envoi.
-      // `isSilentMode` = mute général (menu principal), `isSilentMessage` = mute chat explicite.
+      // Jouer localement (si pas silencieux)
       if (!isSilentMessage && !isSilentMode) {
-        const fallbackSound = SOUND_ASSETS[LOCAL_PLAYBACK_FALLBACK_KEY];
-        const soundFile = SOUND_ASSETS[randomKey] ?? fallbackSound;
-        void (async () => {
-          try {
-            await Audio.setAudioModeAsync({
-              allowsRecordingIOS: false,
-              playsInSilentModeIOS: true,
-              staysActiveInBackground: false,
-              shouldDuckAndroid: false,
-              playThroughEarpieceAndroid: false,
-            });
-            const { sound } = await Audio.Sound.createAsync(
-              soundFile,
-              { shouldPlay: true, volume: 1.0 }
-            );
-            if (__DEV__) {
-              if (CHAT_VERBOSE_LOGS) console.log(`[AUDIO_DEBUG] local send sound key=${randomKey}`);
-            }
-            // Libérer la ressource après lecture
-            sound.setOnPlaybackStatusUpdate(async (status) => {
-              if (status.isLoaded && status.didJustFinish) {
-                await sound.unloadAsync();
-              }
-            });
-          } catch (error) {
-            // Ignorer l'erreur si l'app est en arrière-plan (comportement normal d'Android)
-            if (__DEV__) {
-              console.warn('[AUDIO_DEBUG] local send sound failed', error);
-            }
-          }
-        })();
+        playSound(randomKey);
       }
 
       // TOUJOURS recharger le pseudo depuis la base pour être sûr d'avoir la valeur à jour
@@ -4495,18 +3955,20 @@ const closeIdentityModal = useCallback(() => {
       // Envoyer le push via backend avec le token FCM et le bon pseudo
       // ⚠️ On ne passe PAS la locale de l'expéditeur : le backend récupère celle du destinataire depuis Supabase
       if (CHAT_VERBOSE_LOGS) console.log(`📤 [CLIENT] Envoi message via backend pour ${recipient.id}, customMessage: ${customMessage ? 'OUI' : 'NON'}`);
-      await sendProutViaBackend(
-        fcmToken,
-        senderPseudo,
-        randomKey,
-        targetPlatform || 'android', // défaut android pour forcer data-only + canal custom
-        {
-          ...(customMessage ? { customMessage } : {}),
+      // 🚀 ENVOI OPTIMISTE via TanStack Query Mutation
+      sendProutMutation.mutate({
+        recipientToken: fcmToken,
+        senderPseudo: senderPseudo,
+        proutKey: randomKey,
+        platform: targetPlatform || 'android',
+        receiverId: recipient.id, // Pour le signal direct
+        extraData: { 
+          customMessage,
           senderId: user.id,
           receiverId: recipient.id,
-          // locale: i18n.locale || 'fr', // ❌ RETIRÉ : le backend utilise la locale du destinataire
-        }
-      );
+        },
+      });
+
       if (CHAT_VERBOSE_LOGS) console.log(`✅ [CLIENT] Message envoyé via backend, attente de la création dans pending_messages...`);
       
       // Mise à jour optimiste locale immédiate : mettre à jour last_interaction_at localement
@@ -4518,7 +3980,14 @@ const closeIdentityModal = useCallback(() => {
             ? { ...friend, last_interaction_at: now }
             : friend
         );
-        return sortFriends(updatedUsers);
+        const sorted = sortFriends(updatedUsers);
+        
+        // Stabilisation : recaler sur le premier élément après réorganisation (iOS & Android)
+        setTimeout(() => {
+          flatListRef.current?.scrollToIndex({ index: 0, animated: true, viewPosition: 0 });
+        }, 100);
+        
+        return sorted;
       });
       if (customMessage) {
         if (CHAT_VERBOSE_LOGS) console.log(`📤 [CLIENT] Ajout message envoyé à lastSentMessages (sans ID pour l'instant) pour ${recipient.id}`);
@@ -5179,8 +4648,13 @@ const closeIdentityModal = useCallback(() => {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
+    if (__DEV__) console.log('🔄 [FriendsList] Refresh manuel...');
     try {
-      await loadData(false, false, true);
+      await Promise.all([
+        refetchMessages(),
+        refetchSentMessages(),
+        loadData(false, false, true) // loadData est maintenant "silent" (pas de flash)
+      ]);
     } finally {
       setIsRefreshing(false);
     }
@@ -5204,6 +4678,28 @@ const closeIdentityModal = useCallback(() => {
         style: styles.container,
       };
 
+
+  const lastValidUsersRef = useRef<any[]>([]);
+  
+  // Mémoriser la dernière liste valide pour éviter le flash blanc
+  useEffect(() => {
+    if (appUsers && appUsers.length > 0) {
+      lastValidUsersRef.current = appUsers;
+    }
+  }, [appUsers]);
+
+  const filteredUsers = useMemo(() => {
+    // Si on est en train de charger mais qu'on a déjà eu des données, on garde les anciennes
+    const baseUsers = (appUsers.length === 0 && isRefreshing) 
+      ? lastValidUsersRef.current 
+      : appUsers;
+
+    if (!searchQuery.trim()) return baseUsers;
+    const query = searchQuery.toLowerCase().trim();
+    return baseUsers.filter((u: any) => 
+      (u.pseudo || '').toLowerCase().includes(query)
+    );
+  }, [appUsers, searchQuery, isRefreshing]);
 
   const content = (
     <Container {...containerProps}>
@@ -5243,10 +4739,12 @@ const closeIdentityModal = useCallback(() => {
         </View>
       </View>
 
-      <FlatList
+      <FlashList
         ref={flatListRef}
-        data={getVisibleUsers()}
+        data={filteredUsers}
+        estimatedItemSize={65} // Hauteur 60 + Marge 5
         keyExtractor={(item) => item.id}
+
         style={styles.list}
         // Android a besoin de 'always' pour bien gérer les clics quand le clavier est là
         keyboardShouldPersistTaps={Platform.OS === 'android' ? "always" : "handled"}
@@ -5325,33 +4823,32 @@ const closeIdentityModal = useCallback(() => {
             : baseColor;
 
           return (
-            <View style={{ position: 'relative', marginBottom: 0 }}>
-              <SwipeableFriendRow
-                ref={(ref) => { rowRefs.current[item.id] = ref; }}
-                friend={item}
-                backgroundColor={backgroundColor}
-                onSendProut={() => handleSendProut(item)}
-                onLongPressAvatar={() => handleLongPressName(item)}
-                onLongPressRow={() => handleLongPressSoundCategory(item)}
-                onPressName={() => handlePressFriend(item)}
-                hasUnread={hasUnread}
-                unreadMessage={truncateContactPreview(lastUnread?.message_content) || (hasUnread && unreadMessages.length > 1 ? `${unreadMessages.length} messages` : null)}
-                onDeleteFriend={() => handleDeleteFriend(item)}
-                onMuteFriend={() => handleMuteFriend(item)}
-                onUnmuteFriend={() => handleUnmuteFriend(item)}
-                isMuted={item.is_muted || false}
-                introDelay={index * 40}
-                introTrigger={listIntroTrigger}
-                selectedSoundKey={friendSoundKeyByFriend[item.id]}
-                onClearSelectedSound={() => {
-                  setFriendSoundKeyByFriend((prev) => {
-                    if (!prev[item.id]) return prev;
-                    const { [item.id]: _removed, ...rest } = prev;
-                    return rest;
-                  });
-                }}
-              />
-            </View>
+            <SwipeableFriendRow
+              ref={(ref) => { rowRefs.current[item.id] = ref; }}
+              friend={item}
+              backgroundColor={backgroundColor}
+              getDisplaySoundLabel={getDisplaySoundLabel}
+              onSendProut={() => handleSendProut(item)}
+              onLongPressAvatar={() => handleLongPressName(item)}
+              onLongPressRow={() => handleLongPressSoundCategory(item)}
+              onPressName={() => handlePressFriend(item)}
+              hasUnread={hasUnread}
+              unreadMessage={truncateContactPreview(lastUnread?.message_content) || (hasUnread && unreadMessages.length > 1 ? `${unreadMessages.length} messages` : null)}
+              onDeleteFriend={() => handleDeleteFriend(item)}
+              onMuteFriend={() => handleMuteFriend(item)}
+              onUnmuteFriend={() => handleUnmuteFriend(item)}
+              isMuted={item.is_muted || false}
+              introDelay={index * 40}
+              introTrigger={listIntroTrigger}
+              selectedSoundKey={friendSoundKeyByFriend[item.id]}
+              onClearSelectedSound={() => {
+                setFriendSoundKeyByFriend((prev) => {
+                  if (!prev[item.id]) return prev;
+                  const { [item.id]: _removed, ...rest } = prev;
+                  return rest;
+                });
+              }}
+            />
           );
         }}
         refreshing={isRefreshing}

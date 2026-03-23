@@ -40,11 +40,8 @@
         <action android:name="android.intent.action.VIEW"/>
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
-        <data android:scheme="proutapp"/>
-        <data android:scheme="exp+proutapp"/>
-        <data android:scheme="prrtapp"/>
-        <data android:scheme="exp+prrtapp"/>
         <data android:scheme="prootapp"/>
+        <data android:scheme="exp+prrtapp"/>
       </intent-filter>
     </activity>
     <provider android:name=".ChannelInitProvider" android:authorities="${applicationId}.channel-init" android:exported="false" android:initOrder="100"/>

@@ -24,5 +24,6 @@
 # Keep ContentProvider for early initialization
 -keep class * extends android.content.ContentProvider { *; }
 
-# Prevent R8 from removing raw sound resources (prout1..20.wav)
--keepclassmembers class **.R$raw { public static final int prout*; }
+# Prevent R8 from removing raw sound resources (bzzz/trrl)
+-keepclassmembers class **.R$raw { public static final int bzzz*; }
+-keepclassmembers class **.R$raw { public static final int trrl*; }

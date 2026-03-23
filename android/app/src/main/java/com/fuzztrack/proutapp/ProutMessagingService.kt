@@ -91,9 +91,16 @@ class ProutMessagingService : FirebaseMessagingService() {
 
     private fun resolveSoundUri(proutKey: String): Uri {
         val resId = resources.getIdentifier(proutKey, "raw", packageName)
-        return if (resId != 0) {
-            Uri.parse("android.resource://" + packageName + "/" + resId)
+        if (resId != 0) {
+            return Uri.parse("android.resource://" + packageName + "/" + resId)
+        }
+        // Transition legacy → nouvelle app : clé ou fichier raw absent → toot1.wav
+        Log.w(TAG, "⚠️ Pas de raw pour proutKey=$proutKey → fallback toot1")
+        val toot1Id = resources.getIdentifier("toot1", "raw", packageName)
+        return if (toot1Id != 0) {
+            Uri.parse("android.resource://" + packageName + "/" + toot1Id)
         } else {
+            Log.w(TAG, "⚠️ toot1 absent → fallback trrl1")
             Uri.parse("android.resource://" + packageName + "/raw/trrl1")
         }
     }
