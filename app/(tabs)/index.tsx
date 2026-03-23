@@ -53,11 +53,6 @@ export default function HomeScreen() {
   const shakeX = useRef(new Animated.Value(0)).current;
   const shakeY = useRef(new Animated.Value(0)).current;
 
-  // --- NAVIGATION COMPLICITÉ ---
-  const handleComplicityPress = useCallback(() => {
-    router.push('/complicity');
-  }, [router]);
-
   const handleSoundcheckPress = useCallback(() => {
     router.push('/soundcheck');
   }, [router]);
@@ -689,7 +684,6 @@ export default function HomeScreen() {
                         isProfileOpen={activeView === 'profile'}
                         isSearchVisible={isSearchVisible}
                         onSearchToggle={toggleSearchVisibility}
-                        onComplicityPress={handleComplicityPress}
                         onSoundcheckPress={handleSoundcheckPress}
                         onProfileMenuPress={toggleProfileMenu}
                         onProfilePress={() => setActiveView('profile')}
@@ -722,6 +716,7 @@ export default function HomeScreen() {
                          
                          <View style={styles.menuCard}>
                            {[
+                             { label: i18n.t('resonance_dashboard_menu'), icon: 'trophy', onPress: () => { setActiveView('list'); router.push('/complicity'); }, iconColor: '#604a3e' },
                              { label: i18n.t('zen_mode'), icon: isZenMode ? 'moon' : 'moon-outline', onPress: () => { void toggleZenMode(); }, iconColor: isZenMode ? '#ebb89b' : '#604a3e' },
                              { label: i18n.t('silent_mode'), icon: isSilentMode ? 'volume-mute' : 'volume-mute-outline', onPress: () => { toggleSilentMode(); }, iconColor: isSilentMode ? '#ebb89b' : '#604a3e' },
                              { label: i18n.t('search_title'), icon: 'person-add-outline', onPress: () => { setActiveView('list'); setShowSearch(true); }, iconColor: showSearch ? '#ebb89b' : '#604a3e' },
@@ -787,7 +782,6 @@ export default function HomeScreen() {
                       isProfileOpen={activeView === 'profile'}
                       isSearchVisible={isSearchVisible}
                       onSearchToggle={toggleSearchVisibility}
-                      onComplicityPress={handleComplicityPress}
                       onSoundcheckPress={handleSoundcheckPress}
                       onProfileMenuPress={toggleProfileMenu}
                       onProfilePress={() => setActiveView('profile')}
@@ -820,6 +814,7 @@ export default function HomeScreen() {
                       
                       <View style={styles.menuCard}>
                           {[
+                            { label: i18n.t('resonance_dashboard_menu'), icon: 'trophy', onPress: () => { setActiveView('list'); router.push('/complicity'); }, iconColor: '#604a3e' },
                             { label: i18n.t('zen_mode'), icon: isZenMode ? 'moon' : 'moon-outline', onPress: () => { void toggleZenMode(); }, iconColor: isZenMode ? '#ebb89b' : '#604a3e' },
                             { label: i18n.t('silent_mode'), icon: isSilentMode ? 'volume-mute' : 'volume-mute-outline', onPress: () => { toggleSilentMode(); }, iconColor: isSilentMode ? '#ebb89b' : '#604a3e' },
                             { label: i18n.t('search_title'), icon: 'person-add-outline', onPress: () => { setActiveView('list'); setShowSearch(true); }, iconColor: showSearch ? '#ebb89b' : '#604a3e' },

@@ -19,6 +19,8 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withDelay,
+  withRepeat,
+  withSequence,
   withSpring,
   withTiming
 } from 'react-native-reanimated';
@@ -70,6 +72,11 @@ const PICKUP_TOOT_KEYS = (SOUND_KEYS_BY_CATEGORY.toot || []).filter((key) => !!S
 const MAX_PICKUP_ROWS = Math.ceil(Math.max(PICKUP_TRLL_KEYS.length, PICKUP_BZZZ_KEYS.length, PICKUP_POP_KEYS.length, PICKUP_MOOD_KEYS.length, PICKUP_TOOT_KEYS.length) / 2);
 const CHAT_SPECIFIC_ROW_HEIGHT = 34;
 const CHAT_SPECIFIC_MIN_HEIGHT = MAX_PICKUP_ROWS * CHAT_SPECIFIC_ROW_HEIGHT + 50;
+const USE_NATIVE_MODAL_DRIVER = Platform.OS !== 'android';
+const ANDROID_MODAL_CLOSE_TIMING = Platform.OS === 'android' ? 0 : 120;
+const CHAT_MODAL_BACKDROP_OPACITY = Platform.OS === 'android' ? 0 : 0.3;
+const FRIEND_SOUND_MODAL_BACKDROP_OPACITY = Platform.OS === 'android' ? 0 : 0.45;
+const FRIEND_ROW_LONG_PRESS_DELAY_MS = 320;
 const IS_ENGLISH_LOCALE = String(i18n.locale || '').toLowerCase().startsWith('en');
 const USE_PROOT_TOOT_LOGO = Platform.OS === 'android' || !IS_ENGLISH_LOCALE;
 const TOOT_LOGO_IMAGE = USE_PROOT_TOOT_LOGO
@@ -119,6 +126,57 @@ const DEFAULT_SOUND_OPTION_ROWS = [
   DEFAULT_SOUND_OPTIONS.slice(0, 3),
   DEFAULT_SOUND_OPTIONS.slice(3),
 ];
+
+const CATEGORY_HEADER_POP_DELAY_MS: Record<ChatMessageSoundChoice | 'bzzz', number> = {
+  toot: 0,
+  mood: 380,
+  pop: 760,
+  trll: 1140,
+  bzzz: 1520,
+};
+
+function AnimatedCategoryHeaderImage({
+  source,
+  style,
+  delayMs = 0,
+}: {
+  source: any;
+  style?: any;
+  delayMs?: number;
+}) {
+  const scale = useSharedValue(1);
+
+  useEffect(() => {
+    scale.value = withDelay(
+      delayMs,
+      withRepeat(
+        withSequence(
+          withTiming(1.12, { duration: 180 }),
+          withTiming(1, { duration: 220 }),
+          withTiming(1, { duration: 3000 }),
+        ),
+        -1,
+        false,
+      ),
+    );
+
+    return () => {
+      cancelAnimation(scale);
+    };
+  }, [delayMs, scale]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Animated.Image
+      source={source}
+      style={[style, animatedStyle]}
+      resizeMode="contain"
+    />
+  );
+}
 
 function pickRandom<T>(arr: T[]) {
   return arr[Math.floor(Math.random() * arr.length)];
@@ -224,6 +282,12 @@ type ReportableMessage = {
 const stripReadPrefix = (text?: string | null) => {
   if (!text) return '';
   return text.startsWith('READ:') ? text.slice('READ:'.length) : text;
+};
+
+const truncateContactPreview = (text?: string | null, maxLength: number = 15) => {
+  const cleanText = stripReadPrefix(text).trim();
+  if (!cleanText) return '';
+  return cleanText.length > maxLength ? `${cleanText.slice(0, maxLength)}...` : cleanText;
 };
 
 // Mémoire de session (pas persistée) pour bloquer la bannière après clic OK
@@ -397,6 +461,7 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
   const introOffset = useSharedValue(0);
   const selectedSoundBadgeOffset = useSharedValue(selectedSoundKey ? 0 : 160);
   const [showSentImage, setShowSentImage] = useState(false);
+  const [isRowTouchActive, setIsRowTouchActive] = useState(false);
   const introDirectionRef = useRef(Math.random() > 0.5 ? 1 : -1);
   const avatarPressActiveRef = useRef(false);
   const suppressNextPressRef = useRef(false);
@@ -414,6 +479,7 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
   };
 
   const handleSafePressName = () => {
+    setIsRowTouchActive(false);
     if (suppressNextPressRef.current) {
       suppressNextPressRef.current = false;
       return;
@@ -502,8 +568,8 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
 
   // Geste avec Reanimated (fluide sur iOS) - Supporte gauche et droite
   const gesture = Gesture.Pan()
-    .activeOffsetX([-TAP_THRESHOLD, TAP_THRESHOLD]) // Priorité au tap court
-    .failOffsetY([-10, 10])   // Laisser le scroll vertical passer
+    .activeOffsetX([-20, 20]) // Tolérer plus de micro-mouvements avant de quitter le tap/long-press
+    .failOffsetY([-20, 20])   // Eviter d'annuler trop vite l'appui long
     .onStart(() => {
       // Reset si nécessaire
     })
@@ -518,9 +584,7 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
 
       // Si mouvement très faible : considérer comme TAP prioritaire
       if (Math.abs(finalX) < TAP_THRESHOLD && Math.abs(finalY || 0) < TAP_THRESHOLD) {
-        if (onPressName) {
-          runOnJS(onPressName)();
-        }
+        runOnJS(handleSafePressName)();
         translationX.value = withSpring(0, { damping: 15, stiffness: 150 });
         return;
       }
@@ -535,6 +599,7 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
       } 
       // Swipe vers la gauche (menu actions)
       else if (finalX <= -SWIPE_THRESHOLD) {
+        runOnJS(setIsRowTouchActive)(false);
         translationX.value = withSpring(0, {
           damping: 15,
           stiffness: 150,
@@ -543,6 +608,7 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
       } 
       // Seuil non atteint : retour à la position initiale
       else {
+        runOnJS(setIsRowTouchActive)(false);
         translationX.value = withSpring(0, {
           damping: 15,
           stiffness: 150,
@@ -638,21 +704,29 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
           style={[
             styles.swipeForeground,
             {
-              backgroundColor,
+              backgroundColor: isRowTouchActive ? '#9fc5b8' : backgroundColor,
             },
             animatedLineStyle,
           ]}
         >
           <GHTouchableOpacity
             onPress={handleSafePressName}
+            onPressIn={() => {
+              if (avatarPressActiveRef.current) return;
+              setIsRowTouchActive(true);
+            }}
+            onPressOut={() => {
+              setIsRowTouchActive(false);
+            }}
             onLongPress={() => {
               // Si la pression est sur l'avatar, on laisse le handler avatar gérer.
               if (avatarPressActiveRef.current) return;
+              setIsRowTouchActive(false);
               markLongPressHandled();
               onLongPressRow();
             }}
-            delayLongPress={500}
-            activeOpacity={0.8}
+            delayLongPress={FRIEND_ROW_LONG_PRESS_DELAY_MS}
+            activeOpacity={1}
             style={[styles.userInfo, { flex: 1 }]}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -661,12 +735,14 @@ const SwipeableFriendRow = forwardRef<SwipeableFriendRowHandle, SwipeableFriendR
                 onPress={handleSafePressName}
                 onPressIn={() => {
                   avatarPressActiveRef.current = true;
+                  setIsRowTouchActive(false);
                 }}
                 onPressOut={() => {
                   avatarPressActiveRef.current = false;
                 }}
                 onLongPress={() => {
                   avatarPressActiveRef.current = false;
+                  setIsRowTouchActive(false);
                   markLongPressHandled();
                   onLongPressAvatar();
                 }}
@@ -910,6 +986,7 @@ export function FriendsList({
   const [friendSoundCategoryByFriend, setFriendSoundCategoryByFriend] = useState<Record<string, SoundCategory>>({});
   const [friendSoundKeyByFriend, setFriendSoundKeyByFriend] = useState<Record<string, string>>({});
   const [friendSoundModalVisible, setFriendSoundModalVisible] = useState(false);
+  const [isFriendSoundModalContentVisible, setIsFriendSoundModalContentVisible] = useState(false);
   const [friendSoundModalFriend, setFriendSoundModalFriend] = useState<any>(null);
   const [globalDefaultCategory, setGlobalDefaultCategory] = useState<SoundCategory>(
     getDefaultSoundCategoryForFirstLaunch()
@@ -932,6 +1009,7 @@ export function FriendsList({
   const [expandedFriendId, setExpandedFriendId] = useState<string | null>(null);
   const expandedFriendIdRef = useRef<string | null>(null);
   const lastRandomSoundByFriendRef = useRef<Record<string, string>>({});
+  const friendSoundPickCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   useEffect(() => {
     expandedFriendIdRef.current = expandedFriendId;
@@ -954,6 +1032,14 @@ export function FriendsList({
       })();
     }
   }, [expandedFriendId]);
+
+  useEffect(() => {
+    return () => {
+      if (friendSoundPickCloseTimeoutRef.current) {
+        clearTimeout(friendSoundPickCloseTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const closeFirstFriendlistModal = useCallback(async () => {
     setIsFirstFriendlistModalVisible(false);
@@ -2021,6 +2107,7 @@ const handleLongPressSoundCategory = useCallback((friend: any) => {
   if (isModalTransitionActive()) return;
   if (identityModalVisible || isFirstFriendlistModalVisible || isFirstFriendlistFeaturesModalVisible || isFirstFriendlistZenModalVisible || isFirstFriendlistSearchModalVisible || isFirstChatModalVisible) return;
   markModalTransition();
+  setIsFriendSoundModalContentVisible(true);
   setFriendSoundModalFriend(friend);
   setFriendSoundModalVisible(true);
 }, [identityModalVisible, isFirstFriendlistModalVisible, isFirstFriendlistFeaturesModalVisible, isFirstFriendlistZenModalVisible, isFirstFriendlistSearchModalVisible, isModalTransitionActive, markModalTransition]);
@@ -2031,18 +2118,55 @@ const handleSelectFriendSpecificSoundKey = useCallback((soundKey: string) => {
   setFriendSoundKeyByFriend((prev) => {
     return { ...prev, [friendId]: soundKey };
   });
+  if (friendSoundPickCloseTimeoutRef.current) {
+    clearTimeout(friendSoundPickCloseTimeoutRef.current);
+    friendSoundPickCloseTimeoutRef.current = null;
+  }
+  setIsFriendSoundModalContentVisible(false);
   markModalTransition();
   setFriendSoundModalVisible(false);
 }, [friendSoundModalFriend?.id, markModalTransition]);
 
 const closeFriendSoundModal = useCallback(() => {
+  if (friendSoundPickCloseTimeoutRef.current) {
+    clearTimeout(friendSoundPickCloseTimeoutRef.current);
+    friendSoundPickCloseTimeoutRef.current = null;
+  }
+  setIsFriendSoundModalContentVisible(false);
   markModalTransition();
   setFriendSoundModalVisible(false);
 }, [markModalTransition]);
 
 const closeFriendSoundPickModal = useCallback(() => {
+  if (friendSoundPickCloseTimeoutRef.current) {
+    clearTimeout(friendSoundPickCloseTimeoutRef.current);
+    friendSoundPickCloseTimeoutRef.current = null;
+  }
+  setIsFriendSoundModalContentVisible(false);
   setFriendSoundModalVisible(false);
 }, []);
+
+const renderFriendSoundPickItem = useCallback((soundKey: string) => {
+  const isActive = !!(
+    friendSoundModalFriend?.id && friendSoundKeyByFriend[friendSoundModalFriend.id] === soundKey
+  );
+  return (
+    <Pressable
+      key={soundKey}
+      style={({ pressed }) => [
+        styles.friendSoundPickItemButton,
+        (pressed || isActive) && styles.friendSoundPickItemButtonActive,
+      ]}
+      onPress={() => handleSelectFriendSpecificSoundKey(soundKey)}
+    >
+      <Text style={styles.friendSoundPickItemText}>{getDisplaySoundLabel(soundKey)}</Text>
+    </Pressable>
+  );
+}, [
+  friendSoundKeyByFriend,
+  friendSoundModalFriend?.id,
+  handleSelectFriendSpecificSoundKey,
+]);
 
 const closeIdentityModal = useCallback(() => {
   markModalTransition();
@@ -5211,7 +5335,7 @@ const closeIdentityModal = useCallback(() => {
                 onLongPressRow={() => handleLongPressSoundCategory(item)}
                 onPressName={() => handlePressFriend(item)}
                 hasUnread={hasUnread}
-                unreadMessage={stripReadPrefix(lastUnread?.message_content) || (hasUnread && unreadMessages.length > 1 ? `${unreadMessages.length} messages` : null)}
+                unreadMessage={truncateContactPreview(lastUnread?.message_content) || (hasUnread && unreadMessages.length > 1 ? `${unreadMessages.length} messages` : null)}
                 onDeleteFriend={() => handleDeleteFriend(item)}
                 onMuteFriend={() => handleMuteFriend(item)}
                 onUnmuteFriend={() => handleUnmuteFriend(item)}
@@ -5433,16 +5557,8 @@ const closeIdentityModal = useCallback(() => {
             onSearchChange?.(false);
             onSearchQueryChange?.('');
           }
-          // 4. Attendre que le clavier soit parti avant de démonter la modale (Anti-Flash)
-          if (isPixelDevice) {
-            setTimeout(() => {
-              setExpandedFriendId(null);
-            }, 500);
-          } else {
-            setTimeout(() => {
-              setExpandedFriendId(null);
-            }, Platform.OS === 'android' ? 300 : 50);
-          }
+          // 4. Fermeture immédiate sans animation de disparition visible
+          setExpandedFriendId(null);
         }}
         onBackButtonPress={() => {
           markModalTransition();
@@ -5453,15 +5569,7 @@ const closeIdentityModal = useCallback(() => {
             onSearchChange?.(false);
             onSearchQueryChange?.('');
           }
-          if (isPixelDevice) {
-            setTimeout(() => {
-              setExpandedFriendId(null);
-            }, 500);
-          } else {
-            setTimeout(() => {
-              setExpandedFriendId(null);
-            }, Platform.OS === 'android' ? 300 : 50);
-          }
+          setExpandedFriendId(null);
         }}
         onModalShow={() => {
           setIsModalContentVisible(true);
@@ -5485,14 +5593,14 @@ const closeIdentityModal = useCallback(() => {
           }
         }}
         style={{ margin: 0, justifyContent: 'flex-end' }}
-        backdropOpacity={0.3}
-        useNativeDriver
-        useNativeDriverForBackdrop
+        backdropOpacity={CHAT_MODAL_BACKDROP_OPACITY}
+        useNativeDriver={USE_NATIVE_MODAL_DRIVER}
+        useNativeDriverForBackdrop={USE_NATIVE_MODAL_DRIVER}
         hideModalContentWhileAnimating
         animationIn="fadeIn"
         animationOut="fadeOut"
         animationInTiming={150}
-        animationOutTiming={1} // Instantané à la fermeture
+        animationOutTiming={Platform.OS === 'android' ? 0 : 1} // Instantané à la fermeture
         backdropTransitionOutTiming={0}
         avoidKeyboard={false} // Ancrage clavier géré de façon unifiée via keyboardHeightSV
       >
@@ -5526,14 +5634,54 @@ const closeIdentityModal = useCallback(() => {
         isVisible={friendSoundModalVisible}
         onBackdropPress={closeFriendSoundModal}
         onBackButtonPress={closeFriendSoundModal}
+        onModalShow={() => {
+          setIsFriendSoundModalContentVisible(true);
+        }}
+        onModalHide={() => {
+          setIsFriendSoundModalContentVisible(false);
+        }}
         style={styles.friendSoundModal}
-        backdropOpacity={0.45}
+        backdropOpacity={FRIEND_SOUND_MODAL_BACKDROP_OPACITY}
         animationIn="fadeIn"
         animationOut="fadeOut"
-        animationOutTiming={120}
-        useNativeDriver
+        animationOutTiming={ANDROID_MODAL_CLOSE_TIMING}
+        useNativeDriver={USE_NATIVE_MODAL_DRIVER}
+        useNativeDriverForBackdrop={USE_NATIVE_MODAL_DRIVER}
+        hideModalContentWhileAnimating
+        backdropTransitionOutTiming={0}
       >
-        <View style={[styles.friendSoundModalCard, styles.friendSoundModalCardExpanded]}>
+        <View
+          style={[
+            styles.friendSoundModalCard,
+            styles.friendSoundModalCardExpanded,
+            { opacity: isFriendSoundModalContentVisible ? 1 : 0 },
+          ]}
+        >
+          <View style={styles.friendSoundPickTitleRow}>
+            <Image
+              source={require('../assets/images/proothail.png')}
+              style={styles.friendSoundPickTitleTail}
+              resizeMode="contain"
+            />
+            <Text style={styles.friendSoundPickTitleText}>{i18n.t('friend_sound_modal_pick_title')}</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.friendSoundPickSoundcheckLink}
+            onPress={() => {
+              closeFriendSoundModal();
+              router.push('/soundcheck');
+            }}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.friendSoundPickSoundcheckText}>
+              {i18n.t('friend_sound_modal_listen_in_soundcheck')}{' '}
+            </Text>
+            <Image
+              source={require('../assets/images/soundcheck3.png')}
+              style={styles.friendSoundPickSoundcheckImage}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
           <ScrollView
                 style={styles.friendSoundPickScroll}
                 contentContainerStyle={styles.friendSoundPickScrollContent}
@@ -5544,186 +5692,96 @@ const closeIdentityModal = useCallback(() => {
                     {Platform.OS === 'android' && (
                       <>
                         <View style={styles.friendSoundPickHeaderCell}>
-                          <Image source={TOOT_LOGO_IMAGE} style={[styles.friendSoundPickHeaderImage, TOOT_PICK_HEADER_SIZE]} resizeMode="contain" />
+                          <AnimatedCategoryHeaderImage
+                            source={TOOT_LOGO_IMAGE}
+                            style={[styles.friendSoundPickHeaderImage, TOOT_PICK_HEADER_SIZE]}
+                            delayMs={CATEGORY_HEADER_POP_DELAY_MS.toot}
+                          />
                         </View>
-                        {PICKUP_TOOT_KEYS.map((soundKey) => (
-                          <TouchableOpacity
-                            key={soundKey}
-                            style={[
-                              styles.friendSoundPickItemButton,
-                              friendSoundModalFriend?.id && friendSoundKeyByFriend[friendSoundModalFriend.id] === soundKey
-                                ? styles.friendSoundPickItemButtonActive
-                                : undefined,
-                            ]}
-                            onPress={() => handleSelectFriendSpecificSoundKey(soundKey)}
-                            activeOpacity={0.8}
-                          >
-                            <Text style={styles.friendSoundPickItemText}>{getDisplaySoundLabel(soundKey)}</Text>
-                          </TouchableOpacity>
-                        ))}
+                        {PICKUP_TOOT_KEYS.map(renderFriendSoundPickItem)}
                         <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
-                          <Image source={require('../assets/images/buzz.png')} style={styles.friendSoundPickHeaderImage} resizeMode="contain" />
+                          <AnimatedCategoryHeaderImage
+                            source={require('../assets/images/buzz.png')}
+                            style={styles.friendSoundPickHeaderImage}
+                            delayMs={CATEGORY_HEADER_POP_DELAY_MS.bzzz}
+                          />
                         </View>
-                        {PICKUP_BZZZ_KEYS.map((soundKey) => (
-                          <TouchableOpacity
-                            key={soundKey}
-                            style={[
-                              styles.friendSoundPickItemButton,
-                              friendSoundModalFriend?.id && friendSoundKeyByFriend[friendSoundModalFriend.id] === soundKey
-                                ? styles.friendSoundPickItemButtonActive
-                                : undefined,
-                            ]}
-                            onPress={() => handleSelectFriendSpecificSoundKey(soundKey)}
-                            activeOpacity={0.8}
-                          >
-                            <Text style={styles.friendSoundPickItemText}>{getDisplaySoundLabel(soundKey)}</Text>
-                          </TouchableOpacity>
-                        ))}
+                        {PICKUP_BZZZ_KEYS.map(renderFriendSoundPickItem)}
                       </>
                     )}
                     {Platform.OS !== 'android' && (
                       <>
                         <View style={styles.friendSoundPickHeaderCell}>
-                          <Image source={require('../assets/images/mood.png')} style={[styles.friendSoundPickHeaderImage, MOOD_PICK_HEADER_SIZE]} resizeMode="contain" />
+                          <AnimatedCategoryHeaderImage
+                            source={require('../assets/images/mood.png')}
+                            style={[styles.friendSoundPickHeaderImage, MOOD_PICK_HEADER_SIZE]}
+                            delayMs={CATEGORY_HEADER_POP_DELAY_MS.mood}
+                          />
                         </View>
-                        {PICKUP_MOOD_KEYS.map((soundKey) => (
-                          <TouchableOpacity
-                            key={soundKey}
-                            style={[
-                              styles.friendSoundPickItemButton,
-                              friendSoundModalFriend?.id && friendSoundKeyByFriend[friendSoundModalFriend.id] === soundKey
-                                ? styles.friendSoundPickItemButtonActive
-                                : undefined,
-                            ]}
-                            onPress={() => handleSelectFriendSpecificSoundKey(soundKey)}
-                            activeOpacity={0.8}
-                          >
-                            <Text style={styles.friendSoundPickItemText}>{getDisplaySoundLabel(soundKey)}</Text>
-                          </TouchableOpacity>
-                        ))}
+                        {PICKUP_MOOD_KEYS.map(renderFriendSoundPickItem)}
                       </>
                     )}
                     {/* iOS : Tweet + Buzz sous Mood, en colonne 1 */}
                     {Platform.OS === 'ios' && (
                       <>
                         <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
-                          <Image source={require('../assets/images/tweet.png')} style={styles.friendSoundPickHeaderImage} resizeMode="contain" />
+                          <AnimatedCategoryHeaderImage
+                            source={require('../assets/images/tweet.png')}
+                            style={styles.friendSoundPickHeaderImage}
+                            delayMs={CATEGORY_HEADER_POP_DELAY_MS.trll}
+                          />
                         </View>
-                        {PICKUP_TRLL_KEYS.map((soundKey) => (
-                          <TouchableOpacity
-                            key={soundKey}
-                            style={[
-                              styles.friendSoundPickItemButton,
-                              friendSoundModalFriend?.id && friendSoundKeyByFriend[friendSoundModalFriend.id] === soundKey
-                                ? styles.friendSoundPickItemButtonActive
-                                : undefined,
-                            ]}
-                            onPress={() => handleSelectFriendSpecificSoundKey(soundKey)}
-                            activeOpacity={0.8}
-                          >
-                            <Text style={styles.friendSoundPickItemText}>{getDisplaySoundLabel(soundKey)}</Text>
-                          </TouchableOpacity>
-                        ))}
+                        {PICKUP_TRLL_KEYS.map(renderFriendSoundPickItem)}
                         <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
-                          <Image source={require('../assets/images/buzz.png')} style={styles.friendSoundPickHeaderImage} resizeMode="contain" />
+                          <AnimatedCategoryHeaderImage
+                            source={require('../assets/images/buzz.png')}
+                            style={styles.friendSoundPickHeaderImage}
+                            delayMs={CATEGORY_HEADER_POP_DELAY_MS.bzzz}
+                          />
                         </View>
-                        {PICKUP_BZZZ_KEYS.map((soundKey) => (
-                          <TouchableOpacity
-                            key={soundKey}
-                            style={[
-                              styles.friendSoundPickItemButton,
-                              friendSoundModalFriend?.id && friendSoundKeyByFriend[friendSoundModalFriend.id] === soundKey
-                                ? styles.friendSoundPickItemButtonActive
-                                : undefined,
-                            ]}
-                            onPress={() => handleSelectFriendSpecificSoundKey(soundKey)}
-                            activeOpacity={0.8}
-                          >
-                            <Text style={styles.friendSoundPickItemText}>{getDisplaySoundLabel(soundKey)}</Text>
-                          </TouchableOpacity>
-                        ))}
+                        {PICKUP_BZZZ_KEYS.map(renderFriendSoundPickItem)}
                       </>
                     )}
                   </View>
                   <View style={styles.friendSoundPickColumn}>
                     <View style={styles.friendSoundPickHeaderCell}>
-                      <Image source={require('../assets/images/pop.png')} style={[styles.friendSoundPickHeaderImage, { width: 68, height: 29 }]} resizeMode="contain" />
+                      <AnimatedCategoryHeaderImage
+                        source={require('../assets/images/pop.png')}
+                        style={[styles.friendSoundPickHeaderImage, { width: 68, height: 29 }]}
+                        delayMs={CATEGORY_HEADER_POP_DELAY_MS.pop}
+                      />
                     </View>
-                    {PICKUP_POP_KEYS.map((soundKey) => (
-                      <TouchableOpacity
-                        key={soundKey}
-                        style={[
-                          styles.friendSoundPickItemButton,
-                          friendSoundModalFriend?.id && friendSoundKeyByFriend[friendSoundModalFriend.id] === soundKey
-                            ? styles.friendSoundPickItemButtonActive
-                            : undefined,
-                        ]}
-                        onPress={() => handleSelectFriendSpecificSoundKey(soundKey)}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.friendSoundPickItemText}>{getDisplaySoundLabel(soundKey)}</Text>
-                      </TouchableOpacity>
-                    ))}
+                    {PICKUP_POP_KEYS.map(renderFriendSoundPickItem)}
                     {Platform.OS === 'android' && (
                       <>
                         <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
-                          <Image source={require('../assets/images/mood.png')} style={[styles.friendSoundPickHeaderImage, MOOD_PICK_HEADER_SIZE]} resizeMode="contain" />
+                          <AnimatedCategoryHeaderImage
+                            source={require('../assets/images/mood.png')}
+                            style={[styles.friendSoundPickHeaderImage, MOOD_PICK_HEADER_SIZE]}
+                            delayMs={CATEGORY_HEADER_POP_DELAY_MS.mood}
+                          />
                         </View>
-                        {PICKUP_MOOD_KEYS.map((soundKey) => (
-                          <TouchableOpacity
-                            key={soundKey}
-                            style={[
-                              styles.friendSoundPickItemButton,
-                              friendSoundModalFriend?.id && friendSoundKeyByFriend[friendSoundModalFriend.id] === soundKey
-                                ? styles.friendSoundPickItemButtonActive
-                                : undefined,
-                            ]}
-                            onPress={() => handleSelectFriendSpecificSoundKey(soundKey)}
-                            activeOpacity={0.8}
-                          >
-                            <Text style={styles.friendSoundPickItemText}>{getDisplaySoundLabel(soundKey)}</Text>
-                          </TouchableOpacity>
-                        ))}
+                        {PICKUP_MOOD_KEYS.map(renderFriendSoundPickItem)}
                     <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
-                      <Image source={require('../assets/images/tweet.png')} style={styles.friendSoundPickHeaderImage} resizeMode="contain" />
+                      <AnimatedCategoryHeaderImage
+                        source={require('../assets/images/tweet.png')}
+                        style={styles.friendSoundPickHeaderImage}
+                        delayMs={CATEGORY_HEADER_POP_DELAY_MS.trll}
+                      />
                     </View>
-                    {PICKUP_TRLL_KEYS.map((soundKey) => (
-                      <TouchableOpacity
-                        key={soundKey}
-                        style={[
-                          styles.friendSoundPickItemButton,
-                          friendSoundModalFriend?.id && friendSoundKeyByFriend[friendSoundModalFriend.id] === soundKey
-                            ? styles.friendSoundPickItemButtonActive
-                            : undefined,
-                        ]}
-                        onPress={() => handleSelectFriendSpecificSoundKey(soundKey)}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.friendSoundPickItemText}>{getDisplaySoundLabel(soundKey)}</Text>
-                      </TouchableOpacity>
-                    ))}
+                    {PICKUP_TRLL_KEYS.map(renderFriendSoundPickItem)}
                       </>
                     )}
                     {Platform.OS !== 'android' && (
                       <>
                         <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
-                          <Image source={TOOT_LOGO_IMAGE} style={[styles.friendSoundPickHeaderImage, TOOT_PICK_HEADER_SIZE]} resizeMode="contain" />
+                          <AnimatedCategoryHeaderImage
+                            source={TOOT_LOGO_IMAGE}
+                            style={[styles.friendSoundPickHeaderImage, TOOT_PICK_HEADER_SIZE]}
+                            delayMs={CATEGORY_HEADER_POP_DELAY_MS.toot}
+                          />
                         </View>
-                        {PICKUP_TOOT_KEYS.map((soundKey) => (
-                          <TouchableOpacity
-                            key={soundKey}
-                            style={[
-                              styles.friendSoundPickItemButton,
-                              friendSoundModalFriend?.id && friendSoundKeyByFriend[friendSoundModalFriend.id] === soundKey
-                                ? styles.friendSoundPickItemButtonActive
-                                : undefined,
-                            ]}
-                            onPress={() => handleSelectFriendSpecificSoundKey(soundKey)}
-                            activeOpacity={0.8}
-                          >
-                            <Text style={styles.friendSoundPickItemText}>{getDisplaySoundLabel(soundKey)}</Text>
-                          </TouchableOpacity>
-                        ))}
+                        {PICKUP_TOOT_KEYS.map(renderFriendSoundPickItem)}
                       </>
                     )}
                   </View>
@@ -5791,8 +5849,11 @@ const closeIdentityModal = useCallback(() => {
         backdropOpacity={0.5}
         animationIn="fadeIn"
         animationOut="fadeOut"
-        animationOutTiming={120}
-        useNativeDriver
+        animationOutTiming={ANDROID_MODAL_CLOSE_TIMING}
+        useNativeDriver={USE_NATIVE_MODAL_DRIVER}
+        useNativeDriverForBackdrop={USE_NATIVE_MODAL_DRIVER}
+        hideModalContentWhileAnimating
+        backdropTransitionOutTiming={0}
       >
         <View style={styles.identityModalContent}>
           {identityModalFriend && (
@@ -6526,6 +6587,45 @@ const styles = StyleSheet.create({
   friendSoundPickScrollContent: {
     paddingBottom: 2,
   },
+  friendSoundPickTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  friendSoundPickTitleTail: {
+    width: 54,
+    height: 34,
+    marginRight: -2,
+  },
+  friendSoundPickTitleText: {
+    color: '#604a3e',
+    fontSize: 16,
+    fontWeight: '700',
+    fontStyle: 'italic',
+    letterSpacing: 0.3,
+  },
+  friendSoundPickSoundcheckLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    backgroundColor: 'rgba(96, 74, 62, 0.08)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  friendSoundPickSoundcheckText: {
+    color: '#604a3e',
+    fontSize: 13,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginRight: 6,
+  },
+  friendSoundPickSoundcheckImage: {
+    width: 120,
+    height: 24,
+  },
   friendSoundPickColumns: {
     flexDirection: 'row',
     gap: 12,
@@ -6535,17 +6635,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   friendSoundPickItemButton: {
-    borderWidth: 1,
-    borderColor: 'rgba(96, 74, 62, 0.2)',
+    borderWidth: 2,
+    borderColor: 'transparent',
     borderRadius: 10,
     paddingVertical: 8,
     paddingHorizontal: 10,
     marginBottom: 8,
-    backgroundColor: 'rgba(255,255,255,0.45)',
+    backgroundColor: 'rgba(255,255,255,0.55)',
   },
   friendSoundPickItemButtonActive: {
-    backgroundColor: 'rgba(96, 74, 62, 0.14)',
-    borderColor: 'rgba(96, 74, 62, 0.5)',
+    backgroundColor: 'rgba(162, 228, 212, 0.72)',
+    borderColor: 'rgba(96, 74, 62, 0.45)',
   },
   friendSoundPickItemText: {
     color: '#604a3e',

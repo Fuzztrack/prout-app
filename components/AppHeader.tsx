@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useEffect, useRef } from 'react';
 import { Animated, Image, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 
 interface AppHeaderProps {
@@ -11,7 +12,6 @@ interface AppHeaderProps {
   onSearchToggle?: () => void;
   onProfileMenuPress?: () => void;
   onProfilePress?: () => void;
-  onComplicityPress?: () => void;
   onSoundcheckPress?: () => void;
   shakeX?: Animated.Value;
   shakeY?: Animated.Value;
@@ -26,13 +26,14 @@ export function AppHeader({
   onSearchToggle,
   onProfileMenuPress,
   onProfilePress,
-  onComplicityPress,
   onSoundcheckPress,
   shakeX,
   shakeY,
 }: AppHeaderProps) {
   const AnimatedContainer = shakeX && shakeY ? Animated.View : View;
   const { height: screenHeight } = useWindowDimensions();
+  const soundcheckVibeY = useRef(new Animated.Value(0)).current;
+  const soundcheckVibeRunningRef = useRef(false);
   const logoHeight = Math.min(160, Math.max(70, Math.round(screenHeight * 0.14)));
   const logoWidth = Math.round(logoHeight * (200 / 140));
   const animatedStyle = shakeX && shakeY ? {
@@ -41,6 +42,49 @@ export function AppHeader({
       { translateY: shakeY },
     ],
   } : {};
+
+  useEffect(() => {
+    const canAnimate = !!onSoundcheckPress && !(isProfileMenuOpen || isProfileOpen);
+    if (!canAnimate) {
+      soundcheckVibeRunningRef.current = false;
+      soundcheckVibeY.stopAnimation();
+      soundcheckVibeY.setValue(0);
+      return;
+    }
+
+    const runVibration = () => {
+      if (soundcheckVibeRunningRef.current) return;
+      soundcheckVibeRunningRef.current = true;
+      Animated.sequence([
+        Animated.timing(soundcheckVibeY, { toValue: -2, duration: 55, useNativeDriver: true }),
+        Animated.timing(soundcheckVibeY, { toValue: 2.5, duration: 65, useNativeDriver: true }),
+        Animated.timing(soundcheckVibeY, { toValue: -1.5, duration: 50, useNativeDriver: true }),
+        Animated.timing(soundcheckVibeY, { toValue: 2, duration: 60, useNativeDriver: true }),
+        Animated.timing(soundcheckVibeY, { toValue: -1, duration: 45, useNativeDriver: true }),
+        Animated.timing(soundcheckVibeY, { toValue: 1.5, duration: 55, useNativeDriver: true }),
+        Animated.timing(soundcheckVibeY, { toValue: 0, duration: 50, useNativeDriver: true }),
+      ]).start(() => {
+        soundcheckVibeRunningRef.current = false;
+      });
+    };
+
+    const intervalId = setInterval(runVibration, 6000);
+
+    return () => {
+      clearInterval(intervalId);
+      soundcheckVibeRunningRef.current = false;
+      soundcheckVibeY.stopAnimation();
+      soundcheckVibeY.setValue(0);
+    };
+  }, [isProfileMenuOpen, isProfileOpen, onSoundcheckPress, soundcheckVibeY]);
+
+  const soundcheckVibeStyle = {
+    transform: [
+      {
+        translateY: soundcheckVibeY,
+      },
+    ],
+  };
 
   return (
     <View style={styles.headerSection}>
@@ -84,57 +128,10 @@ export function AppHeader({
 
       {/* 2. LA BARRE DE NAVIGATION */}
       <View style={styles.navBar}>
-        {/* Ligne 1 : gauche Soundcheck + Coupe · droite Recherche liste + menu liste */}
+        {/* Ligne 1 : gauche menu liste · droite Soundcheck + recherche */}
         <View style={[styles.menuRow, { justifyContent: 'space-between' }]}>
           {/* Icônes à gauche */}
           <View style={styles.leftIconsContainer}>
-            {!(isProfileMenuOpen || isProfileOpen) && (
-              <>
-                {/* Soundcheck! - Onde sonore */}
-                {onSoundcheckPress && (
-                  <TouchableOpacity
-                    onPress={onSoundcheckPress}
-                    style={[styles.iconButton, { justifyContent: 'center', alignItems: 'center', minHeight: 28, marginTop: 2 }]}
-                  >
-                    <Ionicons
-                      name="pulse"
-                      size={22}
-                      color="#ffffff"
-                    />
-                  </TouchableOpacity>
-                )}
-
-                {/* Complicité - Coupe (à droite du groupe gauche) */}
-                {onComplicityPress && (
-                  <TouchableOpacity
-                    onPress={onComplicityPress}
-                    style={[styles.iconButton, { justifyContent: 'center', alignItems: 'center', minHeight: 28, marginTop: 2 }]}
-                  >
-                    <Ionicons
-                      name="trophy"
-                      size={22}
-                      color="#ffffff"
-                    />
-                  </TouchableOpacity>
-                )}
-              </>
-            )}
-          </View>
-
-          {/* À droite : Recherche dans la liste, puis menu liste */}
-          <View style={styles.rightIconsContainer}>
-            {!(isProfileMenuOpen || isProfileOpen) && onSearchToggle && (
-              <TouchableOpacity
-                onPress={onSearchToggle}
-                style={[styles.iconButton, { justifyContent: 'center', alignItems: 'center', minHeight: 28, marginTop: 2 }]}
-              >
-                <Ionicons
-                  name={isSearchVisible ? 'close' : 'search'}
-                  size={22}
-                  color="#ffffff"
-                />
-              </TouchableOpacity>
-            )}
             {onProfileMenuPress && (
               <TouchableOpacity 
                 onPress={onProfileMenuPress} 
@@ -153,6 +150,36 @@ export function AppHeader({
                     resizeMode="contain"
                   />
                 )}
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* À droite : Soundcheck, puis recherche tout à droite */}
+          <View style={styles.rightIconsContainer}>
+            {!(isProfileMenuOpen || isProfileOpen) && onSoundcheckPress && (
+              <TouchableOpacity
+                onPress={onSoundcheckPress}
+                style={[styles.iconButton, { justifyContent: 'center', alignItems: 'center', minHeight: 48, marginTop: 0 }]}
+              >
+                <View style={styles.soundcheckCard}>
+                  <Animated.Image
+                    source={require('../assets/images/soundcheck3.png')}
+                    style={[styles.soundcheckIcon, soundcheckVibeStyle]}
+                    resizeMode="contain"
+                  />
+                </View>
+              </TouchableOpacity>
+            )}
+            {!(isProfileMenuOpen || isProfileOpen) && onSearchToggle && (
+              <TouchableOpacity
+                onPress={onSearchToggle}
+                style={[styles.iconButton, { justifyContent: 'center', alignItems: 'center', minHeight: 28, marginTop: 2 }]}
+              >
+                <Ionicons
+                  name={isSearchVisible ? 'close' : 'search'}
+                  size={22}
+                  color="#ffffff"
+                />
               </TouchableOpacity>
             )}
           </View>
@@ -239,6 +266,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    marginLeft: -12,
   },
   rightIconsContainer: {
     flexDirection: 'row',
@@ -247,6 +275,19 @@ const styles = StyleSheet.create({
   },
   iconButton: {
     padding: 4,
+  },
+  /** Même esprit que les cases "choose your sound" */
+  soundcheckCard: {
+    borderWidth: 1,
+    borderColor: 'rgba(96, 74, 62, 0.2)',
+    borderRadius: 8,
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+    backgroundColor: 'rgba(255,255,255,0.45)',
+  },
+  soundcheckIcon: {
+    width: 112,
+    height: 25,
   },
   navIcon: {
     width: 28,

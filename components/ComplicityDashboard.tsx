@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,13 +13,23 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { 
+  Easing,
   FadeInDown,
-  SlideInDown
+  LinearTransition,
+  SlideInDown,
+  runOnJS,
+  useAnimatedReaction,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import * as Device from 'expo-device';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import i18n from '../lib/i18n';
 
@@ -83,6 +93,35 @@ interface FriendComplicity {
   last_interaction_at: string;
 }
 
+interface FriendRowAnimationMeta {
+  fromScore: number;
+  toScore: number;
+  fromProgress: number;
+  toProgress: number;
+  fromPseudo: string;
+  toPseudo: string;
+  shouldFadeName: boolean;
+  fromRank: number;
+  toRank: number;
+  rankChanged: boolean;
+  medalAppeared: boolean;
+  animate: boolean;
+}
+
+const RESONANCE_SNAPSHOT_KEY = 'resonance_dashboard_snapshot_v1';
+
+const getNextLevelScore = (score: number) => {
+  if (score < 50) return 50;
+  if (score < 200) return 200;
+  if (score < 500) return 500;
+  return 1000;
+};
+
+const getProgressForScore = (score: number) => {
+  const next = getNextLevelScore(score);
+  return Math.min(score / next, 1);
+};
+
 // Configuration des Badges
 const BADGES_CONFIG = [
   { id: 'night_owl', icon: 'moon', label: 'Oiseau de nuit', description: 'Envoi entre 1h et 5h du matin' },
@@ -121,6 +160,188 @@ const MODAL_COLORS = {
   badgeLockedBg: '#e8d5d0',  // Beige gris
 };
 
+function ComplicityRow({
+  item,
+  index,
+  animationMeta,
+  animationSeed,
+  onPress,
+}: {
+  item: FriendComplicity;
+  index: number;
+  animationMeta: FriendRowAnimationMeta;
+  animationSeed: number;
+  onPress: (friend: FriendComplicity) => void;
+}) {
+  const [displayScore, setDisplayScore] = useState(animationMeta.toScore);
+  const [displayPseudo, setDisplayPseudo] = useState(animationMeta.toPseudo);
+  const scoreSv = useSharedValue(animationMeta.toScore);
+  const progressSv = useSharedValue(animationMeta.toProgress);
+  const nameOpacitySv = useSharedValue(1);
+  const rankScaleSv = useSharedValue(1);
+  const medalScaleSv = useSharedValue(1);
+  const medalOpacitySv = useSharedValue(index <= 2 ? 1 : 0);
+
+  useAnimatedReaction(
+    () => Math.round(scoreSv.value),
+    (next, prev) => {
+      if (next !== prev) runOnJS(setDisplayScore)(next);
+    },
+    [scoreSv]
+  );
+
+  useEffect(() => {
+    const rowDelay = Math.min(index * 85, 420);
+    const nextScore = animationMeta.toScore;
+    const nextProgress = animationMeta.toProgress;
+    const shouldAnimate = animationMeta.animate;
+
+    setDisplayPseudo(animationMeta.fromPseudo || animationMeta.toPseudo);
+    setDisplayScore(animationMeta.fromScore);
+
+    scoreSv.value = animationMeta.fromScore;
+    progressSv.value = animationMeta.fromProgress;
+    nameOpacitySv.value = 1;
+    rankScaleSv.value = animationMeta.rankChanged ? 0.92 : 1;
+
+    if (index <= 2) {
+      medalOpacitySv.value = animationMeta.medalAppeared ? 0 : 1;
+      medalScaleSv.value = animationMeta.medalAppeared ? 0.45 : 1;
+    } else {
+      medalOpacitySv.value = 0;
+      medalScaleSv.value = 1;
+    }
+
+    if (!shouldAnimate) {
+      scoreSv.value = nextScore;
+      progressSv.value = nextProgress;
+      setDisplayPseudo(animationMeta.toPseudo);
+      if (index <= 2) {
+        medalOpacitySv.value = 1;
+        medalScaleSv.value = 1;
+      }
+      return;
+    }
+
+    scoreSv.value = withDelay(
+      rowDelay,
+      withTiming(nextScore, { duration: 720, easing: Easing.out(Easing.cubic) })
+    );
+    progressSv.value = withDelay(
+      rowDelay + 40,
+      withTiming(nextProgress, { duration: 760, easing: Easing.out(Easing.cubic) })
+    );
+
+    if (animationMeta.shouldFadeName) {
+      nameOpacitySv.value = withDelay(
+        rowDelay + 40,
+        withTiming(0, { duration: 150 }, (finished) => {
+          if (!finished) return;
+          runOnJS(setDisplayPseudo)(animationMeta.toPseudo);
+          nameOpacitySv.value = withTiming(1, { duration: 200 });
+        })
+      );
+    } else {
+      setDisplayPseudo(animationMeta.toPseudo);
+    }
+
+    if (animationMeta.rankChanged) {
+      rankScaleSv.value = withDelay(rowDelay, withSpring(1, { damping: 14, stiffness: 180 }));
+    }
+
+    if (animationMeta.medalAppeared && index <= 2) {
+      medalOpacitySv.value = withDelay(rowDelay + 160, withTiming(1, { duration: 180 }));
+      medalScaleSv.value = withDelay(
+        rowDelay + 160,
+        withSpring(1, { damping: 11, stiffness: 220, mass: 0.8 })
+      );
+    }
+  }, [animationMeta, animationSeed, index, medalOpacitySv, medalScaleSv, nameOpacitySv, progressSv, rankScaleSv, scoreSv]);
+
+  const getRankEmoji = () => {
+    if (index === 0) return '🥇';
+    if (index === 1) return '🥈';
+    if (index === 2) return '🥉';
+    return null;
+  };
+
+  const rankAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: rankScaleSv.value }],
+  }));
+
+  const nameAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: nameOpacitySv.value,
+  }));
+
+  const medalAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: medalOpacitySv.value,
+    transform: [{ scale: medalScaleSv.value }],
+  }));
+
+  const progressAnimatedStyle = useAnimatedStyle(() => ({
+    width: `${Math.max(0, Math.min(1, progressSv.value)) * 100}%`,
+  }));
+
+  const progress = getProgressForScore(displayScore);
+  const nextScore = getNextLevelScore(displayScore);
+  const rankEmoji = getRankEmoji();
+
+  return (
+    <Animated.View
+      entering={FadeInDown.delay(index * 70).springify()}
+      layout={LinearTransition.duration(560).easing(Easing.out(Easing.cubic))}
+      style={styles.cardContainer}
+    >
+      <TouchableOpacity style={styles.card} onPress={() => onPress(item)} activeOpacity={0.8}>
+        <View style={styles.rankZone}>
+          <Animated.View style={[styles.rankContainer, rankAnimatedStyle]}>
+            {rankEmoji ? (
+              <Animated.Text style={[styles.rankIcon, medalAnimatedStyle]}>{rankEmoji}</Animated.Text>
+            ) : (
+              <Text style={styles.rankText}>#{index + 1}</Text>
+            )}
+          </Animated.View>
+        </View>
+
+        <View style={styles.avatarContainer}>
+          {item.avatar_url ? (
+            <Image source={{ uri: item.avatar_url }} style={styles.avatar} />
+          ) : (
+            <View style={[styles.avatar, styles.avatarPlaceholder]}>
+              <Text style={styles.avatarLetter}>{item.pseudo.charAt(0).toUpperCase()}</Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.infoContainer}>
+          <Animated.Text style={[styles.pseudo, nameAnimatedStyle]} numberOfLines={1}>
+            {displayPseudo}
+          </Animated.Text>
+          <Text style={styles.levelTitle}>{translateComplicityLevel(item.complicity_level)}</Text>
+        </View>
+
+        <View style={styles.scoreZone}>
+          <View style={styles.scoreContainer}>
+            <Text style={styles.scoreValue}>
+              {displayScore} <Text style={styles.scoreUnit}>pts</Text>
+            </Text>
+            <View style={styles.progressBarBg}>
+              <Animated.View style={[styles.progressFillWrap, progressAnimatedStyle]}>
+                <LinearGradient
+                  colors={[COLORS.accent, COLORS.textMain]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.progressBarFill}
+                />
+              </Animated.View>
+            </View>
+          </View>
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
 export default function ComplicityDashboard() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -129,13 +350,14 @@ export default function ComplicityDashboard() {
   const [selectedFriend, setSelectedFriend] = useState<FriendComplicity | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [helpModalVisible, setHelpModalVisible] = useState(false);
+  const [rowAnimationMetaById, setRowAnimationMetaById] = useState<Record<string, FriendRowAnimationMeta>>({});
+  const [animationSeed, setAnimationSeed] = useState(0);
 
-  // Charger les données depuis Supabase
-  useEffect(() => {
-    loadComplicityData();
-  }, []);
+  const flatListRef = useRef<FlatList<FriendComplicity> | null>(null);
+  const previousFriendsRef = useRef<FriendComplicity[]>([]);
 
-  const loadComplicityData = async () => {
+  // Toujours repartir en haut de la liste quand on ouvre la page
+  const loadComplicityData = useCallback(async (animateOnOpen: boolean) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -160,7 +382,7 @@ export default function ComplicityDashboard() {
 
       if (error) throw error;
 
-      const formattedFriends = data.map((item: any) => ({
+      const formattedFriends: FriendComplicity[] = data.map((item: any) => ({
         id: item.friend_id,
         pseudo: item.friend?.pseudo || 'Ami inconnu',
         avatar_url: item.friend?.avatar_url,
@@ -170,82 +392,107 @@ export default function ComplicityDashboard() {
         rapid_response_count: item.rapid_response_count || 0,
         last_interaction_at: item.last_interaction_at
       }));
+      let previousSnapshot = previousFriendsRef.current;
+      if (!previousSnapshot.length) {
+        try {
+          const rawSnapshot = await AsyncStorage.getItem(RESONANCE_SNAPSHOT_KEY);
+          if (rawSnapshot) {
+            const parsed = JSON.parse(rawSnapshot);
+            if (Array.isArray(parsed)) {
+              previousSnapshot = parsed.filter((f: any) => !!f?.id);
+            }
+          }
+        } catch (_) {}
+      }
 
+      const previousById = new Map(previousSnapshot.map((f, rank) => [f.id, { ...f, rank }]));
+      const canAnimate = animateOnOpen && previousSnapshot.length > 0;
+      const nextMeta: Record<string, FriendRowAnimationMeta> = {};
+
+      formattedFriends.forEach((friend, rank) => {
+        const prev = previousById.get(friend.id) as (FriendComplicity & { rank: number }) | undefined;
+        const toScore = friend.complicity_score;
+        const toProgress = getProgressForScore(toScore);
+        const fromScore = canAnimate ? (prev?.complicity_score ?? 0) : toScore;
+        const fromProgress = canAnimate ? (prev ? getProgressForScore(prev.complicity_score) : 0) : toProgress;
+        const fromRank = canAnimate ? (typeof prev?.rank === 'number' ? prev.rank : rank) : rank;
+
+        nextMeta[friend.id] = {
+          fromScore,
+          toScore,
+          fromProgress,
+          toProgress,
+          fromPseudo: prev?.pseudo || friend.pseudo,
+          toPseudo: friend.pseudo,
+          shouldFadeName: !!(canAnimate && prev && prev.pseudo !== friend.pseudo),
+          fromRank,
+          toRank: rank,
+          rankChanged: canAnimate && fromRank !== rank,
+          medalAppeared: canAnimate && fromRank > 2 && rank <= 2,
+          animate: canAnimate,
+        };
+      });
+
+      setRowAnimationMetaById(nextMeta);
       setFriends(formattedFriends);
+      previousFriendsRef.current = formattedFriends;
+      if (animateOnOpen) {
+        setAnimationSeed((prev) => prev + 1);
+      }
+      AsyncStorage.setItem(RESONANCE_SNAPSHOT_KEY, JSON.stringify(formattedFriends)).catch(() => {});
     } catch (error) {
       console.error('Erreur chargement complicité:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadComplicityData(true);
+      const t1 = setTimeout(() => {
+        flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
+      }, 0);
+      const t2 = setTimeout(() => {
+        flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
+      }, 120);
+
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+      };
+    }, [loadComplicityData])
+  );
 
   const handleFriendPress = (friend: FriendComplicity) => {
     setSelectedFriend(friend);
     setModalVisible(true);
   };
 
-  const renderFriendItem = ({ item, index }: { item: FriendComplicity; index: number }) => {
-    const getNextLevelScore = (score: number) => {
-      if (score < 50) return 50;
-      if (score < 200) return 200;
-      if (score < 500) return 500;
-      return 1000;
-    };
-    
-    const nextScore = getNextLevelScore(item.complicity_score);
-    const progress = Math.min(item.complicity_score / nextScore, 1);
-
-    return (
-      <Animated.View 
-        entering={FadeInDown.delay(index * 100).springify()} 
-        style={styles.cardContainer}
-      >
-        <TouchableOpacity 
-          style={styles.card} 
-          onPress={() => handleFriendPress(item)}
-          activeOpacity={0.8}
-        >
-          {/* Rang */}
-          <View style={styles.rankContainer}>
-            {index === 0 && <Text style={styles.rankIcon}>🥇</Text>}
-            {index === 1 && <Text style={styles.rankIcon}>🥈</Text>}
-            {index === 2 && <Text style={styles.rankIcon}>🥉</Text>}
-            {index > 2 && <Text style={styles.rankText}>#{index + 1}</Text>}
-          </View>
-
-          {/* Avatar */}
-          <View style={styles.avatarContainer}>
-            {item.avatar_url ? (
-              <Image source={{ uri: item.avatar_url }} style={styles.avatar} />
-            ) : (
-              <View style={[styles.avatar, styles.avatarPlaceholder]}>
-                <Text style={styles.avatarLetter}>{item.pseudo.charAt(0).toUpperCase()}</Text>
-              </View>
-            )}
-          </View>
-
-          {/* Info Centrale */}
-          <View style={styles.infoContainer}>
-            <Text style={styles.pseudo} numberOfLines={1}>{item.pseudo}</Text>
-            <Text style={styles.levelTitle}>{translateComplicityLevel(item.complicity_level)}</Text>
-          </View>
-
-          {/* Score & Progression */}
-          <View style={styles.scoreContainer}>
-            <Text style={styles.scoreValue}>{item.complicity_score} <Text style={styles.scoreUnit}>pts</Text></Text>
-            <View style={styles.progressBarBg}>
-              <LinearGradient
-                colors={[COLORS.accent, COLORS.textMain]} // Dégradé marron/beige
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={[styles.progressBarFill, { width: `${progress * 100}%` }]}
-              />
-            </View>
-          </View>
-        </TouchableOpacity>
-      </Animated.View>
-    );
-  };
+  const renderFriendItem = ({ item, index }: { item: FriendComplicity; index: number }) => (
+    <ComplicityRow
+      item={item}
+      index={index}
+      animationMeta={
+        rowAnimationMetaById[item.id] || {
+          fromScore: item.complicity_score,
+          toScore: item.complicity_score,
+          fromProgress: getProgressForScore(item.complicity_score),
+          toProgress: getProgressForScore(item.complicity_score),
+          fromPseudo: item.pseudo,
+          toPseudo: item.pseudo,
+          shouldFadeName: false,
+          fromRank: index,
+          toRank: index,
+          rankChanged: false,
+          medalAppeared: false,
+          animate: false,
+        }
+      }
+      animationSeed={animationSeed}
+      onPress={handleFriendPress}
+    />
+  );
 
   // Flèche retour : toujours affichée
   const showBackButton = true;
@@ -290,6 +537,7 @@ export default function ComplicityDashboard() {
       </View>
 
       <FlatList
+        ref={flatListRef}
         data={friends}
         renderItem={renderFriendItem}
         keyExtractor={(item) => item.id}
@@ -551,14 +799,16 @@ const styles = StyleSheet.create({
     paddingTop: 2,
   },
   cardContainer: {
-    marginBottom: 12,
+    marginBottom: 8,
   },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.cardBg,
+    backgroundColor: '#f5e2d6',
     borderRadius: 12,
-    padding: 12,
+    minHeight: 66,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
     // Ombre projetée vers la gauche (lumière venant de la droite)
     ...Platform.select({
       ios: {
@@ -577,6 +827,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  rankZone: {
+    width: 42,
+    minHeight: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 6,
+    backgroundColor: 'rgba(210, 241, 239, 0.48)',
+    borderRadius: 8,
+    borderRightWidth: 1,
+    borderRightColor: 'rgba(96, 74, 62, 0.16)',
+  },
   rankIcon: {
     fontSize: 20,
   },
@@ -585,7 +846,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   avatarContainer: {
-    marginHorizontal: 10,
+    marginHorizontal: 8,
   },
   avatar: {
     width: 44,
@@ -619,9 +880,19 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginTop: 2,
   },
+  scoreZone: {
+    width: 92,
+    paddingLeft: 8,
+    paddingRight: 2,
+    backgroundColor: 'rgba(235, 184, 155, 0.2)',
+    borderRadius: 8,
+    marginLeft: 6,
+    borderLeftWidth: 1,
+    borderLeftColor: 'rgba(96, 74, 62, 0.16)',
+  },
   scoreContainer: {
     alignItems: 'flex-end',
-    width: 80,
+    width: '100%',
   },
   scoreValue: {
     color: COLORS.textMain,
@@ -640,8 +911,17 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     overflow: 'hidden',
   },
+  progressFillWrap: {
+    height: '100%',
+  },
   progressBarFill: {
     height: '100%',
+    width: '100%',
+  },
+  progressHintText: {
+    marginTop: 3,
+    fontSize: 9,
+    color: COLORS.textSecondary,
   },
   emptyContainer: {
     alignItems: 'center',
