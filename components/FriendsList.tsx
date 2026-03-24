@@ -153,8 +153,37 @@ const CACHE_KEY_DISMISSED_SILENT_WARNING = 'cached_dismissed_silent_warning';
 const CACHE_KEY_BLOCKED_USERS = 'cached_blocked_users_v1';
 const CACHE_MAX_AGE = 24 * 60 * 60 * 1000; // 24 heures
 
-type LastSentMessage = { text: string; ts: string; id?: string; status?: 'read'; readAt?: number };
+type LastSentMessage = { text: string; ts: string; id?: string; status?: 'read'; readAt?: number; soundKey?: string };
 type LastSentMap = Record<string, LastSentMessage[]>; // Tableau de messages pour accumulation
+
+type ParsedMessage = {
+  text: string;
+  isRead: boolean;
+  soundKey?: string;
+};
+
+const parseMessageContent = (raw?: string | null): ParsedMessage => {
+  if (!raw) return { text: '', isRead: false };
+  let isRead = false;
+  let text = raw;
+  if (text.startsWith('READ:')) {
+    isRead = true;
+    text = text.slice(5);
+  }
+  let soundKey: string | undefined;
+  if (text.startsWith('[')) {
+    const endBracket = text.indexOf(']');
+    if (endBracket !== -1) {
+      soundKey = text.slice(1, endBracket);
+      text = text.slice(endBracket + 1);
+    }
+  }
+  return { text, isRead, soundKey };
+};
+
+const stripReadPrefix = (text?: string | null) => {
+  return parseMessageContent(text).text;
+};
 
 type PendingMessage = {
   id: string;
@@ -172,11 +201,6 @@ type ReportableMessage = {
   senderId: string;
   sourceMessageId?: string | null;
   createdAt?: string;
-};
-
-const stripReadPrefix = (text?: string | null) => {
-  if (!text) return '';
-  return text.startsWith('READ:') ? text.slice('READ:'.length) : text;
 };
 
 const truncateContactPreview = (text?: string | null, maxLength: number = 15) => {
@@ -313,7 +337,10 @@ const saveCacheSafely = async (key: string, data: any[]) => {
 // Composant pour gérer l'animation du message envoyé (PRRT! : opacité réduite quand lu)
 const DIMMED_OPACITY_READ = 0.72; // Grisé léger pour messages envoyés et lus par l'autre (reste lisible)
 
-const SentMessageStatus = ({ message }: { message: { text: string; status?: 'read'; id?: string } | undefined }) => {
+const SentMessageStatus = ({ message, soundKey }: { 
+  message: { text: string; status?: 'read'; id?: string } | undefined;
+  soundKey?: string;
+}) => {
   const [displayedMessage, setDisplayedMessage] = useState(message);
   const opacity = useRef(new RNAnimated.Value(message?.status === 'read' ? DIMMED_OPACITY_READ : 1)).current;
   const [isRead, setIsRead] = useState(message?.status === 'read');
@@ -340,9 +367,16 @@ const SentMessageStatus = ({ message }: { message: { text: string; status?: 'rea
 
   return (
     <RNAnimated.View style={{ alignSelf: 'flex-end', opacity, maxWidth: '100%', alignItems: 'flex-end' }}>
-      <View style={styles.bubbleSent}>
-        <Text style={styles.bubbleTextSent}>{stripReadPrefix(displayedMessage.text)}</Text>
-      </View>
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => soundKey && playSound(soundKey)}
+        disabled={!soundKey}
+      >
+        <View style={styles.bubbleSent}>
+          <Text style={styles.bubbleTextSent}>{stripReadPrefix(displayedMessage.text)}</Text>
+          {soundKey && <View style={styles.bubbleSoundBadge} />}
+        </View>
+      </TouchableOpacity>
       {isRead && (
         <Text style={{ fontSize: 12, color: '#604a3e', marginRight: 12, marginBottom: 4, fontStyle: 'italic', opacity: 0.9 }}>
           {i18n.t('message_read')}
@@ -353,8 +387,9 @@ const SentMessageStatus = ({ message }: { message: { text: string; status?: 'rea
 };
 
 // Composant pour gérer l'animation de disparition des messages reçus (quand A envoie un message)
-const ReceivedMessageFade = ({ message, dimmed, shouldFadeOut, onFadeComplete, onLongPressReport }: { 
-  message: { id: string; text: string; senderId?: string; sourceMessageId?: string | null; createdAt?: string }; 
+const ReceivedMessageFade = ({ message, soundKey, dimmed, shouldFadeOut, onFadeComplete, onLongPressReport }: {
+  message: { id: string; text: string; senderId?: string; sourceMessageId?: string | null; createdAt?: string };
+  soundKey?: string;
   dimmed?: boolean;
   shouldFadeOut: boolean;
   onFadeComplete: () => void;
@@ -384,6 +419,7 @@ const ReceivedMessageFade = ({ message, dimmed, shouldFadeOut, onFadeComplete, o
     <RNAnimated.View style={[styles.bubbleReceivedWrapper, { opacity }]}>
       <TouchableOpacity
         activeOpacity={0.85}
+        onPress={() => soundKey && playSound(soundKey)}
         onLongPress={() => {
           if (!onLongPressReport || !message.senderId) return;
           onLongPressReport({
@@ -395,12 +431,12 @@ const ReceivedMessageFade = ({ message, dimmed, shouldFadeOut, onFadeComplete, o
       >
         <View style={styles.bubbleReceived}>
           <Text style={styles.bubbleTextReceived}>{stripReadPrefix(message.text)}</Text>
+          {soundKey && <View style={styles.bubbleSoundBadge} />}
         </View>
       </TouchableOpacity>
     </RNAnimated.View>
   );
 };
- 
 const isHuaweiDevice =
   Platform.OS === 'android' &&
   /huawei/i.test(
@@ -3996,7 +4032,7 @@ const closeIdentityModal = useCallback(() => {
           // Ajouter 1ms au timestamp pour garantir que le message de A apparaît après les messages de B
           const nowTime = new Date(now).getTime();
           const messageTs = new Date(nowTime + 1).toISOString();
-          const newMessage: LastSentMessage = { text: customMessage, ts: messageTs };
+          const newMessage: LastSentMessage = { text: customMessage, ts: messageTs, soundKey: randomKey };
           // Ajouter le nouveau message au tableau (accumulation)
           const next = { 
             ...prev, 
@@ -4225,23 +4261,28 @@ const closeIdentityModal = useCallback(() => {
         // console.log('[CHAT_DEBUG] Rendering sticky content for', displayFriend.pseudo, 'sent:', mySentMessages.length, 'received:', activeMessagesToShow.length);
     }
     const allMessages = [
-        ...activeMessagesToShow.map((m, idx) => ({
-            id: m.id || `received-${idx}-${m.created_at}`,
-            sourceMessageId: m.id || null,
-            text: stripReadPrefix(m.message_content),
-            ts: m.created_at,
-            isMe: false,
-            senderId: displayFriend.id,
-            createdAt: m.created_at,
-            // CORRECTION: Les reçus ne doivent JAMAIS être grisés (même si "READ:" est présent).
-            // Le "READ:" sur un reçu signifie juste que JE l'ai lu, ça ne doit pas affecter l'affichage.
-            // On grise uniquement si pending delete (en train de disparaître).
-            dimmed: !!m.isPendingDelete, 
-            original: undefined
-        })),
+        ...activeMessagesToShow.map((m, idx) => {
+            const parsed = parseMessageContent(m.message_content);
+            return {
+                id: m.id || `received-${idx}-${m.created_at}`,
+                sourceMessageId: m.id || null,
+                text: parsed.text,
+                soundKey: parsed.soundKey,
+                ts: m.created_at,
+                isMe: false,
+                senderId: displayFriend.id,
+                createdAt: m.created_at,
+                // CORRECTION: Les reçus ne doivent JAMAIS être grisés (même si "READ:" est présent).
+                // Le "READ:" sur un reçu signifie juste que JE l'ai lu, ça ne doit pas affecter l'affichage.
+                // On grise uniquement si pending delete (en train de disparaître).
+                dimmed: !!m.isPendingDelete, 
+                original: undefined
+            };
+        }),
         ...(Array.isArray(mySentMessages) ? mySentMessages.map((msg, idx) => ({
             id: msg.id || `temp-sent-${displayFriend.id}-${idx}-${msg.ts || Date.now()}`,
             text: msg.text,
+            soundKey: msg.soundKey,
             ts: msg.ts,
             isMe: true,
             original: msg
@@ -4354,11 +4395,12 @@ const closeIdentityModal = useCallback(() => {
           >
             {allMessages.map((msg) => (
               msg.isMe ? (
-                <SentMessageStatus key={msg.id} message={msg.original!} />
+                <SentMessageStatus key={msg.id} message={msg.original!} soundKey={msg.soundKey} />
               ) : (
                 <ReceivedMessageFade
                   key={msg.id}
                   message={{ id: msg.id, text: msg.text, senderId: (msg as any).senderId, sourceMessageId: (msg as any).sourceMessageId, createdAt: (msg as any).createdAt }}
+                  soundKey={msg.soundKey}
                   dimmed={(msg as any).dimmed}
                   shouldFadeOut={fadingOutReceivedMessages.has(msg.id)}
                   onLongPressReport={openReportReasonSheet}
@@ -4381,11 +4423,12 @@ const closeIdentityModal = useCallback(() => {
           >
             {allMessages.map((msg) => (
               msg.isMe ? (
-                <SentMessageStatus key={msg.id} message={msg.original!} />
+                <SentMessageStatus key={msg.id} message={msg.original!} soundKey={msg.soundKey} />
               ) : (
                 <ReceivedMessageFade
                   key={msg.id}
                   message={{ id: msg.id, text: msg.text, senderId: (msg as any).senderId, sourceMessageId: (msg as any).sourceMessageId, createdAt: (msg as any).createdAt }}
+                  soundKey={msg.soundKey}
                   dimmed={(msg as any).dimmed}
                   shouldFadeOut={fadingOutReceivedMessages.has(msg.id)}
                   onLongPressReport={openReportReasonSheet}
@@ -5995,6 +6038,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 1,
+    position: 'relative',
   },
   bubbleSent: {
     alignSelf: 'flex-end',
@@ -6009,6 +6053,19 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 1,
+    position: 'relative',
+  },
+  bubbleSoundBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#8fb3a5',
+    borderWidth: 1.5,
+    borderColor: '#fff',
+    zIndex: 10,
   },
   bubbleTextReceived: {
     color: '#333',
