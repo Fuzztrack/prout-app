@@ -527,14 +527,9 @@ export function FriendsList({
   const [globalDefaultCategory, setGlobalDefaultCategory] = useState<SoundCategory>(
     getDefaultSoundCategoryForFirstLaunch()
   );
-  const [isFirstFriendlistModalVisible, setIsFirstFriendlistModalVisible] = useState(false);
-  const [isFirstFriendlistFeaturesModalVisible, setIsFirstFriendlistFeaturesModalVisible] = useState(false);
-  const [isFirstFriendlistZenModalVisible, setIsFirstFriendlistZenModalVisible] = useState(false);
-  const [isFirstFriendlistSearchModalVisible, setIsFirstFriendlistSearchModalVisible] = useState(false);
+  const [firstFriendlistOnboardingStep, setFirstFriendlistOnboardingStep] = useState<'footer' | 'features' | 'zen' | 'search' | null>(null);
   const [isFirstChatModalVisible, setIsFirstChatModalVisible] = useState(false);
-  const pendingShowFeaturesAfterFooterRef = useRef(false);
-  const pendingShowZenAfterFeaturesRef = useRef(false);
-  const pendingShowSearchAfterZenRef = useRef(false);
+  const isFirstFriendlistOnboardingVisible = firstFriendlistOnboardingStep !== null;
   const [currentPseudo, setCurrentPseudo] = useState<string>("Un ami");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -576,41 +571,26 @@ export function FriendsList({
     };
   }, []);
 
-  const closeFirstFriendlistModal = useCallback(async () => {
-    setIsFirstFriendlistModalVisible(false);
+  const markFirstFriendlistStepSeen = useCallback(async (step: 'footer' | 'features' | 'zen' | 'search') => {
+    const keyByStep: Record<'footer' | 'features' | 'zen' | 'search', string> = {
+      footer: FIRST_FRIENDLIST_FOOTER_MODAL_KEY,
+      features: FIRST_FRIENDLIST_FEATURES_MODAL_KEY,
+      zen: FIRST_FRIENDLIST_ZEN_MODAL_KEY,
+      search: FIRST_FRIENDLIST_SEARCH_MODAL_KEY,
+    };
     try {
-      await AsyncStorage.setItem(FIRST_FRIENDLIST_FOOTER_MODAL_KEY, '1');
+      await AsyncStorage.setItem(keyByStep[step], '1');
     } catch {
       // non bloquant
     }
   }, []);
 
-  const closeFirstFriendlistFeaturesModal = useCallback(async () => {
-    setIsFirstFriendlistFeaturesModalVisible(false);
-    try {
-      await AsyncStorage.setItem(FIRST_FRIENDLIST_FEATURES_MODAL_KEY, '1');
-    } catch {
-      // non bloquant
-    }
-  }, []);
-
-  const closeFirstFriendlistZenModal = useCallback(async () => {
-    setIsFirstFriendlistZenModalVisible(false);
-    try {
-      await AsyncStorage.setItem(FIRST_FRIENDLIST_ZEN_MODAL_KEY, '1');
-    } catch {
-      // non bloquant
-    }
-  }, []);
-
-  const closeFirstFriendlistSearchModal = useCallback(async () => {
-    setIsFirstFriendlistSearchModalVisible(false);
-    try {
-      await AsyncStorage.setItem(FIRST_FRIENDLIST_SEARCH_MODAL_KEY, '1');
-    } catch {
-      // non bloquant
-    }
-  }, []);
+  const closeFirstFriendlistOnboarding = useCallback(async () => {
+    const currentStep = firstFriendlistOnboardingStep;
+    setFirstFriendlistOnboardingStep(null);
+    if (!currentStep) return;
+    await markFirstFriendlistStepSeen(currentStep);
+  }, [firstFriendlistOnboardingStep, markFirstFriendlistStepSeen]);
 
   const closeFirstChatModal = useCallback(async () => {
     setIsFirstChatModalVisible(false);
@@ -621,37 +601,17 @@ export function FriendsList({
     }
   }, []);
 
-  const handleFirstFriendlistModalOk = useCallback(async () => {
-    // On ferme la 1ère modale, puis on ouvrira la 2e uniquement quand l'animation
-    // de fermeture est terminée (onModalHide) pour éviter qu'elle ne soit "mangée".
-    pendingShowFeaturesAfterFooterRef.current = true;
-    setIsFirstFriendlistModalVisible(false);
-    try {
-      await AsyncStorage.setItem(FIRST_FRIENDLIST_FOOTER_MODAL_KEY, '1');
-    } catch {
-      // non bloquant
-    }
-  }, []);
-
-  const handleFirstFriendlistFeaturesModalOk = useCallback(async () => {
-    pendingShowZenAfterFeaturesRef.current = true;
-    setIsFirstFriendlistFeaturesModalVisible(false);
-    try {
-      await AsyncStorage.setItem(FIRST_FRIENDLIST_FEATURES_MODAL_KEY, '1');
-    } catch {
-      // non bloquant
-    }
-  }, []);
-
-  const handleFirstFriendlistZenModalOk = useCallback(async () => {
-    pendingShowSearchAfterZenRef.current = true;
-    setIsFirstFriendlistZenModalVisible(false);
-    try {
-      await AsyncStorage.setItem(FIRST_FRIENDLIST_ZEN_MODAL_KEY, '1');
-    } catch {
-      // non bloquant
-    }
-  }, []);
+  const handleFirstFriendlistOnboardingOk = useCallback(async () => {
+    const currentStep = firstFriendlistOnboardingStep;
+    if (!currentStep) return;
+    await markFirstFriendlistStepSeen(currentStep);
+    setFirstFriendlistOnboardingStep((prev) => {
+      if (prev === 'footer') return 'features';
+      if (prev === 'features') return 'zen';
+      if (prev === 'zen') return 'search';
+      return null;
+    });
+  }, [firstFriendlistOnboardingStep, markFirstFriendlistStepSeen]);
 
   // Pop-up unique à la première arrivée sur la friendlist
   useFocusEffect(
@@ -665,14 +625,14 @@ export function FriendsList({
           const seenSearch = await AsyncStorage.getItem(FIRST_FRIENDLIST_SEARCH_MODAL_KEY);
           if (cancelled) return;
           if (!seenFooter) {
-            setIsFirstFriendlistModalVisible(true);
+            setFirstFriendlistOnboardingStep('footer');
           } else if (!seenFeatures) {
             // Fallback si la 1ère a été validée mais pas la 2e (ex: crash)
-            setIsFirstFriendlistFeaturesModalVisible(true);
+            setFirstFriendlistOnboardingStep('features');
           } else if (!seenZen) {
-            setIsFirstFriendlistZenModalVisible(true);
+            setFirstFriendlistOnboardingStep('zen');
           } else if (!seenSearch) {
-            setIsFirstFriendlistSearchModalVisible(true);
+            setFirstFriendlistOnboardingStep('search');
           }
         } catch {
           // Si AsyncStorage échoue, on évite de spammer une modale
@@ -1661,12 +1621,12 @@ const handleSelectGlobalDefaultCategory = useCallback(async (category: SoundCate
 
 const handleLongPressSoundCategory = useCallback((friend: any) => {
   if (isModalTransitionActive()) return;
-  if (identityModalVisible || isFirstFriendlistModalVisible || isFirstFriendlistFeaturesModalVisible || isFirstFriendlistZenModalVisible || isFirstFriendlistSearchModalVisible || isFirstChatModalVisible) return;
+  if (identityModalVisible || isFirstFriendlistOnboardingVisible || isFirstChatModalVisible) return;
   markModalTransition();
   setIsFriendSoundModalContentVisible(true);
   setFriendSoundModalFriend(friend);
   setFriendSoundModalVisible(true);
-}, [identityModalVisible, isFirstFriendlistModalVisible, isFirstFriendlistFeaturesModalVisible, isFirstFriendlistZenModalVisible, isFirstFriendlistSearchModalVisible, isModalTransitionActive, markModalTransition]);
+}, [identityModalVisible, isFirstFriendlistOnboardingVisible, isModalTransitionActive, markModalTransition]);
 
 const handleSelectFriendSpecificSoundKey = useCallback((soundKey: string) => {
   const friendId = friendSoundModalFriend?.id;
@@ -3435,7 +3395,7 @@ const closeIdentityModal = useCallback(() => {
 
   const handleLongPressName = async (friend: any) => {
     if (isModalTransitionActive()) return;
-    if (friendSoundModalVisible || isFirstFriendlistModalVisible || isFirstFriendlistFeaturesModalVisible || isFirstFriendlistZenModalVisible || isFirstFriendlistSearchModalVisible) return;
+    if (friendSoundModalVisible || isFirstFriendlistOnboardingVisible) return;
     markModalTransition();
     let revealedName: string | null = null;
 
@@ -3717,7 +3677,7 @@ const closeIdentityModal = useCallback(() => {
 
   const handlePressFriend = (friend: any) => {
     if (isModalTransitionActive()) return;
-    if (friendSoundModalVisible || identityModalVisible || isFirstFriendlistModalVisible || isFirstFriendlistFeaturesModalVisible || isFirstFriendlistZenModalVisible || isFirstFriendlistSearchModalVisible || isFirstChatModalVisible) return;
+    if (friendSoundModalVisible || identityModalVisible || isFirstFriendlistOnboardingVisible || isFirstChatModalVisible) return;
     // Debounce pour éviter les doubles clics (fermeture puis réouverture immédiate)
     const now = Date.now();
     if (now - lastPressTime.current < 500) return;
@@ -4404,6 +4364,16 @@ const closeIdentityModal = useCallback(() => {
                 </Text>
               </View>
               <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
+                <Image
+                  source={require('../assets/images/tap-gesture.png')}
+                  style={styles.firstFooterTapImage}
+                  resizeMode="contain"
+                />
+                <Text style={styles.firstFooterModalFeatureText}>
+                  {i18n.t('chat_onboarding_tap_replay')}
+                </Text>
+              </View>
+              <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
                 <Ionicons name="volume-mute" size={22} color="#604a3e" />
                 <Text style={styles.firstFooterModalFeatureText}>
                   {i18n.t('chat_onboarding_mute')}
@@ -4950,176 +4920,107 @@ const closeIdentityModal = useCallback(() => {
       />
 
       <Modal
-        isVisible={isFirstFriendlistModalVisible}
-        onBackButtonPress={closeFirstFriendlistModal}
-        onModalHide={() => {
-          // Chaînage fiable : on ouvre la 2e modale après fermeture complète de la 1ère
-          if (!pendingShowFeaturesAfterFooterRef.current) return;
-          pendingShowFeaturesAfterFooterRef.current = false;
-          (async () => {
-            try {
-              const seenFeatures = await AsyncStorage.getItem(FIRST_FRIENDLIST_FEATURES_MODAL_KEY);
-              if (!seenFeatures) setIsFirstFriendlistFeaturesModalVisible(true);
-            } catch {
-              // ignorer
-            }
-          })();
-        }}
+        isVisible={isFirstFriendlistOnboardingVisible}
+        onBackButtonPress={closeFirstFriendlistOnboarding}
         backdropOpacity={0.55}
         animationIn="fadeIn"
         animationOut="fadeOut"
         useNativeDriver
       >
         <View style={styles.firstFooterModalCard}>
-          <View style={styles.firstFooterModalFeatureRow}>
-            <Ionicons name="arrow-forward" size={22} color="#604a3e" />
-            <Text style={styles.firstFooterModalFeatureText}>
-              {i18n.t('friendlist_onboarding_swipe')}
-            </Text>
-          </View>
-          <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
-            <Image
-              source={require('../assets/images/tap-gesture.png')}
-              style={styles.firstFooterTapImage}
-              resizeMode="contain"
-            />
-            <Text style={styles.firstFooterModalFeatureText}>
-              {i18n.t('friendlist_onboarding_tap')}
-            </Text>
-          </View>
-          <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
-            <Ionicons name="finger-print" size={22} color="#604a3e" />
-            <Text style={styles.firstFooterModalFeatureText}>
-              {i18n.t('friendlist_onboarding_long_press')}
-            </Text>
-          </View>
-          <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
-            <Ionicons name="arrow-back" size={22} color="#604a3e" />
-            <Text style={styles.firstFooterModalFeatureText}>
-              {i18n.t('friendlist_onboarding_swipe_left_block')}
-            </Text>
-          </View>
+          {firstFriendlistOnboardingStep === 'footer' ? (
+            <>
+              <View style={styles.firstFooterModalFeatureRow}>
+                <Ionicons name="arrow-forward" size={22} color="#604a3e" />
+                <Text style={styles.firstFooterModalFeatureText}>
+                  {i18n.t('friendlist_onboarding_swipe')}
+                </Text>
+              </View>
+              <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
+                <Image
+                  source={require('../assets/images/tap-gesture.png')}
+                  style={styles.firstFooterTapImage}
+                  resizeMode="contain"
+                />
+                <Text style={styles.firstFooterModalFeatureText}>
+                  {i18n.t('friendlist_onboarding_tap')}
+                </Text>
+              </View>
+              <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
+                <Ionicons name="finger-print" size={22} color="#604a3e" />
+                <Text style={styles.firstFooterModalFeatureText}>
+                  {i18n.t('friendlist_onboarding_long_press')}
+                </Text>
+              </View>
+              <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
+                <Ionicons name="arrow-back" size={22} color="#604a3e" />
+                <Text style={styles.firstFooterModalFeatureText}>
+                  {i18n.t('friendlist_onboarding_swipe_left_block')}
+                </Text>
+              </View>
+            </>
+          ) : null}
+
+          {firstFriendlistOnboardingStep === 'features' ? (
+            <>
+              <View style={styles.firstFooterCenteredTextRow}>
+                <Text style={styles.firstFooterCenteredText}>
+                  {i18n.t('friendlist_onboarding_soundcheck_in')}
+                </Text>
+              </View>
+              <View style={styles.firstFooterInlineImageRow}>
+                <Image
+                  source={require('../assets/images/soundcheck3.png')}
+                  style={styles.firstFooterInlineImage}
+                  resizeMode="contain"
+                />
+              </View>
+            </>
+          ) : null}
+
+          {firstFriendlistOnboardingStep === 'zen' ? (
+            <>
+              <View style={styles.firstFooterModalFeatureRow}>
+                <Ionicons name="trophy" size={22} color="#604a3e" />
+                <Text style={styles.firstFooterModalFeatureText}>
+                  {i18n.t('friendlist_onboarding_resonance')}
+                </Text>
+              </View>
+              <View style={[styles.firstFooterModalFeatureRow, { marginTop: 14 }]}>
+                <Ionicons name="moon" size={22} color="#604a3e" />
+                <Text style={styles.firstFooterModalFeatureText}>
+                  {i18n.t('friendlist_onboarding_zen')}
+                </Text>
+              </View>
+              <View style={[styles.firstFooterModalFeatureRow, { marginTop: 14 }]}>
+                <Ionicons name="volume-mute" size={22} color="#604a3e" />
+                <Text style={styles.firstFooterModalFeatureText}>
+                  {i18n.t('friendlist_onboarding_silent_send')}
+                </Text>
+              </View>
+            </>
+          ) : null}
+
+          {firstFriendlistOnboardingStep === 'search' ? (
+            <>
+              <View style={styles.firstFooterModalFeatureRow}>
+                <Ionicons name="search" size={22} color="#604a3e" />
+                <Text style={styles.firstFooterModalFeatureText}>
+                  {i18n.t('friendlist_onboarding_search_contacts')}
+                </Text>
+              </View>
+              <View style={[styles.firstFooterModalFeatureRow, { marginTop: 14 }]}>
+                <Ionicons name="person-add-outline" size={22} color="#604a3e" />
+                <Text style={styles.firstFooterModalFeatureText}>
+                  {i18n.t('friendlist_onboarding_search_pseudo')}
+                </Text>
+              </View>
+            </>
+          ) : null}
+
           <TouchableOpacity
             style={styles.firstFooterModalOkButton}
-            onPress={handleFirstFriendlistModalOk}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.firstFooterModalOkText}>OK</Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
-
-      <Modal
-        isVisible={isFirstFriendlistFeaturesModalVisible}
-        onBackButtonPress={closeFirstFriendlistFeaturesModal}
-        onModalHide={() => {
-          if (!pendingShowZenAfterFeaturesRef.current) return;
-          pendingShowZenAfterFeaturesRef.current = false;
-          (async () => {
-            try {
-              const seenZen = await AsyncStorage.getItem(FIRST_FRIENDLIST_ZEN_MODAL_KEY);
-              if (!seenZen) setIsFirstFriendlistZenModalVisible(true);
-            } catch {
-              // ignorer
-            }
-          })();
-        }}
-        backdropOpacity={0.55}
-        animationIn="fadeIn"
-        animationOut="fadeOut"
-        useNativeDriver
-      >
-        <View style={styles.firstFooterModalCard}>
-          <View style={styles.firstFooterModalFeatureRow}>
-            <Ionicons name="pulse" size={22} color="#604a3e" />
-            <Text style={styles.firstFooterModalFeatureText}>
-              {i18n.t('friendlist_onboarding_soundcheck')}
-            </Text>
-          </View>
-          <View style={[styles.firstFooterModalFeatureRow, { marginTop: 14 }]}>
-            <Ionicons name="trophy" size={22} color="#604a3e" />
-            <Text style={styles.firstFooterModalFeatureText}>
-              {i18n.t('friendlist_onboarding_resonance')}
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            style={styles.firstFooterModalOkButton}
-            onPress={handleFirstFriendlistFeaturesModalOk}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.firstFooterModalOkText}>OK</Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
-
-      <Modal
-        isVisible={isFirstFriendlistZenModalVisible}
-        onBackButtonPress={closeFirstFriendlistZenModal}
-        onModalHide={() => {
-          if (!pendingShowSearchAfterZenRef.current) return;
-          pendingShowSearchAfterZenRef.current = false;
-          (async () => {
-            try {
-              const seenSearch = await AsyncStorage.getItem(FIRST_FRIENDLIST_SEARCH_MODAL_KEY);
-              if (!seenSearch) setIsFirstFriendlistSearchModalVisible(true);
-            } catch {
-              // ignorer
-            }
-          })();
-        }}
-        backdropOpacity={0.55}
-        animationIn="fadeIn"
-        animationOut="fadeOut"
-        useNativeDriver
-      >
-        <View style={styles.firstFooterModalCard}>
-          <View style={styles.firstFooterModalFeatureRow}>
-            <Ionicons name="moon" size={22} color="#604a3e" />
-            <Text style={styles.firstFooterModalFeatureText}>
-              {i18n.t('friendlist_onboarding_zen')}
-            </Text>
-          </View>
-          <View style={[styles.firstFooterModalFeatureRow, { marginTop: 14 }]}>
-            <Ionicons name="volume-mute" size={22} color="#604a3e" />
-            <Text style={styles.firstFooterModalFeatureText}>
-              {i18n.t('friendlist_onboarding_silent_send')}
-            </Text>
-          </View>
-          <TouchableOpacity
-            style={styles.firstFooterModalOkButton}
-            onPress={handleFirstFriendlistZenModalOk}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.firstFooterModalOkText}>OK</Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
-
-      <Modal
-        isVisible={isFirstFriendlistSearchModalVisible}
-        onBackButtonPress={closeFirstFriendlistSearchModal}
-        backdropOpacity={0.55}
-        animationIn="fadeIn"
-        animationOut="fadeOut"
-        useNativeDriver
-      >
-        <View style={styles.firstFooterModalCard}>
-          <View style={styles.firstFooterModalFeatureRow}>
-            <Ionicons name="search" size={22} color="#604a3e" />
-            <Text style={styles.firstFooterModalFeatureText}>
-              {i18n.t('friendlist_onboarding_search_contacts')}
-            </Text>
-          </View>
-          <View style={[styles.firstFooterModalFeatureRow, { marginTop: 14 }]}>
-            <Ionicons name="person-add-outline" size={22} color="#604a3e" />
-            <Text style={styles.firstFooterModalFeatureText}>
-              {i18n.t('friendlist_onboarding_search_pseudo')}
-            </Text>
-          </View>
-          <TouchableOpacity
-            style={styles.firstFooterModalOkButton}
-            onPress={closeFirstFriendlistSearchModal}
+            onPress={handleFirstFriendlistOnboardingOk}
             activeOpacity={0.85}
           >
             <Text style={styles.firstFooterModalOkText}>OK</Text>
@@ -5908,6 +5809,30 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     marginTop: 1,
+  },
+  firstFooterInlineImage: {
+    width: 104,
+    height: 104,
+    marginTop: -24,
+    flexShrink: 0,
+  },
+  firstFooterInlineImageRow: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  firstFooterCenteredTextRow: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  firstFooterCenteredText: {
+    color: '#604a3e',
+    fontSize: 14,
+    textAlign: 'center',
+    fontStyle: 'italic',
+    opacity: 0.88,
+    lineHeight: 19,
   },
   /** Légèrement plus grand que les Ionicons 22 pour la queue */
   chatOnboardingIconSlot: {
