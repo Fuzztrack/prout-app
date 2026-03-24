@@ -2893,6 +2893,7 @@ const closeIdentityModal = useCallback(() => {
                 }
               }
             }
+          }
         )
         // Écouter TOUS les DELETE sur pending_messages
         .on(
