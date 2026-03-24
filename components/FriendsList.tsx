@@ -1155,7 +1155,20 @@ export function FriendsList({
   }, [expandedFriendId, unreadCache]);
 
 
-  // Animation "Lu" immédiate côté A dès que B lit (pas besoin d'ouvrir le sticky)
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (expandedFriendId) {
+      // Polling de sécurité toutes les 5s quand un chat est ouvert
+      // Garantit que le statut "Lu" arrive même si le Realtime échoue
+      interval = setInterval(() => {
+        if (CHAT_VERBOSE_LOGS) console.log(`🔍 [CLIENT] Polling de sécurité (chat ouvert)...`);
+        loadData(false, true, false);
+      }, 5000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [expandedFriendId]);
 
   // Si un broadcast arrive avant que le message soit en cache, on réconcilie dès que possible
   useEffect(() => {
@@ -1905,6 +1918,7 @@ const closeIdentityModal = useCallback(() => {
       return;
     }
     const now = Date.now();
+    // forceLoading bypass le throttle temporel
     if (!forceLoading && !syncContacts && now - lastLoadDataAtRef.current < LOAD_DATA_MIN_INTERVAL_MS) {
       return;
     }
