@@ -1,7 +1,7 @@
 {
   "cli": {
     "version": ">= 6.0.0",
-    "appVersionSource": "remote"
+    "appVersionSource": "local"
   },
   "build": {
     "development": {
@@ -18,13 +18,14 @@
       }
     },
     "production": {
-      "autoIncrement": true,
       "ios": {
-        "resourceClass": "medium"
+        "resourceClass": "medium",
+        "autoIncrement": true
       },
       "android": {
         "buildType": "app-bundle",
-        "gradleCommand": ":app:bundleRelease"
+        "gradleCommand": ":app:bundleRelease",
+        "autoIncrement": false
       }
     }
   },

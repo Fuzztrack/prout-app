@@ -112,7 +112,7 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      const scheme = Platform.OS === 'ios' ? 'prootapp' : 'proutapp';
+      const scheme = 'prootapp';
       const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
         redirectTo: `${scheme}://reset-password`,
       });

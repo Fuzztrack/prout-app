@@ -163,7 +163,7 @@ class ProutMessagingService : FirebaseMessagingService() {
 
         val intent = Intent(this, MainActivity::class.java).apply {
             action = Intent.ACTION_VIEW
-            data = Uri.parse("proutapp://")
+            data = Uri.parse("prootapp://")
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra("proutKey", proutKey)
             putExtra("sender", sender)
@@ -205,7 +205,7 @@ class ProutMessagingService : FirebaseMessagingService() {
 
         val intent = Intent(this, MainActivity::class.java).apply {
             action = Intent.ACTION_VIEW
-            setData(Uri.parse("proutapp://"))
+            setData(Uri.parse("prootapp://"))
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra("notificationType", type)
             putExtra("requesterId", payload["requesterId"])

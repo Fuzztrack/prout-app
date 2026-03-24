@@ -30,7 +30,10 @@ const IOS_NOTIFICATION_SOUNDS = [
   './assets/sounds/toot6.wav',
   './assets/sounds/toot8.wav',
   './assets/sounds/toot9.wav',
+  './assets/sounds/toot10.wav',
+  './assets/sounds/toot13.wav',
   './assets/sounds/toot17.wav',
+  './assets/sounds/toot20.wav',
 ];
 
 function withIOSPrrtSounds(config) {
