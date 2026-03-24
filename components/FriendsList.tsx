@@ -4027,8 +4027,21 @@ const closeIdentityModal = useCallback(() => {
         if (CHAT_VERBOSE_LOGS) console.log(`📤 [CLIENT] Ajout message envoyé à lastSentMessages (sans ID pour l'instant) pour ${recipient.id}`);
         setLastSentMessages(prev => {
           const existingMessages = prev[recipient.id] || [];
-          // Ajouter 1ms au timestamp pour garantir que le message de A apparaît après les messages de B
+          
+          // DÉDUPLICATION : Vérifier si ce message (même texte, même son) n'est pas déjà présent
+          // (cas où le broadcast INSERT arrive avant que l'état local ne soit mis à jour)
           const nowTime = new Date(now).getTime();
+          const isDuplicate = existingMessages.some(m => {
+             const mTime = new Date(m.ts).getTime();
+             return m.text === customMessage && m.soundKey === randomKey && Math.abs(nowTime - mTime) < 5000;
+          });
+          
+          if (isDuplicate) {
+            if (CHAT_VERBOSE_LOGS) console.log(`📤 [CLIENT] Message déjà présent (doublon ignoré) pour ${recipient.id}`);
+            return prev;
+          }
+
+          // Ajouter 1ms au timestamp pour garantir que le message de A apparaît après les messages de B
           const messageTs = new Date(nowTime + 1).toISOString();
           const newMessage: LastSentMessage = { text: customMessage, ts: messageTs, soundKey: randomKey };
           // Ajouter le nouveau message au tableau (accumulation)
