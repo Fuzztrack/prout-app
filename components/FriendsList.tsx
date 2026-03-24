@@ -782,6 +782,7 @@ export function FriendsList({
   const reconcilePendingReadIds = (input: LastSentMap) => {
     let updated = false;
     const next = { ...input };
+    const now = Date.now();
     pendingReadIdsRef.current.forEach((id) => {
       Object.keys(next).forEach(userId => {
         const messages = next[userId];
@@ -789,7 +790,7 @@ export function FriendsList({
           const msgIndex = messages.findIndex(msg => msg.id === id);
           if (msgIndex !== -1) {
             next[userId] = messages.map((msg, idx) => 
-              idx === msgIndex ? { ...msg, status: 'read' as const } : msg
+              idx === msgIndex ? { ...msg, status: 'read' as const, readAt: now } : msg
             );
             pendingReadIdsRef.current.delete(id);
             updated = true;
@@ -1180,8 +1181,8 @@ export function FriendsList({
       queryClient.invalidateQueries({ queryKey: ['pendingMessages'] });
       queryClient.invalidateQueries({ queryKey: ['friends'] });
 
-      // 3. Fallback sur loadData classique
-      loadData(false, false, false);
+      // 3. Fallback sur loadData classique (avec forceLoading pour bypass le throttle)
+      loadData(false, true, false);
     });
     return () => {
       subscription.remove();
@@ -4076,10 +4077,10 @@ const closeIdentityModal = useCallback(() => {
       // Le backend met à jour last_interaction_at pour les deux relations (A→B et B→A)
       // Recharger les données depuis Supabase pour synchroniser avec le backend
       // IMPORTANT : Attendre un peu pour que le message soit créé dans pending_messages avant de charger
-      if (CHAT_VERBOSE_LOGS) console.log(`🔄 [CLIENT] Appel loadData après envoi du message...`);
+      if (CHAT_VERBOSE_LOGS) console.log(`🔄 [CLIENT] Émission REFRESH_DATA après envoi du message...`);
       setTimeout(() => {
-        if (CHAT_VERBOSE_LOGS) console.log(`🔄 [CLIENT] loadData appelé après délai de 500ms`);
-        loadData(false, false, false);
+        if (CHAT_VERBOSE_LOGS) console.log(`🔄 [CLIENT] REFRESH_DATA émis après délai de 500ms`);
+        DeviceEventEmitter.emit('REFRESH_DATA');
       }, 500);
 
       // Nettoyer le brouillon sans fermer le sticky
