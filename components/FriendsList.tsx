@@ -2868,32 +2868,31 @@ const closeIdentityModal = useCallback(() => {
                         soundKey: parsed.soundKey || messages[matchIndex].soundKey,
                       };
 
-
-                    if (!isChatOpen) {
-                      const kept = messages.filter((_, i) => i !== matchIndex);
-                      if (kept.length === 0) {
-                        const next = { ...prev };
-                        delete next[toUserId];
+                      if (!isChatOpen) {
+                        const kept = messages.filter((_, i) => i !== matchIndex);
+                        if (kept.length === 0) {
+                          const next = { ...prev };
+                          delete next[toUserId];
+                          updateLastSentIndex(next);
+                          saveLastSentMessagesCache(next);
+                          return next;
+                        }
+                        const next = { ...prev, [toUserId]: kept };
                         updateLastSentIndex(next);
                         saveLastSentMessagesCache(next);
                         return next;
                       }
-                      const next = { ...prev, [toUserId]: kept };
+
+                      const nextList = [...messages];
+                      nextList[matchIndex] = updatedMsg;
+                      const next = { ...prev, [toUserId]: nextList };
                       updateLastSentIndex(next);
                       saveLastSentMessagesCache(next);
                       return next;
-                    }
-
-                    const nextList = [...messages];
-                    nextList[matchIndex] = updatedMsg;
-                    const next = { ...prev, [toUserId]: nextList };
-                    updateLastSentIndex(next);
-                    saveLastSentMessagesCache(next);
-                    return next;
-                 });
+                   });
+                }
               }
             }
-          }
         )
         // Écouter TOUS les DELETE sur pending_messages
         .on(
