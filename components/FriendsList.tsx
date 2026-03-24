@@ -2860,8 +2860,8 @@ const closeIdentityModal = useCallback(() => {
 
                       if (matchIndex === -1) {
                         // Si l'UPDATE arrive pour un ID qu'on ne connaît pas encore,
-                        // on force un loadData pour synchroniser.
-                        setTimeout(() => loadData(false, false, false), 500);
+                        // on force un rafraîchissement global.
+                        DeviceEventEmitter.emit('REFRESH_DATA');
                         return prev;
                       }
 
@@ -2872,6 +2872,9 @@ const closeIdentityModal = useCallback(() => {
                         readAt,
                         soundKey: parsed.soundKey || messages[matchIndex].soundKey,
                       };
+
+                      // Déclencher aussi un rafraîchissement global pour être sûr
+                      setTimeout(() => DeviceEventEmitter.emit('REFRESH_DATA'), 500);
 
                       if (!isChatOpen) {
                         const kept = messages.filter((_, i) => i !== matchIndex);
@@ -3082,11 +3085,13 @@ const closeIdentityModal = useCallback(() => {
                 if (CHAT_VERBOSE_LOGS) {
                   console.log(`ℹ️ [CLIENT] Aucun changement nécessaire (messages déjà marqués comme lus ou pas encore dans lastSentMessages)`);
                 }
-                // Si on a reçu un broadcast mais qu'on ne trouve pas le message par ID,
-                // c'est peut-être qu'on a un décalage d'ID. On force un loadData pour synchroniser.
-                setTimeout(() => loadData(false, false, false), 1000);
+                // Déclencher un rafraîchissement global pour synchroniser
+                DeviceEventEmitter.emit('REFRESH_DATA');
                 return prev;
               }
+              
+              // Déclencher aussi un rafraîchissement global en arrière-plan
+              setTimeout(() => DeviceEventEmitter.emit('REFRESH_DATA'), 500);
               
               const readCount = updated.filter(m => m.status === 'read').length;
               if (CHAT_VERBOSE_LOGS) {
