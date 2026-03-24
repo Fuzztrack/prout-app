@@ -337,9 +337,8 @@ const saveCacheSafely = async (key: string, data: any[]) => {
 // Composant pour gérer l'animation du message envoyé (PRRT! : opacité réduite quand lu)
 const DIMMED_OPACITY_READ = 0.72; // Grisé léger pour messages envoyés et lus par l'autre (reste lisible)
 
-const SentMessageStatus = ({ message, soundKey }: { 
+const SentMessageStatus = ({ message }: { 
   message: { text: string; status?: 'read'; id?: string } | undefined;
-  soundKey?: string;
 }) => {
   const [displayedMessage, setDisplayedMessage] = useState(message);
   const opacity = useRef(new RNAnimated.Value(message?.status === 'read' ? DIMMED_OPACITY_READ : 1)).current;
@@ -367,16 +366,9 @@ const SentMessageStatus = ({ message, soundKey }: {
 
   return (
     <RNAnimated.View style={{ alignSelf: 'flex-end', opacity, maxWidth: '100%', alignItems: 'flex-end' }}>
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={() => soundKey && playSound(soundKey)}
-        disabled={!soundKey}
-      >
-        <View style={styles.bubbleSent}>
-          <Text style={styles.bubbleTextSent}>{stripReadPrefix(displayedMessage.text)}</Text>
-          {soundKey && <View style={styles.bubbleSoundBadge} />}
-        </View>
-      </TouchableOpacity>
+      <View style={styles.bubbleSent}>
+        <Text style={styles.bubbleTextSent}>{stripReadPrefix(displayedMessage.text)}</Text>
+      </View>
       {isRead && (
         <Text style={{ fontSize: 12, color: '#604a3e', marginRight: 12, marginBottom: 4, fontStyle: 'italic', opacity: 0.9 }}>
           {i18n.t('message_read')}
@@ -431,7 +423,6 @@ const ReceivedMessageFade = ({ message, soundKey, dimmed, shouldFadeOut, onFadeC
       >
         <View style={styles.bubbleReceived}>
           <Text style={styles.bubbleTextReceived}>{stripReadPrefix(message.text)}</Text>
-          {soundKey && <View style={styles.bubbleSoundBadge} />}
         </View>
       </TouchableOpacity>
     </RNAnimated.View>
@@ -4395,7 +4386,7 @@ const closeIdentityModal = useCallback(() => {
           >
             {allMessages.map((msg) => (
               msg.isMe ? (
-                <SentMessageStatus key={msg.id} message={msg.original!} soundKey={msg.soundKey} />
+                <SentMessageStatus key={msg.id} message={msg.original!} />
               ) : (
                 <ReceivedMessageFade
                   key={msg.id}
@@ -4423,7 +4414,7 @@ const closeIdentityModal = useCallback(() => {
           >
             {allMessages.map((msg) => (
               msg.isMe ? (
-                <SentMessageStatus key={msg.id} message={msg.original!} soundKey={msg.soundKey} />
+                <SentMessageStatus key={msg.id} message={msg.original!} />
               ) : (
                 <ReceivedMessageFade
                   key={msg.id}
@@ -6054,18 +6045,6 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
     position: 'relative',
-  },
-  bubbleSoundBadge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#8fb3a5',
-    borderWidth: 1.5,
-    borderColor: '#fff',
-    zIndex: 10,
   },
   bubbleTextReceived: {
     color: '#333',
