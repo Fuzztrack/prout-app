@@ -2858,7 +2858,12 @@ const closeIdentityModal = useCallback(() => {
                       }
                       // Ne PAS utiliser "dernier non-lu" comme fallback : trop risqué pour l'ordre chronologique
 
-                      if (matchIndex === -1) return prev;
+                      if (matchIndex === -1) {
+                        // Si l'UPDATE arrive pour un ID qu'on ne connaît pas encore,
+                        // on force un loadData pour synchroniser.
+                        setTimeout(() => loadData(false, false, false), 500);
+                        return prev;
+                      }
 
                       const updatedMsg = {
                         ...messages[matchIndex],
@@ -3062,7 +3067,11 @@ const closeIdentityModal = useCallback(() => {
               if (CHAT_VERBOSE_LOGS) console.log(`📨 [CLIENT] Chat ouvert - Marquage des messages comme lus`);
               const readAt = Date.now();
               const updated = msgs.map((m) => {
-                if (m.id && idsSet.has(m.id) && m.status !== 'read') {
+                // Matching par ID ou par Texte/Son (fallback si l'ID n'est pas encore arrivé)
+                const idMatch = m.id && idsSet.has(m.id);
+                const textMatch = !m.id && msgs.length === 1 && ids.length === 1; // Simplifié: si un seul message en attente
+                
+                if ((idMatch || textMatch) && m.status !== 'read') {
                   changed = true;
                   return { ...m, status: 'read' as const, readAt };
                 }
@@ -3073,6 +3082,9 @@ const closeIdentityModal = useCallback(() => {
                 if (CHAT_VERBOSE_LOGS) {
                   console.log(`ℹ️ [CLIENT] Aucun changement nécessaire (messages déjà marqués comme lus ou pas encore dans lastSentMessages)`);
                 }
+                // Si on a reçu un broadcast mais qu'on ne trouve pas le message par ID,
+                // c'est peut-être qu'on a un décalage d'ID. On force un loadData pour synchroniser.
+                setTimeout(() => loadData(false, false, false), 1000);
                 return prev;
               }
               
