@@ -2268,19 +2268,19 @@ const closeIdentityModal = useCallback(() => {
                     if (m?.id && hiddenSentIdsRef.current.has(m.id)) {
                       return;
                     }
-                    const rawText = m.message_content || '';
-                    const isRead = rawText.startsWith('READ:');
-                    const text = isRead ? rawText.slice('READ:'.length) : rawText;
+                    const rawContent = m.message_content || '';
+                    const parsed = parseMessageContent(rawContent);
 
                     // IMPORTANT : Si le message est marqué "READ:" côté serveur, on doit le traiter
                     // pour mettre à jour le statut "read" côté client, même s'il sera supprimé dans 5s
                     // Cela garantit que A voit que son message a été lu par B
                     const message: LastSentMessage = { 
-                      text, 
+                      text: parsed.text,
+                      soundKey: parsed.soundKey,
                       ts: m.created_at, 
                       id: m.id, 
-                      status: isRead ? 'read' as const : undefined,
-                      readAt: isRead ? Date.now() : undefined
+                      status: parsed.isRead ? 'read' as const : undefined,
+                      readAt: parsed.isRead ? Date.now() : undefined
                     };
                     
                     if (CHAT_VERBOSE_LOGS) {
@@ -2417,8 +2417,10 @@ const closeIdentityModal = useCallback(() => {
                   const localTime = new Date(localMsg.ts).getTime();
                   const isDuplicate = filteredServerMessages.some(serverMsg => {
                     const serverTime = new Date(serverMsg.ts).getTime();
+                    // On vérifie le texte ET le son pour être sûr (le texte peut être identique pour 2 prouts différents)
                     return (
                       serverMsg.text === localMsg.text &&
+                      serverMsg.soundKey === localMsg.soundKey &&
                       Math.abs(serverTime - localTime) < 5000
                     );
                   });
