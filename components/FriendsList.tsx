@@ -2791,14 +2791,15 @@ const closeIdentityModal = useCallback(() => {
                 loadData(false, false, false);
                 return;
               }
-              
+
               if (toUserId && text && id) {
                 setLastSentMessages((prev) => {
                   const existingMessages = prev[toUserId] || [];
                   const exists = existingMessages.some(m => m.id === id);
                   if (exists) return prev;
 
-                  const rawText = text.startsWith('READ:') ? text.slice('READ:'.length) : text;
+                  const parsed = parseMessageContent(text);
+                  const rawText = parsed.text;
                   const replaceIdx = [...existingMessages].reverse().findIndex(
                     m => !m.id && (m.text === rawText || m.text === text)
                   );
@@ -2807,9 +2808,9 @@ const closeIdentityModal = useCallback(() => {
                   let nextList: LastSentMessage[];
                   if (idx >= 0) {
                     nextList = [...existingMessages];
-                    nextList[idx] = { ...nextList[idx], id, text: rawText, ts };
+                    nextList[idx] = { ...nextList[idx], id, text: rawText, ts, soundKey: parsed.soundKey };
                   } else {
-                    nextList = [...existingMessages, { text: rawText, ts, id }];
+                    nextList = [...existingMessages, { text: rawText, ts, id, soundKey: parsed.soundKey }];
                   }
 
                   const next = { ...prev, [toUserId]: nextList };
@@ -2832,37 +2833,41 @@ const closeIdentityModal = useCallback(() => {
                 return;
               }
 
-              if (text && text.startsWith('READ:') && toUserId) {
-                 setLastSentMessages((prev) => {
-                    const messages = prev[toUserId];
-                    if (!Array.isArray(messages)) return prev;
+              if (text && toUserId) {
+                 const parsed = parseMessageContent(text);
+                 if (parsed.isRead) {
+                   setLastSentMessages((prev) => {
+                      const messages = prev[toUserId];
+                      if (!Array.isArray(messages)) return prev;
 
-                    const isChatOpen = expandedFriendIdRef.current === toUserId;
-                    const readAt = Date.now();
-                    const strippedText = text.slice('READ:'.length);
+                      const isChatOpen = expandedFriendIdRef.current === toUserId;
+                      const readAt = Date.now();
+                      const strippedText = parsed.text;
 
-                    // IMPORTANT : Trouver le message par ID uniquement (évite de marquer le mauvais message)
-                    // Ne jamais utiliser "dernier non-lu" car cela peut marquer le mauvais message si l'ordre n'est pas correct
-                    let matchIndex = messages.findIndex(msg => msg.id === id);
-                    // Fallback uniquement si pas d'ID ET texte correspond exactement (plus sûr)
-                    if (matchIndex === -1 && id) {
-                      // Chercher par texte correspondant uniquement si on a un ID mais qu'il ne matche pas
-                      // (cas où le message n'a pas encore d'ID côté client mais en a côté serveur)
-                      const textMatch = messages.findIndex(msg => 
-                        !msg.id && (msg.text === strippedText || msg.text === text)
-                      );
-                      if (textMatch !== -1) matchIndex = textMatch;
-                    }
-                    // Ne PAS utiliser "dernier non-lu" comme fallback : trop risqué pour l'ordre chronologique
+                      // IMPORTANT : Trouver le message par ID uniquement (évite de marquer le mauvais message)
+                      // Ne jamais utiliser "dernier non-lu" car cela peut marquer le mauvais message si l'ordre n'est pas correct
+                      let matchIndex = messages.findIndex(msg => msg.id === id);
+                      // Fallback uniquement si pas d'ID ET texte correspond exactement (plus sûr)
+                      if (matchIndex === -1 && id) {
+                        // Chercher par texte correspondant uniquement si on a un ID mais qu'il ne matche pas
+                        // (cas où le message n'a pas encore d'ID côté client mais en a côté serveur)
+                        const textMatch = messages.findIndex(msg => 
+                          !msg.id && (msg.text === strippedText || msg.text === text)
+                        );
+                        if (textMatch !== -1) matchIndex = textMatch;
+                      }
+                      // Ne PAS utiliser "dernier non-lu" comme fallback : trop risqué pour l'ordre chronologique
 
-                    if (matchIndex === -1) return prev;
+                      if (matchIndex === -1) return prev;
 
-                    const updatedMsg = {
-                      ...messages[matchIndex],
-                      id: messages[matchIndex].id || id,
-                      status: 'read' as const,
-                      readAt,
-                    };
+                      const updatedMsg = {
+                        ...messages[matchIndex],
+                        id: messages[matchIndex].id || id,
+                        status: 'read' as const,
+                        readAt,
+                        soundKey: parsed.soundKey || messages[matchIndex].soundKey,
+                      };
+
 
                     if (!isChatOpen) {
                       const kept = messages.filter((_, i) => i !== matchIndex);
