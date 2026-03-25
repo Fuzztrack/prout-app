@@ -11,6 +11,14 @@ const TARGET_SERVICE_PATH = 'app/src/main/java/com/fuzztrack/proutapp/ProutMessa
 const TARGET_HELPER_PATH = 'app/src/main/java/com/fuzztrack/proutapp/NotificationChannelHelper.kt';
 const TARGET_PROVIDER_PATH = 'app/src/main/java/com/fuzztrack/proutapp/ChannelInitProvider.kt';
 const TARGET_MAIN_APP_PATH = 'app/src/main/java/com/fuzztrack/proutapp/MainApplication.kt';
+const ANDROID_NOTIFICATION_SOUND_KEYS = [
+  'bzzz1', 'bzzz2', 'bzzz3', 'bzzz4', 'bzzz5',
+  'trrl1', 'trrl2', 'trrl3', 'trrl4', 'trrl5',
+  'pop1', 'pop2', 'pop3', 'pop4', 'pop5',
+  'mood1', 'mood2', 'mood3', 'mood4', 'mood5',
+  'toot1', 'toot3', 'toot4', 'toot6', 'toot8', 'toot9', 'toot10', 'toot11',
+  'toot12', 'toot13', 'toot14', 'toot16', 'toot17', 'toot18', 'toot19', 'toot20',
+];
 
 // Contenu complet du fichier ProutMessagingService.kt
 const PROUT_SERVICE_CONTENT = `package com.fuzztrack.proutapp
@@ -34,7 +42,7 @@ class ProutMessagingService : FirebaseMessagingService() {
     companion object {
         private const val TAG = "ProutMessagingService"
         private const val CHANNEL_PREFIX = "prout-"
-        private const val CHANNEL_VERSION = "v5"
+        private const val CHANNEL_VERSION = "v6"
         private const val DEFAULT_CHANNEL_ID = "prout-default"
     }
 
@@ -270,11 +278,15 @@ import android.os.Build
 object NotificationChannelHelper {
     private val SOUND_KEYS = arrayOf(
         "bzzz1", "bzzz2", "bzzz3", "bzzz4", "bzzz5",
-        "trrl1", "trrl2", "trrl3", "trrl4", "trrl5"
+        "trrl1", "trrl2", "trrl3", "trrl4", "trrl5",
+        "pop1", "pop2", "pop3", "pop4", "pop5",
+        "mood1", "mood2", "mood3", "mood4", "mood5",
+        "toot1", "toot3", "toot4", "toot6", "toot8", "toot9", "toot10", "toot11",
+        "toot12", "toot13", "toot14", "toot16", "toot17", "toot18", "toot19", "toot20"
     )
 
     private const val CHANNEL_PREFIX = "prout-"
-    private const val CHANNEL_VERSION = "v5"
+    private const val CHANNEL_VERSION = "v6"
 
     fun createChannels(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
@@ -455,7 +467,7 @@ const withAndroidProutMessaging = (config) => {
     mainApplication['meta-data'].push({
       $: {
         'android:name': 'com.google.firebase.messaging.default_notification_channel_id',
-        'android:value': 'prout-trrl1-v5',
+        'android:value': 'prout-trrl1-v6',
         'tools:replace': 'android:value',
       },
     });
@@ -517,6 +529,22 @@ const withAndroidProutMessaging = (config) => {
       fs.writeFileSync(providerPath, CHANNEL_INIT_PROVIDER_CONTENT, 'utf8');
       console.log(`✅ [withAndroidProutMessaging] ChannelInitProvider.kt créé à ${providerPath}`);
 
+      // Copier les sons de notifications dans res/raw pour Android
+      const rawDir = path.join(config.modRequest.platformProjectRoot, 'app/src/main/res/raw');
+      if (!fs.existsSync(rawDir)) {
+        fs.mkdirSync(rawDir, { recursive: true });
+      }
+      for (const soundKey of ANDROID_NOTIFICATION_SOUND_KEYS) {
+        const sourcePath = path.join(config.modRequest.projectRoot, 'assets/sounds', `${soundKey}.wav`);
+        const targetPath = path.join(rawDir, `${soundKey}.wav`);
+        if (fs.existsSync(sourcePath)) {
+          fs.copyFileSync(sourcePath, targetPath);
+        } else {
+          console.warn(`⚠️ [withAndroidProutMessaging] Son introuvable: ${sourcePath}`);
+        }
+      }
+      console.log(`✅ [withAndroidProutMessaging] ${ANDROID_NOTIFICATION_SOUND_KEYS.length} sons copiés dans res/raw`);
+
       // Mettre à jour MainApplication.kt pour appeler NotificationChannelHelper.createChannels()
       const mainAppPath = path.join(config.modRequest.platformProjectRoot, TARGET_MAIN_APP_PATH);
       if (fs.existsSync(mainAppPath)) {
@@ -561,9 +589,12 @@ const withAndroidProutMessaging = (config) => {
         '# Keep ContentProvider for early initialization',
         '-keep class * extends android.content.ContentProvider { *; }',
         '',
-        '# Prevent R8 from removing raw sound resources (bzzz/trrl)',
+        '# Prevent R8 from removing raw sound resources (all notification sounds)',
         '-keepclassmembers class **.R$raw { public static final int bzzz*; }',
         '-keepclassmembers class **.R$raw { public static final int trrl*; }',
+        '-keepclassmembers class **.R$raw { public static final int pop*; }',
+        '-keepclassmembers class **.R$raw { public static final int mood*; }',
+        '-keepclassmembers class **.R$raw { public static final int toot*; }',
       ].join('\n');
       
       if (!proguardContent.includes('com.fuzztrack.proutapp.ProutMessagingService')) {

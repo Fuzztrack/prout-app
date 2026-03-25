@@ -5,13 +5,17 @@ import { Platform } from 'react-native';
 const SOUND_KEYS = [
   'bzzz1','bzzz2','bzzz3','bzzz4','bzzz5',
   'trrl1','trrl2','trrl3','trrl4','trrl5',
+  'pop1','pop2','pop3','pop4','pop5',
+  'mood1','mood2','mood3','mood4','mood5',
+  'toot1','toot3','toot4','toot6','toot8','toot9','toot10','toot11',
+  'toot12','toot13','toot14','toot16','toot17','toot18','toot19','toot20',
 ];
 
 // Canal par défaut pour Android (FCM)
 export const DEFAULT_CHANNEL_ID = 'trrl1';
 
 export function getChannelIdForSound(soundName: string) {
-  return `prout-${soundName}-v5`; // Harmonisation avec ProutMessagingService.kt (v5)
+  return `prout-${soundName}-v6`; // Harmonisation avec ProutMessagingService.kt (v6)
 }
 
 // Crée tous les canaux Android pour chaque son
@@ -22,7 +26,7 @@ async function configureAndroidNotificationChannels() {
     console.log('🔧 [ANDROID] Début création des canaux de notification...');
     
     // Supprimer les anciens canaux avec suffixe
-    const oldSuffixes = ['-v14','-v13','-v12','-v11','-v10','-v3','-v2']; // Ajout de -v3 et -v2 à supprimer
+    const oldSuffixes = ['-v14','-v13','-v12','-v11','-v10','-v5','-v3','-v2']; // Inclut v5 pour forcer la recréation correcte
     for (const soundName of SOUND_KEYS) {
       // Supprimer aussi les versions brutes "prout1", etc.
       try { await Notifications.deleteNotificationChannelAsync(soundName); } catch {}

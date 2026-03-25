@@ -24,6 +24,9 @@
 # Keep ContentProvider for early initialization
 -keep class * extends android.content.ContentProvider { *; }
 
-# Prevent R8 from removing raw sound resources (bzzz/trrl)
+# Prevent R8 from removing raw sound resources (all notification sounds)
 -keepclassmembers class **.R$raw { public static final int bzzz*; }
 -keepclassmembers class **.R$raw { public static final int trrl*; }
+-keepclassmembers class **.R$raw { public static final int pop*; }
+-keepclassmembers class **.R$raw { public static final int mood*; }
+-keepclassmembers class **.R$raw { public static final int toot*; }

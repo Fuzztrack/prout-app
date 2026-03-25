@@ -79,8 +79,9 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
   const avatarPressActiveRef = useRef(false);
   const suppressNextPressRef = useRef(false);
   const suppressPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const panGestureHandledRef = useRef(false);
 
-  const markLongPressHandled = () => {
+  const markPressSuppressed = () => {
     suppressNextPressRef.current = true;
     if (suppressPressTimerRef.current) {
       clearTimeout(suppressPressTimerRef.current);
@@ -177,7 +178,14 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
   const gesture = Gesture.Pan()
     .activeOffsetX([-20, 20])
     .failOffsetY([-20, 20])
+    .onBegin(() => {
+      panGestureHandledRef.current = false;
+    })
     .onUpdate((e) => {
+      if (!panGestureHandledRef.current && (Math.abs(e.translationX) >= TAP_THRESHOLD || Math.abs(e.translationY) >= TAP_THRESHOLD)) {
+        panGestureHandledRef.current = true;
+        runOnJS(markPressSuppressed)();
+      }
       translationX.value = Math.max(-MAX_SWIPE_LEFT, Math.min(e.translationX, MAX_SWIPE_RIGHT));
     })
     .onEnd((e) => {
@@ -257,7 +265,7 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
               onLongPress={() => {
                 if (avatarPressActiveRef.current) return;
                 setIsRowTouchActive(false);
-                markLongPressHandled();
+                markPressSuppressed();
                 onLongPressRow();
               }}
               delayLongPress={FRIEND_ROW_LONG_PRESS_DELAY_MS}
@@ -272,7 +280,7 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
                   onLongPress={() => {
                     avatarPressActiveRef.current = false;
                     setIsRowTouchActive(false);
-                    markLongPressHandled();
+                    markPressSuppressed();
                     onLongPressAvatar();
                   }}
                   delayLongPress={500}

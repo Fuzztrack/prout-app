@@ -9,11 +9,15 @@ import android.os.Build
 object NotificationChannelHelper {
     private val SOUND_KEYS = arrayOf(
         "bzzz1", "bzzz2", "bzzz3", "bzzz4", "bzzz5",
-        "trrl1", "trrl2", "trrl3", "trrl4", "trrl5"
+        "trrl1", "trrl2", "trrl3", "trrl4", "trrl5",
+        "pop1", "pop2", "pop3", "pop4", "pop5",
+        "mood1", "mood2", "mood3", "mood4", "mood5",
+        "toot1", "toot3", "toot4", "toot6", "toot8", "toot9", "toot10", "toot11",
+        "toot12", "toot13", "toot14", "toot16", "toot17", "toot18", "toot19", "toot20"
     )
 
     private const val CHANNEL_PREFIX = "prout-"
-    private const val CHANNEL_VERSION = "v5"
+    private const val CHANNEL_VERSION = "v6"
 
     fun createChannels(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {

@@ -19,7 +19,7 @@ class ProutMessagingService : FirebaseMessagingService() {
     companion object {
         private const val TAG = "ProutMessagingService"
         private const val CHANNEL_PREFIX = "prout-"
-        private const val CHANNEL_VERSION = "v5"
+        private const val CHANNEL_VERSION = "v6"
         private const val DEFAULT_CHANNEL_ID = "prout-default"
     }
 
@@ -94,7 +94,6 @@ class ProutMessagingService : FirebaseMessagingService() {
         if (resId != 0) {
             return Uri.parse("android.resource://" + packageName + "/" + resId)
         }
-        // Transition legacy → nouvelle app : clé ou fichier raw absent → toot1.wav
         Log.w(TAG, "⚠️ Pas de raw pour proutKey=$proutKey → fallback toot1")
         val toot1Id = resources.getIdentifier("toot1", "raw", packageName)
         return if (toot1Id != 0) {
@@ -149,7 +148,7 @@ class ProutMessagingService : FirebaseMessagingService() {
 
         val intent = Intent(this, MainActivity::class.java).apply {
             action = Intent.ACTION_VIEW
-            data = Uri.parse("proutapp://")
+            data = Uri.parse("prootapp://")
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra("proutKey", proutKey)
             putExtra("sender", sender)
@@ -191,7 +190,7 @@ class ProutMessagingService : FirebaseMessagingService() {
 
         val intent = Intent(this, MainActivity::class.java).apply {
             action = Intent.ACTION_VIEW
-            setData(Uri.parse("proutapp://"))
+            setData(Uri.parse("prootapp://"))
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra("notificationType", type)
             putExtra("requesterId", payload["requesterId"])
