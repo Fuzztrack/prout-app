@@ -3,8 +3,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { logSignOutIntent } from '../lib/authDebug';
 import i18n from '../lib/i18n';
 import { safePush, safeReplace } from '../lib/navigation';
+import { clearCurrentUserPushToken } from '../lib/pushTokenRegistration';
 import { supabase } from '../lib/supabase';
 
 export default function ProfilScreen() {
@@ -82,18 +84,9 @@ export default function ProfilScreen() {
           onPress: async () => {
             try {
               setLoading(true);
-              
-              // Récupérer l'utilisateur avant déconnexion
-              const { data: { user } } = await supabase.auth.getUser();
-              
-              // Supprimer le token FCM pour désactiver les notifications
-              if (user) {
-                await supabase
-                  .from('user_profiles')
-                  .update({ expo_push_token: null })
-                  .eq('id', user.id);
-                console.log('✅ Token FCM supprimé lors de la déconnexion');
-              }
+              await logSignOutIntent('Profil:logout', () => supabase.auth.getUser());
+              await clearCurrentUserPushToken();
+              console.log('✅ Token push supprimé lors de la déconnexion');
               
               const { error } = await supabase.auth.signOut();
               

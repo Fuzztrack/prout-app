@@ -191,6 +191,7 @@ function ComplicityRow({
   );
 
   useEffect(() => {
+    // Restauration du délai d'origine (85ms) pour l'apparition des lignes
     const rowDelay = Math.min(index * 85, 420);
     const nextScore = animationMeta.toScore;
     const nextProgress = animationMeta.toProgress;
@@ -223,13 +224,15 @@ function ComplicityRow({
       return;
     }
 
+    // Ralentissement de l'animation des points (de 720ms à 1500ms)
     scoreSv.value = withDelay(
       rowDelay,
-      withTiming(nextScore, { duration: 720, easing: Easing.out(Easing.cubic) })
+      withTiming(nextScore, { duration: 1500, easing: Easing.out(Easing.cubic) })
     );
+    // Ralentissement de l'animation de la barre de progression (de 760ms à 1600ms)
     progressSv.value = withDelay(
-      rowDelay + 40,
-      withTiming(nextProgress, { duration: 760, easing: Easing.out(Easing.cubic) })
+      rowDelay + 100,
+      withTiming(nextProgress, { duration: 1600, easing: Easing.out(Easing.cubic) })
     );
 
     if (animationMeta.shouldFadeName) {
@@ -288,8 +291,7 @@ function ComplicityRow({
 
   return (
     <Animated.View
-      entering={FadeInDown.delay(index * 70).springify()}
-      layout={LinearTransition.duration(560).easing(Easing.out(Easing.cubic))}
+      layout={LinearTransition.duration(700).easing(Easing.out(Easing.cubic))}
       style={styles.cardContainer}
     >
       <TouchableOpacity style={styles.card} onPress={() => onPress(item)} activeOpacity={0.8}>

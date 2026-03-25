@@ -3,9 +3,11 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActionSheetIOS, ActivityIndicator, Alert, Dimensions, Image, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { logSignOutIntent } from '../lib/authDebug';
 import i18n from '../lib/i18n';
 import { safeReplace } from '../lib/navigation';
 import { normalizePhone } from '../lib/normalizePhone';
+import { clearCurrentUserPushToken } from '../lib/pushTokenRegistration';
 import { supabase, supabaseAnonKey, supabaseUrl } from '../lib/supabase';
 
 const PREVIEW_MAX = Dimensions.get('window').width - 32;
@@ -472,6 +474,7 @@ export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void;
               }
 
               // Déconnecter l'utilisateur (même si le compte est déjà supprimé)
+              await logSignOutIntent('components/EditProfil:deleteAccount', () => supabase.auth.getUser());
               await supabase.auth.signOut();
 
               Alert.alert(i18n.t('success'), i18n.t('account_deleted_success'), [
@@ -505,6 +508,8 @@ export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void;
           style: 'destructive',
           onPress: async () => {
             setLoading(true);
+            await logSignOutIntent('components/EditProfil:logout', () => supabase.auth.getUser());
+            await clearCurrentUserPushToken();
             await supabase.auth.signOut();
             safeReplace(router, '/AuthChoiceScreen');
           }

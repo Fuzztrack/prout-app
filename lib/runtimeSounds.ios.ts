@@ -2,7 +2,24 @@ const TRLL_KEYS = ['trrl1', 'trrl2', 'trrl3', 'trrl4', 'trrl5'];
 const BZZZ_KEYS = ['bzzz1', 'bzzz2', 'bzzz3', 'bzzz4', 'bzzz5'];
 const POP_KEYS = ['pop1', 'pop4', 'pop2', 'pop3', 'pop5'];
 const MOOD_KEYS = ['mood1', 'mood2', 'mood3', 'mood4', 'mood5'];
-const TOOT_KEYS = ['toot1', 'toot6', 'toot8', 'toot9', 'toot10', 'toot13', 'toot17', 'toot20'];
+const TOOT_KEYS = [
+  'toot1',
+  'toot3',
+  'toot4',
+  'toot6',
+  'toot8',
+  'toot9',
+  'toot10',
+  'toot11',
+  'toot12',
+  'toot13',
+  'toot14',
+  'toot16',
+  'toot17',
+  'toot18',
+  'toot19',
+  'toot20',
+];
 
 const TRLL_ASSETS = [
   require('../assets/sounds/trrl1.wav'),
@@ -38,12 +55,20 @@ const MOOD_ASSETS = [
 
 const TOOT_ASSETS = [
   require('../assets/sounds/toot1.wav'),
+  require('../assets/sounds/toot3.wav'),
+  require('../assets/sounds/toot4.wav'),
   require('../assets/sounds/toot6.wav'),
   require('../assets/sounds/toot8.wav'),
   require('../assets/sounds/toot9.wav'),
   require('../assets/sounds/toot10.wav'),
+  require('../assets/sounds/toot11.wav'),
+  require('../assets/sounds/toot12.wav'),
   require('../assets/sounds/toot13.wav'),
+  require('../assets/sounds/toot14.wav'),
+  require('../assets/sounds/toot16.wav'),
   require('../assets/sounds/toot17.wav'),
+  require('../assets/sounds/toot18.wav'),
+  require('../assets/sounds/toot19.wav'),
   require('../assets/sounds/toot20.wav'),
 ];
 
@@ -77,12 +102,20 @@ export const SOUND_ASSETS: Record<string, any> = {
   mood4: require('../assets/sounds/mood4.wav'),
   mood5: require('../assets/sounds/mood5.wav'),
   toot1: require('../assets/sounds/toot1.wav'),
+  toot3: require('../assets/sounds/toot3.wav'),
+  toot4: require('../assets/sounds/toot4.wav'),
   toot6: require('../assets/sounds/toot6.wav'),
   toot8: require('../assets/sounds/toot8.wav'),
   toot9: require('../assets/sounds/toot9.wav'),
   toot10: require('../assets/sounds/toot10.wav'),
+  toot11: require('../assets/sounds/toot11.wav'),
+  toot12: require('../assets/sounds/toot12.wav'),
   toot13: require('../assets/sounds/toot13.wav'),
+  toot14: require('../assets/sounds/toot14.wav'),
+  toot16: require('../assets/sounds/toot16.wav'),
   toot17: require('../assets/sounds/toot17.wav'),
+  toot18: require('../assets/sounds/toot18.wav'),
+  toot19: require('../assets/sounds/toot19.wav'),
   toot20: require('../assets/sounds/toot20.wav'),
 };
 

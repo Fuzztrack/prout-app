@@ -3,8 +3,10 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { logSignOutIntent } from '../../lib/authDebug';
 import i18n from '../../lib/i18n';
 import { safePush, safeReplace } from '../../lib/navigation';
+import { clearCurrentUserPushToken } from '../../lib/pushTokenRegistration';
 import { supabase } from '../../lib/supabase';
 
 export default function ProfileScreen() {
@@ -56,17 +58,9 @@ export default function ProfileScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              // Récupérer l'utilisateur avant déconnexion
-              const { data: { user } } = await supabase.auth.getUser();
-
-              // Supprimer le token FCM pour désactiver les notifications
-              if (user) {
-                await supabase
-                  .from('user_profiles')
-                  .update({ expo_push_token: null })
-                  .eq('id', user.id);
-                console.log('✅ Token FCM supprimé lors de la déconnexion');
-              }
+              await logSignOutIntent('tabs/profile:logout', () => supabase.auth.getUser());
+              await clearCurrentUserPushToken();
+              console.log('✅ Token push supprimé lors de la déconnexion');
 
               // Déconnexion
               await supabase.auth.signOut();
@@ -79,6 +73,7 @@ export default function ProfileScreen() {
               );
             } catch (error) {
               console.error('Erreur lors de la déconnexion:', error);
+              await logSignOutIntent('tabs/profile:logout:catch', () => supabase.auth.getUser());
               await supabase.auth.signOut();
               safeReplace(router, '/AuthChoiceScreen');
             }

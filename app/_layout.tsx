@@ -34,6 +34,7 @@ SplashScreen.preventAutoHideAsync().catch(() => {
 SystemUI.setBackgroundColorAsync("#ebb89b");
 
 import Onboarding from '../components/Onboarding';
+import { logSessionSnapshot } from '../lib/authDebug';
 import { ensureContactPermissionWithDisclosure } from '../lib/contactConsent';
 import { safePush, safeReplace } from '../lib/navigation';
 import { ensureAndroidNotificationChannel } from '../lib/notifications';
@@ -165,6 +166,10 @@ export default function RootLayout() {
     let mounted = true;
     const init = async () => {
       try {
+        // React Native: Supabase ne rafraîchit pas automatiquement les tokens
+        // tant qu'on n'indique pas explicitement que l'app est active.
+        supabase.auth.startAutoRefresh();
+
         // 📢 CONFIGURATION DES CANAUX ANDROID AU DÉMARRAGE
         if (Platform.OS === 'android') {
           await ensureAndroidNotificationChannel();
@@ -180,6 +185,7 @@ export default function RootLayout() {
           if (error) throw error;
           
           if (!mounted) return;
+          logSessionSnapshot('init:getSession', session);
           setSession(session);
         } catch (authError) {
           console.warn('⚠️ Erreur auth initial:', authError);
@@ -216,6 +222,7 @@ export default function RootLayout() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (__DEV__) console.log('🔔 [AuthChange] Event:', event);
+      logSessionSnapshot(`onAuthStateChange:${event}`, session);
       
       // On ne met à jour la session que si on a vraiment un changement d'utilisateur
       // ou une déconnexion explicite (SIGNED_OUT)
@@ -298,6 +305,7 @@ export default function RootLayout() {
 
     return () => {
       mounted = false;
+      supabase.auth.stopAutoRefresh();
       clearTimeout(timeout);
       subscription.unsubscribe();
       notificationListener.remove();
@@ -325,12 +333,15 @@ export default function RootLayout() {
         if (accessTokenMatch && refreshTokenMatch) {
           try {
             console.log('🔑 Tokens confirmation trouvés, établissement session...');
-            const { error } = await supabase.auth.setSession({
+            const { data, error } = await supabase.auth.setSession({
               access_token: decodeURIComponent(accessTokenMatch[1]),
               refresh_token: decodeURIComponent(refreshTokenMatch[1]),
             });
             if (error) console.error('❌ Erreur session confirm-email:', error);
-            else console.log('✅ Session établie pour confirm-email');
+            else {
+              console.log('✅ Session établie pour confirm-email');
+              logSessionSnapshot('deepLink:confirm-email:setSession', data.session);
+            }
           } catch (e) {
             console.error('❌ Exception session confirm-email:', e);
           }
@@ -341,7 +352,7 @@ export default function RootLayout() {
         if (accessTokenMatch && refreshTokenMatch) {
           try {
             console.log('🔑 Tokens reset trouvés, établissement session...');
-            const { error } = await supabase.auth.setSession({
+            const { data, error } = await supabase.auth.setSession({
               access_token: decodeURIComponent(accessTokenMatch[1]),
               refresh_token: decodeURIComponent(refreshTokenMatch[1]),
             });
@@ -353,6 +364,7 @@ export default function RootLayout() {
             }
             
             console.log('✅ Session établie pour reset-password');
+            logSessionSnapshot('deepLink:reset-password:setSession', data.session);
             safeReplace(router, '/reset-password', { skipInitialCheck: false });
           } catch (err) {
             console.error('❌ Exception session reset-password:', err);
@@ -407,6 +419,9 @@ export default function RootLayout() {
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active') {
+        if (__DEV__) console.log('🧭 [AppState] active -> startAutoRefresh');
+        supabase.auth.startAutoRefresh();
+
         // 1. Réinitialiser le badge
         if (Platform.OS === 'ios') {
           Notifications.setBadgeCountAsync(0).catch(err => {
@@ -418,16 +433,30 @@ export default function RootLayout() {
         // getUser() est plus lent mais plus sûr : il valide le token avec le serveur
         // et déclenche un rafraîchissement (refresh_token) s'il est expiré.
         supabase.auth.getUser().then(({ data: { user } }) => {
+          if (__DEV__) {
+            console.log('🧭 [Session:foreground:getUser]', {
+              hasUser: !!user,
+              userId: user?.id,
+              provider:
+                user?.app_metadata?.provider ||
+                user?.identities?.[0]?.provider ||
+                'unknown',
+            });
+          }
           if (user) {
             if (__DEV__) console.log('🔄 Session validée/rafraîchie au retour au premier plan');
             // Récupérer la session complète pour mettre à jour l'état
             supabase.auth.getSession().then(({ data: { session } }) => {
+              logSessionSnapshot('foreground:getSession', session);
               if (session) setSession(session);
             });
           }
         }).catch(err => {
           console.warn('⚠️ Erreur validation session au retour:', err);
         });
+      } else {
+        if (__DEV__) console.log(`🧭 [AppState] ${nextAppState} -> stopAutoRefresh`);
+        supabase.auth.stopAutoRefresh();
       }
     });
 

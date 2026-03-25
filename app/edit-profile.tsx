@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { logSignOutIntent } from '../lib/authDebug';
 import { safePush, safeReplace } from '../lib/navigation';
 import { normalizePhone } from '../lib/normalizePhone';
 import { supabase } from '../lib/supabase';
@@ -564,6 +565,7 @@ export default function EditProfilScreen() {
               }
 
               // Déconnecter l'utilisateur (même si le compte est déjà supprimé)
+              await logSignOutIntent('edit-profile:deleteAccount', () => supabase.auth.getUser());
               await supabase.auth.signOut();
 
               Alert.alert(i18n.t('account_deleted_title'), i18n.t('account_deleted_success'), [

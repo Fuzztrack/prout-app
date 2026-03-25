@@ -2,8 +2,10 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity } from 'react-native';
 import { CustomButton } from '../components/CustomButton';
+import { logSignOutIntent } from '../lib/authDebug';
 import { buildAcceptedEulaMetadata } from '../lib/eula';
 import { normalizePhone } from '../lib/normalizePhone';
+import { clearCurrentUserPushToken } from '../lib/pushTokenRegistration';
 import { safePush, safeReplace } from '../lib/navigation';
 import { supabase } from '../lib/supabase';
 import i18n from '../lib/i18n';
@@ -89,7 +91,7 @@ export default function CompleteProfileScreen() {
         console.warn('⚠️ Impossible de mettre à jour les métadonnées pseudo:', metaError);
       }
 
-      safeReplace(router, '/(tabs)', { skipInitialCheck: false });
+      safeReplace(router, '/', { skipInitialCheck: false });
 
     } catch (e: any) {
       Alert.alert(i18n.t('error'), e.message);
@@ -101,6 +103,8 @@ export default function CompleteProfileScreen() {
   // 🚪 LA FONCTION DE SORTIE
   const handleLogout = async () => {
     try {
+        await logSignOutIntent('CompleteProfileScreen:logout', () => supabase.auth.getUser());
+        await clearCurrentUserPushToken();
         await supabase.auth.signOut();
     } catch (e) {
         console.log("Erreur déconnexion:", e);

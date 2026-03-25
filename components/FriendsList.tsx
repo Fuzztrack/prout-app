@@ -79,7 +79,8 @@ const PICKUP_MOOD_KEYS = getPickupKeys('mood');
 const PICKUP_TOOT_KEYS = getPickupKeys('toot');
 const MAX_PICKUP_ROWS = Math.ceil(Math.max(PICKUP_TRLL_KEYS.length, PICKUP_BZZZ_KEYS.length, PICKUP_POP_KEYS.length, PICKUP_MOOD_KEYS.length, PICKUP_TOOT_KEYS.length) / 2);
 const CHAT_SPECIFIC_ROW_HEIGHT = 34;
-const CHAT_SPECIFIC_MIN_HEIGHT = MAX_PICKUP_ROWS * CHAT_SPECIFIC_ROW_HEIGHT + 50;
+const CHAT_SPECIFIC_BOTTOM_GAP = 30;
+const CHAT_SPECIFIC_MIN_HEIGHT = MAX_PICKUP_ROWS * CHAT_SPECIFIC_ROW_HEIGHT + 50 + CHAT_SPECIFIC_BOTTOM_GAP;
 const USE_NATIVE_MODAL_DRIVER = Platform.OS !== 'android';
 const ANDROID_MODAL_CLOSE_TIMING = Platform.OS === 'android' ? 0 : 120;
 const CHAT_MODAL_BACKDROP_OPACITY = Platform.OS === 'android' ? 0 : 0.3;
@@ -4646,7 +4647,11 @@ const closeIdentityModal = useCallback(() => {
         {!!chatSpecificSoundListCategory && (
           <View>
           <View style={styles.chatSoundZoneSeparator} />
-          <View style={[styles.chatSpecificSoundList, { height: CHAT_SPECIFIC_MIN_HEIGHT }]}>
+          <ScrollView
+            style={[styles.chatSpecificSoundList, { height: CHAT_SPECIFIC_MIN_HEIGHT }]}
+            contentContainerStyle={styles.chatSpecificSoundListContent}
+            showsVerticalScrollIndicator
+          >
             {(chatSpecificSoundListCategory === 'trll'
               ? PICKUP_TRLL_KEYS
               : chatSpecificSoundListCategory === 'toot'
@@ -4668,7 +4673,7 @@ const closeIdentityModal = useCallback(() => {
                 <Text style={styles.chatSpecificSoundButtonText}>{getDisplaySoundLabel(soundKey)}</Text>
               </TouchableOpacity>
             ))}
-          </View>
+          </ScrollView>
           </View>
         )}
         </View>
@@ -5558,20 +5563,21 @@ const styles = StyleSheet.create({
     height: 51,
   },
   chatSpecificSoundList: {
+    marginTop: 4,
+    backgroundColor: 'rgba(96, 74, 62, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(96, 74, 62, 0.1)',
+    borderRadius: 8,
+  },
+  chatSpecificSoundListContent: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
     alignContent: 'flex-start',
     gap: 8,
-    marginTop: 4,
     paddingHorizontal: 10,
     paddingTop: 8,
     paddingBottom: 50,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(96, 74, 62, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(96, 74, 62, 0.1)',
-    borderRadius: 8,
   },
   chatSpecificSoundButton: {
     backgroundColor: 'rgba(255,255,255,0.55)',

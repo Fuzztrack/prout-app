@@ -6,9 +6,9 @@ import { IdentityList } from '@/components/IdentityList';
 import { PrivacyPolicyModal } from '@/components/PrivacyPolicyModal';
 import { SearchUser } from '@/components/SearchUser';
 import { TutorialSwiper } from '@/components/TutorialSwiper';
-import { getFCMToken } from '@/lib/fcmToken';
 import i18n from '@/lib/i18n';
 import { safeReplace } from '@/lib/navigation';
+import { registerPushTokenForUser } from '@/lib/pushTokenRegistration';
 import { supabase } from '@/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
@@ -80,26 +80,7 @@ export default function HomeScreen() {
     // Permettre le simulateur pour le développement (Device.isDevice retourne false dans le simulateur)
     if (Platform.OS === 'web') return;
     try {
-      // Demander la permission de notifications (nécessaire pour les canaux Android)
-      const { status } = await Notifications.getPermissionsAsync();
-      if (status === 'granted') {
-        // Obtenir le token FCM natif (ou Expo Push Token sur iOS)
-        const fcmToken = await getFCMToken();
-        if (fcmToken) {
-          // Stocker le token FCM dans expo_push_token (on réutilise le champ existant)
-          // Ou créer un nouveau champ fcm_token dans Supabase si préféré
-          const updatePayload: Record<string, unknown> = { expo_push_token: fcmToken, push_platform: Platform.OS };
-          if (Platform.OS === 'ios') {
-            const bundleId = Constants.expoConfig?.ios?.bundleIdentifier;
-            if (bundleId) updatePayload.push_ios_bundle = bundleId;
-          }
-          const { error } = await supabase.from('user_profiles').update(updatePayload).eq('id', userId);
-          if (error) {
-            console.error('❌ Erreur mise à jour token dans Supabase:', error);
-          } else {
-          }
-        }
-      }
+      await registerPushTokenForUser(userId);
     } catch (e) { 
       console.error('Erreur mise à jour token FCM:', e);
     }
@@ -167,28 +148,8 @@ export default function HomeScreen() {
 
       // Mise à jour token FCM en arrière-plan (fonctionne aussi dans le simulateur)
       if (Platform.OS !== 'web') {
-          Notifications.getPermissionsAsync().then(({ status }) => {
-              if (status === 'granted') {
-                  getFCMToken().then(fcmToken => {
-                      if (fcmToken) {
-                          (() => {
-                            const updatePayload: Record<string, unknown> = { expo_push_token: fcmToken, push_platform: Platform.OS };
-                            if (Platform.OS === 'ios') {
-                              const bundleId = Constants.expoConfig?.ios?.bundleIdentifier;
-                              if (bundleId) updatePayload.push_ios_bundle = bundleId;
-                            }
-                            return supabase.from('user_profiles').update(updatePayload).eq('id', user.id);
-                          })().then(({ error }) => {
-                              if (error) {
-                                  console.error('❌ Erreur mise à jour token dans Supabase:', error);
-                              } else {
-                              }
-                          });
-                      }
-                  });
-              } else {
-                  console.warn('⚠️ Permission de notifications non accordée');
-              }
+          registerPushTokenForUser(currentUser.id).catch((error) => {
+            console.error('❌ Erreur mise à jour token dans Supabase:', error);
           });
       }
       isLoadedRef.current = true;
@@ -218,6 +179,7 @@ export default function HomeScreen() {
 
   // Précharger le pseudo depuis le cache pour afficher le bonjour instantanément
   useEffect(() => {
+    setActiveView('list');
     AsyncStorage.getItem(CACHE_PSEUDO_KEY).then((cached) => {
       if (cached) setProfile({ pseudo: cached });
     }).catch(() => {});

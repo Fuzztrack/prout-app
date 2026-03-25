@@ -109,7 +109,7 @@ export default function ConfirmEmailScreen() {
                   .maybeSingle();
                 
                 if (verifyProfile && verifyProfile.pseudo && verifyProfile.pseudo !== 'Nouveau Membre') {
-                  safeReplace(router, '/(tabs)');
+                  safeReplace(router, '/');
                   return;
                 }
               }
@@ -121,7 +121,7 @@ export default function ConfirmEmailScreen() {
                 .maybeSingle();
               
               if (verifyProfile && verifyProfile.pseudo && verifyProfile.pseudo !== 'Nouveau Membre') {
-                safeReplace(router, '/(tabs)');
+                safeReplace(router, '/');
                 return;
               }
             }
@@ -130,11 +130,11 @@ export default function ConfirmEmailScreen() {
 
         // Si le profil existe et a un vrai pseudo (pas le placeholder) -> Home
         if (profile && profile.pseudo && profile.pseudo !== 'Nouveau Membre') {
-          safeReplace(router, '/(tabs)');
+          safeReplace(router, '/');
         } else if (!pseudoValidated) {
           safeReplace(router, '/CompleteProfileScreen');
         } else {
-          safeReplace(router, '/(tabs)');
+          safeReplace(router, '/');
         }
       } catch (e) {
         console.error("❌ Erreur lors de la vérification du profil:", e);

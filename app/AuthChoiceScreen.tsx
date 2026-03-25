@@ -3,6 +3,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { CustomButton } from '../components/CustomButton';
+import { logSessionSnapshot, maskToken } from '../lib/authDebug';
 import { ensureUserEulaAccepted, hasAcceptedEulaLocally, isUserEulaAccepted, syncLocalEulaAcceptanceFromUser } from '../lib/eula';
 import { safePush, safeReplace } from '../lib/navigation';
 import { getRedirectUrl, supabase } from '../lib/supabase';
@@ -10,6 +11,16 @@ import i18n from '../lib/i18n';
 
 // Sécurité pour OAuth
 WebBrowser.maybeCompleteAuthSession();
+
+const extractAuthCallbackTokens = (url: string) => {
+  const accessTokenMatch = url.match(/[?#&]access_token=([^&]+)/);
+  const refreshTokenMatch = url.match(/[?#&]refresh_token=([^&]+)/);
+
+  return {
+    accessToken: accessTokenMatch ? decodeURIComponent(accessTokenMatch[1]) : null,
+    refreshToken: refreshTokenMatch ? decodeURIComponent(refreshTokenMatch[1]) : null,
+  };
+};
 
 export default function AuthChoiceScreen() {
   const router = useRouter();
@@ -149,18 +160,24 @@ export default function AuthChoiceScreen() {
       console.log('✅ OAuth réussi, traitement de l\'URL...');
       console.log('🔗 URL callback:', result.url);
       clearTimeout(timeoutId);
+      if (__DEV__) {
+        console.log('🍏 [OAuthCallback]', {
+          hasAccessToken: !!result.url?.includes('access_token='),
+          hasRefreshToken: !!result.url?.includes('refresh_token='),
+          hasError: !!result.url?.includes('error='),
+        });
+      }
       
       // Vérifier si l'URL contient les tokens
       if (result.url && result.url.includes('access_token') && result.url.includes('refresh_token')) {
         console.log('🔑 Tokens trouvés dans l\'URL, création de la session...');
         try {
-          const accessTokenMatch = result.url.match(/access_token=([^&]+)/);
-          const refreshTokenMatch = result.url.match(/refresh_token=([^&]+)/);
+          const { accessToken, refreshToken } = extractAuthCallbackTokens(result.url);
 
-          if (accessTokenMatch && refreshTokenMatch) {
+          if (accessToken && refreshToken) {
             const { data, error } = await supabase.auth.setSession({
-              access_token: decodeURIComponent(accessTokenMatch[1]),
-              refresh_token: decodeURIComponent(refreshTokenMatch[1]),
+              access_token: accessToken,
+              refresh_token: refreshToken,
             });
             
             if (error) {
@@ -175,6 +192,11 @@ export default function AuthChoiceScreen() {
             
             if (data.session?.user) {
               console.log('✅ Session créée pour:', data.session.user.id);
+              console.log('🍏 [AuthDebug:oauthTokens]', {
+                accessTokenPreview: maskToken(accessToken),
+                refreshTokenPreview: maskToken(refreshToken),
+              });
+              logSessionSnapshot('AuthDebug:setSession', data.session);
               isOAuthBrowserAuthInProgressRef.current = false;
               
               // Récupérer les métadonnées utilisateur pour le pseudo
@@ -281,6 +303,8 @@ export default function AuthChoiceScreen() {
               
               // Recharger les métadonnées après la mise à jour
               const { data: { user: updatedUser } } = await supabase.auth.getUser();
+              const { data: { session: postCallbackSession } } = await supabase.auth.getSession();
+              logSessionSnapshot('AuthDebug:postCallback:getSession', postCallbackSession);
               const finalPseudoFromMetadata = updatedUser?.user_metadata?.pseudo || pseudoFromMetadata;
 
               const effectiveUser = await ensureUserEulaAccepted(updatedUser);
@@ -338,10 +362,12 @@ export default function AuthChoiceScreen() {
               }
               
               console.log('➡️ OAuth OK → Home');
-              replaceWithSkip('/(tabs)');
+              replaceWithSkip('/');
               
               return true;
             }
+          } else {
+            console.error('❌ Tokens OAuth introuvables ou invalides dans l’URL callback');
           }
         } catch (e: any) {
           console.error('❌ Erreur traitement URL:', e);
@@ -373,6 +399,7 @@ export default function AuthChoiceScreen() {
       
       if (session?.user) {
         console.log('✅ Session créée pour:', session.user.id);
+        logSessionSnapshot('AuthDebug:postCallback:getSession', session);
         isOAuthBrowserAuthInProgressRef.current = false;
         if (typeof (global as any).__isOAuthFlow === 'function') {
           (global as any).__isOAuthFlow(false);

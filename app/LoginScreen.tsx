@@ -70,8 +70,8 @@ export default function LoginScreen() {
       // La navigation va démonter le composant
       const hasValidProfile = !!(profile && profile.pseudo && profile.pseudo !== 'Nouveau Membre');
       if (hasValidProfile || pseudoValidated) {
-        console.log('➡️ Navigation vers /(tabs)');
-        safeReplace(router, '/(tabs)');
+        console.log('➡️ Navigation vers /');
+        safeReplace(router, '/');
       } else {
         console.log('➡️ Navigation vers /CompleteProfileScreen');
         safeReplace(router, '/CompleteProfileScreen');

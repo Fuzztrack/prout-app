@@ -106,7 +106,7 @@ export default function RegisterEmailScreen() {
             });
         }
         
-        safeReplace(router, '/(tabs)');
+        safeReplace(router, '/');
       } else {
         // Pas de session (email de confirmation requis)
         // Le pseudo sera mis à jour lors de la confirmation de l'email
