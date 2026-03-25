@@ -16,8 +16,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     storage: AsyncStorage,
     autoRefreshToken: true,
     persistSession: true,
-    // 🛑 MODIFICATION ICI : On met false pour gérer le token manuellement sur mobile
     detectSessionInUrl: false,
+    storageKey: 'supabase.auth.token.v2', // Clé personnalisée pour éviter les conflits
   },
 });
 

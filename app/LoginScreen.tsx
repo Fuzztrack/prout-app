@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { CustomButton } from '../components/CustomButton';
-import { isUserEulaAccepted, syncLocalEulaAcceptanceFromUser } from '../lib/eula';
+import { ensureUserEulaAccepted, isUserEulaAccepted, syncLocalEulaAcceptanceFromUser } from '../lib/eula';
 import i18n from '../lib/i18n';
 import { safeReplace } from '../lib/navigation';
 import { supabase } from '../lib/supabase';
@@ -46,8 +46,8 @@ export default function LoginScreen() {
       }
 
       console.log('✅ Connexion réussie, vérification du profil...');
-      const sessionUser = data.session.user;
-      const pseudoValidated = sessionUser.user_metadata?.pseudo_validated === true;
+      const sessionUser = await ensureUserEulaAccepted(data.session.user);
+      const pseudoValidated = sessionUser?.user_metadata?.pseudo_validated === true;
 
       if (!isUserEulaAccepted(sessionUser)) {
         console.log('➡️ Navigation vers /eula-accept (acceptation requise)');
@@ -60,7 +60,7 @@ export default function LoginScreen() {
       const { data: profile } = await supabase
         .from('user_profiles')
         .select('pseudo')
-        .eq('id', sessionUser.id)
+        .eq('id', sessionUser!.id)
         .maybeSingle();
 
       clearTimeout(timeoutId);

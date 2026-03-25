@@ -110,20 +110,37 @@ export default function HomeScreen() {
     if (isLoadedRef.current) return;
     
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        safeReplace(router, '/AuthChoiceScreen', { skipInitialCheck: false });
-        return;
+      // ⚠️ PLUS ROBUSTE : On vérifie la session, mais on ne redirige pas brutalement 
+      // si getUser() échoue à cause du réseau (mode offline possible)
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      let currentUser = user;
+      
+      if (!user || userError) {
+        // Fallback session locale pour le mode offline
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          currentUser = session.user;
+          if (__DEV__) console.log('✅ [Home] Session locale récupérée (Mode Offline)');
+        } else {
+          // VRAIMENT pas de session -> redirection
+          if (__DEV__) console.log('❌ [Home] Pas de session détectée, redirection Auth');
+          safeReplace(router, '/AuthChoiceScreen', { skipInitialCheck: false });
+          return;
+        }
       }
-      setProfile({ userId: user.id });
+
+      if (!currentUser) return;
+
+      setProfile({ userId: currentUser.id });
       // Enregistrer le bundle iOS même sans permission notifications
-      updateIosBundleId(user.id);
+      updateIosBundleId(currentUser.id);
 
       // Charger l'état Zen, le pseudo et le retour haptique
       const { data: profile } = await supabase
         .from('user_profiles')
         .select('is_zen_mode, pseudo, avatar_url')
-        .eq('id', user.id)
+        .eq('id', currentUser.id)
         .single();
       
       // Charger la préférence de retour haptique depuis AsyncStorage (iOS uniquement)

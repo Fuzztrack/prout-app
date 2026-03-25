@@ -3,7 +3,7 @@ import { useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, StyleSheet, View } from 'react-native';
-import { hasAcceptedEulaLocally, isUserEulaAccepted, syncLocalEulaAcceptanceFromUser } from '../lib/eula';
+import { ensureUserEulaAccepted, hasAcceptedEulaLocally, isUserEulaAccepted, syncLocalEulaAcceptanceFromUser } from '../lib/eula';
 import { clearSkipInitialNavigationFlag, safeReplace, shouldSkipInitialNavigation } from '../lib/navigation';
 import { supabase } from '../lib/supabase';
 
@@ -65,6 +65,8 @@ export default function Index() {
         }
 
         if (user) {
+          user = await ensureUserEulaAccepted(user);
+
           if (!isUserEulaAccepted(user)) {
             console.log('➡️ Direction: Acceptation EULA (compte)');
             if (!hasNavigated.current) {

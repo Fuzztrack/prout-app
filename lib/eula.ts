@@ -50,6 +50,50 @@ export const syncLocalEulaAcceptanceFromUser = async (user: User | null | undefi
   }
 };
 
+export const ensureUserEulaAccepted = async (user: User | null | undefined) => {
+  if (!user) return user;
+
+  if (isUserEulaAccepted(user)) {
+    await setLocalEulaAccepted();
+    return user;
+  }
+
+  const hasLocalAcceptance = await hasAcceptedEulaLocally();
+  if (!hasLocalAcceptance) {
+    return user;
+  }
+
+  const acceptedAt = new Date().toISOString();
+  const acceptedMetadata = buildAcceptedEulaMetadata(user.user_metadata, acceptedAt);
+
+  try {
+    const { error: updateError } = await supabase.auth.updateUser({
+      data: acceptedMetadata,
+    });
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    await setLocalEulaAccepted();
+
+    const {
+      data: { user: refreshedUser },
+      error: refreshError,
+    } = await supabase.auth.getUser();
+
+    if (refreshError) {
+      throw refreshError;
+    }
+
+    return refreshedUser ?? ({ ...user, user_metadata: acceptedMetadata } as User);
+  } catch (error) {
+    console.warn('⚠️ Impossible de synchroniser immédiatement l’EULA au compte:', error);
+    await setLocalEulaAccepted();
+    return { ...user, user_metadata: acceptedMetadata } as User;
+  }
+};
+
 export const acceptEulaForCurrentUser = async () => {
   const acceptedAt = new Date().toISOString();
 

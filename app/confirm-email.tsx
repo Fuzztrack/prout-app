@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { isUserEulaAccepted, syncLocalEulaAcceptanceFromUser } from '../lib/eula';
+import { ensureUserEulaAccepted, isUserEulaAccepted, syncLocalEulaAcceptanceFromUser } from '../lib/eula';
 import { safeReplace } from '../lib/navigation';
 import { supabase } from '../lib/supabase';
 import i18n from '../lib/i18n';
@@ -23,16 +23,17 @@ export default function ConfirmEmailScreen() {
       try {
         // Récupérer les métadonnées utilisateur pour obtenir le pseudo
         const { data: { user } } = await supabase.auth.getUser();
-        const pseudoFromMetadata = user?.user_metadata?.pseudo;
-        const phoneFromMetadata = user?.user_metadata?.phone;
-        const pseudoValidated = user?.user_metadata?.pseudo_validated === true;
+        const effectiveUser = await ensureUserEulaAccepted(user);
+        const pseudoFromMetadata = effectiveUser?.user_metadata?.pseudo;
+        const phoneFromMetadata = effectiveUser?.user_metadata?.phone;
+        const pseudoValidated = effectiveUser?.user_metadata?.pseudo_validated === true;
 
-        if (!isUserEulaAccepted(user)) {
+        if (!isUserEulaAccepted(effectiveUser)) {
           safeReplace(router, '/eula-accept');
           return;
         }
 
-        await syncLocalEulaAcceptanceFromUser(user);
+        await syncLocalEulaAcceptanceFromUser(effectiveUser);
         
         const { data: profile } = await supabase
           .from('user_profiles')

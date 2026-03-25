@@ -184,9 +184,9 @@ export default function RootLayout() {
         } catch (authError) {
           console.warn('⚠️ Erreur auth initial:', authError);
           // Si erreur (ex: réseau), vérifier si on était connecté avant
-          const wasLoggedIn = await AsyncStorage.getItem('wasLoggedIn');
+          const wasLoggedIn = await AsyncStorage.getItem('supabase_was_logged_in');
           if (wasLoggedIn === 'true') {
-            console.log('⚡ Mode offline activé (basé sur wasLoggedIn)');
+            console.log('⚡ Mode offline activé (basé sur supabase_was_logged_in)');
             setOfflineAccess(true);
           }
         }
@@ -215,14 +215,18 @@ export default function RootLayout() {
     }, 5000);
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setSession(session);
-      // Gérer le marqueur de connexion locale
-      if (session?.user) {
-        AsyncStorage.setItem('wasLoggedIn', 'true');
+      if (__DEV__) console.log('🔔 [AuthChange] Event:', event);
+      
+      // On ne met à jour la session que si on a vraiment un changement d'utilisateur
+      // ou une déconnexion explicite (SIGNED_OUT)
+      if (session) {
+        setSession(session);
+        AsyncStorage.setItem('supabase_was_logged_in', 'true');
         saveLocaleToSupabase();
       } else if (event === 'SIGNED_OUT') {
-        AsyncStorage.removeItem('wasLoggedIn');
-        setOfflineAccess(false); // Révoquer l'accès offline
+        setSession(null);
+        AsyncStorage.removeItem('supabase_was_logged_in');
+        setOfflineAccess(false);
       }
     });
 
@@ -399,15 +403,30 @@ export default function RootLayout() {
     };
   }, []);
 
-  // 🔴 Réinitialiser le badge iOS quand l'app revient au premier plan
+  // 🔴 Réinitialiser le badge iOS et RAFRAICHIR LA SESSION quand l'app revient au premier plan
   useEffect(() => {
-    if (Platform.OS !== 'ios') return;
-
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active') {
-        // L'app est revenue au premier plan, réinitialiser le badge
-        Notifications.setBadgeCountAsync(0).catch(err => {
-          console.warn('⚠️ Impossible de réinitialiser le badge:', err);
+        // 1. Réinitialiser le badge
+        if (Platform.OS === 'ios') {
+          Notifications.setBadgeCountAsync(0).catch(err => {
+            console.warn('⚠️ Impossible de réinitialiser le badge:', err);
+          });
+        }
+        
+        // 2. RAFRAICHIR LA SESSION SUPABASE
+        // getUser() est plus lent mais plus sûr : il valide le token avec le serveur
+        // et déclenche un rafraîchissement (refresh_token) s'il est expiré.
+        supabase.auth.getUser().then(({ data: { user } }) => {
+          if (user) {
+            if (__DEV__) console.log('🔄 Session validée/rafraîchie au retour au premier plan');
+            // Récupérer la session complète pour mettre à jour l'état
+            supabase.auth.getSession().then(({ data: { session } }) => {
+              if (session) setSession(session);
+            });
+          }
+        }).catch(err => {
+          console.warn('⚠️ Erreur validation session au retour:', err);
         });
       }
     });

@@ -3,7 +3,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { CustomButton } from '../components/CustomButton';
-import { hasAcceptedEulaLocally, isUserEulaAccepted, syncLocalEulaAcceptanceFromUser } from '../lib/eula';
+import { ensureUserEulaAccepted, hasAcceptedEulaLocally, isUserEulaAccepted, syncLocalEulaAcceptanceFromUser } from '../lib/eula';
 import { safePush, safeReplace } from '../lib/navigation';
 import { getRedirectUrl, supabase } from '../lib/supabase';
 import i18n from '../lib/i18n';
@@ -86,14 +86,17 @@ export default function AuthChoiceScreen() {
     await handleOAuthResult(result, timeoutId);
   };
 
-  // 1. Vérification simple pour éviter les sessions fantômes
+  // 1. Vérification simple de la session au montage
   useEffect(() => {
     let isMounted = true;
     const checkUser = async () => {
       try {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (error || !user) {
-          await supabase.auth.signOut();
+        // On vérifie s'il y a une session active, mais on ne déconnecte pas de force
+        // pour laisser une chance au rafraîchissement auto ou au mode offline
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user && isMounted) {
+           // Si un utilisateur est déjà là (devrait être rare ici), on laisse index.tsx gérer
+           console.log("👤 Utilisateur déjà connecté sur AuthChoiceScreen");
         }
       } catch (e) {
         console.log("Erreur AuthChoice:", e);
@@ -280,7 +283,9 @@ export default function AuthChoiceScreen() {
               const { data: { user: updatedUser } } = await supabase.auth.getUser();
               const finalPseudoFromMetadata = updatedUser?.user_metadata?.pseudo || pseudoFromMetadata;
 
-              if (!isUserEulaAccepted(updatedUser)) {
+              const effectiveUser = await ensureUserEulaAccepted(updatedUser);
+
+              if (!isUserEulaAccepted(effectiveUser)) {
                 console.log('➡️ OAuth OK → EULA acceptation requise');
                 if (typeof (global as any).__isOAuthFlow === 'function') {
                   (global as any).__isOAuthFlow(false);
@@ -289,7 +294,7 @@ export default function AuthChoiceScreen() {
                 return true;
               }
 
-              await syncLocalEulaAcceptanceFromUser(updatedUser);
+              await syncLocalEulaAcceptanceFromUser(effectiveUser);
               
               // Vérifier le profil et naviguer
               const { data: profile } = await supabase
@@ -317,7 +322,7 @@ export default function AuthChoiceScreen() {
               // Après OAuth, on est toujours sur cet écran (Welcome/AuthChoiceScreen).
               // RootLayout/index ne sera pas forcément monté → si on "attend" sa redirection, on reste bloqué ici.
               // Donc on navigue directement.
-              const pseudoValidated = updatedUser?.user_metadata?.pseudo_validated === true;
+              const pseudoValidated = effectiveUser?.user_metadata?.pseudo_validated === true;
               const finalPseudo = profile?.pseudo || finalPseudoFromMetadata || null;
               const hasRealPseudo = !!finalPseudo && finalPseudo !== 'Nouveau Membre' && !isPseudoRandom(finalPseudo);
               
