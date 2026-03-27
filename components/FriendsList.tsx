@@ -86,10 +86,10 @@ const CHAT_MODAL_BACKDROP_OPACITY = Platform.OS === 'android' ? 0 : 0.3;
 const FRIEND_SOUND_MODAL_BACKDROP_OPACITY = Platform.OS === 'android' ? 0 : 0.45;
 const FRIEND_ROW_LONG_PRESS_DELAY_MS = 320;
 const IS_ENGLISH_LOCALE = String(i18n.locale || '').toLowerCase().startsWith('en');
-const USE_PROOT_TOOT_LOGO = Platform.OS === 'android' || !IS_ENGLISH_LOCALE;
-const TOOT_LOGO_IMAGE = USE_PROOT_TOOT_LOGO
-  ? require('../assets/images/proot.png')
-  : require('../assets/images/toot.png');
+// Uniformisation : on affiche toujours `proot.png` pour la catégorie toot/proot,
+// y compris sur iOS en locale US/anglais.
+const USE_PROOT_TOOT_LOGO = true;
+const TOOT_LOGO_IMAGE = require('../assets/images/proot.png');
 /** Miniature cliquable sous le chat pour ouvrir le sélecteur de sons */
 const CHAT_PROOTHAIL_THUMB = require('../assets/images/proothail.png');
 const TOOT_CHAT_ICON_SIZE = Platform.OS === 'android'
@@ -104,6 +104,38 @@ const TOOT_PICK_HEADER_SIZE = Platform.OS === 'android'
     ? { width: 104, height: 44 }
     : { width: 80, height: 32 };
 const MOOD_PICK_HEADER_SIZE = Platform.OS === 'android' ? { width: 88, height: 38 } : undefined;
+
+/**
+ * Sous-titres des catégories affichés dans le modal "choose your sound",
+ * avec la même logique iOS/Android et la même règle de traduction pour "toot"
+ * que `app/soundcheck.tsx`.
+ */
+function getIOSTootSoundcheckSubtitleKey():
+  | 'soundcheck_subtitle_toot'
+  | 'soundcheck_subtitle_toot_android' {
+  const loc = String(i18n.locale || '').toLowerCase();
+  if (loc.startsWith('en')) return 'soundcheck_subtitle_toot_android';
+  if (loc.startsWith('fr')) return 'soundcheck_subtitle_toot';
+  if (loc.startsWith('es') || loc.startsWith('pt') || loc.startsWith('de') || loc.startsWith('it')) {
+    return 'soundcheck_subtitle_toot_android';
+  }
+  return 'soundcheck_subtitle_toot';
+}
+
+function getChooseSoundCategorySubtitleKey(category: SoundCategory): string {
+  switch (category) {
+    case 'toot':
+      return Platform.OS === 'android' ? 'soundcheck_subtitle_toot_android' : getIOSTootSoundcheckSubtitleKey();
+    case 'mood':
+      return 'soundcheck_subtitle_mood';
+    case 'trll':
+      return 'soundcheck_subtitle_tweet';
+    case 'bzzz':
+      return 'soundcheck_subtitle_buzz';
+    case 'pop':
+      return 'soundcheck_subtitle_pop';
+  }
+}
 // Curseur « catégorie par défaut » dans le modal choose your sound (grille 5 icônes)
 /** `false` = curseur masqué, défaut toujours proot (toot). Mettre à `true` pour réafficher le curseur. */
 const SHOW_DEFAULT_SOUND_CATEGORY_CURSOR = false;
@@ -5267,6 +5299,9 @@ const closeIdentityModal = useCallback(() => {
                             style={[styles.friendSoundPickHeaderImage, TOOT_PICK_HEADER_SIZE]}
                             isActive={previewingFriendSoundCategory === 'toot'}
                           />
+                          <Text style={styles.friendSoundPickHeaderSubtitle}>
+                            {i18n.t(getChooseSoundCategorySubtitleKey('toot'))}
+                          </Text>
                         </View>
                         {PICKUP_TOOT_KEYS.map(renderFriendSoundPickItem)}
                         <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
@@ -5275,6 +5310,9 @@ const closeIdentityModal = useCallback(() => {
                             style={styles.friendSoundPickHeaderImage}
                             isActive={previewingFriendSoundCategory === 'bzzz'}
                           />
+                          <Text style={styles.friendSoundPickHeaderSubtitle}>
+                            {i18n.t(getChooseSoundCategorySubtitleKey('bzzz'))}
+                          </Text>
                         </View>
                         {PICKUP_BZZZ_KEYS.map(renderFriendSoundPickItem)}
                       </>
@@ -5287,6 +5325,9 @@ const closeIdentityModal = useCallback(() => {
                             style={[styles.friendSoundPickHeaderImage, MOOD_PICK_HEADER_SIZE]}
                             isActive={previewingFriendSoundCategory === 'mood'}
                           />
+                          <Text style={styles.friendSoundPickHeaderSubtitle}>
+                            {i18n.t(getChooseSoundCategorySubtitleKey('mood'))}
+                          </Text>
                         </View>
                         {PICKUP_MOOD_KEYS.map(renderFriendSoundPickItem)}
                       </>
@@ -5300,6 +5341,9 @@ const closeIdentityModal = useCallback(() => {
                             style={styles.friendSoundPickHeaderImage}
                             isActive={previewingFriendSoundCategory === 'trll'}
                           />
+                          <Text style={styles.friendSoundPickHeaderSubtitle}>
+                            {i18n.t(getChooseSoundCategorySubtitleKey('trll'))}
+                          </Text>
                         </View>
                         {PICKUP_TRLL_KEYS.map(renderFriendSoundPickItem)}
                         <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
@@ -5308,6 +5352,9 @@ const closeIdentityModal = useCallback(() => {
                             style={styles.friendSoundPickHeaderImage}
                             isActive={previewingFriendSoundCategory === 'bzzz'}
                           />
+                          <Text style={styles.friendSoundPickHeaderSubtitle}>
+                            {i18n.t(getChooseSoundCategorySubtitleKey('bzzz'))}
+                          </Text>
                         </View>
                         {PICKUP_BZZZ_KEYS.map(renderFriendSoundPickItem)}
                       </>
@@ -5320,6 +5367,9 @@ const closeIdentityModal = useCallback(() => {
                         style={[styles.friendSoundPickHeaderImage, { width: 68, height: 29 }]}
                         isActive={previewingFriendSoundCategory === 'pop'}
                       />
+                      <Text style={styles.friendSoundPickHeaderSubtitle}>
+                        {i18n.t(getChooseSoundCategorySubtitleKey('pop'))}
+                      </Text>
                     </View>
                     {PICKUP_POP_KEYS.map(renderFriendSoundPickItem)}
                     {Platform.OS === 'android' && (
@@ -5330,6 +5380,9 @@ const closeIdentityModal = useCallback(() => {
                             style={[styles.friendSoundPickHeaderImage, MOOD_PICK_HEADER_SIZE]}
                             isActive={previewingFriendSoundCategory === 'mood'}
                           />
+                          <Text style={styles.friendSoundPickHeaderSubtitle}>
+                            {i18n.t(getChooseSoundCategorySubtitleKey('mood'))}
+                          </Text>
                         </View>
                         {PICKUP_MOOD_KEYS.map(renderFriendSoundPickItem)}
                     <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
@@ -5338,6 +5391,9 @@ const closeIdentityModal = useCallback(() => {
                         style={styles.friendSoundPickHeaderImage}
                         isActive={previewingFriendSoundCategory === 'trll'}
                       />
+                      <Text style={styles.friendSoundPickHeaderSubtitle}>
+                        {i18n.t(getChooseSoundCategorySubtitleKey('trll'))}
+                      </Text>
                     </View>
                     {PICKUP_TRLL_KEYS.map(renderFriendSoundPickItem)}
                       </>
@@ -5350,6 +5406,9 @@ const closeIdentityModal = useCallback(() => {
                             style={[styles.friendSoundPickHeaderImage, TOOT_PICK_HEADER_SIZE]}
                             isActive={previewingFriendSoundCategory === 'toot'}
                           />
+                          <Text style={styles.friendSoundPickHeaderSubtitle}>
+                            {i18n.t(getChooseSoundCategorySubtitleKey('toot'))}
+                          </Text>
                         </View>
                         {PICKUP_TOOT_KEYS.map(renderFriendSoundPickItem)}
                       </>
@@ -6217,6 +6276,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
+  },
+  friendSoundPickHeaderSubtitle: {
+    color: '#604a3e',
+    fontSize: 11,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginTop: 1,
+    marginBottom: 0,
   },
   friendSoundPickHeaderImage: {
     width: 92,

@@ -30,10 +30,10 @@ const POP_KEYS = SOUND_KEYS_BY_CATEGORY.pop || [];
 const MOOD_KEYS = SOUND_KEYS_BY_CATEGORY.mood || [];
 const TOOT_KEYS = SOUND_KEYS_BY_CATEGORY.toot || [];
 const IS_ENGLISH_LOCALE = String(i18n.locale || '').toLowerCase().startsWith('en');
-const USE_PROOT_TOOT_LOGO = Platform.OS === 'android' || !IS_ENGLISH_LOCALE;
-const TOOT_LOGO_IMAGE = USE_PROOT_TOOT_LOGO
-  ? require('../assets/images/proot.png')
-  : require('../assets/images/toot.png');
+// Uniformisation : on affiche toujours `proot.png` pour la catégorie toot/proot,
+// y compris sur iOS en locale US/anglais.
+const USE_PROOT_TOOT_LOGO = true;
+const TOOT_LOGO_IMAGE = require('../assets/images/proot.png');
 // Android : proot un peu plus petit qu’avant ; iOS inchangé
 const TOOT_HEADER_SIZE = Platform.OS === 'android'
   ? { width: 108, height: 47 }
@@ -89,16 +89,16 @@ function AnimatedLibraryHeaderImage({
 
 /**
  * iOS — sous-titre colonne toot (soundcheck) :
- * - anglais : "to smile" · français : "pour tout et rien"
+ * - en (US) : même libellé que sur Android (`soundcheck_subtitle_toot_android`)
+ * - fr : "pour tout et rien" (`soundcheck_subtitle_toot`)
  * - es / pt / de / it : mêmes libellés « à la française » que sur Android (`soundcheck_subtitle_toot_android`)
  */
 function getIOSTootSoundcheckSubtitleKey():
   | 'soundcheck_subtitle_toot'
   | 'soundcheck_subtitle_toot_android' {
   const loc = String(i18n.locale || '').toLowerCase();
-  if (loc.startsWith('en') || loc.startsWith('fr')) {
-    return 'soundcheck_subtitle_toot';
-  }
+  if (loc.startsWith('en')) return 'soundcheck_subtitle_toot_android';
+  if (loc.startsWith('fr')) return 'soundcheck_subtitle_toot';
   if (
     loc.startsWith('es') ||
     loc.startsWith('pt') ||
