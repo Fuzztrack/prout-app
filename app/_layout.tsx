@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
 import * as Notifications from 'expo-notifications';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import * as SystemUI from 'expo-system-ui'; // ← Solution native pour fond StatusBar
 import React, { useEffect, useState } from 'react';
@@ -34,8 +34,10 @@ SplashScreen.preventAutoHideAsync().catch(() => {
 SystemUI.setBackgroundColorAsync("#ebb89b");
 
 import Onboarding from '../components/Onboarding';
+import EulaAcceptScreen from './eula-accept';
 import { logSessionSnapshot } from '../lib/authDebug';
 import { ensureContactPermissionWithDisclosure } from '../lib/contactConsent';
+import { hasAcceptedEulaLocally } from '../lib/eula';
 import { safePush, safeReplace } from '../lib/navigation';
 import { ensureAndroidNotificationChannel } from '../lib/notifications';
 import { supabase } from '../lib/supabase';
@@ -87,7 +89,9 @@ export default function RootLayout() {
   const [offlineAccess, setOfflineAccess] = useState(false);
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showEulaGate, setShowEulaGate] = useState(false);
   const router = useRouter();
+  const segments = useSegments();
   const [toastMessage, setToastMessage] = useState<{ title: string, body: string } | null>(null);
   const [toastOpacity] = useState(new Animated.Value(0));
 
@@ -391,17 +395,23 @@ export default function RootLayout() {
     let isMounted = true;
     (async () => {
       try {
-        const [onboardingSeen, welcomeSeen] = await Promise.all([
+        const [onboardingSeen, welcomeSeen, eulaAccepted] = await Promise.all([
           AsyncStorage.getItem('hasSeenOnboarding'),
           AsyncStorage.getItem('hasSeenWelcome'),
+          hasAcceptedEulaLocally(),
         ]);
 
         if (welcomeSeen === 'true' && !onboardingSeen) {
           await AsyncStorage.setItem('hasSeenOnboarding', 'true');
         }
 
-        if ((!onboardingSeen || onboardingSeen !== 'true') && (!welcomeSeen || welcomeSeen !== 'true')) {
-          if (isMounted) setShowOnboarding(true);
+        const shouldShowOnboarding =
+          (!onboardingSeen || onboardingSeen !== 'true') &&
+          (!welcomeSeen || welcomeSeen !== 'true');
+
+        if (isMounted) {
+          setShowOnboarding(shouldShowOnboarding);
+          setShowEulaGate(!shouldShowOnboarding && !eulaAccepted);
         }
       } catch (error) {
         console.warn('❌ Vérification onboarding impossible:', error);
@@ -413,7 +423,7 @@ export default function RootLayout() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [segments.join('/')]);
 
   // 🔴 Réinitialiser le badge iOS et RAFRAICHIR LA SESSION quand l'app revient au premier plan
   useEffect(() => {
@@ -485,6 +495,7 @@ export default function RootLayout() {
     }
 
     setShowOnboarding(false);
+    setShowEulaGate(!(await hasAcceptedEulaLocally()));
   };
 
   if (loading) {
@@ -510,39 +521,50 @@ export default function RootLayout() {
         <KeyboardProvider statusBarTranslucent>
           <SafeAreaProvider>
             <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#ebb89b' }}>
-            {/* StatusBar Edge-to-Edge : transparente pour permettre aux overlays de couvrir tout l'écran */}
-            <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
-          {!checkingOnboarding && showOnboarding ? (
-            <Onboarding onFinish={handleOnboardingFinish} />
-          ) : (
-            <>
-              <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="index" />
-                <Stack.Screen name="WelcomeScreen" />
-                <Stack.Screen name="AuthChoiceScreen" />
-                <Stack.Screen name="LoginScreen" />
-                <Stack.Screen name="RegisterEmailScreen" />
-                <Stack.Screen name="CompleteProfileScreen" />
-                <Stack.Screen name="IdentityRevealScreen" options={{ presentation: 'modal' }} />
-                {/* SearchUserScreen est maintenant intégré dans index.tsx, plus besoin de route dédiée */}
-                <Stack.Screen name="(tabs)" />
-                <Stack.Screen name="soundcheck" options={{ gestureEnabled: true }} />
-                <Stack.Screen name="confirm-email" options={{ presentation: 'modal' }} />
-                <Stack.Screen name="reset-password" options={{ presentation: 'modal' }} />
-                <Stack.Screen name="eula-accept" options={{ gestureEnabled: false, presentation: 'fullScreenModal' }} />
-                <Stack.Screen name="edit-profile" options={{ presentation: 'transparentModal', animation: 'fade', headerShown: false }} />
-                <Stack.Screen name="complicity" />
-              </Stack>
+              {/* StatusBar Edge-to-Edge : transparente pour permettre aux overlays de couvrir tout l'écran */}
+              <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
+              {!showOnboarding && !showEulaGate ? (
+                <>
+                  <Stack screenOptions={{ headerShown: false }}>
+                    <Stack.Screen name="index" />
+                    <Stack.Screen name="WelcomeScreen" />
+                    <Stack.Screen name="AuthChoiceScreen" />
+                    <Stack.Screen name="LoginScreen" />
+                    <Stack.Screen name="RegisterEmailScreen" />
+                    <Stack.Screen name="CompleteProfileScreen" />
+                    <Stack.Screen name="IdentityRevealScreen" options={{ presentation: 'modal' }} />
+                    {/* SearchUserScreen est maintenant intégré dans index.tsx, plus besoin de route dédiée */}
+                    <Stack.Screen name="(tabs)" />
+                    <Stack.Screen name="soundcheck" options={{ gestureEnabled: true }} />
+                    <Stack.Screen name="confirm-email" options={{ presentation: 'modal' }} />
+                    <Stack.Screen name="reset-password" options={{ presentation: 'modal' }} />
+                    <Stack.Screen name="eula-accept" options={{ gestureEnabled: false, presentation: 'fullScreenModal' }} />
+                    <Stack.Screen name="edit-profile" options={{ presentation: 'transparentModal', animation: 'fade', headerShown: false }} />
+                    <Stack.Screen name="complicity" />
+                  </Stack>
 
-              {toastMessage && (
-                <Animated.View style={[styles.toast, { opacity: toastOpacity }]}>
-                  <Text style={styles.toastTitle}>{toastMessage.title}</Text>
-                  <Text style={styles.toastBody}>{toastMessage.body}</Text>
-                </Animated.View>
-              )}
-            </>
-          )}
-          </GestureHandlerRootView>
+                  {toastMessage && (
+                    <Animated.View style={[styles.toast, { opacity: toastOpacity }]}>
+                      <Text style={styles.toastTitle}>{toastMessage.title}</Text>
+                      <Text style={styles.toastBody}>{toastMessage.body}</Text>
+                    </Animated.View>
+                  )}
+                </>
+              ) : null}
+
+              {!checkingOnboarding && showOnboarding ? (
+                <Onboarding onFinish={handleOnboardingFinish} />
+              ) : null}
+
+              {!checkingOnboarding && !showOnboarding && showEulaGate ? (
+                <View style={styles.eulaGateOverlay}>
+                  <EulaAcceptScreen
+                    defaultNextPath="/AuthChoiceScreen"
+                    onAccepted={() => setShowEulaGate(false)}
+                  />
+                </View>
+              ) : null}
+            </GestureHandlerRootView>
           </SafeAreaProvider>
         </KeyboardProvider>
       </QueryClientProvider>
@@ -568,4 +590,9 @@ const styles = StyleSheet.create({
   },
   toastTitle: { color: '#fff', fontWeight: 'bold', fontSize: 16, marginBottom: 4 },
   toastBody: { color: '#eee', fontSize: 14 },
+  eulaGateOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 10000,
+    elevation: 20,
+  },
 });

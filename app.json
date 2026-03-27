@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Proot!",
+    "name": "Proot !",
     "slug": "prrtapp",
-    "version": "1.0.3",
+    "version": "1.0.6",
     "orientation": "portrait",
     "icon": "./asset/images/Prrt_icon.png",
     "scheme": "prootapp",
@@ -17,15 +17,15 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.prrt.app",
-      "buildNumber": "13",
+      "buildNumber": "19",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
-        "CFBundleDisplayName": "Proot!",
+        "CFBundleDisplayName": "Proot !",
         "UIBackgroundModes": [
           "remote-notification"
         ],
         "ITSAppUsesNonExemptEncryption": false,
-        "NSContactsUsageDescription": "This app uploads phone numbers from your contacts to Proot!'s secure servers to automatically find your friends. This data is not shared with third parties.",
+        "NSContactsUsageDescription": "This app uploads phone numbers from your contacts to the secure servers of Proot ! to automatically find your friends. This data is not shared with third parties.",
         "NSPhotoLibraryUsageDescription": "This app needs access to your photos so you can choose a profile picture.",
         "NSPhotoLibraryAddUsageDescription": "This app needs access to your photos so you can choose a profile picture.",
         "NSCameraUsageDescription": "This app needs access to your camera so you can take a profile picture."
@@ -38,7 +38,7 @@
         "backgroundColor": "#ebb89b"
       },
       "package": "com.fuzztrack.proutapp",
-      "versionCode": 162,
+      "versionCode": 165,
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.MODIFY_AUDIO_SETTINGS",
@@ -136,7 +136,7 @@
       [
         "expo-contacts",
         {
-          "contactsPermission": "This app uploads phone numbers from your contacts to Proot!'s secure servers to automatically find your friends. This data is not shared with third parties."
+          "contactsPermission": "This app uploads phone numbers from your contacts to the secure servers of Proot ! to automatically find your friends. This data is not shared with third parties."
         }
       ],
       "expo-localization",

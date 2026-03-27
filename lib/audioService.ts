@@ -7,6 +7,12 @@ import { SOUND_ASSETS, SOUND_KEYS_BY_CATEGORY } from './runtimeSounds';
 const SOUND_CATEGORY_KEY = 'chat_message_sound_category_v1';
 const SHOW_DEFAULT_SOUND_CATEGORY_CURSOR = false;
 
+type PlaySoundOptions = {
+  volume?: number;
+  onStart?: () => void;
+  onEnd?: () => void;
+};
+
 /**
  * Traduit une clé de son en libellé lisible (ex: "toot1" -> "Prout classique")
  */
@@ -49,9 +55,28 @@ export function getDisplaySoundLabel(soundKey: string): string {
 /**
  * Joue un son localement
  */
-export async function playSound(soundKey: string, volume: number = 1.0) {
+export async function playSound(
+  soundKey: string,
+  volumeOrOptions: number | PlaySoundOptions = 1.0
+) {
   const soundFile = SOUND_ASSETS[soundKey];
-  if (!soundFile) return;
+  const options =
+    typeof volumeOrOptions === 'number'
+      ? { volume: volumeOrOptions }
+      : volumeOrOptions;
+  const volume = options.volume ?? 1.0;
+  let hasEnded = false;
+
+  const notifyEnd = () => {
+    if (hasEnded) return;
+    hasEnded = true;
+    options.onEnd?.();
+  };
+
+  if (!soundFile) {
+    notifyEnd();
+    return;
+  }
 
   try {
     await Audio.setAudioModeAsync({
@@ -67,12 +92,16 @@ export async function playSound(soundKey: string, volume: number = 1.0) {
       { shouldPlay: true, volume }
     );
 
+    options.onStart?.();
+
     sound.setOnPlaybackStatusUpdate(async (status) => {
       if (status.isLoaded && status.didJustFinish) {
         await sound.unloadAsync();
+        notifyEnd();
       }
     });
   } catch (error) {
+    notifyEnd();
     if (__DEV__) console.warn('[AudioService] Failed to play sound', error);
   }
 }

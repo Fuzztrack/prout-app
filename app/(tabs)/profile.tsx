@@ -164,7 +164,7 @@ export default function ProfileScreen() {
         <TouchableOpacity onPress={() => safePush(router, '/eula', { skipInitialCheck: false })} style={styles.supportLink}>
           <Text style={styles.supportLinkText}>{i18n.t('profile_eula')}</Text>
         </TouchableOpacity>
-        <Text style={styles.versionText}>Proot! version 1.0.3</Text>
+        <Text style={styles.versionText}>Proot ! version 1.0.6</Text>
       </ScrollView>
     </View>
   );

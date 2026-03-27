@@ -26,6 +26,7 @@ export default function AuthChoiceScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
+  const [checkingEula, setCheckingEula] = useState(true);
   const isOAuthBrowserAuthInProgressRef = useRef(false);
 
   const replaceWithSkip = (path: string) => {
@@ -42,7 +43,7 @@ export default function AuthChoiceScreen() {
 
   const ensureEulaAccepted = async () => {
     if (await hasAcceptedEulaLocally()) return true;
-    replaceWithSkip('/eula-accept');
+    replaceWithSkip('/eula-accept?next=%2FAuthChoiceScreen');
     return false;
   };
 
@@ -127,10 +128,17 @@ export default function AuthChoiceScreen() {
   useEffect(() => {
     let mounted = true;
     const guardEula = async () => {
-      const accepted = await hasAcceptedEulaLocally();
-      if (!mounted) return;
-      if (!accepted) {
-        replaceWithSkip('/eula-accept');
+      try {
+        const accepted = await hasAcceptedEulaLocally();
+        if (!mounted) return;
+        if (!accepted) {
+          replaceWithSkip('/eula-accept?next=%2FAuthChoiceScreen');
+          return;
+        }
+      } finally {
+        if (mounted) {
+          setCheckingEula(false);
+        }
       }
     };
     guardEula().catch(() => {});
@@ -523,7 +531,7 @@ export default function AuthChoiceScreen() {
     }
   };
 
-  if (checking) {
+  if (checking || checkingEula) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#604a3e" />
@@ -586,14 +594,20 @@ export default function AuthChoiceScreen() {
 
         <CustomButton 
           title={i18n.t('signup_with_email')} 
-          onPress={() => safePush(router, '/RegisterEmailScreen', { skipInitialCheck: false })} 
+          onPress={async () => {
+            if (!(await ensureEulaAccepted())) return;
+            safePush(router, '/RegisterEmailScreen', { skipInitialCheck: false });
+          }} 
           color="#604a3e"
           textColor="#ebb89b"
         />
 
         <CustomButton
           title={i18n.t('already_have_account')}
-          onPress={() => safePush(router, '/LoginScreen', { skipInitialCheck: false })}
+          onPress={async () => {
+            if (!(await ensureEulaAccepted())) return;
+            safePush(router, '/LoginScreen', { skipInitialCheck: false });
+          }}
           color="transparent"
           textColor="#604a3e"
           small

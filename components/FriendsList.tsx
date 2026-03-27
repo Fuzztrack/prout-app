@@ -57,7 +57,6 @@ import { SOUND_CATEGORY_KEY, type SoundCategory } from './SoundcheckSelector';
 const FIRST_FRIENDLIST_FOOTER_MODAL_KEY = 'first_friendlist_footer_modal_seen_v1';
 const FIRST_FRIENDLIST_FEATURES_MODAL_KEY = 'first_friendlist_features_modal_seen_v1';
 const FIRST_FRIENDLIST_ZEN_MODAL_KEY = 'first_friendlist_zen_modal_seen_v1';
-const FIRST_FRIENDLIST_SEARCH_MODAL_KEY = 'first_friendlist_search_modal_seen_v1';
 const FIRST_CHAT_MODAL_KEY = 'first_chat_modal_seen_v2';
 const CHAT_MESSAGE_SOUND_CHOICE_KEY = 'chat_message_sound_choice_v1';
 const CHAT_MESSAGE_MUTE_KEY = 'chat_message_mute_v2';
@@ -135,14 +134,6 @@ const DEFAULT_SOUND_OPTION_ROWS = [
   DEFAULT_SOUND_OPTIONS.slice(0, 3),
   DEFAULT_SOUND_OPTIONS.slice(3),
 ];
-
-const CATEGORY_HEADER_POP_DELAY_MS: Record<ChatMessageSoundChoice | 'bzzz', number> = {
-  toot: 0,
-  mood: 380,
-  pop: 760,
-  trll: 1140,
-  bzzz: 1520,
-};
 
 // Audio utility functions removed, now using audioService.ts and runtimeSounds.ts
 
@@ -389,6 +380,7 @@ const ReceivedMessageFade = ({ message, soundKey, dimmed, shouldFadeOut, onFadeC
   onLongPressReport?: (message: ReportableMessage) => void;
 }) => {
   const opacity = useRef(new RNAnimated.Value(dimmed ? 0.3 : 1)).current;
+  const [isReplayActive, setIsReplayActive] = useState(false);
 
   useEffect(() => {
     if (shouldFadeOut) {
@@ -408,11 +400,19 @@ const ReceivedMessageFade = ({ message, soundKey, dimmed, shouldFadeOut, onFadeC
     }
   }, [shouldFadeOut, dimmed]);
 
+  const handleReplay = () => {
+    if (!soundKey || isReplayActive) return;
+    playSound(soundKey, {
+      onStart: () => setIsReplayActive(true),
+      onEnd: () => setIsReplayActive(false),
+    });
+  };
+
   return (
     <RNAnimated.View style={[styles.bubbleReceivedWrapper, { opacity }]}>
       <TouchableOpacity
         activeOpacity={0.85}
-        onPress={() => soundKey && playSound(soundKey)}
+        onPress={handleReplay}
         onLongPress={() => {
           if (!onLongPressReport || !message.senderId) return;
           onLongPressReport({
@@ -422,7 +422,7 @@ const ReceivedMessageFade = ({ message, soundKey, dimmed, shouldFadeOut, onFadeC
           });
         }}
       >
-        <View style={styles.bubbleReceived}>
+        <View style={[styles.bubbleReceived, isReplayActive && styles.bubbleReceivedPlaying]}>
           <Text style={styles.bubbleTextReceived}>{stripReadPrefix(message.text)}</Text>
         </View>
       </TouchableOpacity>
@@ -525,10 +525,11 @@ export function FriendsList({
   const [friendSoundModalVisible, setFriendSoundModalVisible] = useState(false);
   const [isFriendSoundModalContentVisible, setIsFriendSoundModalContentVisible] = useState(false);
   const [friendSoundModalFriend, setFriendSoundModalFriend] = useState<any>(null);
+  const [previewingFriendSoundKey, setPreviewingFriendSoundKey] = useState<string | null>(null);
   const [globalDefaultCategory, setGlobalDefaultCategory] = useState<SoundCategory>(
     getDefaultSoundCategoryForFirstLaunch()
   );
-  const [firstFriendlistOnboardingStep, setFirstFriendlistOnboardingStep] = useState<'footer' | 'features' | 'zen' | 'search' | null>(null);
+  const [firstFriendlistOnboardingStep, setFirstFriendlistOnboardingStep] = useState<'footer' | 'features' | 'zen' | null>(null);
   const [isFirstChatModalVisible, setIsFirstChatModalVisible] = useState(false);
   const isFirstFriendlistOnboardingVisible = firstFriendlistOnboardingStep !== null;
   const [currentPseudo, setCurrentPseudo] = useState<string>("Un ami");
@@ -572,15 +573,17 @@ export function FriendsList({
     };
   }, []);
 
-  const markFirstFriendlistStepSeen = useCallback(async (step: 'footer' | 'features' | 'zen' | 'search') => {
-    const keyByStep: Record<'footer' | 'features' | 'zen' | 'search', string> = {
+  const markFirstFriendlistStepSeen = useCallback(async (step: 'footer' | 'features' | 'zen') => {
+    const keyByStep: Record<'footer' | 'features' | 'zen', string> = {
       footer: FIRST_FRIENDLIST_FOOTER_MODAL_KEY,
       features: FIRST_FRIENDLIST_FEATURES_MODAL_KEY,
       zen: FIRST_FRIENDLIST_ZEN_MODAL_KEY,
-      search: FIRST_FRIENDLIST_SEARCH_MODAL_KEY,
     };
     try {
       await AsyncStorage.setItem(keyByStep[step], '1');
+      if (step === 'features') {
+        await AsyncStorage.setItem(FIRST_CHAT_MODAL_KEY, '1');
+      }
     } catch {
       // non bloquant
     }
@@ -609,7 +612,6 @@ export function FriendsList({
     setFirstFriendlistOnboardingStep((prev) => {
       if (prev === 'footer') return 'features';
       if (prev === 'features') return 'zen';
-      if (prev === 'zen') return 'search';
       return null;
     });
   }, [firstFriendlistOnboardingStep, markFirstFriendlistStepSeen]);
@@ -623,7 +625,6 @@ export function FriendsList({
           const seenFooter = await AsyncStorage.getItem(FIRST_FRIENDLIST_FOOTER_MODAL_KEY);
           const seenFeatures = await AsyncStorage.getItem(FIRST_FRIENDLIST_FEATURES_MODAL_KEY);
           const seenZen = await AsyncStorage.getItem(FIRST_FRIENDLIST_ZEN_MODAL_KEY);
-          const seenSearch = await AsyncStorage.getItem(FIRST_FRIENDLIST_SEARCH_MODAL_KEY);
           if (cancelled) return;
           if (!seenFooter) {
             setFirstFriendlistOnboardingStep('footer');
@@ -632,8 +633,6 @@ export function FriendsList({
             setFirstFriendlistOnboardingStep('features');
           } else if (!seenZen) {
             setFirstFriendlistOnboardingStep('zen');
-          } else if (!seenSearch) {
-            setFirstFriendlistOnboardingStep('search');
           }
         } catch {
           // Si AsyncStorage échoue, on évite de spammer une modale
@@ -1632,6 +1631,7 @@ const handleLongPressSoundCategory = useCallback((friend: any) => {
 const handleSelectFriendSpecificSoundKey = useCallback((soundKey: string) => {
   const friendId = friendSoundModalFriend?.id;
   if (!friendId || !SOUND_ASSETS[soundKey]) return;
+  setPreviewingFriendSoundKey(null);
   setFriendSoundKeyByFriend((prev) => {
     return { ...prev, [friendId]: soundKey };
   });
@@ -1644,11 +1644,22 @@ const handleSelectFriendSpecificSoundKey = useCallback((soundKey: string) => {
   setFriendSoundModalVisible(false);
 }, [friendSoundModalFriend?.id, markModalTransition]);
 
+const handlePreviewFriendSpecificSoundKey = useCallback((soundKey: string) => {
+  if (!SOUND_ASSETS[soundKey]) return;
+  playSound(soundKey, {
+    onStart: () => setPreviewingFriendSoundKey(soundKey),
+    onEnd: () => {
+      setPreviewingFriendSoundKey((prev) => (prev === soundKey ? null : prev));
+    },
+  });
+}, []);
+
 const closeFriendSoundModal = useCallback(() => {
   if (friendSoundPickCloseTimeoutRef.current) {
     clearTimeout(friendSoundPickCloseTimeoutRef.current);
     friendSoundPickCloseTimeoutRef.current = null;
   }
+  setPreviewingFriendSoundKey(null);
   setIsFriendSoundModalContentVisible(false);
   markModalTransition();
   setFriendSoundModalVisible(false);
@@ -1659,6 +1670,7 @@ const closeFriendSoundPickModal = useCallback(() => {
     clearTimeout(friendSoundPickCloseTimeoutRef.current);
     friendSoundPickCloseTimeoutRef.current = null;
   }
+  setPreviewingFriendSoundKey(null);
   setIsFriendSoundModalContentVisible(false);
   setFriendSoundModalVisible(false);
 }, []);
@@ -1667,23 +1679,53 @@ const renderFriendSoundPickItem = useCallback((soundKey: string) => {
   const isActive = !!(
     friendSoundModalFriend?.id && friendSoundKeyByFriend[friendSoundModalFriend.id] === soundKey
   );
+  const isPreviewing = previewingFriendSoundKey === soundKey;
   return (
-    <Pressable
-      key={soundKey}
-      style={({ pressed }) => [
-        styles.friendSoundPickItemButton,
-        (pressed || isActive) && styles.friendSoundPickItemButtonActive,
-      ]}
-      onPress={() => handleSelectFriendSpecificSoundKey(soundKey)}
-    >
-      <Text style={styles.friendSoundPickItemText}>{getDisplaySoundLabel(soundKey)}</Text>
-    </Pressable>
+    <View key={soundKey} style={styles.friendSoundPickItemRow}>
+      <TouchableOpacity
+        style={[
+          styles.friendSoundPickPlayButton,
+          isPreviewing && styles.friendSoundPickPlayButtonActive,
+        ]}
+        onPress={() => handlePreviewFriendSpecificSoundKey(soundKey)}
+        activeOpacity={0.85}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      >
+        <Ionicons
+          name="play"
+          size={14}
+          color={isPreviewing ? '#1a1a1a' : '#604a3e'}
+          style={styles.friendSoundPickPlayIcon}
+        />
+      </TouchableOpacity>
+      <Pressable
+        style={({ pressed }) => [
+          styles.friendSoundPickItemButton,
+          (pressed || isActive || isPreviewing) && styles.friendSoundPickItemButtonActive,
+        ]}
+        onPress={() => handleSelectFriendSpecificSoundKey(soundKey)}
+      >
+        <Text style={styles.friendSoundPickItemText}>{getDisplaySoundLabel(soundKey)}</Text>
+      </Pressable>
+    </View>
   );
 }, [
   friendSoundKeyByFriend,
   friendSoundModalFriend?.id,
+  handlePreviewFriendSpecificSoundKey,
   handleSelectFriendSpecificSoundKey,
+  previewingFriendSoundKey,
 ]);
+
+const previewingFriendSoundCategory = useMemo<ChatMessageSoundChoice | null>(() => {
+  if (!previewingFriendSoundKey) return null;
+  if (PICKUP_TOOT_KEYS.includes(previewingFriendSoundKey)) return 'toot';
+  if (PICKUP_MOOD_KEYS.includes(previewingFriendSoundKey)) return 'mood';
+  if (PICKUP_POP_KEYS.includes(previewingFriendSoundKey)) return 'pop';
+  if (PICKUP_TRLL_KEYS.includes(previewingFriendSoundKey)) return 'trll';
+  if (PICKUP_BZZZ_KEYS.includes(previewingFriendSoundKey)) return 'bzzz';
+  return null;
+}, [previewingFriendSoundKey]);
 
 const closeIdentityModal = useCallback(() => {
   markModalTransition();
@@ -4918,7 +4960,32 @@ const closeIdentityModal = useCallback(() => {
         ListFooterComponent={
           appUsers.length > 0 ? (
             <View style={styles.footerHelp}>
-              <Text style={styles.footerHelpText}>{i18n.t('footer_help_text')}</Text>
+              <View style={styles.footerHelpLines}>
+                <View style={styles.footerHelpLine}>
+                  <Image
+                    source={require('../assets/images/tip.png')}
+                    style={styles.footerHelpTip}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.footerHelpText}>{i18n.t('friendlist_onboarding_swipe')}</Text>
+                </View>
+                <View style={styles.footerHelpLine}>
+                  <Image
+                    source={require('../assets/images/tip.png')}
+                    style={styles.footerHelpTip}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.footerHelpText}>{i18n.t('friendlist_onboarding_tap')}</Text>
+                </View>
+                <View style={styles.footerHelpLine}>
+                  <Image
+                    source={require('../assets/images/tip.png')}
+                    style={styles.footerHelpTip}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.footerHelpText}>{i18n.t('friendlist_onboarding_long_press')}</Text>
+                </View>
+              </View>
             </View>
           ) : null
         }
@@ -4935,6 +5002,9 @@ const closeIdentityModal = useCallback(() => {
         <View style={styles.firstFooterModalCard}>
           {firstFriendlistOnboardingStep === 'footer' ? (
             <>
+              <View style={styles.firstFooterModalTitleRow}>
+                <Text style={styles.firstFooterModalTitleText}>{i18n.t('tuto_list_title')}</Text>
+              </View>
               <View style={styles.firstFooterModalFeatureRow}>
                 <Ionicons name="arrow-forward" size={22} color="#604a3e" />
                 <Text style={styles.firstFooterModalFeatureText}>
@@ -4968,30 +5038,57 @@ const closeIdentityModal = useCallback(() => {
 
           {firstFriendlistOnboardingStep === 'features' ? (
             <>
-              <View style={styles.firstFooterCenteredTextRow}>
-                <Text style={styles.firstFooterCenteredText}>
-                  {i18n.t('friendlist_onboarding_soundcheck_in')}
+              <View style={styles.firstFooterModalTitleRow}>
+                <Text style={styles.firstFooterModalTitleText}>{i18n.t('tuto_chat_title')}</Text>
+              </View>
+              <View style={styles.firstFooterModalFeatureRow}>
+                <View style={styles.chatOnboardingIconSlot}>
+                  <Image
+                    source={require('../assets/images/proothail.png')}
+                    style={styles.chatOnboardingProothailImage}
+                    resizeMode="contain"
+                  />
+                </View>
+                <Text style={styles.firstFooterModalFeatureText}>
+                  {i18n.t('chat_onboarding_choose_specific_sound')}
                 </Text>
               </View>
-              <View style={styles.firstFooterInlineImageRow}>
+              <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
                 <Image
-                  source={require('../assets/images/soundcheck3.png')}
-                  style={styles.firstFooterInlineImage}
+                  source={require('../assets/images/tap-gesture.png')}
+                  style={styles.firstFooterTapImage}
                   resizeMode="contain"
                 />
+                <Text style={styles.firstFooterModalFeatureText}>
+                  {i18n.t('chat_onboarding_tap_replay')}
+                </Text>
+              </View>
+              <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
+                <Ionicons name="volume-mute" size={22} color="#604a3e" />
+                <Text style={styles.firstFooterModalFeatureText}>
+                  {i18n.t('chat_onboarding_mute')}
+                </Text>
+              </View>
+              <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
+                <Ionicons name="alert-circle" size={22} color="#604a3e" />
+                <Text style={styles.firstFooterModalFeatureText}>
+                  {i18n.t('chat_onboarding_long_press_report')}
+                </Text>
               </View>
             </>
           ) : null}
 
           {firstFriendlistOnboardingStep === 'zen' ? (
             <>
-              <View style={styles.firstFooterModalFeatureRow}>
-                <Ionicons name="trophy" size={22} color="#604a3e" />
-                <Text style={styles.firstFooterModalFeatureText}>
-                  {i18n.t('friendlist_onboarding_resonance')}
-                </Text>
+              <View style={styles.firstFooterModalTitleRow}>
+                <Text style={styles.firstFooterModalTitleText}>{i18n.t('tuto_menu_title')}</Text>
+                <Image
+                  source={require('../assets/images/icon_compte.png')}
+                  style={styles.firstFooterModalTitleIcon}
+                  resizeMode="contain"
+                />
               </View>
-              <View style={[styles.firstFooterModalFeatureRow, { marginTop: 14 }]}>
+              <View style={styles.firstFooterModalFeatureRow}>
                 <Ionicons name="moon" size={22} color="#604a3e" />
                 <Text style={styles.firstFooterModalFeatureText}>
                   {i18n.t('friendlist_onboarding_zen')}
@@ -5003,12 +5100,7 @@ const closeIdentityModal = useCallback(() => {
                   {i18n.t('friendlist_onboarding_silent_send')}
                 </Text>
               </View>
-            </>
-          ) : null}
-
-          {firstFriendlistOnboardingStep === 'search' ? (
-            <>
-              <View style={styles.firstFooterModalFeatureRow}>
+              <View style={[styles.firstFooterModalFeatureRow, { marginTop: 14 }]}>
                 <Ionicons name="search" size={22} color="#604a3e" />
                 <Text style={styles.firstFooterModalFeatureText}>
                   {i18n.t('friendlist_onboarding_search_contacts')}
@@ -5018,6 +5110,12 @@ const closeIdentityModal = useCallback(() => {
                 <Ionicons name="person-add-outline" size={22} color="#604a3e" />
                 <Text style={styles.firstFooterModalFeatureText}>
                   {i18n.t('friendlist_onboarding_search_pseudo')}
+                </Text>
+              </View>
+              <View style={[styles.firstFooterModalFeatureRow, { marginTop: 14 }]}>
+                <Ionicons name="trophy" size={22} color="#604a3e" />
+                <Text style={styles.firstFooterModalFeatureText}>
+                  {i18n.t('friendlist_onboarding_resonance')}
                 </Text>
               </View>
             </>
@@ -5154,23 +5252,6 @@ const closeIdentityModal = useCallback(() => {
             />
             <Text style={styles.friendSoundPickTitleText}>{i18n.t('friend_sound_modal_pick_title')}</Text>
           </View>
-          <TouchableOpacity
-            style={styles.friendSoundPickSoundcheckLink}
-            onPress={() => {
-              closeFriendSoundModal();
-              router.push('/soundcheck');
-            }}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.friendSoundPickSoundcheckText}>
-              {i18n.t('friend_sound_modal_listen_in_soundcheck')}{' '}
-            </Text>
-            <Image
-              source={require('../assets/images/soundcheck3.png')}
-              style={styles.friendSoundPickSoundcheckImage}
-              resizeMode="contain"
-            />
-          </TouchableOpacity>
           <ScrollView
                 style={styles.friendSoundPickScroll}
                 contentContainerStyle={styles.friendSoundPickScrollContent}
@@ -5184,7 +5265,7 @@ const closeIdentityModal = useCallback(() => {
                           <AnimatedCategoryHeaderImage
                             source={TOOT_LOGO_IMAGE}
                             style={[styles.friendSoundPickHeaderImage, TOOT_PICK_HEADER_SIZE]}
-                            delayMs={CATEGORY_HEADER_POP_DELAY_MS.toot}
+                            isActive={previewingFriendSoundCategory === 'toot'}
                           />
                         </View>
                         {PICKUP_TOOT_KEYS.map(renderFriendSoundPickItem)}
@@ -5192,7 +5273,7 @@ const closeIdentityModal = useCallback(() => {
                           <AnimatedCategoryHeaderImage
                             source={require('../assets/images/buzz.png')}
                             style={styles.friendSoundPickHeaderImage}
-                            delayMs={CATEGORY_HEADER_POP_DELAY_MS.bzzz}
+                            isActive={previewingFriendSoundCategory === 'bzzz'}
                           />
                         </View>
                         {PICKUP_BZZZ_KEYS.map(renderFriendSoundPickItem)}
@@ -5204,7 +5285,7 @@ const closeIdentityModal = useCallback(() => {
                           <AnimatedCategoryHeaderImage
                             source={require('../assets/images/mood.png')}
                             style={[styles.friendSoundPickHeaderImage, MOOD_PICK_HEADER_SIZE]}
-                            delayMs={CATEGORY_HEADER_POP_DELAY_MS.mood}
+                            isActive={previewingFriendSoundCategory === 'mood'}
                           />
                         </View>
                         {PICKUP_MOOD_KEYS.map(renderFriendSoundPickItem)}
@@ -5217,7 +5298,7 @@ const closeIdentityModal = useCallback(() => {
                           <AnimatedCategoryHeaderImage
                             source={require('../assets/images/tweet.png')}
                             style={styles.friendSoundPickHeaderImage}
-                            delayMs={CATEGORY_HEADER_POP_DELAY_MS.trll}
+                            isActive={previewingFriendSoundCategory === 'trll'}
                           />
                         </View>
                         {PICKUP_TRLL_KEYS.map(renderFriendSoundPickItem)}
@@ -5225,7 +5306,7 @@ const closeIdentityModal = useCallback(() => {
                           <AnimatedCategoryHeaderImage
                             source={require('../assets/images/buzz.png')}
                             style={styles.friendSoundPickHeaderImage}
-                            delayMs={CATEGORY_HEADER_POP_DELAY_MS.bzzz}
+                            isActive={previewingFriendSoundCategory === 'bzzz'}
                           />
                         </View>
                         {PICKUP_BZZZ_KEYS.map(renderFriendSoundPickItem)}
@@ -5237,7 +5318,7 @@ const closeIdentityModal = useCallback(() => {
                       <AnimatedCategoryHeaderImage
                         source={require('../assets/images/pop.png')}
                         style={[styles.friendSoundPickHeaderImage, { width: 68, height: 29 }]}
-                        delayMs={CATEGORY_HEADER_POP_DELAY_MS.pop}
+                        isActive={previewingFriendSoundCategory === 'pop'}
                       />
                     </View>
                     {PICKUP_POP_KEYS.map(renderFriendSoundPickItem)}
@@ -5247,7 +5328,7 @@ const closeIdentityModal = useCallback(() => {
                           <AnimatedCategoryHeaderImage
                             source={require('../assets/images/mood.png')}
                             style={[styles.friendSoundPickHeaderImage, MOOD_PICK_HEADER_SIZE]}
-                            delayMs={CATEGORY_HEADER_POP_DELAY_MS.mood}
+                            isActive={previewingFriendSoundCategory === 'mood'}
                           />
                         </View>
                         {PICKUP_MOOD_KEYS.map(renderFriendSoundPickItem)}
@@ -5255,7 +5336,7 @@ const closeIdentityModal = useCallback(() => {
                       <AnimatedCategoryHeaderImage
                         source={require('../assets/images/tweet.png')}
                         style={styles.friendSoundPickHeaderImage}
-                        delayMs={CATEGORY_HEADER_POP_DELAY_MS.trll}
+                        isActive={previewingFriendSoundCategory === 'trll'}
                       />
                     </View>
                     {PICKUP_TRLL_KEYS.map(renderFriendSoundPickItem)}
@@ -5267,7 +5348,7 @@ const closeIdentityModal = useCallback(() => {
                           <AnimatedCategoryHeaderImage
                             source={TOOT_LOGO_IMAGE}
                             style={[styles.friendSoundPickHeaderImage, TOOT_PICK_HEADER_SIZE]}
-                            delayMs={CATEGORY_HEADER_POP_DELAY_MS.toot}
+                            isActive={previewingFriendSoundCategory === 'toot'}
                           />
                         </View>
                         {PICKUP_TOOT_KEYS.map(renderFriendSoundPickItem)}
@@ -5758,13 +5839,35 @@ const styles = StyleSheet.create({
     paddingTop: 30,
     paddingBottom: 40,
     alignItems: 'center',
+    width: '100%',
+  },
+  footerHelpLines: {
+    width: '100%',
+    maxWidth: 360,
+    alignSelf: 'center',
+    alignItems: 'center',
+  },
+  footerHelpLine: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    alignSelf: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+    maxWidth: '100%',
+  },
+  footerHelpTip: {
+    width: 15,
+    height: 15,
+    marginTop: 1,
+    marginRight: 2,
   },
   footerHelpText: {
     color: '#604a3e',
     fontSize: 14,
-    textAlign: 'center',
+    textAlign: 'left',
     fontStyle: 'italic',
     opacity: 0.7,
+    flexShrink: 1,
   },
   footerHelpTextSecondary: {
     marginTop: 10,
@@ -5806,6 +5909,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     letterSpacing: 0.3,
+  },
+  firstFooterModalTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  firstFooterModalTitleText: {
+    color: '#604a3e',
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  firstFooterModalTitleIcon: {
+    width: 24,
+    height: 24,
+    marginLeft: 8,
   },
   firstFooterModalFeatureRow: {
     flexDirection: 'row',
@@ -6002,6 +6122,8 @@ const styles = StyleSheet.create({
   bubbleReceived: {
     alignSelf: 'flex-start',
     backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: 'transparent',
     borderRadius: 16,
     borderTopLeftRadius: 4,
     padding: 8,
@@ -6013,6 +6135,10 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
     position: 'relative',
+  },
+  bubbleReceivedPlaying: {
+    backgroundColor: '#A2E4D4',
+    borderColor: '#1a1a1a',
   },
   bubbleSent: {
     alignSelf: 'flex-end',
@@ -6150,13 +6276,33 @@ const styles = StyleSheet.create({
   friendSoundPickColumn: {
     flex: 1,
   },
+  friendSoundPickItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  friendSoundPickPlayButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.4)',
+  },
+  friendSoundPickPlayButtonActive: {
+    backgroundColor: 'rgba(162, 228, 212, 0.9)',
+  },
+  friendSoundPickPlayIcon: {
+    marginLeft: 1,
+  },
   friendSoundPickItemButton: {
+    flex: 1,
     borderWidth: 2,
     borderColor: 'transparent',
     borderRadius: 10,
     paddingVertical: 8,
     paddingHorizontal: 10,
-    marginBottom: 8,
     backgroundColor: 'rgba(255,255,255,0.55)',
   },
   friendSoundPickItemButtonActive: {

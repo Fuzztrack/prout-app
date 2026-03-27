@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { CustomButton } from '../components/CustomButton';
-import { buildAcceptedEulaMetadata, setLocalEulaAccepted } from '../lib/eula';
+import { buildAcceptedEulaMetadata, hasAcceptedEulaLocally, setLocalEulaAccepted } from '../lib/eula';
 import { safeReplace } from '../lib/navigation';
 import { getRedirectUrl, supabase } from '../lib/supabase';
 import i18n from '../lib/i18n';
@@ -18,6 +18,33 @@ export default function RegisterEmailScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [checkingEula, setCheckingEula] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    const guardEula = async () => {
+      try {
+        const accepted = await hasAcceptedEulaLocally();
+        if (!mounted) return;
+        if (!accepted) {
+          safeReplace(router, '/eula-accept?next=%2FAuthChoiceScreen', { skipInitialCheck: false });
+          return;
+        }
+      } finally {
+        if (mounted) setCheckingEula(false);
+      }
+    };
+    guardEula().catch(() => {
+      if (mounted) setCheckingEula(false);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [router]);
+
+  if (checkingEula) {
+    return <View style={styles.container} />;
+  }
 
   const handleSignup = async () => {
     if (!pseudo.trim()) return Alert.alert("Oups", "Il nous faut un Pseudo !");

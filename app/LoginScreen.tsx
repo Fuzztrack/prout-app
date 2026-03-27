@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { CustomButton } from '../components/CustomButton';
-import { ensureUserEulaAccepted, isUserEulaAccepted, syncLocalEulaAcceptanceFromUser } from '../lib/eula';
+import { ensureUserEulaAccepted, hasAcceptedEulaLocally, isUserEulaAccepted, syncLocalEulaAcceptanceFromUser } from '../lib/eula';
 import i18n from '../lib/i18n';
 import { safeReplace } from '../lib/navigation';
 import { supabase } from '../lib/supabase';
@@ -14,9 +14,36 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [checkingEula, setCheckingEula] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    const guardEula = async () => {
+      try {
+        const accepted = await hasAcceptedEulaLocally();
+        if (!mounted) return;
+        if (!accepted) {
+          safeReplace(router, '/eula-accept?next=%2FAuthChoiceScreen', { skipInitialCheck: false });
+          return;
+        }
+      } finally {
+        if (mounted) setCheckingEula(false);
+      }
+    };
+    guardEula().catch(() => {
+      if (mounted) setCheckingEula(false);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [router]);
 
   // Validation : le bouton est activé seulement si email et password sont remplis
   const isFormValid = email.trim().length > 0 && password.trim().length > 0;
+
+  if (checkingEula) {
+    return <View style={styles.container} />;
+  }
 
   const handleLogin = async () => {
     setLoading(true);

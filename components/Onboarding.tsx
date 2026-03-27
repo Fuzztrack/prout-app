@@ -18,18 +18,20 @@ type OnboardingProps = {
   onFinish: () => Promise<void> | void;
 };
 
-type Slide = {
+export type OnboardingSlide = {
   key: string;
   title: string;
   description: string;
+  subtitle?: string;
   icon?: string;
   color?: string;
 };
 
-const getSlides = (): Slide[] => [
+export const getOnboardingSlides = (): OnboardingSlide[] => [
   {
     key: 'welcome',
     title: i18n.t('onboarding_welcome_title'),
+    subtitle: i18n.t('onboarding_welcome_subtitle'),
     description: i18n.t('onboarding_welcome_desc'),
   },
   {
@@ -61,6 +63,13 @@ const getSlides = (): Slide[] => [
     color: '#2196F3',
   },
   {
+    key: 'specific-sound',
+    title: i18n.t('onboarding_specific_sound_title'),
+    description: i18n.t('onboarding_specific_sound_desc'),
+    icon: 'finger-print',
+    color: '#2A9D8F',
+  },
+  {
     key: 'silent',
     title: i18n.t('tuto_silent_title'),
     description: i18n.t('tuto_silent_desc'),
@@ -81,8 +90,8 @@ const { width } = Dimensions.get('window');
 export default function Onboarding({ onFinish }: OnboardingProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFinishing, setIsFinishing] = useState(false);
-  const flatListRef = useRef<FlatList<Slide>>(null);
-  const slides = getSlides();
+  const flatListRef = useRef<FlatList<OnboardingSlide>>(null);
+  const slides = getOnboardingSlides();
 
   const handleViewableItemsChanged = useRef(({ viewableItems }: any) => {
     if (viewableItems?.length > 0 && typeof viewableItems[0].index === 'number') {
@@ -109,7 +118,7 @@ export default function Onboarding({ onFinish }: OnboardingProps) {
 
   const isLastSlide = currentIndex === slides.length - 1;
 
-  const renderItem = ({ item }: { item: Slide }) => (
+  const renderItem = ({ item }: { item: OnboardingSlide }) => (
     <View style={[styles.slide, { width }]}>
       {item.key === 'welcome' ? (
         <Image source={require('../assets/images/proot.png')} style={styles.image} />
@@ -119,8 +128,8 @@ export default function Onboarding({ onFinish }: OnboardingProps) {
         </View>
       ) : null}
       {item.key !== 'welcome' ? <Text style={styles.title}>{item.title}</Text> : null}
-      {item.key === 'welcome' && i18n.t('onboarding_welcome_subtitle') ? (
-        <Text style={styles.subtitle}>{i18n.t('onboarding_welcome_subtitle')}</Text>
+      {item.key === 'welcome' && item.subtitle ? (
+        <Text style={styles.subtitle}>{item.subtitle}</Text>
       ) : null}
       <Text style={styles.description}>{item.description}</Text>
     </View>

@@ -1,84 +1,161 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRef, useState } from 'react';
-import { Dimensions, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useMemo, useRef, useState } from 'react';
+import { Dimensions, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import i18n from '../lib/i18n';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
-const TUTORIAL_DATA = [
-  {
-    id: '1',
-    title: i18n.t('tuto_notif_title'),
-    description: i18n.t('tuto_notif_desc'),
-    icon: 'notifications-outline',
-    color: '#9C27B0',
-  },
-  {
-    id: '2',
-    title: i18n.t('tuto_sound_title'),
-    description: i18n.t('tuto_sound_desc'),
-    icon: 'volume-high-outline',
-    color: '#F4A261',
-  },
-  {
-    id: '3',
-    title: i18n.t('tuto_1_title'),
-    description: i18n.t('tuto_1_desc'),
-    icon: 'paper-plane-outline',
-    color: '#4CAF50',
-  },
-  {
-    id: '4',
-    title: i18n.t('tuto_2_title'),
-    description: i18n.t('tuto_2_desc'),
-    icon: 'chatbubble-ellipses-outline',
-    color: '#2196F3',
-  },
-  {
-    id: '5',
-    title: i18n.t('tuto_3_title'),
-    description: i18n.t('tuto_3_desc'),
-    icon: 'moon-outline',
-    color: '#9C27B0',
-  },
-  {
-    id: '5b',
-    title: i18n.t('tuto_silent_title'),
-    description: i18n.t('tuto_silent_desc'),
-    icon: 'notifications-off-outline',
-    color: '#6C757D',
-  },
-  {
-    id: '6',
-    title: i18n.t('tuto_4_title'),
-    description: i18n.t('tuto_4_desc'),
-    icon: 'ban-outline',
-    color: '#E57373',
-  },
-];
+type TutorialSlide = {
+  key: string;
+};
 
 export function TutorialSwiper({ onClose }: { onClose: () => void }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
+  const tutorialSlides = useMemo<TutorialSlide[]>(() => [
+    { key: 'list-gestures' },
+    { key: 'chat-details' },
+    { key: 'features-search' },
+  ], []);
 
-  // Largeur exacte d'une slide : largeur écran - padding container (20*2) = SCREEN_WIDTH - 40
   const slideWidth = SCREEN_WIDTH - 40;
 
   const handleMomentumScrollEnd = (event: any) => {
     const contentOffsetX = event.nativeEvent.contentOffset.x;
     const index = Math.round(contentOffsetX / slideWidth);
-    // S'assurer que l'index reste dans les limites du tableau
-    const clampedIndex = Math.max(0, Math.min(index, TUTORIAL_DATA.length - 1));
+    const clampedIndex = Math.max(0, Math.min(index, tutorialSlides.length - 1));
     setCurrentIndex(clampedIndex);
   };
 
   const handleScroll = (event: any) => {
     const contentOffsetX = event.nativeEvent.contentOffset.x;
     const index = Math.round(contentOffsetX / slideWidth);
-    // S'assurer que l'index reste dans les limites du tableau
-    const clampedIndex = Math.max(0, Math.min(index, TUTORIAL_DATA.length - 1));
+    const clampedIndex = Math.max(0, Math.min(index, tutorialSlides.length - 1));
     setCurrentIndex(clampedIndex);
+  };
+
+  const renderFeatureRow = (icon: React.ReactNode, text: string, marginTop = 0) => (
+    <View style={[styles.featureRow, marginTop > 0 && { marginTop }]}>
+      {icon}
+      <Text style={styles.featureText}>{text}</Text>
+    </View>
+  );
+
+  const renderCardTitle = (title: string, rightIcon?: React.ReactNode) => (
+    <View style={styles.cardTitleRow}>
+      <Text style={styles.cardTitleText}>{title}</Text>
+      {rightIcon ? <View style={styles.cardTitleIconWrap}>{rightIcon}</View> : null}
+    </View>
+  );
+
+  const renderSlideContent = (item: TutorialSlide) => {
+    switch (item.key) {
+      case 'list-gestures':
+        return (
+          <View style={styles.tutorialCard}>
+            {renderCardTitle(i18n.t('tuto_list_title'))}
+            {renderFeatureRow(
+              <Ionicons name="arrow-forward" size={22} color="#604a3e" />,
+              i18n.t('friendlist_onboarding_swipe')
+            )}
+            {renderFeatureRow(
+              <Image
+                source={require('../assets/images/tap-gesture.png')}
+                style={styles.tapImage}
+                resizeMode="contain"
+              />,
+              i18n.t('friendlist_onboarding_tap'),
+              12
+            )}
+            {renderFeatureRow(
+              <Ionicons name="finger-print" size={22} color="#604a3e" />,
+              i18n.t('friendlist_onboarding_long_press'),
+              12
+            )}
+            {renderFeatureRow(
+              <Ionicons name="arrow-back" size={22} color="#604a3e" />,
+              i18n.t('friendlist_onboarding_swipe_left_block'),
+              12
+            )}
+          </View>
+        );
+      case 'features-search':
+        return (
+          <View style={styles.tutorialCard}>
+            {renderCardTitle(
+              i18n.t('tuto_menu_title'),
+              <Image
+                source={require('../assets/images/icon_compte.png')}
+                style={styles.menuTitleIcon}
+                resizeMode="contain"
+              />
+            )}
+            {renderFeatureRow(
+              <Ionicons name="moon" size={22} color="#604a3e" />,
+              i18n.t('friendlist_onboarding_zen'),
+              4
+            )}
+            {renderFeatureRow(
+              <Ionicons name="volume-mute" size={22} color="#604a3e" />,
+              i18n.t('friendlist_onboarding_silent_send'),
+              14
+            )}
+            {renderFeatureRow(
+              <Ionicons name="search" size={22} color="#604a3e" />,
+              i18n.t('friendlist_onboarding_search_contacts'),
+              14
+            )}
+            {renderFeatureRow(
+              <Ionicons name="person-add-outline" size={22} color="#604a3e" />,
+              i18n.t('friendlist_onboarding_search_pseudo'),
+              14
+            )}
+            {renderFeatureRow(
+              <Ionicons name="trophy" size={22} color="#604a3e" />,
+              i18n.t('friendlist_onboarding_resonance'),
+              14
+            )}
+          </View>
+        );
+      case 'chat-details':
+        return (
+          <View style={styles.tutorialCard}>
+            {renderCardTitle(i18n.t('tuto_chat_title'))}
+            {renderFeatureRow(
+              <View style={styles.chatIconSlot}>
+                <Image
+                  source={require('../assets/images/proothail.png')}
+                  style={styles.chatProothailImage}
+                  resizeMode="contain"
+                />
+              </View>,
+              i18n.t('chat_onboarding_choose_specific_sound')
+            )}
+            {renderFeatureRow(
+              <Image
+                source={require('../assets/images/tap-gesture.png')}
+                style={styles.tapImage}
+                resizeMode="contain"
+              />,
+              i18n.t('chat_onboarding_tap_replay'),
+              12
+            )}
+            {renderFeatureRow(
+              <Ionicons name="volume-mute" size={22} color="#604a3e" />,
+              i18n.t('chat_onboarding_mute'),
+              12
+            )}
+            {renderFeatureRow(
+              <Ionicons name="alert-circle" size={22} color="#604a3e" />,
+              i18n.t('chat_onboarding_long_press_report'),
+              12
+            )}
+          </View>
+        );
+      default:
+        return null;
+    }
   };
 
   return (
@@ -94,8 +171,8 @@ export function TutorialSwiper({ onClose }: { onClose: () => void }) {
         <View style={styles.listWrapper}>
           <FlatList
             ref={flatListRef}
-            data={TUTORIAL_DATA}
-            keyExtractor={(item) => item.id}
+            data={tutorialSlides}
+            keyExtractor={(item) => item.key}
             horizontal
             showsHorizontalScrollIndicator={false}
             onScroll={handleScroll}
@@ -116,18 +193,14 @@ export function TutorialSwiper({ onClose }: { onClose: () => void }) {
             })}
             renderItem={({ item }) => (
               <View style={styles.slide}>
-                <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
-                  <Ionicons name={item.icon as any} size={48} color="white" />
-                </View>
-                <Text style={styles.title}>{item.title}</Text>
-                <Text style={styles.description}>{item.description}</Text>
+                {renderSlideContent(item)}
               </View>
             )}
           />
         </View>
 
         <View style={styles.pagination}>
-          {TUTORIAL_DATA.map((_, index) => (
+          {tutorialSlides.map((_, index) => (
             <View
               key={index}
               style={[
@@ -170,43 +243,75 @@ const styles = StyleSheet.create({
   },
   listWrapper: {
     flex: 1,
-    width: SCREEN_WIDTH - 40, // Largeur exacte : écran - padding container (20*2)
+    width: SCREEN_WIDTH - 40,
     overflow: 'hidden',
   },
   listContent: {
     paddingHorizontal: 0,
   },
   slide: {
-    width: SCREEN_WIDTH - 40, // Largeur exacte : écran - padding container (20*2)
+    width: SCREEN_WIDTH - 40,
+    justifyContent: 'center',
+    paddingHorizontal: 15,
+  },
+  tutorialCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(96, 74, 62, 0.12)',
+  },
+  cardTitleRow: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 15, // Padding interne inclus dans la largeur totale
+    marginBottom: 14,
   },
-  iconContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+  cardTitleText: {
+    color: '#604a3e',
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  cardTitleIconWrap: {
+    marginLeft: 8,
+  },
+  menuTitleIcon: {
+    width: 24,
+    height: 24,
+  },
+  featureRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  featureText: {
+    flex: 1,
+    marginLeft: 12,
+    color: '#604a3e',
+    fontSize: 14,
+    textAlign: 'left',
+    fontStyle: 'italic',
+    opacity: 0.88,
+    lineHeight: 19,
+  },
+  tapImage: {
+    width: 22,
+    height: 22,
+    marginTop: 1,
+  },
+  chatIconSlot: {
+    width: 30,
+    height: 30,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    flexShrink: 0,
+    marginLeft: -4,
   },
-  title: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  description: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 24,
+  chatProothailImage: {
+    width: 30,
+    height: 30,
   },
   pagination: {
     flexDirection: 'row',
@@ -222,4 +327,3 @@ const styles = StyleSheet.create({
     marginHorizontal: 5,
   },
 });
-

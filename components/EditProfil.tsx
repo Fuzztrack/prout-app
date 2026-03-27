@@ -679,7 +679,7 @@ export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void;
                 <Ionicons name="mail-outline" size={20} color="#604a3e" />
                 <Text style={styles.supportText}>{i18n.t('contact_support')}</Text>
               </TouchableOpacity>
-              <Text style={styles.versionText}>Proot! version 1.0.3</Text>
+              <Text style={styles.versionText}>Proot ! version 1.0.6</Text>
 
               <View style={styles.deleteButtonContainer}>
                 <TouchableOpacity

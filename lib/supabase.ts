@@ -25,7 +25,7 @@ export const getRedirectUrl = () => {
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     return window.location.origin;
   }
-  // iOS + Android utilisent désormais le scheme Proot!.
+  // iOS + Android utilisent désormais le scheme Proot !.
   const scheme = 'prootapp';
   return `${scheme}://confirm-email`;
 };

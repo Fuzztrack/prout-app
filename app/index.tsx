@@ -36,16 +36,16 @@ export default function Index() {
           return;
         }
 
-        // 1. Vérifier si l'intro a été vue
-        const hasSeenWelcome = await AsyncStorage.getItem('hasSeenWelcome');
-        
+        // 1. Vérifier d'abord l'acceptation locale de l'EULA
+        const eulaAccepted = await hasAcceptedEulaLocally();
+
         if (!isMounted) return;
 
-        if (!hasSeenWelcome) {
-          console.log('➡️ Direction: Welcome');
+        if (!eulaAccepted) {
+          console.log('➡️ Direction: Acceptation EULA (locale)');
           if (!hasNavigated.current) {
             hasNavigated.current = true;
-            safeReplace(router, '/WelcomeScreen', { skipInitialCheck: false });
+            safeReplace(router, '/eula-accept?next=%2FAuthChoiceScreen', { skipInitialCheck: false });
           }
           return;
         }
@@ -260,17 +260,7 @@ export default function Index() {
             }
           }
         } else {
-          const eulaAccepted = await hasAcceptedEulaLocally();
-          if (!eulaAccepted) {
-            console.log('➡️ Direction: Acceptation EULA');
-            if (!hasNavigated.current) {
-              hasNavigated.current = true;
-              safeReplace(router, '/eula-accept', { skipInitialCheck: false });
-            }
-            return;
-          }
-
-          // 4. Pas d'utilisateur -> Écran de choix
+          // 3. Pas d'utilisateur -> Écran de choix
           console.log('➡️ Direction: Auth Choice');
           if (!hasNavigated.current) {
             hasNavigated.current = true;

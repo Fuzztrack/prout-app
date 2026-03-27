@@ -2,20 +2,49 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CustomButton } from '../components/CustomButton';
 import { ensureContactPermissionWithDisclosure } from '../lib/contactConsent';
+import { hasAcceptedEulaLocally } from '../lib/eula';
 import { safeReplace } from '../lib/navigation';
 
 export default function WelcomeScreen() {
   const router = useRouter();
+  const [checkingEula, setCheckingEula] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    const guardEula = async () => {
+      try {
+        const accepted = await hasAcceptedEulaLocally();
+        if (!mounted) return;
+        if (!accepted) {
+          safeReplace(router, '/eula-accept?next=%2FWelcomeScreen', { skipInitialCheck: false });
+          return;
+        }
+      } finally {
+        if (mounted) setCheckingEula(false);
+      }
+    };
+    guardEula().catch(() => {
+      if (mounted) setCheckingEula(false);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [router]);
+
+  if (checkingEula) {
+    return <View style={styles.container} />;
+  }
 
   const handleContinue = async () => {
     await Notifications.requestPermissionsAsync();
     await ensureContactPermissionWithDisclosure();
     await AsyncStorage.setItem('hasSeenWelcome', 'true');
-    // skipInitialCheck: false pour que l’index réaffiche l’EULA si besoin (ex. iPad)
-    safeReplace(router, '/eula-accept', { skipInitialCheck: false });
+    // Repasser par l'index pour conserver un routage centralisé.
+    safeReplace(router, '/', { skipInitialCheck: false });
   };
 
   return (
@@ -34,7 +63,7 @@ export default function WelcomeScreen() {
             resizeMode="contain"
           />
         </View>
-        <Text style={styles.title}>Bienvenue sur Proot! 💨</Text>
+        <Text style={styles.title}>Bienvenue sur Proot ! 💨</Text>
         <Text style={styles.text}>
           Pour fonctionner, nous avons besoin de vos contacts (noms et numéros) pour trouver vos amis. Ces données sont synchronisées sur nos serveurs Supabase (utfwujyymaikraaigvuv.supabase.co) et ne sont pas partagées en dehors de l’app.
         </Text>

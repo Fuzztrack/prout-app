@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   Alert,
@@ -14,9 +14,16 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { acceptEulaForCurrentUser, EULA_ACCEPTED_KEY } from '../lib/eula';
 import i18n from '../lib/i18n';
+import { safeReplace } from '../lib/navigation';
 
-export default function EulaAcceptScreen() {
+type EulaAcceptScreenProps = {
+  defaultNextPath?: string;
+  onAccepted?: () => void;
+};
+
+export default function EulaAcceptScreen({ defaultNextPath, onAccepted }: EulaAcceptScreenProps = {}) {
   const router = useRouter();
+  const params = useLocalSearchParams<{ next?: string }>();
   const insets = useSafeAreaInsets();
   const [agreed, setAgreed] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -36,14 +43,13 @@ export default function EulaAcceptScreen() {
     if (!agreed || saving) return;
     setSaving(true);
     try {
-      const user = await acceptEulaForCurrentUser();
-      if (user) {
-        // Utilisateur déjà connecté → on l’envoie vers l’app principale
-        router.replace('/(tabs)');
-      } else {
-        // Pas de session (premier lancement avant auth) → on renvoie vers le choix d’auth
-        router.replace('/AuthChoiceScreen');
-      }
+      await acceptEulaForCurrentUser();
+      const nextPath =
+        typeof params.next === 'string' && params.next.startsWith('/')
+          ? params.next
+          : (defaultNextPath ?? '/');
+      onAccepted?.();
+      safeReplace(router, nextPath as any, { skipInitialCheck: false });
     } catch (e: any) {
       console.warn('❌ Impossible de sauvegarder l’acceptation EULA:', e);
       Alert.alert(i18n.t('error'), e?.message || i18n.t('connection_error'));

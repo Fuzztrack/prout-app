@@ -645,10 +645,10 @@ export default function HomeScreen() {
                          
                          <View style={styles.menuCard}>
                            {[
-                             { label: i18n.t('resonance_dashboard_menu'), icon: 'trophy', onPress: () => { setActiveView('list'); router.push('/complicity'); }, iconColor: '#604a3e' },
+                             { label: i18n.t('search_title'), icon: 'person-add-outline', onPress: () => { setActiveView('list'); setShowSearch(true); }, iconColor: showSearch ? '#ebb89b' : '#604a3e' },
                              { label: i18n.t('zen_mode'), icon: isZenMode ? 'moon' : 'moon-outline', onPress: () => { void toggleZenMode(); }, iconColor: isZenMode ? '#ebb89b' : '#604a3e' },
                              { label: i18n.t('silent_mode'), icon: isSilentMode ? 'volume-mute' : 'volume-mute-outline', onPress: () => { toggleSilentMode(); }, iconColor: isSilentMode ? '#ebb89b' : '#604a3e' },
-                             { label: i18n.t('search_title'), icon: 'person-add-outline', onPress: () => { setActiveView('list'); setShowSearch(true); }, iconColor: showSearch ? '#ebb89b' : '#604a3e' },
+                             { label: i18n.t('resonance_dashboard_menu'), icon: 'trophy', onPress: () => { setActiveView('list'); router.push('/complicity'); }, iconColor: '#604a3e' },
                              { label: i18n.t('manage_profile'), icon: 'person-circle-outline', onPress: () => setActiveView('profile'), iconColor: '#604a3e' },
                              { label: i18n.t('invite_friend'), icon: 'share-social-outline', onPress: handleShare, iconColor: '#604a3e' },
                              { label: i18n.t('review_app_functions'), icon: 'help-circle-outline', onPress: () => setActiveView('tutorial'), iconColor: '#604a3e' },
@@ -717,10 +717,10 @@ export default function HomeScreen() {
                       
                       <View style={styles.menuCard}>
                           {[
-                            { label: i18n.t('resonance_dashboard_menu'), icon: 'trophy', onPress: () => { setActiveView('list'); router.push('/complicity'); }, iconColor: '#604a3e' },
+                            { label: i18n.t('search_title'), icon: 'person-add-outline', onPress: () => { setActiveView('list'); setShowSearch(true); }, iconColor: showSearch ? '#ebb89b' : '#604a3e' },
                             { label: i18n.t('zen_mode'), icon: isZenMode ? 'moon' : 'moon-outline', onPress: () => { void toggleZenMode(); }, iconColor: isZenMode ? '#ebb89b' : '#604a3e' },
                             { label: i18n.t('silent_mode'), icon: isSilentMode ? 'volume-mute' : 'volume-mute-outline', onPress: () => { toggleSilentMode(); }, iconColor: isSilentMode ? '#ebb89b' : '#604a3e' },
-                            { label: i18n.t('search_title'), icon: 'person-add-outline', onPress: () => { setActiveView('list'); setShowSearch(true); }, iconColor: showSearch ? '#ebb89b' : '#604a3e' },
+                            { label: i18n.t('resonance_dashboard_menu'), icon: 'trophy', onPress: () => { setActiveView('list'); router.push('/complicity'); }, iconColor: '#604a3e' },
                             { label: i18n.t('manage_profile'), icon: 'person-circle-outline', onPress: () => setActiveView('profile'), iconColor: '#604a3e' },
                             { label: i18n.t('invite_friend'), icon: 'share-social-outline', onPress: handleShare, iconColor: '#604a3e' },
                             { label: i18n.t('review_app_functions'), icon: 'help-circle-outline', onPress: () => setActiveView('tutorial'), iconColor: '#604a3e' },

@@ -3,9 +3,9 @@ const path = require('path');
 const { withDangerousMod } = require('@expo/config-plugins');
 
 const CONTACTS_EN =
-  "This app uploads phone numbers from your contacts to Proot!'s secure servers to automatically find your friends. This data is not shared with third parties.";
+  'This app uploads phone numbers from your contacts to the secure servers of Proot ! to automatically find your friends. This data is not shared with third parties.';
 const CONTACTS_FR =
-  'Cette app envoie les numéros de vos contacts vers les serveurs sécurisés de Proot! pour retrouver automatiquement vos amis. Ces données ne sont pas partagées avec des tiers.';
+  'Cette app envoie les numéros de vos contacts vers les serveurs sécurisés de Proot ! pour retrouver automatiquement vos amis. Ces données ne sont pas partagées avec des tiers.';
 
 const PHOTO_EN = 'This app needs access to your photos so you can choose a profile picture.';
 const PHOTO_FR =
@@ -39,28 +39,28 @@ const PERMISSIONS_BY_LOCALE = {
   // Contacts traduits, autres permissions en anglais par défaut
   es: {
     NSContactsUsageDescription:
-      'Esta app sube los números de tus contactos a los servidores seguros de Proot! para encontrar automáticamente a tus amigos. Estos datos no se comparten con terceros.',
+      'Esta app sube los números de tus contactos a los servidores seguros de Proot ! para encontrar automáticamente a tus amigos. Estos datos no se comparten con terceros.',
     NSPhotoLibraryUsageDescription: PHOTO_EN,
     NSPhotoLibraryAddUsageDescription: PHOTO_EN,
     NSCameraUsageDescription: CAMERA_EN,
   },
   pt: {
     NSContactsUsageDescription:
-      'Este app envia os números dos seus contatos para os servidores seguros do Proot! para encontrar seus amigos automaticamente. Esses dados não são compartilhados com terceiros.',
+      'Este app envia os números dos seus contatos para os servidores seguros do Proot ! para encontrar seus amigos automaticamente. Esses dados não são compartilhados com terceiros.',
     NSPhotoLibraryUsageDescription: PHOTO_EN,
     NSPhotoLibraryAddUsageDescription: PHOTO_EN,
     NSCameraUsageDescription: CAMERA_EN,
   },
   de: {
     NSContactsUsageDescription:
-      'Diese App lädt Telefonnummern aus deinen Kontakten auf die sicheren Server von Proot! hoch, um deine Freunde automatisch zu finden. Diese Daten werden nicht an Dritte weitergegeben.',
+      'Diese App lädt Telefonnummern aus deinen Kontakten auf die sicheren Server von Proot ! hoch, um deine Freunde automatisch zu finden. Diese Daten werden nicht an Dritte weitergegeben.',
     NSPhotoLibraryUsageDescription: PHOTO_EN,
     NSPhotoLibraryAddUsageDescription: PHOTO_EN,
     NSCameraUsageDescription: CAMERA_EN,
   },
   it: {
     NSContactsUsageDescription:
-      'Questa app carica i numeri di telefono dei tuoi contatti sui server sicuri di Proot! per trovare automaticamente i tuoi amici. Questi dati non sono condivisi con terze parti.',
+      'Questa app carica i numeri di telefono dei tuoi contatti sui server sicuri di Proot ! per trovare automaticamente i tuoi amici. Questi dati non sono condivisi con terze parti.',
     NSPhotoLibraryUsageDescription: PHOTO_EN,
     NSPhotoLibraryAddUsageDescription: PHOTO_EN,
     NSCameraUsageDescription: CAMERA_EN,

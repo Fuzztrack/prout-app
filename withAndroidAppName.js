@@ -4,7 +4,7 @@ const withAndroidAppName = (config) => {
   return withStringsXml(config, (config) => {
     config.modResults = setStringItem(
       [
-        { $: { name: 'app_name', translatable: 'false' }, _: 'Proot!' },
+        { $: { name: 'app_name', translatable: 'false' }, _: 'Proot !' },
       ],
       config.modResults
     );

@@ -2,28 +2,27 @@ import React, { useEffect } from 'react';
 import Animated, { 
   useSharedValue, 
   useAnimatedStyle, 
-  withDelay, 
+  cancelAnimation,
   withRepeat, 
   withSequence, 
   withTiming, 
-  cancelAnimation 
 } from 'react-native-reanimated';
 
 export function AnimatedCategoryHeaderImage({
   source,
   style,
-  delayMs = 0,
+  isActive = false,
 }: {
   source: any;
   style?: any;
-  delayMs?: number;
+  isActive?: boolean;
 }) {
   const scale = useSharedValue(1);
 
   useEffect(() => {
-    scale.value = withDelay(
-      delayMs,
-      withRepeat(
+    cancelAnimation(scale);
+    if (isActive) {
+      scale.value = withRepeat(
         withSequence(
           withTiming(1.12, { duration: 180 }),
           withTiming(1, { duration: 220 }),
@@ -31,13 +30,15 @@ export function AnimatedCategoryHeaderImage({
         ),
         -1,
         false,
-      ),
-    );
+      );
+    } else {
+      scale.value = withTiming(1, { duration: 120 });
+    }
 
     return () => {
       cancelAnimation(scale);
     };
-  }, [delayMs, scale]);
+  }, [isActive, scale]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],

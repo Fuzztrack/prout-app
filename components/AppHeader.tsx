@@ -2,6 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef } from 'react';
 import { Animated, Image, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 
+const SHOW_SOUNDCHECK_BUTTON = false;
+
 interface AppHeaderProps {
   currentPseudo?: string;
   profileAvatarUrl?: string | null;
@@ -156,7 +158,7 @@ export function AppHeader({
 
           {/* À droite : Soundcheck, puis recherche tout à droite */}
           <View style={styles.rightIconsContainer}>
-            {!(isProfileMenuOpen || isProfileOpen) && onSoundcheckPress && (
+            {SHOW_SOUNDCHECK_BUTTON && !(isProfileMenuOpen || isProfileOpen) && onSoundcheckPress && (
               <TouchableOpacity
                 onPress={onSoundcheckPress}
                 style={[styles.iconButton, { justifyContent: 'center', alignItems: 'center', minHeight: 48, marginTop: 0 }]}

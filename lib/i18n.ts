@@ -16,7 +16,7 @@ const i18n = new I18n({
     confirm: "Confirmer",
     info: "Information",
 
-    // Proot! Names
+    // Proot ! Names
     prout_names: {
       prout1: "La Petite Bourrasque",
       prout2: "Le Crépitant",
@@ -96,7 +96,7 @@ const i18n = new I18n({
     password_label: "Mot de passe",
 
     // Home & Navigation
-    share_message: "Rejoins-moi sur l'appli \"Proot!\", mon pseudo est %{pseudo} : http://prootapp.com",
+    share_message: "Rejoins-moi sur l'appli \"Proot !\", mon pseudo est %{pseudo} : http://prootapp.com",
     tab_list: "Amis",
 
     // Friends List
@@ -135,7 +135,7 @@ const i18n = new I18n({
     report_submit_success_body: "Merci. Ce signalement sera examiné par notre équipe sous 24 heures.",
     real_name: "Vrai nom",
 
-    // Actions Proot!
+    // Actions Proot !
     zen_mode_active_me_title: "Mode Zen Actif 🧘‍♂️",
     zen_mode_active_me_body: "Vous ne pouvez pas envoyer de notifications en mode Zen. Désactivez-le dans votre profil pour reprendre les hostilités.",
     zen_mode_active_friend_title: "Chut ! 🤫",
@@ -220,26 +220,26 @@ const i18n = new I18n({
     contact_support: "Contacter le support",
     profile_eula: "EULA",
     eula_title: "Contrat de licence utilisateur final (EULA)",
-    eula_intro: "En utilisant Proot!, vous acceptez les conditions suivantes :",
+    eula_intro: "En utilisant Proot !, vous acceptez les conditions suivantes :",
     eula_section_1_title: "1. Politique de tolérance zéro",
-    eula_section_1_body: "Proot! applique une tolérance zéro pour les contenus répréhensibles, y compris le harcèlement, les discours haineux, les menaces, l'exploitation sexuelle et les images explicites.",
+    eula_section_1_body: "Proot ! applique une tolérance zéro pour les contenus répréhensibles, y compris le harcèlement, les discours haineux, les menaces, l'exploitation sexuelle et les images explicites.",
     eula_section_2_title: "2. Comportement abusif",
     eula_section_2_body: "Les utilisateurs ayant un comportement abusif peuvent être suspendus ou définitivement exclus de la plateforme.",
     eula_section_3_title: "3. Modération et suppression de contenu",
     eula_section_3_body: "Le développeur se réserve le droit de supprimer du contenu et/ou de restreindre des comptes dans les 24 heures après réception d’un signalement valide.",
     eula_section_4_title: "4. Outils de sécurité : signalement et blocage",
-    eula_section_4_body: "Proot! fournit des outils simples et immédiats pour gérer les contenus répréhensibles et les comportements abusifs.\n\nPour bloquer un utilisateur : depuis votre liste d'amis, swipez simplement le nom du contact vers la gauche puis confirmez. Cela coupe instantanément tous les signaux acoustiques et messages provenant de cet utilisateur.\n\nPour signaler un contenu : dans le chat éphémère, effectuez un appui long sur n'importe quel message. Un menu vous permettra de signaler ce contenu à l'équipe de modération.\n\nTous les signalements sont examinés dans les 24 heures par l'équipe Proot!. Les utilisateurs abusifs seront définitivement exclus de la plateforme.",
+    eula_section_4_body: "Proot ! fournit des outils simples et immédiats pour gérer les contenus répréhensibles et les comportements abusifs.\n\nPour bloquer un utilisateur : depuis votre liste d'amis, swipez simplement le nom du contact vers la gauche puis confirmez. Cela coupe instantanément tous les signaux acoustiques et messages provenant de cet utilisateur.\n\nPour signaler un contenu : dans le chat éphémère, effectuez un appui long sur n'importe quel message. Un menu vous permettra de signaler ce contenu à l'équipe de modération.\n\nTous les signalements sont examinés dans les 24 heures par l'équipe Proot !. Les utilisateurs abusifs seront définitivement exclus de la plateforme.",
     eula_section_5_title: "5. Contact",
     eula_section_5_body: "Pour tout signalement, question ou abus, vous pouvez nous contacter à tout moment à l'adresse suivante :\nhello@prootapp.com\n\nNous nous engageons à répondre dans les 24 heures suivant la réception d'un signalement valide.",
     eula_accept_checkbox: "J'accepte l'EULA et la politique de tolérance zéro contre les contenus répréhensibles et les utilisateurs abusifs",
     eula_accept_button: "J'accepte et continue",
     privacy_policy: "Politique de confidentialité",
     privacy_policy_title: "Politique de Confidentialité",
-    privacy_policy_app_title: "Politique de Confidentialité de l'application Proot!",
+    privacy_policy_app_title: "Politique de Confidentialité de l'application Proot !",
     privacy_policy_last_update: "Dernière mise à jour : 8 Décembre 2025",
-    privacy_policy_intro: "Bienvenue sur Proot! (ci-après \"l'Application\"). Nous prenons la confidentialité de vos données très au sérieux. Cette politique décrit quelles données nous collectons, comment nous les utilisons et quels sont vos droits, en conformité avec le Règlement Général sur la Protection des Données (RGPD).",
+    privacy_policy_intro: "Bienvenue sur Proot ! (ci-après \"l'Application\"). Nous prenons la confidentialité de vos données très au sérieux. Cette politique décrit quelles données nous collectons, comment nous les utilisons et quels sont vos droits, en conformité avec le Règlement Général sur la Protection des Données (RGPD).",
     privacy_policy_section1_title: "1. Responsable du traitement",
-    privacy_policy_section1_content: "L'Application est éditée par The Proot! Corporation (ci-après \"Nous\"). Pour toute question relative à vos données, vous pouvez nous contacter à : hello@prootapp.com",
+    privacy_policy_section1_content: "L'Application est éditée par The Proot ! Corporation (ci-après \"Nous\"). Pour toute question relative à vos données, vous pouvez nous contacter à : hello@prootapp.com",
     privacy_policy_section2_title: "2. Les données que nous collectons",
     privacy_policy_section2_intro: "Nous collectons uniquement les données strictement nécessaires au fonctionnement du service d'envoi de notifications sonores entre amis.",
     privacy_policy_section2a_title: "A. Données que vous nous fournissez",
@@ -247,9 +247,9 @@ const i18n = new I18n({
     privacy_policy_section2b_title: "B. Données collectées automatiquement",
     privacy_policy_section2b_content: "- Identifiant de l'appareil (Device ID) et Token de Notification (Push Token) : Nécessaires pour acheminer les notifications sonores sur votre téléphone via les services d'Apple (APNs) et Google (FCM).\n- Données techniques : Modèle de téléphone, version du système d'exploitation (iOS/Android) pour le débogage technique.",
     privacy_policy_section2c_title: "C. Accès aux Contacts (Carnet d'adresses)",
-    privacy_policy_section2c_content: "L'Application vous demande l'autorisation d'accéder à vos contacts téléphoniques.\n- But : Cet accès sert uniquement à vérifier si vos contacts utilisent déjà l'Application \"Proot!\" afin de les ajouter automatiquement à votre liste d'amis.\n- Confidentialité : Nous ne stockons pas votre carnet d'adresses complet sur nos serveurs. Nous envoyons les numéros de téléphone de manière sécurisée (hashée ou chiffrée lors du transit) pour effectuer une comparaison (\"matching\") avec notre base d'utilisateurs, puis le résultat est renvoyé. Les contacts qui n'utilisent pas l'application ne sont ni contactés, ni enregistrés.",
+    privacy_policy_section2c_content: "L'Application vous demande l'autorisation d'accéder à vos contacts téléphoniques.\n- But : Cet accès sert uniquement à vérifier si vos contacts utilisent déjà l'Application \"Proot !\" afin de les ajouter automatiquement à votre liste d'amis.\n- Confidentialité : Nous ne stockons pas votre carnet d'adresses complet sur nos serveurs. Nous envoyons les numéros de téléphone de manière sécurisée (hashée ou chiffrée lors du transit) pour effectuer une comparaison (\"matching\") avec notre base d'utilisateurs, puis le résultat est renvoyé. Les contacts qui n'utilisent pas l'application ne sont ni contactés, ni enregistrés.",
     privacy_policy_section3_title: "3. Comment nous utilisons vos données",
-    privacy_policy_section3_content: "Vos données sont utilisées exclusivement pour :\n- Vous connecter : Gestion de votre compte sécurisé via Supabase.\n- Le service \"Proot!\" : Envoyer et recevoir des notifications sonores instantanées.\n- La mise en relation : Vous permettre de trouver vos amis et d'être trouvé.\n- Le support : Répondre à vos demandes via email.\nNous ne vendons, ne louons et ne partageons jamais vos données personnelles à des tiers à des fins commerciales ou publicitaires.",
+    privacy_policy_section3_content: "Vos données sont utilisées exclusivement pour :\n- Vous connecter : Gestion de votre compte sécurisé via Supabase.\n- Le service \"Proot !\" : Envoyer et recevoir des notifications sonores instantanées.\n- La mise en relation : Vous permettre de trouver vos amis et d'être trouvé.\n- Le support : Répondre à vos demandes via email.\nNous ne vendons, ne louons et ne partageons jamais vos données personnelles à des tiers à des fins commerciales ou publicitaires.",
     privacy_policy_section4_title: "4. Partage et Sous-traitants",
     privacy_policy_section4_content: "Pour faire fonctionner l'Application, nous utilisons des services tiers de confiance. Vos données peuvent transiter par leurs serveurs :\n- Supabase (Base de données & Auth) : Hébergement sécurisé des comptes utilisateurs.\n- Expo (Infrastructure mobile) : Service technique pour l'envoi des notifications Push.\n- Google Firebase (FCM) : Acheminement des notifications sur Android.\n- Apple (APNs) : Acheminement des notifications sur iOS.\n- Render : Hébergement de notre serveur backend.\nCes prestataires sont soumis à des obligations strictes de sécurité et de confidentialité.",
     privacy_policy_section5_title: "5. Suppression des données et Vos Droits",
@@ -290,6 +290,9 @@ const i18n = new I18n({
 
     // Tuto
     tuto_header: "Comment ça marche ?",
+    tuto_list_title: "Liste d'ami",
+    tuto_menu_title: "Menu",
+    tuto_chat_title: "Chat",
     tuto_notif_title: "Pas de notifications ?",
     tuto_notif_desc: "Vérifiez que les notifications sont autorisées pour l'app dans les réglages de votre téléphone.",
     tuto_sound_title: "Pas de son ?",
@@ -306,17 +309,19 @@ const i18n = new I18n({
     tuto_4_desc: "En swipant à gauche le nom d'un contact, vous pouvez le bloquer.",
 
     // Onboarding
-    onboarding_welcome_title: "Proot!",
+    onboarding_welcome_title: "Proot !",
     onboarding_welcome_subtitle: "Dites bonjour... autrement !",
     onboarding_welcome_desc: "",
-    onboarding_notifications_title: "Le cœur du Proot!",
-    onboarding_notifications_desc: "Tout l'intérêt de communiquer avec vos amis sur Proot!, ce sont les notifications. Acceptez-les pour jouer le jeu !",
+    onboarding_notifications_title: "Le cœur du Proot !",
+    onboarding_notifications_desc: "Tout l'intérêt de communiquer avec vos amis sur Proot !, ce sont les notifications. Acceptez-les pour jouer le jeu !",
     onboarding_sound_title: "Montez le volume",
     onboarding_sound_desc: "Pensez à vérifier que vous avez le son activé (et pas en silencieux) pour profiter de la mélodie.",
     onboarding_gesture_title: "À vous de jouer",
     onboarding_gesture_desc: "Dès que vous avez un ami, swipez simplement sur son nom vers la droite pour lui envoyer une notification. Surprise garantie !",
     onboarding_message_title: "Messages éphémères",
     onboarding_message_desc: "Cliquez sur le nom de votre ami pour ajouter un message avec le chat éphémère !",
+    onboarding_specific_sound_title: "Son spécifique",
+    onboarding_specific_sound_desc: "Un appui long sur le bouton de votre ami vous permet de choisir un son spécifique à envoyer.",
     sticky_chat_with: "Chat 👻 avec %{pseudo}",
     message_read: "Lu",
     onboarding_skip: "Passer",
@@ -336,9 +341,9 @@ const i18n = new I18n({
     // Footer & Help
     footer_help_text: "Swipez pour envoyer une notification aléatoire\nCliquez pour ouvrir le chat\nFaites un appui long pour choisir un son à envoyer !",
     footer_sound_category_info: "Le son des notifications sera choisi aléatoirement parmi la catégorie d’onde sonore sélectionnée !",
-    friendlist_onboarding_swipe: "Swipez le nom d'un ami vers la droite pour envoyer une notification.",
-    friendlist_onboarding_tap: "Cliquez sur le nom d'un ami pour ouvrir le chat éphémère.",
-    friendlist_onboarding_long_press: "Faites un appui long pour choisir un son spécifique à envoyer.",
+    friendlist_onboarding_swipe: "Swipez pour envoyer une notification.",
+    friendlist_onboarding_tap: "Cliquez pour ouvrir le chat.",
+    friendlist_onboarding_long_press: "Faites un appui long pour choisir le son.",
     friendlist_onboarding_swipe_left_block: "Swipez vers la gauche pour bloquer un contact abusif.",
     friendlist_onboarding_soundcheck: "Explorez votre bibliothèque de sons",
     friendlist_onboarding_soundcheck_in: "Explorez votre bibliothèque de sons dans",
@@ -463,7 +468,7 @@ const i18n = new I18n({
     phone_helper: "Permet à vos amis de vous retrouver plus facilement.",
     cancel_and_logout: "Annuler et se déconnecter",
     complete_profile_title: "Finalisation",
-    complete_profile_subtitle: "Votre compte est actif, mais votre profil Proot! est manquant. Choisissez un pseudo pour le (re)créer.",
+    complete_profile_subtitle: "Votre compte est actif, mais votre profil Proot ! est manquant. Choisissez un pseudo pour le (re)créer.",
     complete_profile_pseudo_placeholder: "Votre pseudo *",
     complete_profile_saving: "Sauvegarde...",
     complete_profile_cta: "C'est parti !",
@@ -530,8 +535,8 @@ const i18n = new I18n({
     already_have_account: "J'ai déjà un compte (Email)",
 
     // Invitation Share
-    invite_message_with_pseudo: "Rejoins moi sur \"Proot!\", mon pseudo est %{pseudo}",
-    invite_message: "Rejoins moi sur \"Proot!\"",
+    invite_message_with_pseudo: "Rejoins moi sur \"Proot !\", mon pseudo est %{pseudo}",
+    invite_message: "Rejoins moi sur \"Proot !\"",
 
     // Login
     session_invalid: "Session invalide après connexion",
@@ -553,15 +558,15 @@ const i18n = new I18n({
     permission_denied_title: "Permission refusée",
     permission_denied_body: "Les notifications push nécessitent la permission de notifications. Vous pourrez l'activer plus tard dans les paramètres.",
     notification_permission_title: "Autorisation de notifications",
-    notification_permission_message: "Proot! est une application de notifications. Pour recevoir et envoyer des notifications à vos amis, vous devez autoriser les notifications.",
+    notification_permission_message: "Proot ! est une application de notifications. Pour recevoir et envoyer des notifications à vos amis, vous devez autoriser les notifications.",
     accept_notifications_message: "Acceptez les notifications pour jouer le jeu ! 😊",
     authorize_notifications: "Autoriser les notifications",
 
     // Contact Permission
     contact_permission_title: "Ça reste en nous !",
-    contact_permission_message: "Pour identifier automatiquement les amis qui utilisent déjà Proot!, l'app doit envoyer les numéros de vos contacts vers nos serveurs sécurisés.\n\nC'est optionnel : vous pourrez toujours ajouter des amis manuellement par leur pseudo plus tard.",
+    contact_permission_message: "Pour identifier automatiquement les amis qui utilisent déjà Proot !, l'app doit envoyer les numéros de vos contacts vers nos serveurs sécurisés.\n\nC'est optionnel : vous pourrez toujours ajouter des amis manuellement par leur pseudo plus tard.",
     contact_consent_title: "Contacts : utilisation et partage",
-    contact_consent_message: "Pour identifier automatiquement les amis qui utilisent déjà Proot!, l'app doit envoyer les numéros de vos contacts vers nos serveurs sécurisés.\n\nC'est optionnel : vous pourrez toujours ajouter des amis manuellement par leur pseudo plus tard.",
+    contact_consent_message: "Pour identifier automatiquement les amis qui utilisent déjà Proot !, l'app doit envoyer les numéros de vos contacts vers nos serveurs sécurisés.\n\nC'est optionnel : vous pourrez toujours ajouter des amis manuellement par leur pseudo plus tard.",
     refuse: "Refuser",
     next: "Suivant",
 
@@ -585,7 +590,7 @@ const i18n = new I18n({
     confirm: "Confirm",
     info: "Info",
 
-    // Proot! Names
+    // Proot ! Names
     prout_names: {
       prout1: "The Little Gust",
       prout2: "The Crackling",
@@ -665,7 +670,7 @@ const i18n = new I18n({
     password_label: "Password",
 
     // Home & Navigation
-    share_message: "Join me on the \"Proot!\" app, my username is %{pseudo}: http://prootapp.com",
+    share_message: "Join me on the \"Proot !\" app, my username is %{pseudo}: http://prootapp.com",
     tab_list: "Friends",
 
     // Friends List
@@ -704,7 +709,7 @@ const i18n = new I18n({
     report_submit_success_body: "Thank you. This report will be reviewed by our team within 24 hours.",
     real_name: "Real name",
 
-    // Actions Proot!
+    // Actions Proot !
     zen_mode_active_me_title: "Zen Mode Active 🧘‍♂️",
     zen_mode_active_me_body: "You cannot send notifications in Zen mode. Disable it in your profile to resume hostilities.",
     zen_mode_active_friend_title: "Hush! 🤫",
@@ -805,26 +810,26 @@ const i18n = new I18n({
     contact_support: "Contact Support",
     profile_eula: "EULA",
     eula_title: "End User License Agreement (EULA)",
-    eula_intro: "By using Proot!, you agree to the following terms:",
+    eula_intro: "By using Proot !, you agree to the following terms:",
     eula_section_1_title: "1. Zero Tolerance Policy",
-    eula_section_1_body: "Proot! has zero tolerance for objectionable content, including harassment, hate speech, threats, sexual exploitation, and explicit imagery.",
+    eula_section_1_body: "Proot ! has zero tolerance for objectionable content, including harassment, hate speech, threats, sexual exploitation, and explicit imagery.",
     eula_section_2_title: "2. Abusive Behavior",
     eula_section_2_body: "Users who engage in abusive behavior may be suspended or permanently removed from the platform.",
     eula_section_3_title: "3. Content Moderation & Removal",
     eula_section_3_body: "The developer reserves the right to remove content and/or restrict accounts within 24 hours after a valid report is received.",
     eula_section_4_title: "4. Reporting and Blocking Abusive Users",
-    eula_section_4_body: "Proot! provides simple and immediate tools to handle objectionable content and abusive behavior.\n\nTo block a user: from your friend list, simply swipe left on the contact's name and confirm the action. This will instantly stop all acoustic signals and messages from that user.\n\nTo report content: in the ephemeral chat, perform a long-press on any message. A menu will appear allowing you to flag the content to our moderation team.\n\nAll reports are reviewed by the Proot! team within 24 hours. Abusive users will be permanently removed from the platform.",
+    eula_section_4_body: "Proot ! provides simple and immediate tools to handle objectionable content and abusive behavior.\n\nTo block a user: from your friend list, simply swipe left on the contact's name and confirm the action. This will instantly stop all acoustic signals and messages from that user.\n\nTo report content: in the ephemeral chat, perform a long-press on any message. A menu will appear allowing you to flag the content to our moderation team.\n\nAll reports are reviewed by the Proot ! team within 24 hours. Abusive users will be permanently removed from the platform.",
     eula_section_5_title: "5. Contact",
     eula_section_5_body: "For any report, question, or abuse, you can reach us at any time at the following address:\nhello@prootapp.com\n\nWe are committed to responding within 24 hours of receiving a valid report.",
     eula_accept_checkbox: "I agree to the EULA and the zero tolerance policy against objectionable content and abusive users",
     eula_accept_button: "I Accept and Continue",
     privacy_policy: "Privacy Policy",
     privacy_policy_title: "Privacy Policy",
-    privacy_policy_app_title: "Privacy Policy of the Proot! application",
+    privacy_policy_app_title: "Privacy Policy of the Proot ! application",
     privacy_policy_last_update: "Last updated: December 8, 2025",
-    privacy_policy_intro: "Welcome to Proot! (hereinafter \"the Application\"). We take the privacy of your data very seriously. This policy describes what data we collect, how we use it, and what your rights are, in compliance with the General Data Protection Regulation (GDPR).",
+    privacy_policy_intro: "Welcome to Proot ! (hereinafter \"the Application\"). We take the privacy of your data very seriously. This policy describes what data we collect, how we use it, and what your rights are, in compliance with the General Data Protection Regulation (GDPR).",
     privacy_policy_section1_title: "1. Data Controller",
-    privacy_policy_section1_content: "The Application is published by The Proot! Corporation (hereinafter \"We\"). For any questions regarding your data, you can contact us at: hello@prootapp.com",
+    privacy_policy_section1_content: "The Application is published by The Proot ! Corporation (hereinafter \"We\"). For any questions regarding your data, you can contact us at: hello@prootapp.com",
     privacy_policy_section2_title: "2. Data We Collect",
     privacy_policy_section2_intro: "We collect only the data strictly necessary for the operation of the sound notification service between friends.",
     privacy_policy_section2a_title: "A. Data You Provide",
@@ -832,9 +837,9 @@ const i18n = new I18n({
     privacy_policy_section2b_title: "B. Automatically Collected Data",
     privacy_policy_section2b_content: "- Device ID and Push Notification Token: Necessary to route sound notifications to your phone via Apple (APNs) and Google (FCM) services.\n- Technical Data: Phone model, operating system version (iOS/Android) for technical debugging.",
     privacy_policy_section2c_title: "C. Contact Access (Address Book)",
-    privacy_policy_section2c_content: "The Application requests permission to access your phone contacts.\n- Purpose: This access is used solely to check if your contacts already use the \"Proot!\" Application to automatically add them to your friends list.\n- Privacy: We do not store your complete address book on our servers. We send phone numbers securely (hashed or encrypted in transit) to perform a comparison (\"matching\") with our user database, then the result is returned. Contacts who do not use the application are neither contacted nor recorded.",
+    privacy_policy_section2c_content: "The Application requests permission to access your phone contacts.\n- Purpose: This access is used solely to check if your contacts already use the \"Proot !\" Application to automatically add them to your friends list.\n- Privacy: We do not store your complete address book on our servers. We send phone numbers securely (hashed or encrypted in transit) to perform a comparison (\"matching\") with our user database, then the result is returned. Contacts who do not use the application are neither contacted nor recorded.",
     privacy_policy_section3_title: "3. How We Use Your Data",
-    privacy_policy_section3_content: "Your data is used exclusively for:\n- Logging in: Management of your secure account via Supabase.\n- The \"Proot!\" service: Sending and receiving instant sound notifications.\n- Matching: Allowing you to find your friends and be found.\n- Support: Responding to your requests via email.\nWe never sell, rent, or share your personal data with third parties for commercial or advertising purposes.",
+    privacy_policy_section3_content: "Your data is used exclusively for:\n- Logging in: Management of your secure account via Supabase.\n- The \"Proot !\" service: Sending and receiving instant sound notifications.\n- Matching: Allowing you to find your friends and be found.\n- Support: Responding to your requests via email.\nWe never sell, rent, or share your personal data with third parties for commercial or advertising purposes.",
     privacy_policy_section4_title: "4. Sharing and Subcontractors",
     privacy_policy_section4_content: "To operate the Application, we use trusted third-party services. Your data may transit through their servers:\n- Supabase (Database & Auth): Secure hosting of user accounts.\n- Expo (Mobile Infrastructure): Technical service for sending Push notifications.\n- Google Firebase (FCM): Routing notifications on Android.\n- Apple (APNs): Routing notifications on iOS.\n- Render: Hosting of our backend server.\nThese providers are subject to strict security and confidentiality obligations.",
     privacy_policy_section5_title: "5. Data Deletion and Your Rights",
@@ -875,6 +880,9 @@ const i18n = new I18n({
 
     // Tuto
     tuto_header: "How it works?",
+    tuto_list_title: "Friends list",
+    tuto_menu_title: "Menu",
+    tuto_chat_title: "Chat",
     tuto_notif_title: "No notifications?",
     tuto_notif_desc: "Check that app notifications are allowed in system settings.",
     tuto_sound_title: "No sound?",
@@ -891,17 +899,19 @@ const i18n = new I18n({
     tuto_4_desc: "By swiping left on a contact's name, you can block them.",
 
     // Onboarding
-    onboarding_welcome_title: "Proot!",
+    onboarding_welcome_title: "Proot !",
     onboarding_welcome_subtitle: "Say hello... differently!",
     onboarding_welcome_desc: "",
-    onboarding_notifications_title: "The Heart of Proot!",
-    onboarding_notifications_desc: "The whole point of communicating with your friends on Proot! is the notifications. Please accept them to play the game!",
+    onboarding_notifications_title: "The Heart of Proot !",
+    onboarding_notifications_desc: "The whole point of communicating with your friends on Proot ! is the notifications. Please accept them to play the game!",
     onboarding_sound_title: "Turn up the volume",
     onboarding_sound_desc: "Make sure you have sound enabled (and not on silent) to enjoy the melody.",
     onboarding_gesture_title: "Your turn",
     onboarding_gesture_desc: "Once you have a friend, simply swipe right on their name to send them a notification. Guaranteed surprise!",
     onboarding_message_title: "Ephemeral messages",
     onboarding_message_desc: "Tap your friend's name to add a message with the ephemeral chat!",
+    onboarding_specific_sound_title: "Specific sound",
+    onboarding_specific_sound_desc: "Long-press your friend's button to choose a specific sound to send.",
     sticky_chat_with: "Chat 👻 with %{pseudo}",
     message_read: "Read",
     onboarding_skip: "Skip",
@@ -921,9 +931,9 @@ const i18n = new I18n({
     // Footer & Help
     footer_help_text: "Swipe right to send a random notification\nTap to open the chat\nLong-press to choose a sound to send!",
     footer_sound_category_info: "Notification sounds will be randomly chosen from your selected sound wave category!",
-    friendlist_onboarding_swipe: "Swipe a friend's name to the right to send a notification.",
-    friendlist_onboarding_tap: "Tap a friend's name to open the ephemeral chat.",
-    friendlist_onboarding_long_press: "Long-press to choose a specific sound to send.",
+    friendlist_onboarding_swipe: "Swipe to send a notification.",
+    friendlist_onboarding_tap: "Tap to open the chat.",
+    friendlist_onboarding_long_press: "Long-press to choose the sound.",
     friendlist_onboarding_swipe_left_block: "Swipe left on a contact to block them instantly.",
     friendlist_onboarding_soundcheck: "Explore your sound library",
     friendlist_onboarding_soundcheck_in: "Explore your sound library in",
@@ -1048,7 +1058,7 @@ const i18n = new I18n({
     phone_helper: "Allows your friends to find you more easily.",
     cancel_and_logout: "Cancel and log out",
     complete_profile_title: "Final setup",
-    complete_profile_subtitle: "Your account is active, but your Proot! profile is missing. Choose a username to (re)create it.",
+    complete_profile_subtitle: "Your account is active, but your Proot ! profile is missing. Choose a username to (re)create it.",
     complete_profile_pseudo_placeholder: "Your username *",
     complete_profile_saving: "Saving...",
     complete_profile_cta: "Let's go!",
@@ -1095,8 +1105,8 @@ const i18n = new I18n({
     already_have_account: "I already have an account (Email)",
 
     // Invitation Share
-    invite_message_with_pseudo: "Join me on \"Proot!\", my username is %{pseudo}",
-    invite_message: "Join me on \"Proot!\"",
+    invite_message_with_pseudo: "Join me on \"Proot !\", my username is %{pseudo}",
+    invite_message: "Join me on \"Proot !\"",
 
     // Login
     session_invalid: "Invalid session after login",
@@ -1118,15 +1128,15 @@ const i18n = new I18n({
     permission_denied_title: "Permission denied",
     permission_denied_body: "Push notifications require notification permission. You can enable it later in settings.",
     notification_permission_title: "Notification Authorization",
-    notification_permission_message: "Proot! is a notification app. To receive and send notifications to your friends, you must authorize notifications.",
+    notification_permission_message: "Proot ! is a notification app. To receive and send notifications to your friends, you must authorize notifications.",
     accept_notifications_message: "Accept notifications to play the game! 😊",
     authorize_notifications: "Authorize notifications",
 
     // Contact Permission
     contact_permission_title: "It stays with us!",
-    contact_permission_message: "To automatically identify friends already using Proot!, the app needs to upload phone numbers from your contacts to our secure servers.\n\nThis is optional: You can still add friends manually by their username later.",
+    contact_permission_message: "To automatically identify friends already using Proot !, the app needs to upload phone numbers from your contacts to our secure servers.\n\nThis is optional: You can still add friends manually by their username later.",
     contact_consent_title: "Contacts: use and sharing",
-    contact_consent_message: "To automatically identify friends already using Proot!, the app needs to upload phone numbers from your contacts to our secure servers.\n\nThis is optional: You can still add friends manually by their username later.",
+    contact_consent_message: "To automatically identify friends already using Proot !, the app needs to upload phone numbers from your contacts to our secure servers.\n\nThis is optional: You can still add friends manually by their username later.",
     refuse: "Refuse",
     next: "Next",
 
@@ -1150,7 +1160,7 @@ const i18n = new I18n({
     confirm: "Confirmar",
     info: "Información",
 
-    // Proot! Names
+    // Proot ! Names
     prout_names: {
       prout1: "La Pequeña Ráfaga",
       prout2: "El Crepitante",
@@ -1230,7 +1240,7 @@ const i18n = new I18n({
     password_label: "Contraseña",
 
     // Home & Navigation
-    share_message: "Únete a mí en la app \"Proot!\", mi usuario es %{pseudo}: http://prootapp.com",
+    share_message: "Únete a mí en la app \"Proot !\", mi usuario es %{pseudo}: http://prootapp.com",
     tab_list: "Amigos",
 
     // Friends List
@@ -1269,7 +1279,7 @@ const i18n = new I18n({
     report_submit_success_body: "Gracias. Este reporte será revisado por nuestro equipo en un plazo de 24 horas.",
     real_name: "Nombre real",
 
-    // Actions Proot!
+    // Actions Proot !
     zen_mode_active_me_title: "Modo Zen Activo 🧘‍♂️",
     zen_mode_active_me_body: "No puedes enviar notificaciones en modo Zen. Desactívalo en tu perfil para reanudar las hostilidades.",
     zen_mode_active_friend_title: "¡Chis! 🤫",
@@ -1315,7 +1325,7 @@ const i18n = new I18n({
     soundcheck_subtitle_explore_library: "Explora tu biblioteca de sonidos",
     soundcheck_bzzz_description: "Sonidos digitales",
     soundcheck_trll_description: "Sonidos de pájaros",
-    soundcheck_prrt_description: "Sonidos clasicos de Proot!",
+    soundcheck_prrt_description: "Sonidos clasicos de Proot !",
     more_sounds_coming: "Más sonidos próximamente… 🎵",
     soundcheck_subtitle_tweet: "para cantar",
     soundcheck_subtitle_mood: "para quedarse en el matiz",
@@ -1371,24 +1381,24 @@ const i18n = new I18n({
     contact_support: "Contactar soporte",
     profile_eula: "EULA",
     eula_title: "Acuerdo de licencia de usuario final (EULA)",
-    eula_intro: "Al usar Proot!, aceptas los siguientes términos:",
+    eula_intro: "Al usar Proot !, aceptas los siguientes términos:",
     eula_section_1_title: "1. Política de tolerancia cero",
-    eula_section_1_body: "Proot! tiene tolerancia cero frente al contenido objetable, incluido el acoso, los discursos de odio, las amenazas, la explotación sexual y las imágenes explícitas.",
+    eula_section_1_body: "Proot ! tiene tolerancia cero frente al contenido objetable, incluido el acoso, los discursos de odio, las amenazas, la explotación sexual y las imágenes explícitas.",
     eula_section_2_title: "2. Comportamiento abusivo",
     eula_section_2_body: "Los usuarios que incurran en comportamiento abusivo pueden ser suspendidos o eliminados permanentemente de la plataforma.",
     eula_section_3_title: "3. Moderación y retirada de contenido",
     eula_section_3_body: "El desarrollador se reserva el derecho de eliminar contenido y/o restringir cuentas dentro de las 24 horas posteriores a la recepción de un reporte válido.",
     eula_section_4_title: "4. Denuncia y bloqueo de usuarios abusivos",
-    eula_section_4_body: "Proot! ofrece herramientas simples e inmediatas para gestionar contenido objetable y comportamientos abusivos.\n\nPara bloquear a un usuario: desde tu lista de amigos, desliza el nombre del contacto hacia la izquierda y confirma la acción. Esto detendrá al instante todas las señales acústicas y mensajes de ese usuario.\n\nPara reportar contenido: en el chat efímero, mantén pulsado cualquier mensaje. Aparecerá un menú que te permitirá marcar el contenido para nuestro equipo de moderación.\n\nTodos los reportes son revisados por el equipo de Proot! en un plazo de 24 horas. Los usuarios abusivos serán eliminados permanentemente de la plataforma.",
+    eula_section_4_body: "Proot ! ofrece herramientas simples e inmediatas para gestionar contenido objetable y comportamientos abusivos.\n\nPara bloquear a un usuario: desde tu lista de amigos, desliza el nombre del contacto hacia la izquierda y confirma la acción. Esto detendrá al instante todas las señales acústicas y mensajes de ese usuario.\n\nPara reportar contenido: en el chat efímero, mantén pulsado cualquier mensaje. Aparecerá un menú que te permitirá marcar el contenido para nuestro equipo de moderación.\n\nTodos los reportes son revisados por el equipo de Proot ! en un plazo de 24 horas. Los usuarios abusivos serán eliminados permanentemente de la plataforma.",
     eula_accept_checkbox: "Acepto el EULA y la política de tolerancia cero frente al contenido objetable y los usuarios abusivos",
     eula_accept_button: "Acepto y continúo",
     privacy_policy: "Política de privacidad",
     privacy_policy_title: "Política de Privacidad",
-    privacy_policy_app_title: "Política de Privacidad de la aplicación Proot!",
+    privacy_policy_app_title: "Política de Privacidad de la aplicación Proot !",
     privacy_policy_last_update: "Última actualización: 8 de Diciembre de 2025",
-    privacy_policy_intro: "Bienvenido a Proot! (en adelante \"la Aplicación\"). Nos tomamos muy en serio la privacidad de tus datos. Esta política describe qué datos recopilamos, cómo los utilizamos y cuáles son tus derechos, en cumplimiento del Reglamento General de Protección de Datos (RGPD).",
+    privacy_policy_intro: "Bienvenido a Proot ! (en adelante \"la Aplicación\"). Nos tomamos muy en serio la privacidad de tus datos. Esta política describe qué datos recopilamos, cómo los utilizamos y cuáles son tus derechos, en cumplimiento del Reglamento General de Protección de Datos (RGPD).",
     privacy_policy_section1_title: "1. Responsable del tratamiento",
-    privacy_policy_section1_content: "La Aplicación es editada por The Proot! Corporation (en adelante \"Nosotros\"). Para cualquier pregunta relacionada con tus datos, puedes contactarnos en: hello@prootapp.com",
+    privacy_policy_section1_content: "La Aplicación es editada por The Proot ! Corporation (en adelante \"Nosotros\"). Para cualquier pregunta relacionada con tus datos, puedes contactarnos en: hello@prootapp.com",
     privacy_policy_section2_title: "2. Los datos que recopilamos",
     privacy_policy_section2_intro: "Recopilamos únicamente los datos estrictamente necesarios para el funcionamiento del servicio de envío de notificaciones sonoras entre amigos.",
     privacy_policy_section2a_title: "A. Datos que nos proporcionas",
@@ -1396,9 +1406,9 @@ const i18n = new I18n({
     privacy_policy_section2b_title: "B. Datos recopilados automáticamente",
     privacy_policy_section2b_content: "- Identificador del dispositivo (Device ID) y Token de Notificación (Push Token): Necesarios para enrutar las notificaciones sonoras a tu teléfono a través de los servicios de Apple (APNs) y Google (FCM).\n- Datos técnicos: Modelo de teléfono, versión del sistema operativo (iOS/Android) para depuración técnica.",
     privacy_policy_section2c_title: "C. Acceso a Contactos (Libreta de direcciones)",
-    privacy_policy_section2c_content: "La Aplicación solicita permiso para acceder a tus contactos telefónicos.\n- Propósito: Este acceso se utiliza únicamente para verificar si tus contactos ya utilizan la Aplicación \"Proot!\" para agregarlos automáticamente a tu lista de amigos.\n- Privacidad: No almacenamos tu libreta de direcciones completa en nuestros servidores. Enviamos los números de teléfono de forma segura (hasheados o cifrados durante el tránsito) para realizar una comparación (\"matching\") con nuestra base de datos de usuarios, luego se devuelve el resultado. Los contactos que no utilizan la aplicación no son contactados ni registrados.",
+    privacy_policy_section2c_content: "La Aplicación solicita permiso para acceder a tus contactos telefónicos.\n- Propósito: Este acceso se utiliza únicamente para verificar si tus contactos ya utilizan la Aplicación \"Proot !\" para agregarlos automáticamente a tu lista de amigos.\n- Privacidad: No almacenamos tu libreta de direcciones completa en nuestros servidores. Enviamos los números de teléfono de forma segura (hasheados o cifrados durante el tránsito) para realizar una comparación (\"matching\") con nuestra base de datos de usuarios, luego se devuelve el resultado. Los contactos que no utilizan la aplicación no son contactados ni registrados.",
     privacy_policy_section3_title: "3. Cómo utilizamos tus datos",
-    privacy_policy_section3_content: "Tus datos se utilizan exclusivamente para:\n- Iniciar sesión: Gestión de tu cuenta segura a través de Supabase.\n- El servicio \"Proot!\": Enviar y recibir notificaciones sonoras instantáneas.\n- La conexión: Permitirte encontrar a tus amigos y ser encontrado.\n- El soporte: Responder a tus solicitudes por correo electrónico.\nNunca vendemos, alquilamos ni compartimos tus datos personales con terceros con fines comerciales o publicitarios.",
+    privacy_policy_section3_content: "Tus datos se utilizan exclusivamente para:\n- Iniciar sesión: Gestión de tu cuenta segura a través de Supabase.\n- El servicio \"Proot !\": Enviar y recibir notificaciones sonoras instantáneas.\n- La conexión: Permitirte encontrar a tus amigos y ser encontrado.\n- El soporte: Responder a tus solicitudes por correo electrónico.\nNunca vendemos, alquilamos ni compartimos tus datos personales con terceros con fines comerciales o publicitarios.",
     privacy_policy_section4_title: "4. Compartir y Subcontratistas",
     privacy_policy_section4_content: "Para hacer funcionar la Aplicación, utilizamos servicios de terceros de confianza. Tus datos pueden transitar por sus servidores:\n- Supabase (Base de datos y Auth): Alojamiento seguro de cuentas de usuario.\n- Expo (Infraestructura móvil): Servicio técnico para el envío de notificaciones Push.\n- Google Firebase (FCM): Enrutamiento de notificaciones en Android.\n- Apple (APNs): Enrutamiento de notificaciones en iOS.\n- Render: Alojamiento de nuestro servidor backend.\nEstos proveedores están sujetos a obligaciones estrictas de seguridad y confidencialidad.",
     privacy_policy_section5_title: "5. Eliminación de datos y Tus Derechos",
@@ -1439,6 +1449,9 @@ const i18n = new I18n({
 
     // Tuto
     tuto_header: "¿Cómo funciona?",
+    tuto_list_title: "Lista de amigos",
+    tuto_menu_title: "Menú",
+    tuto_chat_title: "Chat",
     tuto_notif_title: "¿No hay notificaciones?",
     tuto_notif_desc: "Verifica que las notificaciones de la app estén permitidas en la configuración de tu teléfono.",
     tuto_sound_title: "¿No hay sonido?",
@@ -1455,17 +1468,19 @@ const i18n = new I18n({
     tuto_4_desc: "Al deslizar hacia la izquierda el nombre de un contacto, puedes bloquearlo.",
 
     // Onboarding
-    onboarding_welcome_title: "Proot!",
+    onboarding_welcome_title: "Proot !",
     onboarding_welcome_subtitle: "Di hola... ¡de otra manera!",
     onboarding_welcome_desc: "",
-    onboarding_notifications_title: "El corazón del Proot!",
-    onboarding_notifications_desc: "Todo el interés de comunicarse con tus amigos en Proot! son las notificaciones. ¡Acéptalas para jugar!",
+    onboarding_notifications_title: "El corazón del Proot !",
+    onboarding_notifications_desc: "Todo el interés de comunicarse con tus amigos en Proot ! son las notificaciones. ¡Acéptalas para jugar!",
     onboarding_sound_title: "Sube el volumen",
     onboarding_sound_desc: "Asegúrate de tener el sonido activado (y no en silencioso) para disfrutar de la melodía.",
     onboarding_gesture_title: "A ti te toca",
     onboarding_gesture_desc: "Una vez que tengas un amigo, simplemente desliza hacia la derecha sobre su nombre para enviarle una notificación. ¡Sorpresa garantizada!",
     onboarding_message_title: "Mensajes efímeros",
     onboarding_message_desc: "Toca el nombre de tu amigo para añadir un mensaje con el chat efímero.",
+    onboarding_specific_sound_title: "Sonido específico",
+    onboarding_specific_sound_desc: "Mantén pulsado el botón de tu amigo para elegir un sonido específico para enviar.",
     sticky_chat_with: "Chat 👻 con %{pseudo}",
     message_read: "Leído",
     onboarding_skip: "Omitir",
@@ -1485,9 +1500,9 @@ const i18n = new I18n({
     // Footer & Help
     footer_help_text: "Desliza hacia la derecha para enviar una notificación aleatoria\nToca para abrir el chat\nMantén pulsado para elegir un sonido para enviar.",
     footer_sound_category_info: "El sonido de las notificaciones se elegirá aleatoriamente entre la categoría de onda sonora seleccionada.",
-    friendlist_onboarding_swipe: "Desliza el nombre de un amigo hacia la derecha para enviar una notificación.",
-    friendlist_onboarding_tap: "Toca el nombre de un amigo para abrir el chat efímero.",
-    friendlist_onboarding_long_press: "Mantén pulsado para elegir un sonido específico para enviar.",
+    friendlist_onboarding_swipe: "Desliza para enviar una notificación.",
+    friendlist_onboarding_tap: "Toca para abrir el chat.",
+    friendlist_onboarding_long_press: "Mantén pulsado para elegir el sonido.",
     friendlist_onboarding_swipe_left_block: "Desliza hacia la izquierda para bloquear a un contacto abusivo.",
     friendlist_onboarding_soundcheck: "Explora tu biblioteca de sonidos",
     friendlist_onboarding_soundcheck_in: "Explora tu biblioteca de sonidos en",
@@ -1612,7 +1627,7 @@ const i18n = new I18n({
     phone_helper: "Permite que tus amigos te encuentren más fácilmente.",
     cancel_and_logout: "Cancelar y cerrar sesión",
     complete_profile_title: "Finalización",
-    complete_profile_subtitle: "Tu cuenta está activa, pero falta tu perfil de Proot!. Elige un nombre de usuario para (re)crearlo.",
+    complete_profile_subtitle: "Tu cuenta está activa, pero falta tu perfil de Proot !. Elige un nombre de usuario para (re)crearlo.",
     complete_profile_pseudo_placeholder: "Tu nombre de usuario *",
     complete_profile_saving: "Guardando...",
     complete_profile_cta: "¡Vamos!",
@@ -1661,8 +1676,8 @@ const i18n = new I18n({
     already_have_account: "Ya tengo una cuenta (Email)",
 
     // Invitation Share
-    invite_message_with_pseudo: "Únete a mí en \"Proot!\", mi nombre de usuario es %{pseudo}",
-    invite_message: "Únete a mí en \"Proot!\"",
+    invite_message_with_pseudo: "Únete a mí en \"Proot !\", mi nombre de usuario es %{pseudo}",
+    invite_message: "Únete a mí en \"Proot !\"",
 
     // Login
     session_invalid: "Sesión inválida después del inicio de sesión",
@@ -1684,15 +1699,15 @@ const i18n = new I18n({
     permission_denied_title: "Permiso denegado",
     permission_denied_body: "Las notificaciones push requieren permiso de notificaciones. Puedes activarlo más tarde en la configuración.",
     notification_permission_title: "Autorización de notificaciones",
-    notification_permission_message: "Proot! es una aplicación de notificaciones. Para recibir y enviar notificaciones a tus amigos, debes autorizar las notificaciones.",
+    notification_permission_message: "Proot ! es una aplicación de notificaciones. Para recibir y enviar notificaciones a tus amigos, debes autorizar las notificaciones.",
     accept_notifications_message: "¡Acepta las notificaciones para jugar! 😊",
     authorize_notifications: "Autorizar notificaciones",
 
     // Contact Permission
     contact_permission_title: "¡Se queda con nosotros!",
-    contact_permission_message: "Para identificar automáticamente a los amigos que ya usan Proot!, la app debe subir los números de tus contactos a nuestros servidores seguros.\n\nEs opcional: podrás seguir añadiendo amigos manualmente por su nombre de usuario más tarde.",
+    contact_permission_message: "Para identificar automáticamente a los amigos que ya usan Proot !, la app debe subir los números de tus contactos a nuestros servidores seguros.\n\nEs opcional: podrás seguir añadiendo amigos manualmente por su nombre de usuario más tarde.",
     contact_consent_title: "Contactos: uso y compartir",
-    contact_consent_message: "Para identificar automáticamente a los amigos que ya usan Proot!, la app debe subir los números de tus contactos a nuestros servidores seguros.\n\nEs opcional: podrás seguir añadiendo amigos manualmente por su nombre de usuario más tarde.",
+    contact_consent_message: "Para identificar automáticamente a los amigos que ya usan Proot !, la app debe subir los números de tus contactos a nuestros servidores seguros.\n\nEs opcional: podrás seguir añadiendo amigos manualmente por su nombre de usuario más tarde.",
     refuse: "Rechazar",
     next: "Siguiente",
 
@@ -1716,7 +1731,7 @@ const i18n = new I18n({
     confirm: "Confirmar",
     info: "Informação",
 
-    // Proot! Names (Zueira mode)
+    // Proot ! Names (Zueira mode)
     prout_names: {
       prout1: "A Brisa Leve",
       prout2: "O Pipoco",
@@ -1796,7 +1811,7 @@ const i18n = new I18n({
     password_label: "Senha",
 
     // Home & Navigation
-    share_message: "Vem para o app \"Proot!\", meu usuário é %{pseudo}: http://prootapp.com",
+    share_message: "Vem para o app \"Proot !\", meu usuário é %{pseudo}: http://prootapp.com",
     tab_list: "Amigos",
 
     // Friends List
@@ -1835,7 +1850,7 @@ const i18n = new I18n({
     report_submit_success_body: "Obrigado. Esta denúncia será analisada pela nossa equipe em até 24 horas.",
     real_name: "Nome real",
 
-    // Actions Proot!
+    // Actions Proot !
     zen_mode_active_me_title: "Modo Zen Ativo 🧘‍♂️",
     zen_mode_active_me_body: "Sem peidos no modo Zen. Desative no perfil pra voltar à guerra.",
     zen_mode_active_friend_title: "Xiu! 🤫",
@@ -1934,24 +1949,24 @@ const i18n = new I18n({
     contact_support: "Falar com suporte",
     profile_eula: "EULA",
     eula_title: "Contrato de Licença do Usuário Final (EULA)",
-    eula_intro: "Ao usar o Proot!, você concorda com os seguintes termos:",
+    eula_intro: "Ao usar o Proot !, você concorda com os seguintes termos:",
     eula_section_1_title: "1. Política de Tolerância Zero",
-    eula_section_1_body: "O Proot! tem tolerância zero para conteúdos impróprios, incluindo assédio, discurso de ódio, ameaças, exploração sexual e imagens explícitas.",
+    eula_section_1_body: "O Proot ! tem tolerância zero para conteúdos impróprios, incluindo assédio, discurso de ódio, ameaças, exploração sexual e imagens explícitas.",
     eula_section_2_title: "2. Comportamento Abusivo",
     eula_section_2_body: "Usuários que adotarem comportamento abusivo podem ser suspensos ou removidos permanentemente da plataforma.",
     eula_section_3_title: "3. Moderação e Remoção de Conteúdo",
     eula_section_3_body: "O desenvolvedor se reserva o direito de remover conteúdo e/ou restringir contas em até 24 horas após o recebimento de uma denúncia válida.",
     eula_section_4_title: "4. Denunciar e bloquear usuários abusivos",
-    eula_section_4_body: "O Proot! oferece ferramentas simples e imediatas para lidar com conteúdo impróprio e comportamento abusivo.\n\nPara bloquear um usuário: na sua lista de amigos, deslize o nome do contato para a esquerda e confirme a ação. Isso interrompe imediatamente todos os sinais acústicos e mensagens vindos desse usuário.\n\nPara denunciar conteúdo: no chat efêmero, faça um toque longo em qualquer mensagem. Um menu permitirá que você marque o conteúdo para nossa equipe de moderação.\n\nTodas as denúncias são analisadas pela equipe Proot! em até 24 horas. Usuários abusivos serão removidos permanentemente da plataforma.",
+    eula_section_4_body: "O Proot ! oferece ferramentas simples e imediatas para lidar com conteúdo impróprio e comportamento abusivo.\n\nPara bloquear um usuário: na sua lista de amigos, deslize o nome do contato para a esquerda e confirme a ação. Isso interrompe imediatamente todos os sinais acústicos e mensagens vindos desse usuário.\n\nPara denunciar conteúdo: no chat efêmero, faça um toque longo em qualquer mensagem. Um menu permitirá que você marque o conteúdo para nossa equipe de moderação.\n\nTodas as denúncias são analisadas pela equipe Proot ! em até 24 horas. Usuários abusivos serão removidos permanentemente da plataforma.",
     eula_accept_checkbox: "Aceito o EULA e a política de tolerância zero contra conteúdo impróprio e usuários abusivos",
     eula_accept_button: "Aceito e continuo",
     privacy_policy: "Política de Privacidade",
     privacy_policy_title: "Política de Privacidade",
-    privacy_policy_app_title: "Política de Privacidade do Proot!",
+    privacy_policy_app_title: "Política de Privacidade do Proot !",
     privacy_policy_last_update: "Última atualização: 8 de Dezembro de 2025",
-    privacy_policy_intro: "Bem-vindo ao Proot!. Levamos seus dados a sério. Aqui tá explicado o que a gente pega e o que faz com isso.",
+    privacy_policy_intro: "Bem-vindo ao Proot !. Levamos seus dados a sério. Aqui tá explicado o que a gente pega e o que faz com isso.",
     privacy_policy_section1_title: "1. Quem manda",
-    privacy_policy_section1_content: "App feito pela The Proot! Corporation. Dúvidas? Manda email: hello@prootapp.com",
+    privacy_policy_section1_content: "App feito pela The Proot ! Corporation. Dúvidas? Manda email: hello@prootapp.com",
     privacy_policy_section2_title: "2. O que a gente pega",
     privacy_policy_section2_intro: "Só o básico pra funcionar.",
     privacy_policy_section2a_title: "A. Dados que você dá",
@@ -2002,11 +2017,14 @@ const i18n = new I18n({
 
     // Tuto
     tuto_header: "Como funciona?",
+    tuto_list_title: "Lista de amigos",
+    tuto_menu_title: "Menu",
+    tuto_chat_title: "Chat",
     tuto_notif_title: "Sem notificação?",
     tuto_notif_desc: "Vê se tá liberado nas configurações.",
     tuto_sound_title: "Sem som?",
     tuto_sound_desc: "Vê se não tá no mudo.",
-    tuto_1_title: "Mandar um Proot!",
+    tuto_1_title: "Mandar um Proot !",
     tuto_1_desc: "Arrasta o nome do amigo pra direita! É surpresa, nunca se sabe o que vem!",
     tuto_2_title: "Mensagens efêmeras",
     tuto_2_desc: "Clica no nome do amigo pra mandar um recado no chat efêmero!",
@@ -2018,17 +2036,19 @@ const i18n = new I18n({
     tuto_4_desc: "Ao deslizar para a esquerda no nome de um contato, você pode bloqueá-lo.",
 
     // Onboarding
-    onboarding_welcome_title: "Proot!",
+    onboarding_welcome_title: "Proot !",
     onboarding_welcome_subtitle: "Diga olá... de forma diferente!",
     onboarding_welcome_desc: "",
-    onboarding_notifications_title: "O coração do Proot!",
-    onboarding_notifications_desc: "Todo o interesse de se comunicar com seus amigos no Proot! são as notificações. Aceite-as para jogar!",
+    onboarding_notifications_title: "O coração do Proot !",
+    onboarding_notifications_desc: "Todo o interesse de se comunicar com seus amigos no Proot ! são as notificações. Aceite-as para jogar!",
     onboarding_sound_title: "Aumenta o som",
     onboarding_sound_desc: "Deixa o som ligado pra curtir a melodia.",
     onboarding_gesture_title: "Sua vez",
     onboarding_gesture_desc: "Tem amigo? Arrasta pra direita e manda ver.",
     onboarding_message_title: "Mensagens efêmeras",
     onboarding_message_desc: "Pode mandar recado no chat efêmero clicando no nome!",
+    onboarding_specific_sound_title: "Som específico",
+    onboarding_specific_sound_desc: "Faça um toque longo no botão do seu amigo para escolher um som específico para enviar.",
     sticky_chat_with: "Chat 👻 com %{pseudo}",
     message_read: "Lido",
     onboarding_skip: "Pular",
@@ -2048,9 +2068,9 @@ const i18n = new I18n({
     // Footer & Help
     footer_help_text: "Deslize para a direita para enviar uma notificação aleatória\nToque para abrir o chat\nMantenha pressionado para escolher um som para enviar.",
     footer_sound_category_info: "O som das notificações será escolhido aleatoriamente dentro da categoria de onda sonora selecionada!",
-    friendlist_onboarding_swipe: "Deslize o nome de um amigo para a direita para enviar uma notificação.",
-    friendlist_onboarding_tap: "Toque no nome de um amigo para abrir o chat efêmero.",
-    friendlist_onboarding_long_press: "Faça um toque longo para escolher um som específico para enviar.",
+    friendlist_onboarding_swipe: "Deslize para enviar uma notificação.",
+    friendlist_onboarding_tap: "Toque para abrir o chat.",
+    friendlist_onboarding_long_press: "Faça um toque longo para escolher o som.",
     friendlist_onboarding_swipe_left_block: "Deslize para a esquerda para bloquear um contato abusivo.",
     friendlist_onboarding_soundcheck: "Explore sua biblioteca de sons",
     friendlist_onboarding_soundcheck_in: "Explore sua biblioteca de sons em",
@@ -2175,7 +2195,7 @@ const i18n = new I18n({
     phone_helper: "Pros amigos te acharem.",
     cancel_and_logout: "Cancelar e sair",
     complete_profile_title: "Finalização",
-    complete_profile_subtitle: "Sua conta está ativa, mas seu perfil do Proot! está ausente. Escolha um nome de usuário para (re)criá-lo.",
+    complete_profile_subtitle: "Sua conta está ativa, mas seu perfil do Proot ! está ausente. Escolha um nome de usuário para (re)criá-lo.",
     complete_profile_pseudo_placeholder: "Seu nome de usuário *",
     complete_profile_saving: "Salvando...",
     complete_profile_cta: "Vamos lá!",
@@ -2224,8 +2244,8 @@ const i18n = new I18n({
     already_have_account: "Já tenho conta (Email)",
 
     // Invitation Share
-    invite_message_with_pseudo: "Vem pro \"Proot!\", meu usuário é %{pseudo}",
-    invite_message: "Vem pro \"Proot!\"",
+    invite_message_with_pseudo: "Vem pro \"Proot !\", meu usuário é %{pseudo}",
+    invite_message: "Vem pro \"Proot !\"",
 
     // Login
     session_invalid: "Sessão inválida",
@@ -2247,15 +2267,15 @@ const i18n = new I18n({
     permission_denied_title: "Permissão negada",
     permission_denied_body: "Precisa de permissão de notificação.",
     notification_permission_title: "Autorização de notificações",
-    notification_permission_message: "Proot! é app de notificação. Pra receber e enviar peidos, precisa autorizar.",
+    notification_permission_message: "Proot ! é app de notificação. Pra receber e enviar peidos, precisa autorizar.",
     accept_notifications_message: "Aceita as notificações pra jogar! 😊",
     authorize_notifications: "Autorizar notificações",
 
     // Contact Permission
     contact_permission_title: "Fica só com a gente!",
-    contact_permission_message: "Para identificar automaticamente amigos que já usam o Proot!, o app precisa enviar os números dos seus contatos para nossos servidores seguros.\n\nÉ opcional: você ainda pode adicionar amigos manualmente pelo nome de usuário depois.",
+    contact_permission_message: "Para identificar automaticamente amigos que já usam o Proot !, o app precisa enviar os números dos seus contatos para nossos servidores seguros.\n\nÉ opcional: você ainda pode adicionar amigos manualmente pelo nome de usuário depois.",
     contact_consent_title: "Contatos: uso e compartilhamento",
-    contact_consent_message: "Para identificar automaticamente amigos que já usam o Proot!, o app precisa enviar os números dos seus contatos para nossos servidores seguros.\n\nÉ opcional: você ainda pode adicionar amigos manualmente pelo nome de usuário depois.",
+    contact_consent_message: "Para identificar automaticamente amigos que já usam o Proot !, o app precisa enviar os números dos seus contatos para nossos servidores seguros.\n\nÉ opcional: você ainda pode adicionar amigos manualmente pelo nome de usuário depois.",
     refuse: "Recusar",
     next: "Próximo",
 
@@ -2279,7 +2299,7 @@ const i18n = new I18n({
     confirm: "Bestätigen",
     info: "Information",
 
-    // Proot! Names
+    // Proot ! Names
     prout_names: {
       prout1: "Das kleine Lüftchen",
       prout2: "Der Knusperer",
@@ -2359,7 +2379,7 @@ const i18n = new I18n({
     password_label: "Passwort",
 
     // Home & Navigation
-    share_message: "Komm zu mir in der App \"Proot!\", mein Benutzername ist %{pseudo}: http://prootapp.com",
+    share_message: "Komm zu mir in der App \"Proot !\", mein Benutzername ist %{pseudo}: http://prootapp.com",
     tab_list: "Freunde",
 
     // Friends List
@@ -2398,7 +2418,7 @@ const i18n = new I18n({
     report_submit_success_body: "Danke. Diese Meldung wird innerhalb von 24 Stunden von unserem Team geprüft.",
     real_name: "Echter Name",
 
-    // Actions Proot!
+    // Actions Proot !
     zen_mode_active_me_title: "Zen-Modus aktiv 🧘‍♂️",
     zen_mode_active_me_body: "Keine Fürze im Zen-Modus. Deaktiviere im Profil, um zurück zur Schlacht zu gehen.",
     zen_mode_active_friend_title: "Psst! 🤫",
@@ -2497,24 +2517,24 @@ const i18n = new I18n({
     contact_support: "Support kontaktieren",
     profile_eula: "EULA",
     eula_title: "Endnutzer-Lizenzvereinbarung (EULA)",
-    eula_intro: "Durch die Nutzung von Proot! stimmst du den folgenden Bedingungen zu:",
+    eula_intro: "Durch die Nutzung von Proot ! stimmst du den folgenden Bedingungen zu:",
     eula_section_1_title: "1. Null-Toleranz-Richtlinie",
-    eula_section_1_body: "Proot! verfolgt eine Null-Toleranz-Richtlinie für anstößige Inhalte, einschließlich Belästigung, Hassrede, Drohungen, sexueller Ausbeutung und expliziter Bilder.",
+    eula_section_1_body: "Proot ! verfolgt eine Null-Toleranz-Richtlinie für anstößige Inhalte, einschließlich Belästigung, Hassrede, Drohungen, sexueller Ausbeutung und expliziter Bilder.",
     eula_section_2_title: "2. Missbräuchliches Verhalten",
     eula_section_2_body: "Benutzer mit missbräuchlichem Verhalten können gesperrt oder dauerhaft von der Plattform entfernt werden.",
     eula_section_3_title: "3. Inhaltsmoderation und Entfernung",
     eula_section_3_body: "Der Entwickler behält sich das Recht vor, Inhalte zu entfernen und/oder Konten innerhalb von 24 Stunden nach Eingang einer gültigen Meldung einzuschränken.",
     eula_section_4_title: "4. Melden und Blockieren missbräuchlicher Nutzer",
-    eula_section_4_body: "Proot! stellt einfache und sofortige Werkzeuge zur Verfügung, um anstößige Inhalte und missbräuchliches Verhalten zu behandeln.\n\nSo blockierst du einen Nutzer: Wische in deiner Freundesliste den Namen des Kontakts nach links und bestätige die Aktion. Dadurch werden alle akustischen Signale und Nachrichten dieses Nutzers sofort gestoppt.\n\nSo meldest du Inhalte: Im vergänglichen Chat kannst du eine beliebige Nachricht lange gedrückt halten. Ein Menü erscheint, über das du den Inhalt an unser Moderationsteam melden kannst.\n\nAlle Meldungen werden innerhalb von 24 Stunden vom Proot!-Team geprüft. Missbräuchliche Nutzer werden dauerhaft von der Plattform entfernt.",
+    eula_section_4_body: "Proot ! stellt einfache und sofortige Werkzeuge zur Verfügung, um anstößige Inhalte und missbräuchliches Verhalten zu behandeln.\n\nSo blockierst du einen Nutzer: Wische in deiner Freundesliste den Namen des Kontakts nach links und bestätige die Aktion. Dadurch werden alle akustischen Signale und Nachrichten dieses Nutzers sofort gestoppt.\n\nSo meldest du Inhalte: Im vergänglichen Chat kannst du eine beliebige Nachricht lange gedrückt halten. Ein Menü erscheint, über das du den Inhalt an unser Moderationsteam melden kannst.\n\nAlle Meldungen werden innerhalb von 24 Stunden vom Proot !-Team geprüft. Missbräuchliche Nutzer werden dauerhaft von der Plattform entfernt.",
     eula_accept_checkbox: "Ich akzeptiere die EULA und die Null-Toleranz-Richtlinie gegen anstößige Inhalte und missbräuchliche Nutzer",
     eula_accept_button: "Akzeptieren und fortfahren",
     privacy_policy: "Datenschutzerklärung",
     privacy_policy_title: "Datenschutzerklärung",
-    privacy_policy_app_title: "Datenschutzerklärung von Proot!",
+    privacy_policy_app_title: "Datenschutzerklärung von Proot !",
     privacy_policy_last_update: "Letzte Aktualisierung: 8. Dezember 2025",
-    privacy_policy_intro: "Willkommen bei Proot!. Wir nehmen deine Daten ernst. Hier ist erklärt, was wir sammeln und was wir damit machen.",
+    privacy_policy_intro: "Willkommen bei Proot !. Wir nehmen deine Daten ernst. Hier ist erklärt, was wir sammeln und was wir damit machen.",
     privacy_policy_section1_title: "1. Wer wir sind",
-    privacy_policy_section1_content: "App von The Proot! Corporation. Fragen? E-Mail: hello@prootapp.com",
+    privacy_policy_section1_content: "App von The Proot ! Corporation. Fragen? E-Mail: hello@prootapp.com",
     privacy_policy_section2_title: "2. Was wir sammeln",
     privacy_policy_section2_intro: "Nur das Nötige zum Funktionieren.",
     privacy_policy_section2a_title: "A. Daten, die du gibst",
@@ -2565,11 +2585,14 @@ const i18n = new I18n({
 
     // Tuto
     tuto_header: "Wie funktioniert es?",
+    tuto_list_title: "Freundesliste",
+    tuto_menu_title: "Menü",
+    tuto_chat_title: "Chat",
     tuto_notif_title: "Keine Benachrichtigung?",
     tuto_notif_desc: "Prüfe, ob es in den Einstellungen aktiviert ist.",
     tuto_sound_title: "Kein Ton?",
     tuto_sound_desc: "Prüfe, ob es nicht stummgeschaltet ist.",
-    tuto_1_title: "Einen Proot! senden",
+    tuto_1_title: "Einen Proot ! senden",
     tuto_1_desc: "Ziehe den Namen des Freundes nach rechts! Es ist eine Überraschung, man weiß nie, was kommt!",
     tuto_2_title: "Vergängliche Nachrichten",
     tuto_2_desc: "Klicke auf den Namen des Freundes, um eine Nachricht im vergänglichen Chat zu senden!",
@@ -2581,17 +2604,19 @@ const i18n = new I18n({
     tuto_4_desc: "Wische nach links auf den Namen eines Kontakts, um ihn zu blockieren.",
 
     // Onboarding
-    onboarding_welcome_title: "Proot!",
+    onboarding_welcome_title: "Proot !",
     onboarding_welcome_subtitle: "Sag hallo... anders!",
     onboarding_welcome_desc: "",
-    onboarding_notifications_title: "Das Herz von Proot!",
-    onboarding_notifications_desc: "Der ganze Sinn der Kommunikation mit deinen Freunden auf Proot! sind die Benachrichtigungen. Bitte akzeptiere sie, um das Spiel zu spielen!",
+    onboarding_notifications_title: "Das Herz von Proot !",
+    onboarding_notifications_desc: "Der ganze Sinn der Kommunikation mit deinen Freunden auf Proot ! sind die Benachrichtigungen. Bitte akzeptiere sie, um das Spiel zu spielen!",
     onboarding_sound_title: "Drehe die Lautstärke auf",
     onboarding_sound_desc: "Lass den Ton an, um die Melodie zu genießen.",
     onboarding_gesture_title: "Du bist dran",
     onboarding_gesture_desc: "Hast du einen Freund? Ziehe nach rechts und los geht's.",
     onboarding_message_title: "Vergängliche Nachrichten",
     onboarding_message_desc: "Du kannst eine Nachricht im vergänglichen Chat senden, indem du auf den Namen klickst!",
+    onboarding_specific_sound_title: "Bestimmter Sound",
+    onboarding_specific_sound_desc: "Halte die Taste deines Freundes gedrückt, um einen bestimmten Sound zum Senden auszuwählen.",
     sticky_chat_with: "Chat 👻 mit %{pseudo}",
     message_read: "Gelesen",
     onboarding_skip: "Überspringen",
@@ -2611,9 +2636,9 @@ const i18n = new I18n({
     // Footer & Help
     footer_help_text: "Nach rechts wischen, um eine zufällige Benachrichtigung zu senden\nTippen, um den Chat zu öffnen\nLange drücken, um einen Sound zum Senden auszuwählen!",
     footer_sound_category_info: "Der Benachrichtigungston wird zufällig aus der ausgewählten Schallwellen-Kategorie gewählt!",
-    friendlist_onboarding_swipe: "Wische den Namen eines Freundes nach rechts, um eine Benachrichtigung zu senden.",
-    friendlist_onboarding_tap: "Tippe auf den Namen eines Freundes, um den ephemeren Chat zu öffnen.",
-    friendlist_onboarding_long_press: "Halte lange gedrückt, um einen bestimmten Sound zum Senden auszuwählen.",
+    friendlist_onboarding_swipe: "Wische, um eine Benachrichtigung zu senden.",
+    friendlist_onboarding_tap: "Tippe, um den Chat zu öffnen.",
+    friendlist_onboarding_long_press: "Halte lange gedrückt, um den Sound zu wählen.",
     friendlist_onboarding_swipe_left_block: "Wische nach links, um einen missbräuchlichen Kontakt zu blockieren.",
     friendlist_onboarding_soundcheck: "Erkunde deine Sound-Bibliothek",
     friendlist_onboarding_soundcheck_in: "Erkunde deine Sound-Bibliothek in",
@@ -2738,7 +2763,7 @@ const i18n = new I18n({
     phone_helper: "Damit Freunde dich finden.",
     cancel_and_logout: "Abbrechen und abmelden",
     complete_profile_title: "Abschluss",
-    complete_profile_subtitle: "Dein Konto ist aktiv, aber dein Proot!-Profil fehlt. Wähle einen Benutzernamen, um es (neu) zu erstellen.",
+    complete_profile_subtitle: "Dein Konto ist aktiv, aber dein Proot !-Profil fehlt. Wähle einen Benutzernamen, um es (neu) zu erstellen.",
     complete_profile_pseudo_placeholder: "Dein Benutzername *",
     complete_profile_saving: "Speichern...",
     complete_profile_cta: "Los geht's!",
@@ -2787,8 +2812,8 @@ const i18n = new I18n({
     already_have_account: "Ich habe bereits ein Konto (E-Mail)",
 
     // Invitation Share
-    invite_message_with_pseudo: "Tritt mir auf \"Proot!\" bei, mein Benutzername ist %{pseudo}",
-    invite_message: "Tritt mir auf \"Proot!\" bei",
+    invite_message_with_pseudo: "Tritt mir auf \"Proot !\" bei, mein Benutzername ist %{pseudo}",
+    invite_message: "Tritt mir auf \"Proot !\" bei",
 
     // Login
     session_invalid: "Sitzung ungültig",
@@ -2810,15 +2835,15 @@ const i18n = new I18n({
     permission_denied_title: "Berechtigung verweigert",
     permission_denied_body: "Benachrichtigungsberechtigung erforderlich.",
     notification_permission_title: "Benachrichtigungsberechtigung",
-    notification_permission_message: "Proot! ist eine Benachrichtigungs-App. Um Fürze zu erhalten und zu senden, musst du autorisieren.",
+    notification_permission_message: "Proot ! ist eine Benachrichtigungs-App. Um Fürze zu erhalten und zu senden, musst du autorisieren.",
     accept_notifications_message: "Akzeptiere die Benachrichtigungen zum Spielen! 😊",
     authorize_notifications: "Benachrichtigungen autorisieren",
 
     // Contact Permission
     contact_permission_title: "Bleib bei uns!",
-    contact_permission_message: "Um Freunde, die Proot! bereits nutzen, automatisch zu erkennen, muss die App Telefonnummern aus deinen Kontakten auf unsere sicheren Server hochladen.\n\nDas ist optional: Du kannst später weiterhin Freunde manuell über ihren Benutzernamen hinzufügen.",
+    contact_permission_message: "Um Freunde, die Proot ! bereits nutzen, automatisch zu erkennen, muss die App Telefonnummern aus deinen Kontakten auf unsere sicheren Server hochladen.\n\nDas ist optional: Du kannst später weiterhin Freunde manuell über ihren Benutzernamen hinzufügen.",
     contact_consent_title: "Kontakte: Verwendung und Teilen",
-    contact_consent_message: "Um Freunde, die Proot! bereits nutzen, automatisch zu erkennen, muss die App Telefonnummern aus deinen Kontakten auf unsere sicheren Server hochladen.\n\nDas ist optional: Du kannst später weiterhin Freunde manuell über ihren Benutzernamen hinzufügen.",
+    contact_consent_message: "Um Freunde, die Proot ! bereits nutzen, automatisch zu erkennen, muss die App Telefonnummern aus deinen Kontakten auf unsere sicheren Server hochladen.\n\nDas ist optional: Du kannst später weiterhin Freunde manuell über ihren Benutzernamen hinzufügen.",
     refuse: "Ablehnen",
     next: "Weiter",
 
@@ -2842,7 +2867,7 @@ const i18n = new I18n({
     confirm: "Conferma",
     info: "Informazione",
 
-    // Proot! Names
+    // Proot ! Names
     prout_names: {
       prout1: "La Brezza Leggera",
       prout2: "Il Crepitio",
@@ -2922,7 +2947,7 @@ const i18n = new I18n({
     password_label: "Password",
 
     // Home & Navigation
-    share_message: "Unisciti a me sull'app \"Proot!\", il mio username è %{pseudo}: http://prootapp.com",
+    share_message: "Unisciti a me sull'app \"Proot !\", il mio username è %{pseudo}: http://prootapp.com",
     tab_list: "Amici",
 
     // Friends List
@@ -2961,7 +2986,7 @@ const i18n = new I18n({
     report_submit_success_body: "Grazie. Questa segnalazione verrà esaminata dal nostro team entro 24 ore.",
     real_name: "Nome reale",
 
-    // Actions Proot!
+    // Actions Proot !
     zen_mode_active_me_title: "Modalità Zen Attiva 🧘‍♂️",
     zen_mode_active_me_body: "Niente scoregge in modalità Zen. Disattiva nel profilo per tornare alla battaglia.",
     zen_mode_active_friend_title: "Zitto! 🤫",
@@ -3060,24 +3085,24 @@ const i18n = new I18n({
     contact_support: "Contatta il supporto",
     profile_eula: "EULA",
     eula_title: "Contratto di licenza con l'utente finale (EULA)",
-    eula_intro: "Utilizzando Proot!, accetti i seguenti termini:",
+    eula_intro: "Utilizzando Proot !, accetti i seguenti termini:",
     eula_section_1_title: "1. Politica di tolleranza zero",
-    eula_section_1_body: "Proot! adotta una tolleranza zero verso contenuti inappropriati, inclusi molestie, discorsi d'odio, minacce, sfruttamento sessuale e immagini esplicite.",
+    eula_section_1_body: "Proot ! adotta una tolleranza zero verso contenuti inappropriati, inclusi molestie, discorsi d'odio, minacce, sfruttamento sessuale e immagini esplicite.",
     eula_section_2_title: "2. Comportamento abusivo",
     eula_section_2_body: "Gli utenti che adottano comportamenti abusivi possono essere sospesi o rimossi permanentemente dalla piattaforma.",
     eula_section_3_title: "3. Moderazione e rimozione dei contenuti",
     eula_section_3_body: "Lo sviluppatore si riserva il diritto di rimuovere contenuti e/o limitare account entro 24 ore dalla ricezione di una segnalazione valida.",
     eula_section_4_title: "4. Segnalare e bloccare gli utenti abusivi",
-    eula_section_4_body: "Proot! offre strumenti semplici e immediati per gestire contenuti inappropriati e comportamenti abusivi.\n\nPer bloccare un utente: dalla tua lista di amici, scorri verso sinistra sul nome del contatto e conferma l'azione. Questo interromperà immediatamente tutti i segnali acustici e i messaggi provenienti da quell'utente.\n\nPer segnalare un contenuto: nella chat effimera, tieni premuto a lungo su qualsiasi messaggio. Comparirà un menu che ti permetterà di segnalare il contenuto al nostro team di moderazione.\n\nTutte le segnalazioni vengono esaminate dal team di Proot! entro 24 ore. Gli utenti abusivi saranno rimossi in modo permanente dalla piattaforma.",
+    eula_section_4_body: "Proot ! offre strumenti semplici e immediati per gestire contenuti inappropriati e comportamenti abusivi.\n\nPer bloccare un utente: dalla tua lista di amici, scorri verso sinistra sul nome del contatto e conferma l'azione. Questo interromperà immediatamente tutti i segnali acustici e i messaggi provenienti da quell'utente.\n\nPer segnalare un contenuto: nella chat effimera, tieni premuto a lungo su qualsiasi messaggio. Comparirà un menu che ti permetterà di segnalare il contenuto al nostro team di moderazione.\n\nTutte le segnalazioni vengono esaminate dal team di Proot ! entro 24 ore. Gli utenti abusivi saranno rimossi in modo permanente dalla piattaforma.",
     eula_accept_checkbox: "Accetto l'EULA e la politica di tolleranza zero contro contenuti offensivi e utenti abusivi",
     eula_accept_button: "Accetto e continuo",
     privacy_policy: "Privacy Policy",
     privacy_policy_title: "Privacy Policy",
-    privacy_policy_app_title: "Privacy Policy di Proot!",
+    privacy_policy_app_title: "Privacy Policy di Proot !",
     privacy_policy_last_update: "Ultimo aggiornamento: 8 Dicembre 2025",
-    privacy_policy_intro: "Benvenuto su Proot!. Prendiamo seriamente i tuoi dati. Qui è spiegato cosa raccogliamo e cosa ne facciamo.",
+    privacy_policy_intro: "Benvenuto su Proot !. Prendiamo seriamente i tuoi dati. Qui è spiegato cosa raccogliamo e cosa ne facciamo.",
     privacy_policy_section1_title: "1. Chi siamo",
-    privacy_policy_section1_content: "App di The Proot! Corporation. Domande? Email: hello@prootapp.com",
+    privacy_policy_section1_content: "App di The Proot ! Corporation. Domande? Email: hello@prootapp.com",
     privacy_policy_section2_title: "2. Cosa raccogliamo",
     privacy_policy_section2_intro: "Solo il necessario per funzionare.",
     privacy_policy_section2a_title: "A. Dati che fornisci",
@@ -3128,11 +3153,14 @@ const i18n = new I18n({
 
     // Tuto
     tuto_header: "Come funziona?",
+    tuto_list_title: "Lista amici",
+    tuto_menu_title: "Menu",
+    tuto_chat_title: "Chat",
     tuto_notif_title: "Nessuna notifica?",
     tuto_notif_desc: "Controlla se è abilitato nelle impostazioni.",
     tuto_sound_title: "Nessun suono?",
     tuto_sound_desc: "Controlla se non è silenziato.",
-    tuto_1_title: "Inviare un Proot!",
+    tuto_1_title: "Inviare un Proot !",
     tuto_1_desc: "Trascina il nome dell'amico a destra! È una sorpresa, non si sa mai cosa viene!",
     tuto_2_title: "Messaggi effimeri",
     tuto_2_desc: "Clicca sul nome dell'amico per inviare un messaggio nella chat effimera!",
@@ -3144,17 +3172,19 @@ const i18n = new I18n({
     tuto_4_desc: "Scorrendo a sinistra sul nome di un contatto, puoi bloccarlo.",
 
     // Onboarding
-    onboarding_welcome_title: "Proot!",
+    onboarding_welcome_title: "Proot !",
     onboarding_welcome_subtitle: "Di ciao... diversamente!",
     onboarding_welcome_desc: "",
-    onboarding_notifications_title: "Il cuore di Proot!",
-    onboarding_notifications_desc: "Tutto il punto di comunicare con i tuoi amici su Proot! sono le notifiche. Accettale per giocare!",
+    onboarding_notifications_title: "Il cuore di Proot !",
+    onboarding_notifications_desc: "Tutto il punto di comunicare con i tuoi amici su Proot ! sono le notifiche. Accettale per giocare!",
     onboarding_sound_title: "Alza il volume",
     onboarding_sound_desc: "Lascia il suono acceso per goderti la melodia.",
     onboarding_gesture_title: "Tocca a te",
     onboarding_gesture_desc: "Hai un amico? Trascina a destra e vai.",
     onboarding_message_title: "Messaggi effimeri",
     onboarding_message_desc: "Puoi inviare un messaggio nella chat effimera cliccando sul nome!",
+    onboarding_specific_sound_title: "Suono specifico",
+    onboarding_specific_sound_desc: "Fai una pressione prolungata sul pulsante del tuo amico per scegliere un suono specifico da inviare.",
     sticky_chat_with: "Chat 👻 con %{pseudo}",
     message_read: "Letto",
     onboarding_skip: "Salta",
@@ -3174,9 +3204,9 @@ const i18n = new I18n({
     // Footer & Help
     footer_help_text: "Scorri verso destra per inviare una notifica casuale\nTocca per aprire la chat\nTieni premuto per scegliere un suono da inviare.",
     footer_sound_category_info: "Il suono delle notifiche verrà scelto casualmente dalla categoria di onda sonora selezionata!",
-    friendlist_onboarding_swipe: "Scorri il nome di un amico verso destra per inviare una notifica.",
-    friendlist_onboarding_tap: "Tocca il nome di un amico per aprire la chat effimera.",
-    friendlist_onboarding_long_press: "Fai una pressione prolungata per scegliere un suono specifico da inviare.",
+    friendlist_onboarding_swipe: "Scorri per inviare una notifica.",
+    friendlist_onboarding_tap: "Tocca per aprire la chat.",
+    friendlist_onboarding_long_press: "Tieni premuto per scegliere il suono.",
     friendlist_onboarding_swipe_left_block: "Scorri verso sinistra per bloccare un contatto abusivo.",
     friendlist_onboarding_soundcheck: "Esplora la tua biblioteca di suoni",
     friendlist_onboarding_soundcheck_in: "Esplora la tua biblioteca di suoni in",
@@ -3301,7 +3331,7 @@ const i18n = new I18n({
     phone_helper: "Perché gli amici ti trovino.",
     cancel_and_logout: "Annulla e disconnetti",
     complete_profile_title: "Finalizzazione",
-    complete_profile_subtitle: "Il tuo account è attivo, ma il tuo profilo Proot! manca. Scegli un nome utente per (ri)crearlo.",
+    complete_profile_subtitle: "Il tuo account è attivo, ma il tuo profilo Proot ! manca. Scegli un nome utente per (ri)crearlo.",
     complete_profile_pseudo_placeholder: "Il tuo nome utente *",
     complete_profile_saving: "Salvataggio...",
     complete_profile_cta: "Iniziamo!",
@@ -3350,8 +3380,8 @@ const i18n = new I18n({
     already_have_account: "Ho già un account (Email)",
 
     // Invitation Share
-    invite_message_with_pseudo: "Unisciti a me su \"Proot!\", il mio username è %{pseudo}",
-    invite_message: "Unisciti a me su \"Proot!\"",
+    invite_message_with_pseudo: "Unisciti a me su \"Proot !\", il mio username è %{pseudo}",
+    invite_message: "Unisciti a me su \"Proot !\"",
 
     // Login
     session_invalid: "Sessione non valida",
@@ -3373,15 +3403,15 @@ const i18n = new I18n({
     permission_denied_title: "Autorizzazione negata",
     permission_denied_body: "Autorizzazione alle notifiche richiesta.",
     notification_permission_title: "Autorizzazione alle notifiche",
-    notification_permission_message: "Proot! è un'app di notifiche. Per ricevere e inviare scoregge, devi autorizzare.",
+    notification_permission_message: "Proot ! è un'app di notifiche. Per ricevere e inviare scoregge, devi autorizzare.",
     accept_notifications_message: "Accetta le notifiche per giocare! 😊",
     authorize_notifications: "Autorizza notifiche",
 
     // Contact Permission
     contact_permission_title: "Resta con noi!",
-    contact_permission_message: "Per identificare automaticamente gli amici che usano già Proot!, l'app deve caricare i numeri di telefono dei tuoi contatti sui nostri server sicuri.\n\nÈ facoltativo: potrai comunque aggiungere amici manualmente tramite il loro nome utente in seguito.",
+    contact_permission_message: "Per identificare automaticamente gli amici che usano già Proot !, l'app deve caricare i numeri di telefono dei tuoi contatti sui nostri server sicuri.\n\nÈ facoltativo: potrai comunque aggiungere amici manualmente tramite il loro nome utente in seguito.",
     contact_consent_title: "Contatti: uso e condivisione",
-    contact_consent_message: "Per identificare automaticamente gli amici che usano già Proot!, l'app deve caricare i numeri di telefono dei tuoi contatti sui nostri server sicuri.\n\nÈ facoltativo: potrai comunque aggiungere amici manualmente tramite il loro nome utente in seguito.",
+    contact_consent_message: "Per identificare automaticamente gli amici che usano già Proot !, l'app deve caricare i numeri di telefono dei tuoi contatti sui nostri server sicuri.\n\nÈ facoltativo: potrai comunque aggiungere amici manualmente tramite il loro nome utente in seguito.",
     refuse: "Rifiuta",
     next: "Avanti",
 
