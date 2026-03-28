@@ -29,7 +29,6 @@ const BZZZ_KEYS = SOUND_KEYS_BY_CATEGORY.bzzz || [];
 const POP_KEYS = SOUND_KEYS_BY_CATEGORY.pop || [];
 const MOOD_KEYS = SOUND_KEYS_BY_CATEGORY.mood || [];
 const TOOT_KEYS = SOUND_KEYS_BY_CATEGORY.toot || [];
-const IS_ENGLISH_LOCALE = String(i18n.locale || '').toLowerCase().startsWith('en');
 // Uniformisation : on affiche toujours `proot.png` pour la catégorie toot/proot,
 // y compris sur iOS en locale US/anglais.
 const USE_PROOT_TOOT_LOGO = true;

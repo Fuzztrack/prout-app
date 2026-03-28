@@ -13,6 +13,31 @@ type PlaySoundOptions = {
   onEnd?: () => void;
 };
 
+let currentPlaybackSound: Audio.Sound | null = null;
+let currentPlaybackToken = 0;
+let currentPlaybackNotifyEnd: (() => void) | null = null;
+
+export async function stopCurrentPlayback(shouldNotifyEnd = true) {
+  const sound = currentPlaybackSound;
+  const notifyEnd = currentPlaybackNotifyEnd;
+  currentPlaybackSound = null;
+  currentPlaybackNotifyEnd = null;
+  currentPlaybackToken += 1;
+
+  if (!sound) {
+    if (shouldNotifyEnd) notifyEnd?.();
+    return;
+  }
+
+  try {
+    await sound.stopAsync();
+  } catch (_) {}
+  try {
+    await sound.unloadAsync();
+  } catch (_) {}
+  if (shouldNotifyEnd) notifyEnd?.();
+}
+
 /**
  * Traduit une clé de son en libellé lisible (ex: "toot1" -> "Prout classique")
  */
@@ -79,6 +104,8 @@ export async function playSound(
   }
 
   try {
+    await stopCurrentPlayback(true);
+
     await Audio.setAudioModeAsync({
       allowsRecordingIOS: false,
       playsInSilentModeIOS: true,
@@ -91,11 +118,17 @@ export async function playSound(
       soundFile,
       { shouldPlay: true, volume }
     );
+    const playbackToken = ++currentPlaybackToken;
+    currentPlaybackSound = sound;
+    currentPlaybackNotifyEnd = notifyEnd;
 
     options.onStart?.();
 
     sound.setOnPlaybackStatusUpdate(async (status) => {
+      if (playbackToken !== currentPlaybackToken) return;
       if (status.isLoaded && status.didJustFinish) {
+        currentPlaybackSound = null;
+        currentPlaybackNotifyEnd = null;
         await sound.unloadAsync();
         notifyEnd();
       }

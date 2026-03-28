@@ -1,5 +1,6 @@
 import { useAppStore } from '@/lib/store';
 import { AppHeader } from '@/components/AppHeader';
+import { BlockedUsersList } from '@/components/BlockedUsersList';
 import { EditProfil } from '@/components/EditProfil';
 import { FriendsList } from '@/components/FriendsList';
 import { IdentityList } from '@/components/IdentityList';
@@ -36,9 +37,11 @@ export default function HomeScreen() {
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [showIdentity, setShowIdentity] = useState(false);
+  const [showBlockedUsers, setShowBlockedUsers] = useState(false);
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [listIntroTrigger, setListIntroTrigger] = useState(1);
+  const [friendsRefreshTrigger, setFriendsRefreshTrigger] = useState(0);
   const friendsListRef = useRef<any>(null);
   const zenTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const zenStartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -48,6 +51,8 @@ export default function HomeScreen() {
   const SILENT_MODE_KEY = 'silent_mode_enabled';
   const [showZenOptions, setShowZenOptions] = useState(false);
   const [showSilentModal, setShowSilentModal] = useState(false);
+  const [zenModeReason, setZenModeReason] = useState<string | null>(null);
+  const [hasScheduledZenMode, setHasScheduledZenMode] = useState(false);
   const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
   
   // Animation de secousse pour le header
@@ -278,6 +283,24 @@ export default function HomeScreen() {
     });
   }, []);
 
+  const getZenReasonLabel = useCallback((reason?: string | null) => {
+    if (!reason) return null;
+    if (reason === '1h' || reason === '8h') return reason;
+    if (reason === 'job') return 'save my job';
+    if (reason === 'night') return 'save my night';
+    return reason;
+  }, []);
+
+  const zenMenuLabel = useMemo(() => {
+    const reasonLabel = getZenReasonLabel(zenModeReason);
+    if (reasonLabel) {
+      return `${i18n.t('zen_mode')} · ${reasonLabel}`;
+    }
+    return i18n.t('zen_mode');
+  }, [getZenReasonLabel, isZenMode, zenModeReason]);
+
+  const zenModeEnabled = isZenMode || hasScheduledZenMode || !!zenModeReason;
+
   // Mémoïser le header pour éviter qu'il ne re-render pendant qu'on tape dans la recherche
   const headerComponent = useMemo(() => (
     <AppHeader
@@ -285,15 +308,23 @@ export default function HomeScreen() {
       profileAvatarUrl={currentAvatarUrl}
       isProfileMenuOpen={activeView === 'profileMenu'}
       isProfileOpen={activeView === 'profile'}
+      isZenMode={isZenMode}
+      isSilentMode={isSilentMode}
       isSearchVisible={isSearchVisible}
       onSearchToggle={toggleSearchVisibility}
+      onZenModePress={() => {
+        void applyZenMode(false);
+      }}
+      onSilentModePress={() => {
+        if (isSilentMode) setSilentMode(false);
+      }}
       onSoundcheckPress={handleSoundcheckPress}
       onProfileMenuPress={toggleProfileMenu}
       onProfilePress={() => setActiveView('profile')}
       shakeX={shakeX}
       shakeY={shakeY}
     />
-  ), [currentPseudo, currentAvatarUrl, activeView, isSearchVisible, toggleSearchVisibility, handleSoundcheckPress, toggleProfileMenu, shakeX, shakeY]);
+  ), [currentPseudo, currentAvatarUrl, activeView, isZenMode, isSilentMode, isSearchVisible, toggleSearchVisibility, applyZenMode, setSilentMode, handleSoundcheckPress, toggleProfileMenu, shakeX, shakeY]);
 
   // --- MODE ZEN ---
   const clearZenAutoOff = useCallback(async () => {
@@ -302,6 +333,8 @@ export default function HomeScreen() {
       zenTimeoutRef.current = null;
     }
     await AsyncStorage.multiRemove([ZEN_END_KEY, ZEN_REASON_KEY, ZEN_START_KEY]);
+    setZenModeReason(null);
+    setHasScheduledZenMode(false);
   }, [ZEN_END_KEY, ZEN_REASON_KEY, ZEN_START_KEY]);
 
   const clearZenAutoOn = useCallback(async () => {
@@ -328,6 +361,7 @@ export default function HomeScreen() {
           console.error('Erreur mise à jour mode Zen:', error);
           setZenMode(!newMode); // Rollback via Store
         } else if (!newMode) {
+          setZenModeReason(null);
           await clearZenAutoOff();
           await clearZenAutoOn();
         }
@@ -335,6 +369,7 @@ export default function HomeScreen() {
         console.error('Erreur mode Zen:', e);
         setZenMode(!newMode);
         if (!newMode) {
+          setZenModeReason(null);
           await clearZenAutoOff();
           await clearZenAutoOn();
         }
@@ -346,6 +381,8 @@ export default function HomeScreen() {
   const scheduleZenAutoOff = useCallback(
     async (endAt: number, reason: string) => {
       const delay = Math.max(0, endAt - Date.now());
+      setZenModeReason(reason || null);
+      setHasScheduledZenMode(true);
       await AsyncStorage.multiSet([
         [ZEN_END_KEY, String(endAt)],
         [ZEN_REASON_KEY, reason],
@@ -374,6 +411,8 @@ export default function HomeScreen() {
       }
 
       // Enregistrer start/end
+      setZenModeReason(reason || null);
+      setHasScheduledZenMode(true);
       await AsyncStorage.multiSet([
         [ZEN_START_KEY, String(startAt)],
         [ZEN_END_KEY, String(endAt)],
@@ -409,6 +448,8 @@ export default function HomeScreen() {
       const [[, startRaw], [, endRaw], [, reason]] = await AsyncStorage.multiGet([ZEN_START_KEY, ZEN_END_KEY, ZEN_REASON_KEY]);
       const startAt = startRaw ? Number(startRaw) : null;
       const endAt = endRaw ? Number(endRaw) : null;
+      setZenModeReason(reason || null);
+      setHasScheduledZenMode(!!endAt && Number.isFinite(endAt) && Date.now() < endAt);
       if (!endAt || !Number.isFinite(endAt)) {
         await clearZenAutoOff();
         await clearZenAutoOn();
@@ -518,7 +559,7 @@ export default function HomeScreen() {
     if (!userId) return;
 
     // Si on active le mode Zen, proposer des durées
-    if (!isZenMode) {
+    if (!zenModeEnabled) {
       if (Platform.OS === 'ios') {
         const options = ['1h', '8h', i18n.t('zen_job_label'), i18n.t('zen_night_label'), i18n.t('cancel')];
         ActionSheetIOS.showActionSheetWithOptions(
@@ -629,6 +670,7 @@ export default function HomeScreen() {
                      searchQuery={searchQuery}
                      onSearchQueryChange={setSearchQuery}
                      listIntroTrigger={listIntroTrigger}
+                     refreshTrigger={friendsRefreshTrigger}
                      headerComponent={headerComponent}
                    />
        
@@ -646,13 +688,14 @@ export default function HomeScreen() {
                          <View style={styles.menuCard}>
                            {[
                              { label: i18n.t('search_title'), icon: 'person-add-outline', onPress: () => { setActiveView('list'); setShowSearch(true); }, iconColor: showSearch ? '#ebb89b' : '#604a3e' },
-                             { label: i18n.t('zen_mode'), icon: isZenMode ? 'moon' : 'moon-outline', onPress: () => { void toggleZenMode(); }, iconColor: isZenMode ? '#ebb89b' : '#604a3e' },
+                            { label: zenMenuLabel, icon: zenModeEnabled ? 'moon' : 'moon-outline', onPress: () => { void toggleZenMode(); }, iconColor: zenModeEnabled ? '#ebb89b' : '#604a3e' },
                              { label: i18n.t('silent_mode'), icon: isSilentMode ? 'volume-mute' : 'volume-mute-outline', onPress: () => { toggleSilentMode(); }, iconColor: isSilentMode ? '#ebb89b' : '#604a3e' },
                              { label: i18n.t('resonance_dashboard_menu'), icon: 'trophy', onPress: () => { setActiveView('list'); router.push('/complicity'); }, iconColor: '#604a3e' },
                              { label: i18n.t('manage_profile'), icon: 'person-circle-outline', onPress: () => setActiveView('profile'), iconColor: '#604a3e' },
                              { label: i18n.t('invite_friend'), icon: 'share-social-outline', onPress: handleShare, iconColor: '#604a3e' },
                              { label: i18n.t('review_app_functions'), icon: 'help-circle-outline', onPress: () => setActiveView('tutorial'), iconColor: '#604a3e' },
                              { label: i18n.t('who_is_who'), icon: 'eye-outline', onPress: () => { setShowIdentity(true); setActiveView('list'); }, iconColor: '#604a3e' },
+                             { label: i18n.t('blocked_friends_menu'), icon: 'ban-outline', onPress: () => { setShowBlockedUsers(true); setActiveView('list'); }, iconColor: '#604a3e' },
                              // Retour haptique uniquement sur iOS
                              ...(Platform.OS === 'ios' ? [{ label: i18n.t('haptic_feedback'), icon: isHapticEnabled ? 'phone-portrait' : 'phone-portrait-outline', onPress: toggleHapticFeedback, iconColor: isHapticEnabled ? '#ebb89b' : '#604a3e' }] : []),
                              { label: i18n.t('privacy_policy_menu'), icon: 'document-text-outline', onPress: () => { setShowPrivacy(true); setActiveView('list'); }, iconColor: '#604a3e' },
@@ -701,6 +744,7 @@ export default function HomeScreen() {
                   searchQuery={searchQuery}
                   onSearchQueryChange={setSearchQuery}
                   listIntroTrigger={listIntroTrigger}
+                  refreshTrigger={friendsRefreshTrigger}
                   headerComponent={headerComponent}
                 />
     
@@ -718,13 +762,14 @@ export default function HomeScreen() {
                       <View style={styles.menuCard}>
                           {[
                             { label: i18n.t('search_title'), icon: 'person-add-outline', onPress: () => { setActiveView('list'); setShowSearch(true); }, iconColor: showSearch ? '#ebb89b' : '#604a3e' },
-                            { label: i18n.t('zen_mode'), icon: isZenMode ? 'moon' : 'moon-outline', onPress: () => { void toggleZenMode(); }, iconColor: isZenMode ? '#ebb89b' : '#604a3e' },
+                            { label: zenMenuLabel, icon: zenModeEnabled ? 'moon' : 'moon-outline', onPress: () => { void toggleZenMode(); }, iconColor: zenModeEnabled ? '#ebb89b' : '#604a3e' },
                             { label: i18n.t('silent_mode'), icon: isSilentMode ? 'volume-mute' : 'volume-mute-outline', onPress: () => { toggleSilentMode(); }, iconColor: isSilentMode ? '#ebb89b' : '#604a3e' },
                             { label: i18n.t('resonance_dashboard_menu'), icon: 'trophy', onPress: () => { setActiveView('list'); router.push('/complicity'); }, iconColor: '#604a3e' },
                             { label: i18n.t('manage_profile'), icon: 'person-circle-outline', onPress: () => setActiveView('profile'), iconColor: '#604a3e' },
                             { label: i18n.t('invite_friend'), icon: 'share-social-outline', onPress: handleShare, iconColor: '#604a3e' },
                             { label: i18n.t('review_app_functions'), icon: 'help-circle-outline', onPress: () => setActiveView('tutorial'), iconColor: '#604a3e' },
                             { label: i18n.t('who_is_who'), icon: 'eye-outline', onPress: () => { setShowIdentity(true); setActiveView('list'); }, iconColor: '#604a3e' },
+                            { label: i18n.t('blocked_friends_menu'), icon: 'ban-outline', onPress: () => { setShowBlockedUsers(true); setActiveView('list'); }, iconColor: '#604a3e' },
                             // Retour haptique uniquement sur iOS
                             ...(Platform.OS === 'ios' ? [{ label: i18n.t('haptic_feedback'), icon: isHapticEnabled ? 'phone-portrait' : 'phone-portrait-outline', onPress: toggleHapticFeedback, iconColor: isHapticEnabled ? '#ebb89b' : '#604a3e' }] : []),
                             { label: i18n.t('privacy_policy_menu'), icon: 'document-text-outline', onPress: () => { setShowPrivacy(true); setActiveView('list'); }, iconColor: '#604a3e' },
@@ -753,6 +798,11 @@ export default function HomeScreen() {
       <PrivacyPolicyModal visible={showPrivacy} onClose={() => setShowPrivacy(false)} />
       <SearchUser visible={showSearch} onClose={() => setShowSearch(false)} />
       <IdentityList visible={showIdentity} onClose={() => setShowIdentity(false)} />
+      <BlockedUsersList
+        visible={showBlockedUsers}
+        onClose={() => setShowBlockedUsers(false)}
+        onUnblocked={() => setFriendsRefreshTrigger((prev) => prev + 1)}
+      />
     </View>
 
       {/* Après le conteneur principal : au-dessus du menu liste (z-index) */}

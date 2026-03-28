@@ -9,11 +9,15 @@ interface AppHeaderProps {
   profileAvatarUrl?: string | null;
   isProfileMenuOpen?: boolean;
   isProfileOpen?: boolean;
+  isZenMode?: boolean;
+  isSilentMode?: boolean;
   /** Recherche / filtre dans la liste d’amis */
   isSearchVisible?: boolean;
   onSearchToggle?: () => void;
   onProfileMenuPress?: () => void;
   onProfilePress?: () => void;
+  onZenModePress?: () => void;
+  onSilentModePress?: () => void;
   onSoundcheckPress?: () => void;
   shakeX?: Animated.Value;
   shakeY?: Animated.Value;
@@ -24,10 +28,14 @@ export function AppHeader({
   profileAvatarUrl,
   isProfileMenuOpen = false,
   isProfileOpen = false,
+  isZenMode = false,
+  isSilentMode = false,
   isSearchVisible = false,
   onSearchToggle,
   onProfileMenuPress,
   onProfilePress,
+  onZenModePress,
+  onSilentModePress,
   onSoundcheckPress,
   shakeX,
   shakeY,
@@ -154,6 +162,24 @@ export function AppHeader({
                 )}
               </TouchableOpacity>
             )}
+            {isZenMode && (
+              <TouchableOpacity
+                onPress={onZenModePress}
+                style={styles.modeStatusBadge}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="moon" size={18} color="#ebb89b" />
+              </TouchableOpacity>
+            )}
+            {isSilentMode && (
+              <TouchableOpacity
+                onPress={onSilentModePress}
+                style={styles.modeStatusBadge}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="volume-mute" size={18} color="#ffffff" />
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* À droite : Soundcheck, puis recherche tout à droite */}
@@ -269,6 +295,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginLeft: -12,
+  },
+  modeStatusBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(96,74,62,0.28)',
   },
   rightIconsContainer: {
     flexDirection: 'row',

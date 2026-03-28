@@ -43,7 +43,7 @@ import {
 } from '../lib/sendProutBackend';
 // Import supprimé : on utilise maintenant sync_contacts (fonction SQL Supabase)
 import i18n from '../lib/i18n';
-import { getDisplaySoundLabel, playSound, getPickupKeys, pickRandom, pickRandomWithoutImmediateRepeat, getDefaultSoundCategoryForFirstLaunch, getSelectedSoundCategory } from '../lib/audioService';
+import { getDisplaySoundLabel, playSound, stopCurrentPlayback, getPickupKeys, pickRandom, pickRandomWithoutImmediateRepeat, getDefaultSoundCategoryForFirstLaunch, getSelectedSoundCategory } from '../lib/audioService';
 import {
   DIRECT_SEND_FALLBACK_CATEGORY,
   LOCAL_PLAYBACK_FALLBACK_KEY,
@@ -85,7 +85,6 @@ const ANDROID_MODAL_CLOSE_TIMING = Platform.OS === 'android' ? 0 : 120;
 const CHAT_MODAL_BACKDROP_OPACITY = Platform.OS === 'android' ? 0 : 0.3;
 const FRIEND_SOUND_MODAL_BACKDROP_OPACITY = Platform.OS === 'android' ? 0 : 0.45;
 const FRIEND_ROW_LONG_PRESS_DELAY_MS = 320;
-const IS_ENGLISH_LOCALE = String(i18n.locale || '').toLowerCase().startsWith('en');
 // Uniformisation : on affiche toujours `proot.png` pour la catégorie toot/proot,
 // y compris sur iOS en locale US/anglais.
 const USE_PROOT_TOOT_LOGO = true;
@@ -509,7 +508,8 @@ export function FriendsList({
   onSearchChange,
   searchQuery = '',
   onSearchQueryChange,
-  listIntroTrigger = 0
+  listIntroTrigger = 0,
+  refreshTrigger = 0,
 }: { 
   onProutSent?: () => void; 
   isZenMode?: boolean; 
@@ -520,6 +520,7 @@ export function FriendsList({
   searchQuery?: string;
   onSearchQueryChange?: (query: string) => void;
   listIntroTrigger?: number;
+  refreshTrigger?: number;
 } = {}) {
   const { isZenMode, isSilentMode } = useAppStore();
   const queryClient = useQueryClient();
@@ -558,6 +559,9 @@ export function FriendsList({
   const [isFriendSoundModalContentVisible, setIsFriendSoundModalContentVisible] = useState(false);
   const [friendSoundModalFriend, setFriendSoundModalFriend] = useState<any>(null);
   const [previewingFriendSoundKey, setPreviewingFriendSoundKey] = useState<string | null>(null);
+  const [reportReasonModalVisible, setReportReasonModalVisible] = useState(false);
+  const [reportReasonModalReady, setReportReasonModalReady] = useState(false);
+  const [pendingReportTarget, setPendingReportTarget] = useState<ReportableMessage | null>(null);
   const [globalDefaultCategory, setGlobalDefaultCategory] = useState<SoundCategory>(
     getDefaultSoundCategoryForFirstLaunch()
   );
@@ -570,6 +574,7 @@ export function FriendsList({
   const [lastSentMessages, setLastSentMessages] = useState<LastSentMap>({});
   const [showSilentWarning, setShowSilentWarning] = useState(false);
   const [dismissedSilentWarning, setDismissedSilentWarning] = useState(dismissedSilentWarningSession); // reste à true pour toute la session après clic OK
+  const dismissedSilentWarningRef = useRef(dismissedSilentWarningSession);
   const [expandedFriendId, setExpandedFriendId] = useState<string | null>(null);
   const expandedFriendIdRef = useRef<string | null>(null);
   const lastRandomSoundByFriendRef = useRef<Record<string, string>>({});
@@ -578,6 +583,10 @@ export function FriendsList({
   useEffect(() => {
     expandedFriendIdRef.current = expandedFriendId;
   }, [expandedFriendId]);
+
+  useEffect(() => {
+    dismissedSilentWarningRef.current = dismissedSilentWarning;
+  }, [dismissedSilentWarning]);
 
   useEffect(() => {
     if (!expandedFriendId) {
@@ -748,6 +757,7 @@ export function FriendsList({
   const prevExpandedRef = useRef<string | null>(null);
   const stickyScrollViewRef = useRef<ScrollView>(null);
   const stickyScrollViewAnimatedRef = useRef<Animated.ScrollView>(null);
+  const listTopAlignTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const markModalTransition = useCallback((durationMs: number = 420) => {
     modalTransitionUntilRef.current = Date.now() + durationMs;
@@ -796,9 +806,11 @@ export function FriendsList({
   
   // État pour le mode silencieux
   const [volume, setVolume] = useState<number | undefined>(undefined);
+  const [iosSilentSwitchMuted, setIosSilentSwitchMuted] = useState<boolean>(false);
   const [ringerMode, setRingerMode] = useState<number | undefined>(undefined); // Android : mode sonore
   const [notificationVolume, setNotificationVolume] = useState<number | undefined>(undefined); // Volume des notifications (Android)
   const volumeListenerRef = useRef<any>(null);
+  const silentListenerRef = useRef<any>(null);
   const ringerListenerRef = useRef<any>(null);
   
   const openNotificationSettings = useCallback(() => {
@@ -844,6 +856,7 @@ export function FriendsList({
   const subscriptionRef = useRef<any>(null);
   const broadcastSubscriptionRef = useRef<any>(null);
   const broadcastRetryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reportReasonModalEnableTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const broadcastRetryAttemptsRef = useRef(0);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const cacheLoadedRef = useRef(false); // Pour éviter de charger le cache plusieurs fois
@@ -1270,6 +1283,7 @@ export function FriendsList({
         );
         return sortFriends(updated);
       });
+      scheduleAlignFriendListTop();
     }
     // Le backend met à jour last_interaction_at, mais cette mise à jour optimiste rend l'affichage instantané
   };
@@ -1663,6 +1677,7 @@ const handleLongPressSoundCategory = useCallback((friend: any) => {
 const handleSelectFriendSpecificSoundKey = useCallback((soundKey: string) => {
   const friendId = friendSoundModalFriend?.id;
   if (!friendId || !SOUND_ASSETS[soundKey]) return;
+  stopCurrentPlayback().catch(() => {});
   setPreviewingFriendSoundKey(null);
   setFriendSoundKeyByFriend((prev) => {
     return { ...prev, [friendId]: soundKey };
@@ -1691,6 +1706,7 @@ const closeFriendSoundModal = useCallback(() => {
     clearTimeout(friendSoundPickCloseTimeoutRef.current);
     friendSoundPickCloseTimeoutRef.current = null;
   }
+  stopCurrentPlayback().catch(() => {});
   setPreviewingFriendSoundKey(null);
   setIsFriendSoundModalContentVisible(false);
   markModalTransition();
@@ -1702,6 +1718,7 @@ const closeFriendSoundPickModal = useCallback(() => {
     clearTimeout(friendSoundPickCloseTimeoutRef.current);
     friendSoundPickCloseTimeoutRef.current = null;
   }
+  stopCurrentPlayback().catch(() => {});
   setPreviewingFriendSoundKey(null);
   setIsFriendSoundModalContentVisible(false);
   setFriendSoundModalVisible(false);
@@ -1773,20 +1790,29 @@ const closeIdentityModal = useCallback(() => {
     const setupSilentModeDetection = async () => {
       try {
         if (Platform.OS === 'ios') {
-          // iOS : vérifier uniquement le volume initial (pas le switch silencieux)
+          // iOS : on observe à la fois le volume et le switch silencieux.
           const volumeResult = await VolumeManager.getVolume();
           if (mounted) {
             setVolume(volumeResult?.volume);
-            if (volumeResult?.volume === 0 && !dismissedSilentWarning) {
+            if (volumeResult?.volume === 0 && !dismissedSilentWarningRef.current) {
               setShowSilentWarning(true);
             }
           }
 
-          // iOS : écouter uniquement les changements de volume (pas le switch silencieux)
+          const silentListener = VolumeManager.addSilentListener((status) => {
+            if (!mounted) return;
+            setIosSilentSwitchMuted(!!status?.isMuted);
+            if (status?.isMuted && !dismissedSilentWarningRef.current) {
+              setShowSilentWarning(true);
+            }
+          });
+          silentListenerRef.current = silentListener;
+
+          // iOS : écouter aussi les changements de volume
           const volListener = VolumeManager.addVolumeListener((result) => {
             if (mounted) {
               setVolume(result?.volume);
-              if (result?.volume === 0 && !dismissedSilentWarning) {
+              if (result?.volume === 0 && !dismissedSilentWarningRef.current) {
                 setShowSilentWarning(true);
               } else if (result?.volume !== undefined && result.volume > 0) {
                 setShowSilentWarning(false);
@@ -1817,7 +1843,7 @@ const closeIdentityModal = useCallback(() => {
             const vol = await readNotificationVolume();
             if (mounted && vol !== undefined) {
               setNotificationVolume(vol);
-              if (mode === RINGER_MODE.normal && vol === 0 && !dismissedSilentWarning) {
+              if (mode === RINGER_MODE.normal && vol === 0 && !dismissedSilentWarningRef.current) {
                 setShowSilentWarning(true);
               } else {
                 setShowSilentWarning(false);
@@ -1831,7 +1857,7 @@ const closeIdentityModal = useCallback(() => {
               const vol = result?.volume;
               if (isNotif && vol !== undefined) {
                 setNotificationVolume(vol);
-                if (ringerMode === RINGER_MODE.normal && vol === 0 && !dismissedSilentWarning) {
+                if (ringerMode === RINGER_MODE.normal && vol === 0 && !dismissedSilentWarningRef.current) {
                   setShowSilentWarning(true);
                 } else if (vol > 0) {
                   setShowSilentWarning(false);
@@ -1861,7 +1887,7 @@ const closeIdentityModal = useCallback(() => {
                     : undefined;
                 if (notifVol !== undefined) {
                   setNotificationVolume(notifVol);
-                  if (modeVal === RINGER_MODE.normal && notifVol === 0 && !dismissedSilentWarning) {
+                  if (modeVal === RINGER_MODE.normal && notifVol === 0 && !dismissedSilentWarningRef.current) {
                     setShowSilentWarning(true);
                   } else {
                     setShowSilentWarning(false);
@@ -1894,6 +1920,10 @@ const closeIdentityModal = useCallback(() => {
         volumeListenerRef.current.remove();
         volumeListenerRef.current = null;
       }
+      if (silentListenerRef.current) {
+        silentListenerRef.current.remove();
+        silentListenerRef.current = null;
+      }
       if (ringerListenerRef.current) {
         ringerListenerRef.current.remove();
         ringerListenerRef.current = null;
@@ -1907,7 +1937,7 @@ const closeIdentityModal = useCallback(() => {
 
     if (Platform.OS === 'ios') {
       if (volume !== undefined) {
-        isSilent = volume === 0;
+        isSilent = volume === 0 || iosSilentSwitchMuted;
       } else {
         return; // attendre la première valeur
       }
@@ -1922,12 +1952,19 @@ const closeIdentityModal = useCallback(() => {
     // Android : ne pas afficher si le ringer n'est pas en mode normal
     const androidCanShow =
       Platform.OS === 'android'
-        ? ringerMode === RINGER_MODE.normal && isSilent
+        ? ringerMode !== RINGER_MODE.normal || isSilent
         : isSilent;
+
+    // Si l'utilisateur revient en mode normal, on réarme l'alerte pour
+    // qu'elle puisse réapparaître au prochain passage en silencieux.
+    if (!androidCanShow && dismissedSilentWarning) {
+      dismissedSilentWarningSession = false;
+      setDismissedSilentWarning(false);
+    }
 
     // Afficher seulement si non dismissé dans la session courante
     setShowSilentWarning(androidCanShow && !dismissedSilentWarning);
-  }, [volume, notificationVolume, dismissedSilentWarning, ringerMode]);
+  }, [volume, iosSilentSwitchMuted, notificationVolume, dismissedSilentWarning, ringerMode]);
 
   // Note: Les notifications sont gérées par setupRealtimeSubscription et loadData
   // qui rechargent last_interaction_at depuis Supabase pour mettre à jour le tri
@@ -1936,6 +1973,30 @@ const closeIdentityModal = useCallback(() => {
 
   // Mémoire pour le dernier toast hors connexion (anti-spam)
   const lastOfflineToastTimeRef = useRef<number>(0);
+
+  const scheduleAlignFriendListTop = useCallback((delayMs: number = 90) => {
+    if (listTopAlignTimeoutRef.current) {
+      clearTimeout(listTopAlignTimeoutRef.current);
+    }
+    listTopAlignTimeoutRef.current = setTimeout(() => {
+      try {
+        flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+      } catch {}
+      try {
+        flatListRef.current?.scrollToIndex({ index: 0, animated: true, viewPosition: 0 });
+      } catch {}
+      listTopAlignTimeoutRef.current = null;
+    }, delayMs);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (listTopAlignTimeoutRef.current) {
+        clearTimeout(listTopAlignTimeoutRef.current);
+        listTopAlignTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   const showOfflineToast = () => {
     const now = Date.now();
@@ -2706,6 +2767,15 @@ const closeIdentityModal = useCallback(() => {
     }
   };
 
+  const refreshTriggerRef = useRef(refreshTrigger);
+  useEffect(() => {
+    if (refreshTrigger === refreshTriggerRef.current) {
+      return;
+    }
+    refreshTriggerRef.current = refreshTrigger;
+    loadData(false, false, false);
+  }, [refreshTrigger]);
+
   // Configurer la subscription Realtime pour écouter les changements sur friends
   const setupRealtimeSubscription = async () => {
     try {
@@ -2735,6 +2805,7 @@ const closeIdentityModal = useCallback(() => {
                 );
                 return sortFriends(updated);
               });
+              scheduleAlignFriendListTop();
             }
             // Rechargement pour garantir la synchro avec Supabase
             loadData(false, false, false);
@@ -3354,6 +3425,16 @@ const closeIdentityModal = useCallback(() => {
 
   const openReportReasonSheet = useCallback(
     (reportTarget: ReportableMessage) => {
+      if (Platform.OS === 'android') {
+        if (reportReasonModalEnableTimeoutRef.current) {
+          clearTimeout(reportReasonModalEnableTimeoutRef.current);
+          reportReasonModalEnableTimeoutRef.current = null;
+        }
+        setReportReasonModalReady(false);
+        setPendingReportTarget(reportTarget);
+        setReportReasonModalVisible(true);
+        return;
+      }
       Alert.alert(
         i18n.t('report_message_title'),
         i18n.t('report_message_reason_prompt'),
@@ -3369,6 +3450,36 @@ const closeIdentityModal = useCallback(() => {
     },
     [submitReport]
   );
+
+  const closeReportReasonModal = useCallback(() => {
+    if (reportReasonModalEnableTimeoutRef.current) {
+      clearTimeout(reportReasonModalEnableTimeoutRef.current);
+      reportReasonModalEnableTimeoutRef.current = null;
+    }
+    setReportReasonModalReady(false);
+    setReportReasonModalVisible(false);
+    setPendingReportTarget(null);
+  }, []);
+
+  const handleAndroidReportReason = useCallback(
+    (reason: ReportReason) => {
+      if (!reportReasonModalReady) return;
+      const reportTarget = pendingReportTarget;
+      closeReportReasonModal();
+      if (!reportTarget) return;
+      void submitReport(reason, reportTarget);
+    },
+    [closeReportReasonModal, pendingReportTarget, reportReasonModalReady, submitReport]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (reportReasonModalEnableTimeoutRef.current) {
+        clearTimeout(reportReasonModalEnableTimeoutRef.current);
+        reportReasonModalEnableTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   const handleDeleteFriend = async (friend: any) => {
     if (!currentUserId) return;
@@ -4084,9 +4195,7 @@ const closeIdentityModal = useCallback(() => {
         const sorted = sortFriends(updatedUsers);
         
         // Stabilisation : recaler sur le premier élément après réorganisation (iOS & Android)
-        setTimeout(() => {
-          flatListRef.current?.scrollToIndex({ index: 0, animated: true, viewPosition: 0 });
-        }, 100);
+        scheduleAlignFriendListTop(100);
         
         return sorted;
       });
@@ -5277,12 +5386,21 @@ const closeIdentityModal = useCallback(() => {
           ]}
         >
           <View style={styles.friendSoundPickTitleRow}>
-            <Image
-              source={require('../assets/images/proothail.png')}
-              style={styles.friendSoundPickTitleTail}
-              resizeMode="contain"
-            />
-            <Text style={styles.friendSoundPickTitleText}>{i18n.t('friend_sound_modal_pick_title')}</Text>
+            <View style={styles.friendSoundPickTitleContent}>
+              <Image
+                source={require('../assets/images/proothail.png')}
+                style={styles.friendSoundPickTitleTail}
+                resizeMode="contain"
+              />
+              <Text style={styles.friendSoundPickTitleText}>{i18n.t('friend_sound_modal_pick_title')}</Text>
+            </View>
+            <TouchableOpacity
+              onPress={closeFriendSoundPickModal}
+              style={styles.friendSoundPickCloseButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="close" size={26} color="#604a3e" />
+            </TouchableOpacity>
           </View>
           <ScrollView
                 style={styles.friendSoundPickScroll}
@@ -5460,13 +5578,59 @@ const closeIdentityModal = useCallback(() => {
                 </View>
               </View>
               )}
-              <TouchableOpacity
-                style={styles.firstFooterModalOkButton}
-                onPress={closeFriendSoundPickModal}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.firstFooterModalOkText}>{i18n.t('back')}</Text>
-              </TouchableOpacity>
+        </View>
+      </Modal>
+
+      <Modal
+        isVisible={reportReasonModalVisible}
+        onBackdropPress={closeReportReasonModal}
+        onBackButtonPress={closeReportReasonModal}
+        onModalShow={() => {
+          if (reportReasonModalEnableTimeoutRef.current) {
+            clearTimeout(reportReasonModalEnableTimeoutRef.current);
+          }
+          reportReasonModalEnableTimeoutRef.current = setTimeout(() => {
+            setReportReasonModalReady(true);
+            reportReasonModalEnableTimeoutRef.current = null;
+          }, 350);
+        }}
+        style={styles.reportReasonModal}
+        backdropOpacity={0.4}
+        animationIn="fadeIn"
+        animationOut="fadeOut"
+        useNativeDriver={USE_NATIVE_MODAL_DRIVER}
+        useNativeDriverForBackdrop={USE_NATIVE_MODAL_DRIVER}
+      >
+        <View style={styles.reportReasonCard}>
+          <Text style={styles.reportReasonTitle}>{i18n.t('report_message_title')}</Text>
+          <Text style={styles.reportReasonSubtitle}>{i18n.t('report_message_reason_prompt')}</Text>
+          {([
+            ['spam', i18n.t('report_reason_spam')],
+            ['harassment', i18n.t('report_reason_harassment')],
+            ['hate_speech', i18n.t('report_reason_hate_speech')],
+            ['explicit_content', i18n.t('report_reason_explicit_content')],
+            ['other', i18n.t('report_reason_other')],
+          ] as Array<[ReportReason, string]>).map(([reason, label]) => (
+            <TouchableOpacity
+              key={reason}
+              style={[
+                styles.reportReasonOption,
+                !reportReasonModalReady && styles.reportReasonOptionDisabled,
+              ]}
+              onPress={() => handleAndroidReportReason(reason)}
+              disabled={!reportReasonModalReady}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.reportReasonOptionText}>{label}</Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity
+            style={styles.reportReasonCancel}
+            onPress={closeReportReasonModal}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.reportReasonCancelText}>{i18n.t('cancel')}</Text>
+          </TouchableOpacity>
         </View>
       </Modal>
 
@@ -5576,7 +5740,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, marginTop: 0 },
   keyboardAvoidingView: { flex: 1 },
   list: { flex: 1 },
-  listContent: { paddingBottom: 20 },
+  listContent: { paddingTop: 8, paddingBottom: 20 },
   headerOverlayContainer: {
     position: 'relative',
     zIndex: 10,
@@ -6229,7 +6393,7 @@ const styles = StyleSheet.create({
     margin: 0,
   },
   friendSoundModal: {
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
     margin: 0,
   },
   identityModalContent: {
@@ -6242,18 +6406,18 @@ const styles = StyleSheet.create({
   },
   friendSoundModalCard: {
     backgroundColor: '#ebb89b',
-    borderRadius: 16,
+    borderRadius: 0,
     width: '100%',
     alignSelf: 'center',
     paddingHorizontal: 18,
-    paddingTop: 18,
+    paddingTop: Platform.OS === 'ios' ? 54 : 26,
     paddingBottom: 14,
     borderWidth: 1,
     borderColor: 'rgba(96, 74, 62, 0.12)',
-    maxHeight: SCREEN_HEIGHT - 8,
+    maxHeight: SCREEN_HEIGHT,
   },
   friendSoundModalCardExpanded: {
-    minHeight: SCREEN_HEIGHT - 70,
+    minHeight: SCREEN_HEIGHT,
   },
   friendSoundPickModalCard: {
     backgroundColor: '#ebb89b',
@@ -6299,8 +6463,15 @@ const styles = StyleSheet.create({
   friendSoundPickTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     marginBottom: 12,
+  },
+  friendSoundPickTitleContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+    paddingLeft: 28,
   },
   friendSoundPickTitleTail: {
     width: 54,
@@ -6313,6 +6484,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontStyle: 'italic',
     letterSpacing: 0.3,
+  },
+  friendSoundPickCloseButton: {
+    width: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
   },
   friendSoundPickSoundcheckLink: {
     flexDirection: 'row',
@@ -6371,6 +6548,57 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 10,
     backgroundColor: 'rgba(255,255,255,0.55)',
+  },
+  reportReasonModal: {
+    justifyContent: 'center',
+    margin: 0,
+    paddingHorizontal: 20,
+  },
+  reportReasonCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 18,
+  },
+  reportReasonTitle: {
+    color: '#604a3e',
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  reportReasonSubtitle: {
+    color: '#604a3e',
+    fontSize: 14,
+    textAlign: 'center',
+    opacity: 0.8,
+    marginTop: 6,
+    marginBottom: 14,
+  },
+  reportReasonOption: {
+    backgroundColor: '#d2f1ef',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 8,
+  },
+  reportReasonOptionDisabled: {
+    opacity: 0.55,
+  },
+  reportReasonOptionText: {
+    color: '#604a3e',
+    fontSize: 15,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  reportReasonCancel: {
+    marginTop: 6,
+    alignSelf: 'center',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+  },
+  reportReasonCancelText: {
+    color: '#604a3e',
+    fontSize: 15,
+    fontWeight: '700',
   },
   friendSoundPickItemButtonActive: {
     backgroundColor: 'rgba(162, 228, 212, 0.72)',
