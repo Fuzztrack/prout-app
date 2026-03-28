@@ -205,6 +205,7 @@ const i18n = new I18n({
     friend_sound_modal_listen_in_soundcheck: "Ecoutez les sons dans",
     chat_sound_picker_inline_text: "Laissez faire ou",
     chat_sound_picker_inline_button: "Choisir un son",
+    chat_replay_sound_hint: "Réécouter le son",
 
     // Profil
     edit_profile: "Modifier votre profil",
@@ -786,6 +787,7 @@ const i18n = new I18n({
     friend_sound_modal_listen_in_soundcheck: "Listen to the sounds in",
     chat_sound_picker_inline_text: "Let go or",
     chat_sound_picker_inline_button: "Choose a sound",
+    chat_replay_sound_hint: "Play sound again",
 
     // Profil
     edit_profile: "Edit Profile",
@@ -1364,6 +1366,7 @@ const i18n = new I18n({
     friend_sound_modal_listen_in_soundcheck: "Escucha los sonidos en",
     chat_sound_picker_inline_text: "Déjate llevar o",
     chat_sound_picker_inline_button: "Elegir un sonido",
+    chat_replay_sound_hint: "Volver a escuchar el sonido",
 
     // Profil
     edit_profile: "Editar perfil",
@@ -1943,6 +1946,7 @@ const i18n = new I18n({
     friend_sound_modal_listen_in_soundcheck: "Ouça os sons em",
     chat_sound_picker_inline_text: "Deixa rolar ou",
     chat_sound_picker_inline_button: "Escolher um som",
+    chat_replay_sound_hint: "Ouvir o som de novo",
 
     // Profil
     edit_profile: "Editar Perfil",
@@ -2519,6 +2523,7 @@ const i18n = new I18n({
     friend_sound_modal_listen_in_soundcheck: "Höre dir die Sounds in",
     chat_sound_picker_inline_text: "Lass es laufen oder",
     chat_sound_picker_inline_button: "Einen Sound wählen",
+    chat_replay_sound_hint: "Sound erneut abspielen",
 
     // Profil
     edit_profile: "Profil bearbeiten",
@@ -3095,6 +3100,7 @@ const i18n = new I18n({
     friend_sound_modal_listen_in_soundcheck: "Ascolta i suoni in",
     chat_sound_picker_inline_text: "Lascia andare oppure",
     chat_sound_picker_inline_button: "Scegli un suono",
+    chat_replay_sound_hint: "Riascolta il suono",
 
     // Profil
     edit_profile: "Modifica Profilo",

@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // import { useAudioPlayer } from 'expo-audio'; // Supprimé
 import { Audio } from 'expo-av';
 import * as Contacts from 'expo-contacts';
+import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { Alert, AppState, DeviceEventEmitter, Dimensions, FlatList, Image, Keyboard, KeyboardAvoidingView, Linking, NativeModules, Platform, Animated as RNAnimated, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
@@ -13,6 +14,7 @@ import { Gesture, GestureDetector, TouchableOpacity as GHTouchableOpacity } from
 // 👇 AJOUT : Hook pour capturer la hauteur réelle du clavier (Texte OU Emoji)
 import { useKeyboardHandler } from 'react-native-keyboard-controller';
 import Modal from 'react-native-modal';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   cancelAnimation,
   Extrapolation,
@@ -51,6 +53,7 @@ import {
   SOUND_KEYS_BY_CATEGORY,
 } from '../lib/runtimeSounds';
 import { supabase } from '../lib/supabase';
+import { safePush } from '../lib/navigation';
 import { SearchBar } from './SearchBar';
 import { SOUND_CATEGORY_KEY, type SoundCategory } from './SoundcheckSelector';
 
@@ -522,7 +525,8 @@ export function FriendsList({
   listIntroTrigger?: number;
   refreshTrigger?: number;
 } = {}) {
-  const { isZenMode, isSilentMode } = useAppStore();
+  const insets = useSafeAreaInsets();
+  const { isZenMode, isSilentMode, isHapticEnabled } = useAppStore();
   const queryClient = useQueryClient();
   
   const [appUsers, setAppUsers] = useState<any[]>([]);
@@ -535,7 +539,37 @@ export function FriendsList({
   // Synchronisation des messages (qui eux fonctionnent bien via TanStack)
   useEffect(() => {
     if (pendingMessagesData) {
-      setPendingMessages(pendingMessagesData);
+      setPendingMessages(prev => {
+        // Conserver TOUS les messages récents (< 5s) qui ne sont pas encore dans les données du serveur
+        // (qu'ils viennent d'un optimistic update FCM/Broadcast ou d'un événement Realtime INSERT)
+        // car le refetch immédiat peut parfois taper sur un replica de DB pas encore à jour.
+        const now = Date.now();
+        const recentLocalMessages = prev.filter(m => 
+          (now - new Date(m.created_at).getTime()) < 5000
+        );
+
+        const survivingRecent = recentLocalMessages.filter(localMsg => {
+          // Vérifier si le serveur a déjà ce message (par ID strict, ou par contenu/date pour les optimistes)
+          const hasMatch = pendingMessagesData.some(serverMsg => {
+            if (serverMsg.id === localMsg.id && !localMsg.id.startsWith('notif-') && !localMsg.id.startsWith('broadcast-')) {
+              return true;
+            }
+            return serverMsg.from_user_id === localMsg.from_user_id &&
+                   (serverMsg.message_content || '') === localMsg.message_content &&
+                   Math.abs(new Date(serverMsg.created_at).getTime() - new Date(localMsg.created_at).getTime()) < 15000;
+          });
+          return !hasMatch;
+        });
+
+        if (survivingRecent.length === 0) {
+          return pendingMessagesData;
+        }
+
+        // Combiner et trier
+        return [...pendingMessagesData, ...survivingRecent].sort(
+          (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
+      });
     }
   }, [pendingMessagesData]);
 
@@ -702,32 +736,47 @@ export function FriendsList({
   // 👇 AJOUT : Gestion Reanimated du clavier pour Android via react-native-keyboard-controller
   const keyboardHeightSV = useSharedValue(0);
   const keyboardBottomOffsetSV = useSharedValue(0);
+  const keyboardVisibleSV = useSharedValue(false);
   useKeyboardHandler({
     onMove: (e: { height: number }) => {
       'worklet';
       keyboardHeightSV.value = e.height;
       keyboardBottomOffsetSV.value = Math.max(0, e.height);
+      keyboardVisibleSV.value = e.height > 0;
     },
     onInteractive: (e: { height: number }) => {
       'worklet';
       keyboardHeightSV.value = e.height;
       keyboardBottomOffsetSV.value = Math.max(0, e.height);
+      keyboardVisibleSV.value = e.height > 0;
     },
     onEnd: (e: { height: number }) => {
       'worklet';
       keyboardHeightSV.value = e.height; // Peut être 0 si fermé, ou la hauteur finale
       keyboardBottomOffsetSV.value = Math.max(0, e.height);
+      keyboardVisibleSV.value = e.height > 0;
     },
   });
 
   // Style animé unifié iOS + Android pour coller la modale au clavier.
   const chatModalKeyboardStyle = useAnimatedStyle(() => {
-    const keyboardOffset = Math.max(0, keyboardBottomOffsetSV.value);
-    const chatHeight = Math.max(320, SCREEN_HEIGHT - CHAT_MODAL_TOP_SAFE_MARGIN - keyboardOffset);
+    const rawKeyboardOffset = keyboardVisibleSV.value
+      ? Math.max(0, keyboardBottomOffsetSV.value)
+      : 0;
+    const closedBottomGap = Platform.OS === 'android' ? Math.max(insets.bottom, 12) : 0;
+    const openKeyboardGap =
+      Platform.OS === 'android'
+        ? Math.max(0, rawKeyboardOffset - Math.max(insets.bottom, 10))
+        : rawKeyboardOffset;
+    const isKeyboardOpen = rawKeyboardOffset > 0;
+    const marginBottom = isKeyboardOpen ? openKeyboardGap : 0;
+    const internalBottomPadding = isKeyboardOpen ? 0 : closedBottomGap;
+    const chatHeight = Math.max(320, SCREEN_HEIGHT - CHAT_MODAL_TOP_SAFE_MARGIN - marginBottom);
     return {
-      // Colle le bas de la modale exactement au haut du clavier
-      marginBottom: keyboardOffset,
-      paddingBottom: 0,
+      // Clavier ouvert: modale collée au haut du clavier.
+      // Clavier fermé: modale collée en bas, avec padding interne au-dessus de la barre système.
+      marginBottom,
+      paddingBottom: internalBottomPadding,
       // Hauteur explicite pour éviter la disparition de la modale avec le layout flex interne.
       height: chatHeight,
     };
@@ -873,6 +922,8 @@ export function FriendsList({
   const lastConversationReadByFriendRef = useRef<Map<string, { sig: string; at: number }>>(new Map());
   const readConversationInFlightRef = useRef<Set<string>>(new Set());
   const lastConversationCallAtRef = useRef<Map<string, number>>(new Map());
+  const knownIncomingMessageIdsRef = useRef<Set<string>>(new Set());
+  const hasHydratedIncomingMessagesRef = useRef(false);
   const CONVERSATION_READ_DEDUP_MS = 3_000;
   const CONVERSATION_READ_MIN_INTERVAL_MS = 2_500;
   const CHAT_VERBOSE_LOGS = false;
@@ -1192,20 +1243,82 @@ export function FriendsList({
   // Écouter l'événement global de rafraîchissement (déclenché par la réception d'une notif push)
   useEffect(() => {
     const subscription = DeviceEventEmitter.addListener('REFRESH_DATA', async (data?: any) => {
+      console.log('🔔 [REFRESH_DATA] Listener triggered with data:', JSON.stringify(data));
       // 1. Le son est géré nativement par ProutMessagingService.kt sur Android
       // même en premier plan. On ne joue rien ici pour éviter le son doublé.
 
-      // 2. Invalider TanStack Query pour un rafraîchissement UI instantané
-      queryClient.invalidateQueries({ queryKey: ['pendingMessages'] });
-      queryClient.invalidateQueries({ queryKey: ['friends'] });
+      // Ignorer les événements de rafraîchissement génériques sans données de message
+      // (qui viennent potentiellement d'autres endroits de l'app)
+      if (data?.source) {
+        console.log('🔔 [REFRESH_DATA] Generic refresh event received from', data.source, '- Invalidating queries...');
+        queryClient.invalidateQueries({ queryKey: ['pendingMessages'] });
+        queryClient.invalidateQueries({ queryKey: ['friends'] });
+        return;
+      }
 
-      // 3. Fallback sur loadData classique (avec forceLoading pour bypass le throttle)
-      loadData(false, true, false);
+      const senderId = typeof data?.senderId === 'string' ? data.senderId : null;
+      const customMessage = typeof data?.customMessage === 'string' ? data.customMessage.trim() : '';
+      const proutKey = typeof data?.proutKey === 'string' ? data.proutKey : null;
+
+      console.log('🔔 [REFRESH_DATA] Parsed data:', { senderId, customMessage, proutKey });
+
+      // Injection optimiste immédiate pour l'aperçu en FriendList quand la notif
+      // arrive avant que le refresh backend/Supabase n'ait eu le temps d'aboutir.
+      if (senderId && customMessage) {
+        console.log('🔔 [REFRESH_DATA] Injecting optimistic message...');
+        const nowIso = new Date().toISOString();
+        const optimisticMessage: PendingMessage = {
+          id: `notif-${senderId}-${Date.now()}`,
+          from_user_id: senderId,
+          to_user_id: currentUserId || undefined,
+          message_content: `${proutKey ? `[${proutKey}]` : ''}${customMessage}`,
+          created_at: nowIso,
+          isPendingDelete: false,
+        };
+
+        setPendingMessages((prev) => {
+          const hasEquivalent = prev.some((msg) => {
+            if (msg.from_user_id !== senderId) return false;
+            if ((msg.message_content || '') !== optimisticMessage.message_content) return false;
+            return Math.abs(new Date(msg.created_at).getTime() - new Date(nowIso).getTime()) < 5000;
+          });
+          if (hasEquivalent) {
+            console.log('🔔 [REFRESH_DATA] Equivalent optimistic message already exists.');
+            return prev;
+          }
+          console.log('🔔 [REFRESH_DATA] Added optimistic message to state.');
+          return [...prev, optimisticMessage].sort(
+            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          );
+        });
+
+        setAppUsers((prev) => {
+          const updated = prev.map((friend) =>
+            friend.id === senderId ? { ...friend, last_interaction_at: nowIso } : friend
+          );
+          return [...updated].sort((a, b) => {
+            const timeA = a.last_interaction_at ? new Date(a.last_interaction_at).getTime() : 0;
+            const timeB = b.last_interaction_at ? new Date(b.last_interaction_at).getTime() : 0;
+            return timeB - timeA;
+          });
+        });
+      } else {
+        console.log('🔔 [REFRESH_DATA] Missing senderId or customMessage, skipping optimistic injection.');
+      }
+
+      // 2. Invalider TanStack Query et re-fetch avec un petit délai 
+      // pour laisser le temps au backend de persister et éviter d'écraser 
+      // l'état optimiste avec des données obsolètes.
+      setTimeout(() => {
+        console.log('🔔 [REFRESH_DATA] Timeout reached, invalidating queries and reloading data...');
+        queryClient.invalidateQueries({ queryKey: ['pendingMessages'] });
+        queryClient.invalidateQueries({ queryKey: ['friends'] });
+      }, 1500);
     });
     return () => {
       subscription.remove();
     };
-  }, [isSilentMode, queryClient]);
+  }, [currentUserId, isSilentMode, queryClient, refetchMessages]);
 
   // Durée de vie maximale d'un message (24h)
   const MESSAGE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -1237,6 +1350,18 @@ export function FriendsList({
       .filter(m => !blockedSet.has(m.from_user_id))
       .filter(m => !deletedMessagesCache.has(m.id))
       .map((m: any) => ({ ...m, isPendingDelete: false })) as PendingMessage[];
+
+    const incomingMessageIds = serverMessages.map((m) => m.id);
+    const trulyNewIncomingMessages = serverMessages.filter(
+      (m) => !knownIncomingMessageIdsRef.current.has(m.id)
+    );
+    knownIncomingMessageIdsRef.current = new Set(incomingMessageIds);
+
+    if (!hasHydratedIncomingMessagesRef.current) {
+      hasHydratedIncomingMessagesRef.current = true;
+    } else if (trulyNewIncomingMessages.length > 0) {
+      triggerIncomingMessageHaptic();
+    }
 
     // Session gelée: merge serveur + état local pour éviter toute disparition pendant chat ouvert
     setPendingMessages((prev) => {
@@ -1997,6 +2122,16 @@ const closeIdentityModal = useCallback(() => {
       }
     };
   }, []);
+
+  const triggerIncomingMessageHaptic = useCallback(() => {
+    if (Platform.OS !== 'ios' || !isHapticEnabled) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+  }, [isHapticEnabled]);
+
+  const triggerOutgoingMessageHaptic = useCallback(() => {
+    if (Platform.OS !== 'ios' || !isHapticEnabled) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+  }, [isHapticEnabled]);
 
   const showOfflineToast = () => {
     const now = Date.now();
@@ -2861,14 +2996,42 @@ const closeIdentityModal = useCallback(() => {
               // Filtrer manuellement ici pour être sûr à 100%
               if (newMessage.to_user_id !== user.id) return;
 
-              // Invalidation immédiate de TanStack Query
-              queryClient.invalidateQueries({ queryKey: ['pendingMessages'] });
+              const optimisticMessage = {
+                ...newMessage,
+                isPendingDelete: false,
+              } as PendingMessage;
+
+              // Invalidation différée de TanStack Query pour éviter l'écrasement immédiat
+              setTimeout(() => {
+                queryClient.invalidateQueries({ queryKey: ['pendingMessages'] });
+                queryClient.invalidateQueries({ queryKey: ['friends'] });
+              }, 1500);
               
               // Mise à jour manuelle immédiate du cache pour une réactivité < 50ms
               queryClient.setQueryData(['pendingMessages', user.id], (old: any[] = []) => {
                 if (old.some(m => m.id === newMessage.id)) return old;
                 return [...old, newMessage];
               });
+
+              // Mise à jour immédiate de l'état local utilisé par FriendsList pour l'aperçu.
+              setPendingMessages((prev) => {
+                if (prev.some((m) => m.id === optimisticMessage.id)) return prev;
+                return [...prev, optimisticMessage].sort(
+                  (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                );
+              });
+
+              // Mise à jour optimiste du tri pour remonter immédiatement l'ami concerné.
+              const now = newMessage.created_at || new Date().toISOString();
+              setAppUsers((prev) => {
+                const updated = prev.map((friend) =>
+                  friend.id === newMessage.from_user_id
+                    ? { ...friend, last_interaction_at: now }
+                    : friend
+                );
+                return sortFriends(updated);
+              });
+              scheduleAlignFriendListTop();
 
               // Le son est géré nativement (FCM), on n'en joue pas ici pour éviter le doublon.
             } else if (payload.eventType === 'DELETE') {
@@ -2982,7 +3145,7 @@ const closeIdentityModal = useCallback(() => {
                       if (matchIndex === -1) {
                         // Si l'UPDATE arrive pour un ID qu'on ne connaît pas encore,
                         // on force un rafraîchissement global.
-                        DeviceEventEmitter.emit('REFRESH_DATA');
+                        DeviceEventEmitter.emit('REFRESH_DATA', { source: 'friendslist_update' });
                         return prev;
                       }
 
@@ -2995,7 +3158,7 @@ const closeIdentityModal = useCallback(() => {
                       };
 
                       // Déclencher aussi un rafraîchissement global pour être sûr
-                      setTimeout(() => DeviceEventEmitter.emit('REFRESH_DATA'), 500);
+                      setTimeout(() => DeviceEventEmitter.emit('REFRESH_DATA', { source: 'friendslist_update_timeout' }), 500);
 
                       if (!isChatOpen) {
                         const kept = messages.filter((_, i) => i !== matchIndex);
@@ -3095,9 +3258,11 @@ const closeIdentityModal = useCallback(() => {
             // 1. Le son est géré nativement (FCM), on s'occupe uniquement de l'UI ici.
 
             // 2. Forcer le rafraîchissement des messages
-            queryClient.invalidateQueries({ queryKey: ['pendingMessages'] });
-            queryClient.invalidateQueries({ queryKey: ['friends'] });
-            loadData(false, false, false);
+            setTimeout(() => {
+              console.log('📡 [CLIENT] Timeout reached for new-prout broadcast, invalidating and reloading...');
+              queryClient.invalidateQueries({ queryKey: ['pendingMessages'] });
+              queryClient.invalidateQueries({ queryKey: ['friends'] });
+            }, 1500);
           })
           .on('broadcast', { event: 'message-read' }, (payload) => {
             if (CHAT_VERBOSE_LOGS) {
@@ -3207,12 +3372,12 @@ const closeIdentityModal = useCallback(() => {
                   console.log(`ℹ️ [CLIENT] Aucun changement nécessaire (messages déjà marqués comme lus ou pas encore dans lastSentMessages)`);
                 }
                 // Déclencher un rafraîchissement global pour synchroniser
-                DeviceEventEmitter.emit('REFRESH_DATA');
+                DeviceEventEmitter.emit('REFRESH_DATA', { source: 'friendslist_update' });
                 return prev;
               }
               
               // Déclencher aussi un rafraîchissement global en arrière-plan
-              setTimeout(() => DeviceEventEmitter.emit('REFRESH_DATA'), 500);
+              setTimeout(() => DeviceEventEmitter.emit('REFRESH_DATA', { source: 'friendslist_update_timeout' }), 500);
               
               const readCount = updated.filter(m => m.status === 'read').length;
               if (CHAT_VERBOSE_LOGS) {
@@ -3230,8 +3395,65 @@ const closeIdentityModal = useCallback(() => {
             // Le broadcast suffit pour l'UI immédiate.
             // loadData(false, false, false); 
           })
-          .on('broadcast', { event: 'message-received' }, () => {
-            loadData(false, false, false);
+          .on('broadcast', { event: 'message-received' }, (payload) => {
+            console.log('📡 [CLIENT] Broadcast message-received event triggered:', JSON.stringify(payload));
+            const senderId = payload.payload?.from;
+            if (senderId) {
+              const now = new Date().toISOString();
+              const customMessage =
+                typeof payload.payload?.customMessage === 'string'
+                  ? payload.payload.customMessage.trim()
+                  : '';
+              const proutKey =
+                typeof payload.payload?.proutKey === 'string'
+                  ? payload.payload.proutKey
+                  : null;
+
+              if (customMessage) {
+                console.log('📡 [CLIENT] Injecting optimistic message from broadcast...');
+                const optimisticMessage: PendingMessage = {
+                  id: `broadcast-${senderId}-${Date.now()}`,
+                  from_user_id: senderId,
+                  to_user_id: user.id,
+                  message_content: `${proutKey ? `[${proutKey}]` : ''}${customMessage}`,
+                  created_at: now,
+                  isPendingDelete: false,
+                };
+
+                setPendingMessages((prev) => {
+                  const hasEquivalent = prev.some((msg) => {
+                    if (msg.from_user_id !== senderId) return false;
+                    if ((msg.message_content || '') !== optimisticMessage.message_content) return false;
+                    return Math.abs(new Date(msg.created_at).getTime() - new Date(now).getTime()) < 5000;
+                  });
+                  if (hasEquivalent) {
+                    console.log('📡 [CLIENT] Equivalent optimistic message from broadcast already exists.');
+                    return prev;
+                  }
+                  console.log('📡 [CLIENT] Added optimistic message from broadcast to state.');
+                  return [...prev, optimisticMessage].sort(
+                    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                  );
+                });
+              } else {
+                 console.log('📡 [CLIENT] Broadcast missing customMessage, skipping optimistic injection.');
+              }
+
+              setAppUsers((prev) => {
+                const updated = prev.map((friend) =>
+                  friend.id === senderId ? { ...friend, last_interaction_at: now } : friend
+                );
+                return sortFriends(updated);
+              });
+            } else {
+               console.log('📡 [CLIENT] Broadcast missing senderId.');
+            }
+            
+            setTimeout(() => {
+              console.log('📡 [CLIENT] Timeout reached for message-received broadcast, invalidating and reloading...');
+              queryClient.invalidateQueries({ queryKey: ['pendingMessages'] });
+              queryClient.invalidateQueries({ queryKey: ['friends'] });
+            }, 1500);
           })
           .subscribe((status) => {
             if (CHAT_VERBOSE_LOGS) console.log(`📡 [CLIENT] Canal broadcast subscription status: ${status} pour ${channelName}`);
@@ -3748,6 +3970,7 @@ const closeIdentityModal = useCallback(() => {
     const onShow = (event?: { endCoordinates?: { height?: number } }) => {
       setKeyboardVisible(true);
       keyboardVisibleRef.current = true;
+      keyboardVisibleSV.value = true;
       // Fallback léger: seulement si la valeur worklet n'est pas encore montée.
       const eventHeight = Math.max(0, Number(event?.endCoordinates?.height || 0));
       if (eventHeight > 0 && keyboardBottomOffsetSV.value <= 0) {
@@ -3770,6 +3993,7 @@ const closeIdentityModal = useCallback(() => {
     const onHide = () => {
       setKeyboardVisible(false);
       keyboardVisibleRef.current = false;
+      keyboardVisibleSV.value = false;
       keyboardHeightSV.value = 0;
       keyboardBottomOffsetSV.value = 0;
       // Ne pas cacher la modale ici : Samsung peut fermer le clavier brièvement
@@ -3864,104 +4088,27 @@ const closeIdentityModal = useCallback(() => {
   const handlePressFriend = (friend: any) => {
     if (isModalTransitionActive()) return;
     if (friendSoundModalVisible || identityModalVisible || isFirstFriendlistOnboardingVisible || isFirstChatModalVisible) return;
-    // Debounce pour éviter les doubles clics (fermeture puis réouverture immédiate)
+
     const now = Date.now();
     if (now - lastPressTime.current < 500) return;
     lastPressTime.current = now;
 
-    const unreadMessages = pendingMessages.filter(
-      m =>
-        m.from_user_id === friend.id &&
-        !m.isPendingDelete &&
-        !(m.message_content?.startsWith('READ:') ?? false)
+    Keyboard.dismiss();
+    if (searchQuery.trim()) {
+      onSearchQueryChange?.('');
+      onSearchChange?.(false);
+    }
+    safePush(
+      router,
+      {
+        pathname: '/chat',
+        params: {
+          friendId: friend.id,
+          pseudo: friend.pseudo || '',
+        },
+      },
+      { skipInitialCheck: false }
     );
-    const alreadyUnreadOpen = expandedUnreadId === friend.id;
-    const isInputOpen = expandedFriendId === friend.id;
-    const hasCachedMessages = unreadCache[friend.id] && unreadCache[friend.id].length > 0;
-    
-    // Si on a des messages non lus OU des messages en cache (déjà ouverts)
-    if (unreadMessages.length > 0 || hasCachedMessages) {
-      if (!alreadyUnreadOpen && unreadMessages.length > 0) {
-        // Première ouverture : afficher les messages ET ouvrir le champ de saisie automatiquement
-        setExpandedUnreadId(friend.id);
-        setUnreadCache((prev) => ({
-          ...prev,
-          [friend.id]: unreadMessages.map((m: any) => ({
-            id: m.id,
-            message_content: m.message_content,
-            created_at: m.created_at,
-          })),
-        }));
-        // IMPORTANT : ne plus faire de "markRead" message-par-message ici (provoque 429 et désynchronise tout).
-        // Le marquage "lu" est géré par l'effet d'entrée du chat via `readConversation` (1 seul appel backend).
-        pendingCenterScrollFriendIdRef.current = friend.id;
-        // Marquer si on vient de la recherche (pour ajuster le padding sur Google Pixel)
-        openedFromSearchRef.current = !!searchQuery.trim();
-        setExpandedFriendId(friend.id); // Ouvrir le champ de saisie automatiquement
-        // Fermer la recherche si active
-        if (searchQuery.trim()) {
-          onSearchChange?.(false);
-        }
-        return;
-      }
-      
-      // Messages déjà ouverts (soit dans unreadMessages, soit dans le cache)
-      if (!isInputOpen) {
-        // Si l'input n'est pas ouvert, ouvrir l'input en gardant les messages visibles
-        pendingCenterScrollFriendIdRef.current = friend.id;
-        // Marquer si on vient de la recherche (pour ajuster le padding sur Google Pixel)
-        openedFromSearchRef.current = !!searchQuery.trim();
-        setExpandedFriendId(friend.id);
-        // Fermer la recherche si active
-        if (searchQuery.trim()) {
-          onSearchChange?.(false);
-        }
-        return;
-      }
-      
-      // Si l'input est ouvert, fermer tout
-      setExpandedFriendId(null);
-      setExpandedUnreadId(null);
-      Keyboard.dismiss(); // Force la fermeture du clavier
-      pendingCenterScrollFriendIdRef.current = null;
-      // Nettoyer le cache pour ce contact
-      const cachedForFriend = unreadCache[friend.id] || [];
-      setUnreadCache((prev) => {
-        const newCache = { ...prev };
-        delete newCache[friend.id];
-        return newCache;
-      });
-      // Nettoyer aussi les messages en cours de disparition pour ce contact
-      if (cachedForFriend.length > 0) {
-        setFadingOutReceivedMessages(prev => {
-          const newSet = new Set(prev);
-          cachedForFriend.forEach(msg => newSet.delete(msg.id));
-          return newSet;
-        });
-      }
-      return;
-    }
-
-    const newExpandedId = expandedFriendId === friend.id ? null : friend.id;
-    if (!newExpandedId) {
-      Keyboard.dismiss(); // Force la fermeture du clavier si on ferme
-      pendingCenterScrollFriendIdRef.current = null;
-      // Si on ferme le sticky et qu'on était en recherche, on vide tout pour retrouver la liste complète
-      if (searchQuery.trim()) {
-        onSearchQueryChange?.('');
-        onSearchChange?.(false);
-      }
-    } else {
-      pendingCenterScrollFriendIdRef.current = friend.id;
-      // Marquer si on vient de la recherche (pour ajuster le padding sur Google Pixel)
-      openedFromSearchRef.current = !!searchQuery.trim();
-      // Si on ouvre un sticky et qu'on était en recherche, on ferme la barre de recherche proprement
-      if (searchQuery.trim()) {
-        onSearchChange?.(false);
-      }
-    }
-    setExpandedFriendId(newExpandedId);
-    // Ne pas fermer les messages d'un autre contact quand on clique sur un contact sans messages
   };
 
   const handleSendProut = async (
@@ -4071,6 +4218,7 @@ const closeIdentityModal = useCallback(() => {
       if (onProutSent) {
         onProutSent();
       }
+      triggerOutgoingMessageHaptic();
 
       // Jouer localement (si pas silencieux)
       if (!isSilentMessage && !isSilentMode) {
@@ -4238,7 +4386,7 @@ const closeIdentityModal = useCallback(() => {
       if (CHAT_VERBOSE_LOGS) console.log(`🔄 [CLIENT] Émission REFRESH_DATA après envoi du message...`);
       setTimeout(() => {
         if (CHAT_VERBOSE_LOGS) console.log(`🔄 [CLIENT] REFRESH_DATA émis après délai de 500ms`);
-        DeviceEventEmitter.emit('REFRESH_DATA');
+        DeviceEventEmitter.emit('REFRESH_DATA', { source: 'friendslist_update' });
       }, 500);
 
       // Nettoyer le brouillon sans fermer le sticky
@@ -4419,12 +4567,11 @@ const closeIdentityModal = useCallback(() => {
   // Cela permet de redimensionner le ScrollView même pour les Emojis
   const stickyMessagesAnimatedStyle = useAnimatedStyle(() => {
     if (Platform.OS !== 'android') return {};
-    const availableHeight = keyboardHeightSV.value > 0 
-      ? SCREEN_HEIGHT - keyboardHeightSV.value - 60 - 80 - 20
-      : 200; 
+    const keyboardOffset = keyboardVisibleSV.value ? Math.max(0, keyboardHeightSV.value) : 0;
+    const availableHeight = SCREEN_HEIGHT - CHAT_MODAL_TOP_SAFE_MARGIN - keyboardOffset - 140;
 
     return {
-      maxHeight: Math.max(150, Math.min(availableHeight, 400)), 
+      maxHeight: Math.max(220, availableHeight),
     };
   });
 
@@ -4986,6 +5133,11 @@ const closeIdentityModal = useCallback(() => {
       <FlashList
         ref={flatListRef}
         data={filteredUsers}
+        extraData={{
+          pendingMessages,
+          unreadCache,
+          expandedUnreadId,
+        }}
         estimatedItemSize={65} // Hauteur 60 + Marge 5
         keyExtractor={(item) => item.id}
 
@@ -6395,6 +6547,7 @@ const styles = StyleSheet.create({
   friendSoundModal: {
     justifyContent: 'center',
     margin: 0,
+    paddingTop: Platform.OS === 'android' ? 20 : 0,
   },
   identityModalContent: {
     backgroundColor: '#ebb89b',
@@ -6414,10 +6567,10 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     borderWidth: 1,
     borderColor: 'rgba(96, 74, 62, 0.12)',
-    maxHeight: SCREEN_HEIGHT,
+    maxHeight: Platform.OS === 'android' ? SCREEN_HEIGHT - 20 : SCREEN_HEIGHT,
   },
   friendSoundModalCardExpanded: {
-    minHeight: SCREEN_HEIGHT,
+    minHeight: Platform.OS === 'android' ? SCREEN_HEIGHT - 20 : SCREEN_HEIGHT,
   },
   friendSoundPickModalCard: {
     backgroundColor: '#ebb89b',

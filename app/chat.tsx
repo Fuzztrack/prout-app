@@ -1,0 +1,1443 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  DeviceEventEmitter,
+  Image,
+  Keyboard,
+  KeyboardAvoidingView,
+  NativeModules,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import Modal from 'react-native-modal';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useQueryClient } from '@tanstack/react-query';
+import { useAppStore } from '@/lib/store';
+import i18n from '@/lib/i18n';
+import { safePush } from '@/lib/navigation';
+import { supabase } from '@/lib/supabase';
+import {
+  fetchPendingReceivedViaBackend,
+  fetchPendingSentViaBackend,
+  markConversationReadViaBackend,
+  sendProutViaBackend,
+} from '@/lib/sendProutBackend';
+import {
+  getDefaultSoundCategoryForFirstLaunch,
+  getDisplaySoundLabel,
+  getPickupKeys,
+  getSelectedSoundCategory,
+  pickRandom,
+  pickRandomWithoutImmediateRepeat,
+  playSound,
+} from '@/lib/audioService';
+import {
+  DIRECT_SEND_FALLBACK_CATEGORY,
+  SOUND_KEYS_BY_CATEGORY,
+} from '@/lib/runtimeSounds';
+
+type ParsedMessage = {
+  text: string;
+  isRead: boolean;
+  soundKey?: string;
+};
+
+type PendingMessage = {
+  id: string;
+  from_user_id: string;
+  to_user_id?: string;
+  message_content?: string | null;
+  created_at: string;
+};
+
+type VisibleSentMessage = {
+  id: string;
+  text: string;
+  ts: string;
+  soundKey?: string;
+  status?: 'read';
+  readAt?: number;
+  optimistic?: boolean;
+};
+
+type FriendProfile = {
+  id: string;
+  pseudo: string;
+  avatar_url: string | null;
+  expo_push_token: string | null;
+  push_platform: 'ios' | 'android' | null;
+  is_zen_mode: boolean;
+};
+
+type ReportReason = 'spam' | 'harassment' | 'hate_speech' | 'explicit_content' | 'other';
+
+type ReportTarget = {
+  senderId: string;
+  sourceMessageId?: string | null;
+  createdAt?: string;
+};
+
+const FRIEND_SOUND_CATEGORY_MAP_KEY = 'friend_sound_category_map_v1';
+const CHAT_MESSAGE_MUTE_KEY = 'chat_message_mute_v2';
+const ACTIVE_CHAT_FRIEND_ID_KEY = 'active_chat_friend_id_v1';
+type ChatMessageSoundChoice = 'trll' | 'bzzz' | 'pop' | 'mood' | 'toot';
+const PICKUP_TRLL_KEYS = getPickupKeys('trll');
+const PICKUP_BZZZ_KEYS = getPickupKeys('bzzz');
+const PICKUP_POP_KEYS = getPickupKeys('pop');
+const PICKUP_MOOD_KEYS = getPickupKeys('mood');
+const PICKUP_TOOT_KEYS = getPickupKeys('toot');
+const MAX_PICKUP_ROWS = Math.ceil(
+  Math.max(
+    PICKUP_TRLL_KEYS.length,
+    PICKUP_BZZZ_KEYS.length,
+    PICKUP_POP_KEYS.length,
+    PICKUP_MOOD_KEYS.length,
+    PICKUP_TOOT_KEYS.length
+  ) / 2
+);
+const CHAT_SPECIFIC_ROW_HEIGHT = 34;
+const CHAT_SPECIFIC_BOTTOM_GAP = 30;
+const CHAT_SPECIFIC_MIN_HEIGHT = MAX_PICKUP_ROWS * CHAT_SPECIFIC_ROW_HEIGHT + 50 + CHAT_SPECIFIC_BOTTOM_GAP;
+const TOOT_LOGO_IMAGE = require('../assets/images/proot.png');
+const CHAT_PROOTHAIL_THUMB = require('../assets/images/proothail.png');
+const TOOT_CHAT_ICON_SIZE = Platform.OS === 'android' ? { width: 82, height: 55 } : { width: 84, height: 56 };
+
+function parseMessageContent(raw?: string | null): ParsedMessage {
+  if (!raw) return { text: '', isRead: false };
+  let isRead = false;
+  let text = raw;
+  if (text.startsWith('READ:')) {
+    isRead = true;
+    text = text.slice(5);
+  }
+  let soundKey: string | undefined;
+  if (text.startsWith('[')) {
+    const endBracket = text.indexOf(']');
+    if (endBracket !== -1) {
+      soundKey = text.slice(1, endBracket);
+      text = text.slice(endBracket + 1);
+    }
+  }
+  return { text, isRead, soundKey };
+}
+
+function stripReadPrefix(text?: string | null) {
+  return parseMessageContent(text).text;
+}
+
+function isUuid(value?: string | null) {
+  return !!value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function ReceivedBubble({
+  message,
+  onReplay,
+  onLongPressReport,
+}: {
+  message: { id: string; text: string; soundKey?: string; createdAt?: string; senderId: string };
+  onReplay: (soundKey?: string) => void;
+  onLongPressReport: (target: ReportTarget) => void;
+}) {
+  const [isReplayActive, setIsReplayActive] = useState(false);
+  const canReplaySound = !!message.soundKey && message.soundKey !== 'mute';
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.88}
+      onPress={() => {
+        if (!canReplaySound) return;
+        setIsReplayActive(true);
+        playSound(message.soundKey, {
+          onEnd: () => setIsReplayActive(false),
+        });
+        onReplay(message.soundKey);
+      }}
+      onLongPress={() =>
+        onLongPressReport({
+          senderId: message.senderId,
+          sourceMessageId: message.id,
+          createdAt: message.createdAt,
+        })
+      }
+      style={[
+        styles.receivedBubble,
+        canReplaySound ? styles.receivedBubbleWithIcon : undefined,
+        isReplayActive && styles.receivedBubbleActive,
+      ]}
+    >
+      {canReplaySound ? (
+        <Ionicons
+          name="play"
+          size={16}
+          color="#604a3e"
+          style={styles.receivedPlayIcon}
+          accessibilityLabel={i18n.t('chat_replay_sound_hint')}
+        />
+      ) : null}
+      <Text style={styles.receivedText}>{message.text}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function SentBubble({ message }: { message: VisibleSentMessage }) {
+  return (
+    <View style={styles.sentBubbleWrapper}>
+      <View style={[styles.sentBubble, message.status === 'read' && styles.sentBubbleRead]}>
+        <Text style={styles.sentText}>{message.text}</Text>
+      </View>
+      {message.status === 'read' ? <Text style={styles.sentRead}>{i18n.t('message_read')}</Text> : null}
+    </View>
+  );
+}
+
+export default function ChatScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
+  const params = useLocalSearchParams<{ friendId?: string; pseudo?: string }>();
+  const friendId = typeof params.friendId === 'string' ? params.friendId : '';
+  const pseudoParam = typeof params.pseudo === 'string' ? params.pseudo : '';
+
+  const { isZenMode, isSilentMode, isHapticEnabled, pseudo: storePseudo } = useAppStore();
+
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentPseudo, setCurrentPseudo] = useState<string>(storePseudo || 'Un ami');
+  const [friend, setFriend] = useState<FriendProfile | null>(null);
+  const [draft, setDraft] = useState('');
+  const [loadingFriend, setLoadingFriend] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [isChatMuteEnabled, setIsChatMuteEnabled] = useState(false);
+  const [chatSoundPickerVisible, setChatSoundPickerVisible] = useState(false);
+  const [chatSoundCategory, setChatSoundCategory] = useState<ChatMessageSoundChoice>(
+    getDefaultSoundCategoryForFirstLaunch() as ChatMessageSoundChoice
+  );
+  const [pendingChatSoundKey, setPendingChatSoundKey] = useState<string | null>(null);
+  const [receivedMessages, setReceivedMessages] = useState<PendingMessage[]>([]);
+  const [sentMessages, setSentMessages] = useState<VisibleSentMessage[]>([]);
+  const [reportReasonModalVisible, setReportReasonModalVisible] = useState(false);
+  const [pendingReportTarget, setPendingReportTarget] = useState<ReportTarget | null>(null);
+
+  const lastRandomSoundRef = useRef<string | undefined>(undefined);
+  const knownIncomingMessageIdsRef = useRef<Set<string>>(new Set());
+  const hasHydratedIncomingMessagesRef = useRef(false);
+  const scrollViewRef = useRef<ScrollView | null>(null);
+  const inputRef = useRef<TextInput | null>(null);
+  const reopenKeyboardAfterSoundPickRef = useRef(false);
+
+  const loadChatContext = useCallback(async () => {
+    if (!friendId) return;
+    setLoadingFriend(true);
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      const user = authData?.user;
+      if (!user) {
+        safePush(router, '/(tabs)', { skipInitialCheck: false });
+        return;
+      }
+
+      setCurrentUserId(user.id);
+
+      const [{ data: me }, { data: friendProfile }] = await Promise.all([
+        supabase.from('user_profiles').select('pseudo').eq('id', user.id).single(),
+        supabase
+          .from('user_profiles')
+          .select('id, pseudo, avatar_url, expo_push_token, push_platform, is_zen_mode')
+          .eq('id', friendId)
+          .single(),
+      ]);
+
+      if (me?.pseudo) {
+        setCurrentPseudo(me.pseudo);
+      } else if (storePseudo) {
+        setCurrentPseudo(storePseudo);
+      }
+
+      if (!friendProfile) {
+        Alert.alert(i18n.t('error'), 'Ami introuvable.');
+        safePush(router, '/(tabs)', { skipInitialCheck: false });
+        return;
+      }
+
+      setFriend({
+        id: friendProfile.id,
+        pseudo: friendProfile.pseudo || pseudoParam || 'Ami',
+        avatar_url: friendProfile.avatar_url || null,
+        expo_push_token: friendProfile.expo_push_token || null,
+        push_platform: (friendProfile.push_platform as 'ios' | 'android' | null) || null,
+        is_zen_mode: !!friendProfile.is_zen_mode,
+      });
+    } catch (error) {
+      console.error('❌ Erreur chargement chat:', error);
+      Alert.alert(i18n.t('error'), 'Impossible de charger ce chat.');
+    } finally {
+      setLoadingFriend(false);
+    }
+  }, [friendId, pseudoParam, router, storePseudo]);
+
+  useEffect(() => {
+    void loadChatContext();
+  }, [loadChatContext]);
+
+  useEffect(() => {
+    AsyncStorage.getItem(CHAT_MESSAGE_MUTE_KEY)
+      .then((savedMute) => {
+        if (savedMute === '1') {
+          setIsChatMuteEnabled(true);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const refreshMessages = useCallback(async () => {
+    if (!currentUserId || !friendId) return;
+    const [incoming, outgoing] = await Promise.all([
+      fetchPendingReceivedViaBackend(currentUserId),
+      fetchPendingSentViaBackend(currentUserId),
+    ]);
+
+    const filteredIncoming = (incoming || [])
+      .filter((m: any) => m.from_user_id === friendId)
+      .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) as PendingMessage[];
+
+    const incomingIds = filteredIncoming.map((m) => m.id);
+    const newIncoming = filteredIncoming.filter((m) => !knownIncomingMessageIdsRef.current.has(m.id));
+    knownIncomingMessageIdsRef.current = new Set(incomingIds);
+
+    setReceivedMessages((prev) => {
+      const merged = new Map<string, PendingMessage>();
+      prev.forEach((msg) => merged.set(msg.id, msg));
+      filteredIncoming.forEach((msg) => merged.set(msg.id, msg));
+      return Array.from(merged.values()).sort(
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
+    });
+
+    if (!hasHydratedIncomingMessagesRef.current) {
+      hasHydratedIncomingMessagesRef.current = true;
+    } else if (newIncoming.length > 0 && Platform.OS === 'ios' && isHapticEnabled) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+    }
+
+    const serverSent = ((outgoing || []) as any[])
+      .filter((m) => m.to_user_id === friendId)
+      .map((m) => {
+        const parsed = parseMessageContent(m.message_content || '');
+        return {
+          id: m.id,
+          text: parsed.text,
+          soundKey: parsed.soundKey,
+          ts: m.created_at,
+          status: parsed.isRead ? ('read' as const) : undefined,
+          readAt: parsed.isRead ? Date.now() : undefined,
+        } satisfies VisibleSentMessage;
+      })
+      .sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
+
+    setSentMessages((prev) => {
+      const next = [...serverSent];
+      prev.forEach((localMsg) => {
+        const localTime = new Date(localMsg.ts).getTime();
+        const duplicate = serverSent.some((serverMsg) => {
+          const serverTime = new Date(serverMsg.ts).getTime();
+          return (
+            (localMsg.id === serverMsg.id ||
+              (serverMsg.text === localMsg.text &&
+                serverMsg.soundKey === localMsg.soundKey &&
+                Math.abs(serverTime - localTime) < 5000))
+          );
+        });
+
+        if (duplicate) {
+          return;
+        }
+
+        if (localMsg.optimistic) {
+          next.push(localMsg);
+          return;
+        }
+
+        // Garder les messages déjà visibles dans le chat même s'ils ne sont plus
+        // renvoyés par le backend (cas d'un message passé en lu/supprimé).
+        next.push({
+          ...localMsg,
+          status: 'read',
+          readAt: localMsg.readAt ?? Date.now(),
+        });
+      });
+      return next.sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
+    });
+  }, [currentUserId, friendId, isHapticEnabled]);
+
+  const triggerGlobalMessageRefresh = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['pendingMessages'] });
+    queryClient.invalidateQueries({ queryKey: ['pendingSentMessages'] });
+    queryClient.invalidateQueries({ queryKey: ['friends'] });
+    DeviceEventEmitter.emit('REFRESH_DATA', { source: 'triggerGlobalMessageRefresh' });
+    void refreshMessages();
+  }, [queryClient, refreshMessages]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshMessages();
+    }, [refreshMessages])
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!friendId) return;
+
+      const nativeSoundSettingsModule = NativeModules.SoundSettingsModule;
+      AsyncStorage.setItem(ACTIVE_CHAT_FRIEND_ID_KEY, friendId).catch(() => {});
+      nativeSoundSettingsModule?.setActiveChatFriendId?.(friendId);
+
+      return () => {
+        AsyncStorage.removeItem(ACTIVE_CHAT_FRIEND_ID_KEY).catch(() => {});
+        nativeSoundSettingsModule?.clearActiveChatFriendId?.();
+      };
+    }, [friendId])
+  );
+
+  useEffect(() => {
+    if (!currentUserId || !friendId) return;
+    const interval = setInterval(() => {
+      void refreshMessages();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [currentUserId, friendId, refreshMessages]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!currentUserId || !friendId) return;
+
+      const channel = supabase
+        .channel(`chat-direct-${currentUserId}-${friendId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'pending_messages',
+            filter: `to_user_id=eq.${currentUserId}`,
+          },
+          (payload: any) => {
+            const newMessage = payload.new as PendingMessage;
+            if (!newMessage || newMessage.from_user_id !== friendId) return;
+            const parsedMessage = parseMessageContent(newMessage.message_content);
+
+            setReceivedMessages((prev) => {
+              if (prev.some((msg) => msg.id === newMessage.id)) return prev;
+              return [...prev, newMessage].sort(
+                (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+              );
+            });
+
+            queryClient.invalidateQueries({ queryKey: ['pendingMessages'] });
+            queryClient.invalidateQueries({ queryKey: ['friends'] });
+            DeviceEventEmitter.emit('REFRESH_DATA', { source: 'chat_insert' });
+
+            if (parsedMessage.soundKey && parsedMessage.soundKey !== 'mute') {
+              void playSound(parsedMessage.soundKey);
+            }
+
+            if (Platform.OS === 'ios' && isHapticEnabled) {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+            }
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'pending_messages',
+            filter: `from_user_id=eq.${currentUserId}`,
+          },
+          (payload: any) => {
+            const targetUserId =
+              payload.eventType === 'DELETE'
+                ? (payload.old as any)?.to_user_id
+                : (payload.new as any)?.to_user_id;
+            if (targetUserId !== friendId) return;
+            triggerGlobalMessageRefresh();
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'DELETE',
+            schema: 'public',
+            table: 'pending_messages',
+            filter: `to_user_id=eq.${currentUserId}`,
+          },
+          (payload: any) => {
+            const deletedId = (payload.old as any)?.id;
+            if (!deletedId) return;
+            queryClient.invalidateQueries({ queryKey: ['pendingMessages'] });
+            queryClient.invalidateQueries({ queryKey: ['friends'] });
+            DeviceEventEmitter.emit('REFRESH_DATA', { source: 'chat_delete' });
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }, [currentUserId, friendId, isHapticEnabled, queryClient, triggerGlobalMessageRefresh])
+  );
+
+  useEffect(() => {
+    if (!currentUserId || !friendId) return;
+    const unreadIds = receivedMessages
+      .filter((m) => m.from_user_id === friendId)
+      .map((m) => m.id)
+      .filter(Boolean);
+    if (unreadIds.length === 0) return;
+    void markConversationReadViaBackend(friendId, currentUserId);
+  }, [currentUserId, friendId, receivedMessages]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const subShow = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
+    const subHide = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+    return () => {
+      subShow.remove();
+      subHide.remove();
+    };
+  }, []);
+
+  const timeline = useMemo(() => {
+    const incoming = receivedMessages.map((m) => {
+      const parsed = parseMessageContent(m.message_content);
+      return {
+        id: `received-${m.id}`,
+        ts: m.created_at,
+        isMe: false,
+        text: parsed.text,
+        soundKey: parsed.soundKey,
+        sourceMessageId: m.id,
+      };
+    });
+
+    const outgoing = sentMessages.map((m) => ({
+      id: `sent-${m.id}`,
+      ts: m.ts,
+      isMe: true,
+      text: m.text,
+      soundKey: m.soundKey,
+      status: m.status,
+      readAt: m.readAt,
+      sourceMessageId: m.id,
+    }));
+
+    return [...incoming, ...outgoing].sort(
+      (a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime()
+    );
+  }, [receivedMessages, sentMessages]);
+
+  const currentSoundChoices = useMemo(() => {
+    switch (chatSoundCategory) {
+      case 'trll':
+        return PICKUP_TRLL_KEYS;
+      case 'bzzz':
+        return PICKUP_BZZZ_KEYS;
+      case 'pop':
+        return PICKUP_POP_KEYS;
+      case 'mood':
+        return PICKUP_MOOD_KEYS;
+      case 'toot':
+      default:
+        return PICKUP_TOOT_KEYS;
+    }
+  }, [chatSoundCategory]);
+
+  const chatCategoryIconInactive = useCallback(
+    (category: ChatMessageSoundChoice) => chatSoundCategory !== category,
+    [chatSoundCategory]
+  );
+
+  const closeReportReasonModal = useCallback(() => {
+    setReportReasonModalVisible(false);
+    setPendingReportTarget(null);
+  }, []);
+
+  const submitReport = useCallback(
+    async (reason: ReportReason, reportTarget: ReportTarget) => {
+      if (!currentUserId) return;
+      try {
+        const { error } = await supabase.from('reports').insert({
+          reporter_user_id: currentUserId,
+          reported_user_id: reportTarget.senderId,
+          message_id: isUuid(reportTarget.sourceMessageId) ? reportTarget.sourceMessageId : null,
+          message_created_at: reportTarget.createdAt ?? null,
+          reason,
+        });
+
+        if (error) {
+          console.error('❌ Erreur signalement:', error);
+          Alert.alert(i18n.t('error'), i18n.t('report_submit_error'));
+          return;
+        }
+
+        Alert.alert(i18n.t('report_submit_success_title'), i18n.t('report_submit_success_body'));
+      } catch (error) {
+        console.error('❌ Erreur signalement:', error);
+        Alert.alert(i18n.t('error'), i18n.t('report_submit_error'));
+      }
+    },
+    [currentUserId]
+  );
+
+  const openReportReasonSheet = useCallback((reportTarget: ReportTarget) => {
+    if (Platform.OS === 'android') {
+      setPendingReportTarget(reportTarget);
+      setReportReasonModalVisible(true);
+      return;
+    }
+
+    Alert.alert(i18n.t('report_message_title'), i18n.t('report_message_reason_prompt'), [
+      { text: i18n.t('report_reason_spam'), onPress: () => void submitReport('spam', reportTarget) },
+      { text: i18n.t('report_reason_harassment'), onPress: () => void submitReport('harassment', reportTarget) },
+      { text: i18n.t('report_reason_hate_speech'), onPress: () => void submitReport('hate_speech', reportTarget) },
+      { text: i18n.t('report_reason_explicit_content'), onPress: () => void submitReport('explicit_content', reportTarget) },
+      { text: i18n.t('report_reason_other'), onPress: () => void submitReport('other', reportTarget) },
+      { text: i18n.t('cancel'), style: 'cancel' },
+    ]);
+  }, [submitReport]);
+
+  const handleAndroidReportReason = useCallback(
+    (reason: ReportReason) => {
+      const reportTarget = pendingReportTarget;
+      closeReportReasonModal();
+      if (!reportTarget) return;
+      void submitReport(reason, reportTarget);
+    },
+    [closeReportReasonModal, pendingReportTarget, submitReport]
+  );
+
+  const toggleChatMute = useCallback(() => {
+    setChatSoundPickerVisible(false);
+    setIsChatMuteEnabled((prev) => {
+      const next = !prev;
+      AsyncStorage.setItem(CHAT_MESSAGE_MUTE_KEY, next ? '1' : '0').catch(() => {});
+      return next;
+    });
+  }, []);
+
+  const openChatSoundPicker = useCallback(() => {
+    Keyboard.dismiss();
+    setChatSoundPickerVisible(true);
+  }, []);
+
+  const closeChatSoundPicker = useCallback(() => {
+    setChatSoundPickerVisible(false);
+  }, []);
+
+  const reopenChatKeyboard = useCallback(() => {
+    const focusInput = () => {
+      inputRef.current?.focus();
+    };
+
+    requestAnimationFrame(focusInput);
+
+    if (Platform.OS === 'android') {
+      setTimeout(focusInput, 120);
+      setTimeout(focusInput, 260);
+    }
+  }, []);
+
+  const handleSend = useCallback(async () => {
+    if (!friend || !currentUserId) return;
+
+    const customMessage = draft.trim().slice(0, 140);
+    if (!customMessage) return;
+
+    if (isZenMode) {
+      Alert.alert(i18n.t('zen_mode_active_me_title'), i18n.t('zen_mode_active_me_body'));
+      return;
+    }
+
+    if (friend.is_zen_mode) {
+      Alert.alert(
+        i18n.t('zen_mode_active_friend_title'),
+        i18n.t('zen_mode_active_friend_body', { pseudo: friend.pseudo })
+      );
+      return;
+    }
+
+    try {
+      const { data: muteCheck } = await supabase
+        .from('friends')
+        .select('is_muted')
+        .eq('user_id', friend.id)
+        .eq('friend_id', currentUserId)
+        .maybeSingle();
+
+      if (muteCheck?.is_muted) {
+        Alert.alert(
+          i18n.t('mute_mode_active_title'),
+          i18n.t('mute_mode_active_body', { pseudo: friend.pseudo })
+        );
+        return;
+      }
+    } catch (e) {
+      console.error('❌ Erreur vérification sourdine:', e);
+    }
+
+    if (!friend.expo_push_token) {
+      Alert.alert(i18n.t('error'), i18n.t('notifications_not_enabled', { pseudo: friend.pseudo }));
+      return;
+    }
+
+    setSending(true);
+
+    try {
+      let randomKey: string;
+      let isSilentMessage = false;
+
+      if (isChatMuteEnabled) {
+        randomKey = 'mute';
+        isSilentMessage = true;
+      } else if (pendingChatSoundKey) {
+        randomKey = pendingChatSoundKey;
+      } else {
+        const savedMap = await AsyncStorage.getItem(FRIEND_SOUND_CATEGORY_MAP_KEY);
+        const parsedMap = savedMap ? JSON.parse(savedMap) : {};
+        const selectedCategory = parsedMap?.[friend.id] || (await getSelectedSoundCategory());
+        const candidates =
+          SOUND_KEYS_BY_CATEGORY[selectedCategory] ||
+          SOUND_KEYS_BY_CATEGORY[DIRECT_SEND_FALLBACK_CATEGORY] ||
+          SOUND_KEYS_BY_CATEGORY.trll;
+        randomKey =
+          pickRandomWithoutImmediateRepeat(candidates, lastRandomSoundRef.current) || pickRandom(candidates);
+      }
+      lastRandomSoundRef.current = randomKey;
+
+      const optimisticMessage: VisibleSentMessage = {
+        id: `local-${Date.now()}`,
+        text: customMessage,
+        ts: new Date().toISOString(),
+        soundKey: randomKey,
+        optimistic: true,
+      };
+
+      setSentMessages((prev) => [...prev, optimisticMessage]);
+      setDraft('');
+      setPendingChatSoundKey(null);
+
+      if (Platform.OS === 'ios' && isHapticEnabled) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      }
+
+      if (!isSilentMessage && !isSilentMode) {
+        playSound(randomKey);
+      }
+
+      await sendProutViaBackend(
+        friend.expo_push_token,
+        currentPseudo || 'Un ami',
+        randomKey,
+        friend.push_platform || 'android',
+        {
+          customMessage,
+          senderId: currentUserId,
+          receiverId: friend.id,
+        }
+      );
+
+      queryClient.invalidateQueries({ queryKey: ['pendingMessages', currentUserId] });
+      queryClient.invalidateQueries({ queryKey: ['pendingSentMessages', currentUserId] });
+      setTimeout(() => {
+        void refreshMessages();
+      }, 500);
+    } catch (error: any) {
+      console.error("Erreur lors de l'envoi du message:", error?.message || error);
+      Alert.alert(i18n.t('error'), "Impossible d'envoyer le message.");
+      setDraft(customMessage);
+      setSentMessages((prev) => prev.filter((msg) => !msg.optimistic));
+    } finally {
+      setSending(false);
+    }
+  }, [
+    currentPseudo,
+    currentUserId,
+    draft,
+    friend,
+    isHapticEnabled,
+    isChatMuteEnabled,
+    isSilentMode,
+    isZenMode,
+    pendingChatSoundKey,
+    queryClient,
+    refreshMessages,
+  ]);
+
+  if (!friendId) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.errorText}>Chat introuvable.</Text>
+      </View>
+    );
+  }
+
+  if (loadingFriend || !friend) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator color="#604a3e" />
+      </View>
+    );
+  }
+
+  const composerBottomPadding =
+    Platform.OS === 'android'
+      ? keyboardVisible
+        ? 10
+        : 5
+      : keyboardVisible
+        ? 5
+        : Math.max(insets.bottom, 10);
+
+  return (
+    <View style={styles.screen}>
+      <KeyboardAvoidingView
+        style={styles.screen}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
+      >
+        <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.headerIcon}>
+            <Ionicons name="chevron-back" size={26} color="#604a3e" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>{i18n.t('sticky_chat_with', { pseudo: friend.pseudo })}</Text>
+          <TouchableOpacity
+            onPress={toggleChatMute}
+            style={styles.headerIcon}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel={isChatMuteEnabled ? 'Desactiver mute' : 'Activer mute'}
+          >
+            <Ionicons
+              name={isChatMuteEnabled ? 'volume-mute' : 'volume-medium'}
+              size={22}
+              color="#604a3e"
+              style={!isChatMuteEnabled ? styles.headerIconInactive : undefined}
+            />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.messagesArea}>
+          <View pointerEvents="none" style={styles.chatBackgroundOverlay}>
+            <Image source={CHAT_PROOTHAIL_THUMB} style={styles.chatBackgroundHero} resizeMode="cover" />
+          </View>
+
+          <ScrollView
+            ref={scrollViewRef}
+            style={styles.messages}
+            contentContainerStyle={styles.messagesContent}
+            keyboardShouldPersistTaps="handled"
+            onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
+          >
+            {timeline.map((message) =>
+              message.isMe ? (
+                <View key={message.id} style={styles.sentRow}>
+                  <SentBubble
+                    message={{
+                      id: message.sourceMessageId || message.id,
+                      text: message.text,
+                      ts: message.ts,
+                      soundKey: message.soundKey,
+                      status: message.status,
+                      readAt: message.readAt,
+                    }}
+                  />
+                </View>
+              ) : (
+                <View key={message.id} style={styles.receivedRow}>
+                  <ReceivedBubble
+                    message={{
+                      id: message.sourceMessageId || message.id,
+                      text: message.text,
+                      soundKey: message.soundKey,
+                      createdAt: message.ts,
+                      senderId: friend.id,
+                    }}
+                    onReplay={() => {}}
+                    onLongPressReport={openReportReasonSheet}
+                  />
+                </View>
+              )
+            )}
+          </ScrollView>
+        </View>
+
+        <View style={[styles.composer, { paddingBottom: composerBottomPadding }]}>
+          {!!pendingChatSoundKey && (
+            <TouchableOpacity
+              style={styles.pendingSoundTag}
+              onPress={() => setPendingChatSoundKey(null)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.pendingSoundTagText}>{getDisplaySoundLabel(pendingChatSoundKey)}</Text>
+              <Ionicons name="close-circle" size={14} color="#604a3e" style={{ marginLeft: 4 }} />
+            </TouchableOpacity>
+          )}
+          <View style={styles.composerRow}>
+            <TouchableOpacity
+              style={styles.soundPickerButton}
+              onPress={openChatSoundPicker}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel={i18n.t('chat_sound_picker_inline_button')}
+            >
+              <Image source={CHAT_PROOTHAIL_THUMB} style={styles.soundPickerThumbImage} resizeMode="contain" />
+            </TouchableOpacity>
+          <TextInput
+            ref={inputRef}
+            style={styles.input}
+            placeholder={i18n.t('add_message_placeholder')}
+            placeholderTextColor="#777"
+            value={draft}
+            onChangeText={setDraft}
+            multiline
+            maxLength={140}
+            autoCorrect={false}
+            autoComplete="off"
+            autoFocus
+          />
+            <TouchableOpacity
+              onPress={() => void handleSend()}
+              style={[styles.sendButton, (!draft.trim() || sending) && styles.sendButtonDisabled]}
+              disabled={!draft.trim() || sending}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="send" size={18} color="#604a3e" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+
+      <Modal
+        isVisible={chatSoundPickerVisible}
+        onBackdropPress={closeChatSoundPicker}
+        onBackButtonPress={closeChatSoundPicker}
+        onModalHide={() => {
+          if (!reopenKeyboardAfterSoundPickRef.current) return;
+          reopenKeyboardAfterSoundPickRef.current = false;
+          reopenChatKeyboard();
+        }}
+        style={styles.soundPickerModal}
+        backdropOpacity={0.35}
+      >
+        <View style={styles.soundPickerCard}>
+          <View style={styles.soundPickerHeader}>
+            <View />
+            <TouchableOpacity onPress={closeChatSoundPicker} activeOpacity={0.8}>
+              <Ionicons name="close" size={22} color="#604a3e" />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.soundCategoryScroller}
+            contentContainerStyle={styles.soundCategoryScrollerContent}
+            keyboardShouldPersistTaps="always"
+          >
+            {Platform.OS === 'android' && (
+              <Pressable style={styles.soundChoiceButton} onPress={() => setChatSoundCategory('toot')}>
+                <Image
+                  source={TOOT_LOGO_IMAGE}
+                  style={[
+                    styles.soundChoiceImage,
+                    TOOT_CHAT_ICON_SIZE,
+                    chatCategoryIconInactive('toot') && styles.soundChoiceImageInactive,
+                  ]}
+                  resizeMode="contain"
+                />
+              </Pressable>
+            )}
+            <Pressable style={styles.soundChoiceButton} onPress={() => setChatSoundCategory('mood')}>
+              <Image
+                source={require('../assets/images/mood.png')}
+                style={[
+                  styles.soundChoiceImage,
+                  chatCategoryIconInactive('mood') && styles.soundChoiceImageInactive,
+                ]}
+                resizeMode="contain"
+              />
+            </Pressable>
+            <Pressable style={styles.soundChoiceButton} onPress={() => setChatSoundCategory('pop')}>
+              <Image
+                source={require('../assets/images/pop.png')}
+                style={[
+                  styles.soundChoiceImage,
+                  styles.soundChoiceImagePop,
+                  chatCategoryIconInactive('pop') && styles.soundChoiceImageInactive,
+                ]}
+                resizeMode="contain"
+              />
+            </Pressable>
+            {Platform.OS !== 'android' && (
+              <Pressable style={styles.soundChoiceButton} onPress={() => setChatSoundCategory('toot')}>
+                <Image
+                  source={TOOT_LOGO_IMAGE}
+                  style={[
+                    styles.soundChoiceImage,
+                    TOOT_CHAT_ICON_SIZE,
+                    chatCategoryIconInactive('toot') && styles.soundChoiceImageInactive,
+                  ]}
+                  resizeMode="contain"
+                />
+              </Pressable>
+            )}
+            <Pressable style={styles.soundChoiceButton} onPress={() => setChatSoundCategory('trll')}>
+              <Image
+                source={require('../assets/images/tweet.png')}
+                style={[
+                  styles.soundChoiceImage,
+                  chatCategoryIconInactive('trll') && styles.soundChoiceImageInactive,
+                ]}
+                resizeMode="contain"
+              />
+            </Pressable>
+            <Pressable style={styles.soundChoiceButton} onPress={() => setChatSoundCategory('bzzz')}>
+              <Image
+                source={require('../assets/images/buzz.png')}
+                style={[
+                  styles.soundChoiceImage,
+                  chatCategoryIconInactive('bzzz') && styles.soundChoiceImageInactive,
+                ]}
+                resizeMode="contain"
+              />
+            </Pressable>
+          </ScrollView>
+
+          <ScrollView
+            style={[styles.soundOptionsList, { height: CHAT_SPECIFIC_MIN_HEIGHT }]}
+            contentContainerStyle={[
+              styles.soundOptionsListContent,
+              {
+                paddingBottom:
+                  Platform.OS === 'android'
+                    ? Math.max(insets.bottom + 50, 94)
+                    : 50,
+              },
+            ]}
+            showsVerticalScrollIndicator
+            keyboardShouldPersistTaps="always"
+          >
+            {currentSoundChoices.map((soundKey) => (
+              <TouchableOpacity
+                key={soundKey}
+                style={[
+                  styles.soundOptionButton,
+                  pendingChatSoundKey === soundKey && styles.soundOptionButtonActive,
+                ]}
+                onPress={() => {
+                  reopenKeyboardAfterSoundPickRef.current = true;
+                  setPendingChatSoundKey(soundKey);
+                  closeChatSoundPicker();
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.soundOptionButtonText}>{getDisplaySoundLabel(soundKey)}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      <Modal
+        isVisible={reportReasonModalVisible}
+        onBackdropPress={closeReportReasonModal}
+        onBackButtonPress={closeReportReasonModal}
+        style={styles.reportReasonModal}
+        backdropOpacity={0.4}
+      >
+        <View style={styles.reportReasonCard}>
+          <Text style={styles.reportReasonTitle}>{i18n.t('report_message_title')}</Text>
+          <Text style={styles.reportReasonSubtitle}>{i18n.t('report_message_reason_prompt')}</Text>
+          {([
+            ['spam', i18n.t('report_reason_spam')],
+            ['harassment', i18n.t('report_reason_harassment')],
+            ['hate_speech', i18n.t('report_reason_hate_speech')],
+            ['explicit_content', i18n.t('report_reason_explicit_content')],
+            ['other', i18n.t('report_reason_other')],
+          ] as Array<[ReportReason, string]>).map(([reason, label]) => (
+            <TouchableOpacity
+              key={reason}
+              style={styles.reportReasonOption}
+              onPress={() => handleAndroidReportReason(reason)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.reportReasonOptionText}>{label}</Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity style={styles.reportReasonCancel} onPress={closeReportReasonModal} activeOpacity={0.85}>
+            <Text style={styles.reportReasonCancelText}>{i18n.t('cancel')}</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: '#ebb89b',
+  },
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ebb89b',
+  },
+  errorText: {
+    color: '#604a3e',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(96, 74, 62, 0.12)',
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
+  headerIcon: {
+    width: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerIconInactive: {
+    opacity: 0.4,
+  },
+  headerTitle: {
+    flex: 1,
+    textAlign: 'center',
+    color: '#604a3e',
+    fontSize: 18,
+    fontWeight: '700',
+    marginHorizontal: 8,
+  },
+  messages: {
+    flex: 1,
+  },
+  messagesArea: {
+    flex: 1,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  chatBackgroundOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.075,
+  },
+  chatBackgroundHero: {
+    position: 'absolute',
+    width: 420,
+    height: 420,
+    right: -120,
+    top: '18%',
+    transform: [{ rotate: '-8deg' }],
+  },
+  messagesContent: {
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 12,
+    flexGrow: 1,
+    justifyContent: 'flex-end',
+  },
+  receivedRow: {
+    alignItems: 'flex-start',
+    marginBottom: 6,
+  },
+  sentRow: {
+    alignItems: 'flex-end',
+    marginBottom: 6,
+  },
+  sentBubbleWrapper: {
+    alignItems: 'flex-end',
+    maxWidth: '84%',
+  },
+  receivedBubble: {
+    maxWidth: '88%',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    borderTopLeftRadius: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  receivedBubbleWithIcon: {
+    paddingLeft: 34,
+  },
+  receivedPlayIcon: {
+    position: 'absolute',
+    left: 12,
+    top: 11,
+    opacity: 0.9,
+  },
+  receivedText: {
+    color: '#333',
+    fontSize: 18,
+  },
+  receivedBubbleActive: {
+    backgroundColor: '#A2E4D4',
+    borderWidth: 1,
+    borderColor: '#1a1a1a',
+  },
+  sentBubble: {
+    backgroundColor: '#e3f2fd',
+    borderRadius: 16,
+    borderTopRightRadius: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  sentBubbleRead: {
+    opacity: 0.75,
+  },
+  sentText: {
+    color: '#333',
+    fontSize: 18,
+  },
+  sentRead: {
+    color: '#604a3e',
+    fontSize: 12,
+    marginTop: 4,
+    fontStyle: 'italic',
+    textAlign: 'right',
+    alignSelf: 'flex-end',
+  },
+  composer: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    paddingLeft: 6,
+    paddingRight: 12,
+    paddingTop: 10,
+    backgroundColor: '#ebb89b',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(96, 74, 62, 0.12)',
+  },
+  composerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 5,
+  },
+  pendingSoundTag: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#A2E4D4',
+    borderWidth: 1,
+    borderColor: '#1a1a1a',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginBottom: 6,
+    marginLeft: 4,
+  },
+  pendingSoundTagText: {
+    color: '#604a3e',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  soundPickerButton: {
+    width: 34,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 0,
+    marginRight: 0,
+    paddingHorizontal: 0,
+    paddingLeft: 0,
+    paddingRight: 0,
+  },
+  soundPickerThumbImage: {
+    width: 34,
+    height: 34,
+  },
+  input: {
+    flex: 1,
+    minHeight: 44,
+    maxHeight: 110,
+    borderWidth: 1,
+    borderColor: '#c5d7d3',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#fff',
+    color: '#333',
+    fontSize: 18,
+  },
+  sendButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    marginLeft: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#d2f1ef',
+    borderWidth: 1,
+    borderColor: 'rgba(96, 74, 62, 0.15)',
+  },
+  sendButtonDisabled: {
+    opacity: 0.5,
+  },
+  soundPickerModal: {
+    justifyContent: 'flex-end',
+    margin: 0,
+  },
+  soundPickerCard: {
+    backgroundColor: '#ebb89b',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingHorizontal: 16,
+    paddingTop: 2,
+    paddingBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(96, 74, 62, 0.12)',
+    maxHeight: '80%',
+  },
+  soundPickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 0,
+    minHeight: 14,
+  },
+  soundPickerTitle: {
+    color: '#604a3e',
+    fontSize: 16,
+    fontWeight: '700',
+    fontStyle: 'italic',
+    letterSpacing: 0.3,
+  },
+  soundCategoryScroller: {
+    marginTop: 0,
+    marginBottom: 0,
+    maxHeight: 40,
+    alignSelf: 'center',
+    flexGrow: 0,
+  },
+  soundCategoryScrollerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 0,
+  },
+  soundChoiceButton: {
+    width: 96,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  soundChoiceImage: {
+    width: 75,
+    height: 51,
+  },
+  soundChoiceImagePop: {
+    width: 62,
+    height: 42,
+  },
+  soundChoiceImageInactive: {
+    opacity: 0.4,
+  },
+  soundOptionsList: {
+    marginTop: 0,
+    backgroundColor: 'rgba(96, 74, 62, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(96, 74, 62, 0.1)',
+    borderRadius: 8,
+  },
+  soundOptionsListContent: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignContent: 'flex-start',
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingTop: 8,
+    paddingBottom: 50,
+  },
+  soundOptionButton: {
+    backgroundColor: 'rgba(255,255,255,0.55)',
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  soundOptionButtonActive: {
+    backgroundColor: 'rgba(162, 228, 212, 0.72)',
+    borderColor: 'rgba(96, 74, 62, 0.45)',
+  },
+  soundOptionButtonText: {
+    color: '#604a3e',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  reportReasonModal: {
+    justifyContent: 'center',
+    margin: 0,
+    paddingHorizontal: 20,
+  },
+  reportReasonCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 18,
+  },
+  reportReasonTitle: {
+    color: '#604a3e',
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  reportReasonSubtitle: {
+    color: '#604a3e',
+    fontSize: 14,
+    textAlign: 'center',
+    opacity: 0.8,
+    marginTop: 6,
+    marginBottom: 14,
+  },
+  reportReasonOption: {
+    backgroundColor: '#d2f1ef',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 8,
+  },
+  reportReasonOptionText: {
+    color: '#604a3e',
+    fontSize: 15,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  reportReasonCancel: {
+    marginTop: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  reportReasonCancelText: {
+    color: '#604a3e',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+});

@@ -6,7 +6,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import * as SystemUI from 'expo-system-ui'; // ← Solution native pour fond StatusBar
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Animated, AppState, DeviceEventEmitter, Platform, StatusBar, StyleSheet, Text, Vibration, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, AppState, DeviceEventEmitter, NativeModules, Platform, StatusBar, StyleSheet, Text, Vibration, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 // 👇 AJOUT : Provider indispensable pour gérer le clavier Android (Emoji vs Texte)
 import { KeyboardProvider } from 'react-native-keyboard-controller';
@@ -44,14 +44,26 @@ import { supabase } from '../lib/supabase';
 
 import i18n, { updateLocale } from '../lib/i18n';
 
+const ACTIVE_CHAT_FRIEND_ID_KEY = 'active_chat_friend_id_v1';
+
 // 🔔 CONFIGURATION GLOBALE
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
+    const senderId =
+      typeof notification.request.content.data?.senderId === 'string'
+        ? notification.request.content.data.senderId
+        : null;
+    const activeChatFriendId = await AsyncStorage.getItem(ACTIVE_CHAT_FRIEND_ID_KEY);
+    const suppressSystemNotification =
+      AppState.currentState === 'active' &&
+      !!senderId &&
+      activeChatFriendId === senderId;
+
     return {
-      shouldPlaySound: true, // ✅ Le son du canal joue normalement
+      shouldPlaySound: !suppressSystemNotification,
       shouldSetBadge: false,
-      shouldShowBanner: true, // ✅ Banner système activé
-      shouldShowList: true,
+      shouldShowBanner: !suppressSystemNotification,
+      shouldShowList: !suppressSystemNotification,
     };
   },
 });
@@ -94,6 +106,19 @@ export default function RootLayout() {
   const segments = useSegments();
   const [toastMessage, setToastMessage] = useState<{ title: string, body: string } | null>(null);
   const [toastOpacity] = useState(new Animated.Value(0));
+
+  useEffect(() => {
+    const nativeSoundSettingsModule = NativeModules.SoundSettingsModule;
+    nativeSoundSettingsModule?.setAppInForeground?.(AppState.currentState === 'active');
+
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      nativeSoundSettingsModule?.setAppInForeground?.(nextState === 'active');
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   const showToast = (title: string, body: string) => {
     setToastMessage({ title, body });
@@ -246,7 +271,10 @@ export default function RootLayout() {
       if (__DEV__) console.log('🔔 [RootLayout] Notification reçue en premier plan:', JSON.stringify(data));
 
       // Émettre un événement global avec les données pour jouer le son et rafraîchir
-      DeviceEventEmitter.emit('REFRESH_DATA', data);
+      // Si data est null ou undefined ou vide, ne rien émettre pour éviter d'écraser l'UI
+      if (data && Object.keys(data).length > 0) {
+        DeviceEventEmitter.emit('REFRESH_DATA', data);
+      }
 
       // Vérifier si le retour haptique est activé (iOS uniquement)
       if (Platform.OS === 'ios') {
@@ -535,6 +563,7 @@ export default function RootLayout() {
                     <Stack.Screen name="IdentityRevealScreen" options={{ presentation: 'modal' }} />
                     {/* SearchUserScreen est maintenant intégré dans index.tsx, plus besoin de route dédiée */}
                     <Stack.Screen name="(tabs)" />
+                    <Stack.Screen name="chat" options={{ gestureEnabled: true }} />
                     <Stack.Screen name="soundcheck" options={{ gestureEnabled: true }} />
                     <Stack.Screen name="confirm-email" options={{ presentation: 'modal' }} />
                     <Stack.Screen name="reset-password" options={{ presentation: 'modal' }} />
