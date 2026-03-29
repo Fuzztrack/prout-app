@@ -33,6 +33,8 @@ import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import com.facebook.react.bridge.Arguments
+import com.facebook.react.modules.core.DeviceEventManagerModule
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import org.json.JSONObject
@@ -109,7 +111,49 @@ class ProutMessagingService : FirebaseMessagingService() {
         val soundUri = resolveSoundUri(proutKey)
         val channelId = ensureChannel(proutKey, soundUri)
         Log.d(TAG, "Resolved Sound URI: " + soundUri + " for proutKey: " + proutKey)
+        emitRefreshEventToJs(data)
+        if (shouldSuppressSystemNotification(data["senderId"])) {
+            Log.d(TAG, "🔕 Notification système supprimée: chat actif déjà ouvert pour senderId=" + data["senderId"])
+            return
+        }
         showNotification(channelId, title, body, soundUri, proutKey, sender)
+    }
+
+    private fun emitRefreshEventToJs(data: Map<String, String>) {
+        try {
+            // Utiliser le contexte React capturé statiquement par notre module
+            val reactContext = SoundSettingsModule.activeReactContext
+
+            Log.d(TAG, "Debugging ReactContext from static module: \${reactContext != null}")
+
+            if (reactContext == null) {
+                Log.e(TAG, "❌ [CRITICAL] JS context totalement indisponible, impossible d'émettre REFRESH_DATA")
+                return
+            }
+
+            val params = Arguments.createMap().apply {
+                putString("type", data["type"] ?: "prout")
+                data["proutKey"]?.let { putString("proutKey", it) }
+                data["sender"]?.let { putString("sender", it) }
+                data["customMessage"]?.let { putString("customMessage", it) }
+                data["senderId"]?.let { putString("senderId", it) }
+                data["receiverId"]?.let { putString("receiverId", it) }
+                data["message"]?.let { putString("message", it) }
+            }
+
+            reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+                .emit("REFRESH_DATA", params)
+            Log.d(TAG, "✅ REFRESH_DATA émis avec succès vers React Native")
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Erreur préparation émission REFRESH_DATA: \${e.message}")
+        }
+    }
+
+    private fun shouldSuppressSystemNotification(senderId: String?): Boolean {
+        if (senderId.isNullOrBlank()) return false
+        if (!SoundSettingsModule.isAppInForeground) return false
+        return SoundSettingsModule.activeChatFriendId == senderId
     }
 
     private fun resolveSoundUri(proutKey: String): Uri {

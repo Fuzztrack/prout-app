@@ -164,7 +164,6 @@ export default function ProfileScreen() {
         <TouchableOpacity onPress={() => safePush(router, '/eula', { skipInitialCheck: false })} style={styles.supportLink}>
           <Text style={styles.supportLinkText}>{i18n.t('profile_eula')}</Text>
         </TouchableOpacity>
-        <Text style={styles.versionText}>Proot ! version 1.1.0</Text>
       </ScrollView>
     </View>
   );
@@ -242,12 +241,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textDecorationLine: 'underline',
     opacity: 0.8
-  },
-  versionText: {
-    textAlign: 'center',
-    marginTop: 6,
-    color: '#604a3e',
-    fontSize: 12,
-    opacity: 0.75,
   },
 });

@@ -24,6 +24,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const appVersion = Constants.expoConfig?.version ?? '1.1.1';
   
   const isLoadedRef = useRef(false);
   
@@ -713,6 +714,7 @@ export default function HomeScreen() {
                              </TouchableOpacity>
                            ))}
                          </View>
+                        <Text style={styles.menuVersionText}>{`Proot ! version ${appVersion}`}</Text>
                        </ScrollView>
                      </View>
                    )}
@@ -786,6 +788,7 @@ export default function HomeScreen() {
                           </TouchableOpacity>
                         ))}
                       </View>
+                      <Text style={styles.menuVersionText}>{`Proot ! version ${appVersion}`}</Text>
                     </ScrollView>
                   </View>
                 )}
@@ -915,6 +918,14 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#604a3e',
     fontWeight: '600',
+  },
+  menuVersionText: {
+    textAlign: 'center',
+    marginTop: 8,
+    marginBottom: 8,
+    color: '#604a3e',
+    fontSize: 12,
+    opacity: 0.75,
   },
   // Zen options overlay (Android) - Edge-to-Edge
   zenOverlay: {

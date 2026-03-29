@@ -679,7 +679,6 @@ export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void;
                 <Ionicons name="mail-outline" size={20} color="#604a3e" />
                 <Text style={styles.supportText}>{i18n.t('contact_support')}</Text>
               </TouchableOpacity>
-              <Text style={styles.versionText}>Proot ! version 1.1.0</Text>
 
               <View style={styles.deleteButtonContainer}>
                 <TouchableOpacity
@@ -842,14 +841,6 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     textDecorationLine: 'underline',
   },
-  versionText: {
-    marginTop: 6,
-    textAlign: 'center',
-    color: '#604a3e',
-    fontSize: 12,
-    opacity: 0.75,
-  },
-
   deleteButton: {
     flexDirection: 'row',
     alignItems: 'center',
