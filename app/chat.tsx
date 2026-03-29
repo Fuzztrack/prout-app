@@ -90,6 +90,21 @@ type ReportTarget = {
   createdAt?: string;
 };
 
+type MessageReaction = {
+  message_id: string;
+  reactor_user_id: string;
+  emoji: string;
+  message_sender_id: string;
+  message_receiver_id: string;
+  updated_at?: string;
+};
+
+type PendingReactionTarget = {
+  messageId: string;
+  messageSenderId: string;
+  messageReceiverId: string;
+};
+
 const FRIEND_SOUND_CATEGORY_MAP_KEY = 'friend_sound_category_map_v1';
 const CHAT_MESSAGE_MUTE_KEY = 'chat_message_mute_v2';
 const ACTIVE_CHAT_FRIEND_ID_KEY = 'active_chat_friend_id_v1';
@@ -115,6 +130,11 @@ const CHAT_SPECIFIC_MIN_HEIGHT = MAX_PICKUP_ROWS * CHAT_SPECIFIC_ROW_HEIGHT + 50
 const TOOT_LOGO_IMAGE = require('../assets/images/proot.png');
 const CHAT_PROOTHAIL_THUMB = require('../assets/images/proothail.png');
 const TOOT_CHAT_ICON_SIZE = Platform.OS === 'android' ? { width: 82, height: 55 } : { width: 84, height: 56 };
+
+const androidBrand = String((Platform.constants as { Brand?: string; Manufacturer?: string } | undefined)?.Brand
+  || (Platform.constants as { Brand?: string; Manufacturer?: string } | undefined)?.Manufacturer
+  || '');
+const isSamsungAndroid = Platform.OS === 'android' && /samsung/i.test(androidBrand);
 
 function parseMessageContent(raw?: string | null): ParsedMessage {
   if (!raw) return { text: '', isRead: false };
@@ -159,39 +179,41 @@ function ReceivedBubble({
 
   return (
     <View style={styles.receivedBubbleWrapper}>
-      <TouchableOpacity
-        activeOpacity={0.88}
-        onPress={() => {
-          if (!canReplaySound) return;
-          setIsReplayActive(true);
-          playSound(message.soundKey, {
-            onEnd: () => setIsReplayActive(false),
-          });
-          onReplay(message.soundKey);
-        }}
-        onLongPress={() => onLongPressReact(message.id)}
-        style={[
-          styles.receivedBubble,
-          canReplaySound ? styles.receivedBubbleWithIcon : undefined,
-          isReplayActive && styles.receivedBubbleActive,
-        ]}
-      >
-        {canReplaySound ? (
-          <Ionicons
-            name="play"
-            size={16}
-            color="#604a3e"
-            style={styles.receivedPlayIcon}
-            accessibilityLabel={i18n.t('chat_replay_sound_hint')}
-          />
+      <View style={{ position: 'relative' }}>
+        <TouchableOpacity
+          activeOpacity={0.88}
+          onPress={() => {
+            if (!canReplaySound) return;
+            setIsReplayActive(true);
+            playSound(message.soundKey, {
+              onEnd: () => setIsReplayActive(false),
+            });
+            onReplay(message.soundKey);
+          }}
+          onLongPress={() => onLongPressReact(message.id)}
+          style={[
+            styles.receivedBubble,
+            canReplaySound ? styles.receivedBubbleWithIcon : undefined,
+            isReplayActive && styles.receivedBubbleActive,
+          ]}
+        >
+          {canReplaySound ? (
+            <Ionicons
+              name="play"
+              size={16}
+              color="#604a3e"
+              style={styles.receivedPlayIcon}
+              accessibilityLabel={i18n.t('chat_replay_sound_hint')}
+            />
+          ) : null}
+          <Text style={styles.receivedText}>{message.text}</Text>
+        </TouchableOpacity>
+        {reaction ? (
+          <View style={styles.receivedReactionBadge}>
+            <Text style={styles.reactionBadgeText}>{reaction}</Text>
+          </View>
         ) : null}
-        <Text style={styles.receivedText}>{message.text}</Text>
-      </TouchableOpacity>
-      {reaction ? (
-        <View style={styles.receivedReactionBadge}>
-          <Text style={styles.reactionBadgeText}>{reaction}</Text>
-        </View>
-      ) : null}
+      </View>
     </View>
   );
 }
@@ -207,16 +229,18 @@ function SentBubble({
 }) {
   return (
     <View style={styles.sentBubbleWrapper}>
-      <TouchableOpacity activeOpacity={0.92} onLongPress={() => onLongPressReact(message.id)}>
-        <View style={[styles.sentBubble, message.status === 'read' && styles.sentBubbleRead]}>
-          <Text style={styles.sentText}>{message.text}</Text>
-        </View>
-      </TouchableOpacity>
-      {reaction ? (
-        <View style={styles.sentReactionBadge}>
-          <Text style={styles.reactionBadgeText}>{reaction}</Text>
-        </View>
-      ) : null}
+      <View style={{ position: 'relative' }}>
+        <TouchableOpacity activeOpacity={0.92} onLongPress={() => onLongPressReact(message.id)}>
+          <View style={[styles.sentBubble, message.status === 'read' && styles.sentBubbleRead]}>
+            <Text style={styles.sentText}>{message.text}</Text>
+          </View>
+        </TouchableOpacity>
+        {reaction ? (
+          <View style={styles.sentReactionBadge}>
+            <Text style={styles.reactionBadgeText}>{reaction}</Text>
+          </View>
+        ) : null}
+      </View>
       {message.status === 'read' ? <Text style={styles.sentRead}>{i18n.t('message_read')}</Text> : null}
     </View>
   );
@@ -249,9 +273,9 @@ export default function ChatScreen() {
   const [sentMessages, setSentMessages] = useState<VisibleSentMessage[]>([]);
   const [reportReasonModalVisible, setReportReasonModalVisible] = useState(false);
   const [pendingReportTarget, setPendingReportTarget] = useState<ReportTarget | null>(null);
-  const [messageReactions, setMessageReactions] = useState<Record<string, string>>({});
+  const [messageReactions, setMessageReactions] = useState<Record<string, MessageReaction[]>>({});
   const [reactionPickerVisible, setReactionPickerVisible] = useState(false);
-  const [pendingReactionMessageId, setPendingReactionMessageId] = useState<string | null>(null);
+  const [pendingReactionTarget, setPendingReactionTarget] = useState<PendingReactionTarget | null>(null);
 
   const lastRandomSoundRef = useRef<string | undefined>(undefined);
   const knownIncomingMessageIdsRef = useRef<Set<string>>(new Set());
@@ -444,6 +468,12 @@ export default function ChatScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      void loadConversationReactions();
+    }, [loadConversationReactions])
+  );
+
+  useFocusEffect(
+    useCallback(() => {
       if (!currentUserId || !friendId) return;
 
       const channel = supabase
@@ -520,6 +550,42 @@ export default function ChatScreen() {
         supabase.removeChannel(channel);
       };
     }, [currentUserId, friendId, isHapticEnabled, queryClient, triggerGlobalMessageRefresh])
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!currentUserId || !friendId) return;
+
+      const channel = supabase
+        .channel(`chat-reactions-${currentUserId}-${friendId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'message_reactions',
+          },
+          (payload: any) => {
+            const candidate = (payload.new || payload.old) as MessageReaction | undefined;
+            if (!isReactionForCurrentConversation(candidate)) return;
+
+            if (payload.eventType === 'DELETE' && payload.old) {
+              const oldRow = payload.old as MessageReaction;
+              removeReactionForMessage(oldRow.message_id, oldRow.reactor_user_id);
+              return;
+            }
+
+            if (payload.new) {
+              replaceReactionForMessage(payload.new as MessageReaction);
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }, [currentUserId, friendId, isReactionForCurrentConversation, removeReactionForMessage, replaceReactionForMessage])
   );
 
   useEffect(() => {
@@ -621,6 +687,90 @@ export default function ChatScreen() {
     [chatSoundCategory]
   );
 
+  const replaceReactionForMessage = useCallback((row: MessageReaction) => {
+    setMessageReactions((prev) => {
+      const nextRows = [...(prev[row.message_id] || []).filter((item) => item.reactor_user_id !== row.reactor_user_id), row]
+        .sort((a, b) => (a.updated_at || '').localeCompare(b.updated_at || ''));
+
+      return {
+        ...prev,
+        [row.message_id]: nextRows,
+      };
+    });
+  }, []);
+
+  const removeReactionForMessage = useCallback((messageId: string, reactorUserId: string) => {
+    setMessageReactions((prev) => {
+      const existing = prev[messageId] || [];
+      const nextRows = existing.filter((item) => item.reactor_user_id !== reactorUserId);
+
+      if (nextRows.length === 0) {
+        const { [messageId]: _removed, ...rest } = prev;
+        return rest;
+      }
+
+      return {
+        ...prev,
+        [messageId]: nextRows,
+      };
+    });
+  }, []);
+
+  const hydrateConversationReactions = useCallback((rows: MessageReaction[]) => {
+    const grouped: Record<string, MessageReaction[]> = {};
+
+    rows.forEach((row) => {
+      if (!grouped[row.message_id]) {
+        grouped[row.message_id] = [];
+      }
+      grouped[row.message_id].push(row);
+    });
+
+    Object.values(grouped).forEach((items) => {
+      items.sort((a, b) => (a.updated_at || '').localeCompare(b.updated_at || ''));
+    });
+
+    setMessageReactions(grouped);
+  }, []);
+
+  const isReactionForCurrentConversation = useCallback(
+    (row?: Partial<MessageReaction> | null) => {
+      if (!row?.message_sender_id || !row?.message_receiver_id || !currentUserId || !friendId) return false;
+      return (
+        (row.message_sender_id === currentUserId && row.message_receiver_id === friendId) ||
+        (row.message_sender_id === friendId && row.message_receiver_id === currentUserId)
+      );
+    },
+    [currentUserId, friendId]
+  );
+
+  const loadConversationReactions = useCallback(async () => {
+    if (!currentUserId || !friendId) return;
+
+    const { data, error } = await supabase
+      .from('message_reactions')
+      .select('message_id, reactor_user_id, emoji, message_sender_id, message_receiver_id, updated_at')
+      .or(
+        `and(message_sender_id.eq.${currentUserId},message_receiver_id.eq.${friendId}),and(message_sender_id.eq.${friendId},message_receiver_id.eq.${currentUserId})`
+      )
+      .order('updated_at', { ascending: true });
+
+    if (error) {
+      console.error('❌ Erreur chargement réactions:', error);
+      return;
+    }
+
+    hydrateConversationReactions((data || []) as MessageReaction[]);
+  }, [currentUserId, friendId, hydrateConversationReactions]);
+
+  const getReactionBadgeText = useCallback(
+    (messageId: string) => {
+      const reactions = messageReactions[messageId] || [];
+      return reactions.map((item) => item.emoji).filter(Boolean).join(' ');
+    },
+    [messageReactions]
+  );
+
   const closeReportReasonModal = useCallback(() => {
     setReportReasonModalVisible(false);
     setPendingReportTarget(null);
@@ -687,24 +837,61 @@ export default function ChatScreen() {
     });
   }, [friend, openReportReasonSheet]);
 
-  const openReactionPicker = useCallback((messageId: string) => {
-    setPendingReactionMessageId(messageId);
-    setReactionPickerVisible(true);
-  }, []);
+  const openReactionPicker = useCallback(
+    (messageId: string, isOwnMessage: boolean) => {
+      if (!currentUserId || !friendId) return;
+      setPendingReactionTarget({
+        messageId,
+        messageSenderId: isOwnMessage ? currentUserId : friendId,
+        messageReceiverId: isOwnMessage ? friendId : currentUserId,
+      });
+      setReactionPickerVisible(true);
+    },
+    [currentUserId, friendId]
+  );
 
   const closeReactionPicker = useCallback(() => {
     setReactionPickerVisible(false);
-    setPendingReactionMessageId(null);
+    setPendingReactionTarget(null);
   }, []);
 
-  const handleReactionSelect = useCallback((emoji: string) => {
-    if (!pendingReactionMessageId) return;
-    setMessageReactions((prev) => ({
-      ...prev,
-      [pendingReactionMessageId]: emoji,
-    }));
-    closeReactionPicker();
-  }, [closeReactionPicker, pendingReactionMessageId]);
+  const handleReactionSelect = useCallback(
+    async (emoji: string) => {
+      if (!pendingReactionTarget || !currentUserId) return;
+
+      const optimisticRow: MessageReaction = {
+        message_id: pendingReactionTarget.messageId,
+        reactor_user_id: currentUserId,
+        emoji,
+        message_sender_id: pendingReactionTarget.messageSenderId,
+        message_receiver_id: pendingReactionTarget.messageReceiverId,
+        updated_at: new Date().toISOString(),
+      };
+
+      replaceReactionForMessage(optimisticRow);
+      closeReactionPicker();
+
+      const { error } = await supabase.from('message_reactions').upsert(
+        {
+          message_id: pendingReactionTarget.messageId,
+          reactor_user_id: currentUserId,
+          emoji,
+          message_sender_id: pendingReactionTarget.messageSenderId,
+          message_receiver_id: pendingReactionTarget.messageReceiverId,
+        },
+        {
+          onConflict: 'message_id,reactor_user_id',
+        }
+      );
+
+      if (error) {
+        console.error('❌ Erreur enregistrement réaction:', error);
+        removeReactionForMessage(pendingReactionTarget.messageId, currentUserId);
+        Alert.alert(i18n.t('error'), "Impossible d'enregistrer la réaction.");
+      }
+    },
+    [closeReactionPicker, currentUserId, pendingReactionTarget, removeReactionForMessage, replaceReactionForMessage]
+  );
 
   const toggleChatMute = useCallback(() => {
     setChatSoundPickerVisible(false);
@@ -729,11 +916,12 @@ export default function ChatScreen() {
       inputRef.current?.focus();
     };
 
-    requestAnimationFrame(focusInput);
-
     if (Platform.OS === 'android') {
-      setTimeout(focusInput, 120);
-      setTimeout(focusInput, 260);
+      inputRef.current?.blur();
+      setTimeout(focusInput, 150);
+      setTimeout(focusInput, 350);
+    } else {
+      requestAnimationFrame(focusInput);
     }
   }, []);
 
@@ -883,7 +1071,7 @@ export default function ChatScreen() {
     Platform.OS === 'android'
       ? keyboardVisible
         ? 10
-        : 5
+        : Math.max(insets.bottom + 5, 5)
       : keyboardVisible
         ? 5
         : Math.max(insets.bottom, 10);
@@ -951,8 +1139,8 @@ export default function ChatScreen() {
                       status: message.status,
                       readAt: message.readAt,
                     }}
-                    reaction={messageReactions[message.sourceMessageId || message.id]}
-                    onLongPressReact={openReactionPicker}
+                    reaction={getReactionBadgeText(message.sourceMessageId || message.id)}
+                    onLongPressReact={() => openReactionPicker(message.sourceMessageId || message.id, true)}
                   />
                 </View>
               ) : (
@@ -965,9 +1153,9 @@ export default function ChatScreen() {
                       createdAt: message.ts,
                       senderId: friend.id,
                     }}
-                    reaction={messageReactions[message.sourceMessageId || message.id]}
+                    reaction={getReactionBadgeText(message.sourceMessageId || message.id)}
                     onReplay={() => {}}
-                    onLongPressReact={openReactionPicker}
+                    onLongPressReact={() => openReactionPicker(message.sourceMessageId || message.id, false)}
                   />
                 </View>
               )
@@ -1305,6 +1493,8 @@ const styles = StyleSheet.create({
   sentBubbleWrapper: {
     alignItems: 'flex-end',
     maxWidth: '84%',
+    position: 'relative',
+    paddingBottom: 12,
   },
   receivedBubbleWrapper: {
     alignItems: 'flex-start',
@@ -1350,8 +1540,8 @@ const styles = StyleSheet.create({
   },
   receivedReactionBadge: {
     position: 'absolute',
-    right: 8,
-    bottom: 0,
+    right: -6,
+    bottom: -10,
     minWidth: 28,
     height: 24,
     paddingHorizontal: 6,
@@ -1364,8 +1554,8 @@ const styles = StyleSheet.create({
   },
   sentReactionBadge: {
     position: 'absolute',
-    left: 8,
-    bottom: 18,
+    left: -6,
+    bottom: -10,
     minWidth: 28,
     height: 24,
     paddingHorizontal: 6,
