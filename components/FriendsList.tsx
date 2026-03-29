@@ -4695,25 +4695,15 @@ const closeIdentityModal = useCallback(() => {
                 </Text>
               </View>
               <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
-                <Image
-                  source={require('../assets/images/tap-gesture.png')}
-                  style={styles.firstFooterTapImage}
-                  resizeMode="contain"
-                />
-                <Text style={styles.firstFooterModalFeatureText}>
-                  {i18n.t('chat_onboarding_tap_replay')}
-                </Text>
-              </View>
-              <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
                 <Ionicons name="volume-mute" size={22} color="#604a3e" />
                 <Text style={styles.firstFooterModalFeatureText}>
                   {i18n.t('chat_onboarding_mute')}
                 </Text>
               </View>
               <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
-                <Ionicons name="alert-circle" size={22} color="#604a3e" />
+                <Ionicons name="flag-outline" size={22} color="#604a3e" />
                 <Text style={styles.firstFooterModalFeatureText}>
-                  {i18n.t('chat_onboarding_long_press_report')}
+                  {i18n.t('chat_onboarding_report_conversation')}
                 </Text>
               </View>
               <TouchableOpacity
@@ -5347,25 +5337,15 @@ const closeIdentityModal = useCallback(() => {
                 </Text>
               </View>
               <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
-                <Image
-                  source={require('../assets/images/tap-gesture.png')}
-                  style={styles.firstFooterTapImage}
-                  resizeMode="contain"
-                />
-                <Text style={styles.firstFooterModalFeatureText}>
-                  {i18n.t('chat_onboarding_tap_replay')}
-                </Text>
-              </View>
-              <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
                 <Ionicons name="volume-mute" size={22} color="#604a3e" />
                 <Text style={styles.firstFooterModalFeatureText}>
                   {i18n.t('chat_onboarding_mute')}
                 </Text>
               </View>
               <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
-                <Ionicons name="alert-circle" size={22} color="#604a3e" />
+                <Ionicons name="flag-outline" size={22} color="#604a3e" />
                 <Text style={styles.firstFooterModalFeatureText}>
-                  {i18n.t('chat_onboarding_long_press_report')}
+                  {i18n.t('chat_onboarding_report_conversation')}
                 </Text>
               </View>
             </>

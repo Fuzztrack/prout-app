@@ -21,6 +21,8 @@ import {
   View,
 } from 'react-native';
 import Modal from 'react-native-modal';
+import { useKeyboardHandler } from 'react-native-keyboard-controller';
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '@/lib/store';
@@ -91,6 +93,7 @@ type ReportTarget = {
 const FRIEND_SOUND_CATEGORY_MAP_KEY = 'friend_sound_category_map_v1';
 const CHAT_MESSAGE_MUTE_KEY = 'chat_message_mute_v2';
 const ACTIVE_CHAT_FRIEND_ID_KEY = 'active_chat_friend_id_v1';
+const QUICK_REACTIONS = ['❤️', '😂', '😍', '😮', '😢', '😡', '👍', '🔥'] as const;
 type ChatMessageSoundChoice = 'trll' | 'bzzz' | 'pop' | 'mood' | 'toot';
 const PICKUP_TRLL_KEYS = getPickupKeys('trll');
 const PICKUP_BZZZ_KEYS = getPickupKeys('bzzz');
@@ -143,59 +146,77 @@ function isUuid(value?: string | null) {
 function ReceivedBubble({
   message,
   onReplay,
-  onLongPressReport,
+  onLongPressReact,
+  reaction,
 }: {
   message: { id: string; text: string; soundKey?: string; createdAt?: string; senderId: string };
   onReplay: (soundKey?: string) => void;
-  onLongPressReport: (target: ReportTarget) => void;
+  onLongPressReact: (messageId: string) => void;
+  reaction?: string;
 }) {
   const [isReplayActive, setIsReplayActive] = useState(false);
   const canReplaySound = !!message.soundKey && message.soundKey !== 'mute';
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.88}
-      onPress={() => {
-        if (!canReplaySound) return;
-        setIsReplayActive(true);
-        playSound(message.soundKey, {
-          onEnd: () => setIsReplayActive(false),
-        });
-        onReplay(message.soundKey);
-      }}
-      onLongPress={() =>
-        onLongPressReport({
-          senderId: message.senderId,
-          sourceMessageId: message.id,
-          createdAt: message.createdAt,
-        })
-      }
-      style={[
-        styles.receivedBubble,
-        canReplaySound ? styles.receivedBubbleWithIcon : undefined,
-        isReplayActive && styles.receivedBubbleActive,
-      ]}
-    >
-      {canReplaySound ? (
-        <Ionicons
-          name="play"
-          size={16}
-          color="#604a3e"
-          style={styles.receivedPlayIcon}
-          accessibilityLabel={i18n.t('chat_replay_sound_hint')}
-        />
+    <View style={styles.receivedBubbleWrapper}>
+      <TouchableOpacity
+        activeOpacity={0.88}
+        onPress={() => {
+          if (!canReplaySound) return;
+          setIsReplayActive(true);
+          playSound(message.soundKey, {
+            onEnd: () => setIsReplayActive(false),
+          });
+          onReplay(message.soundKey);
+        }}
+        onLongPress={() => onLongPressReact(message.id)}
+        style={[
+          styles.receivedBubble,
+          canReplaySound ? styles.receivedBubbleWithIcon : undefined,
+          isReplayActive && styles.receivedBubbleActive,
+        ]}
+      >
+        {canReplaySound ? (
+          <Ionicons
+            name="play"
+            size={16}
+            color="#604a3e"
+            style={styles.receivedPlayIcon}
+            accessibilityLabel={i18n.t('chat_replay_sound_hint')}
+          />
+        ) : null}
+        <Text style={styles.receivedText}>{message.text}</Text>
+      </TouchableOpacity>
+      {reaction ? (
+        <View style={styles.receivedReactionBadge}>
+          <Text style={styles.reactionBadgeText}>{reaction}</Text>
+        </View>
       ) : null}
-      <Text style={styles.receivedText}>{message.text}</Text>
-    </TouchableOpacity>
+    </View>
   );
 }
 
-function SentBubble({ message }: { message: VisibleSentMessage }) {
+function SentBubble({
+  message,
+  onLongPressReact,
+  reaction,
+}: {
+  message: VisibleSentMessage;
+  onLongPressReact: (messageId: string) => void;
+  reaction?: string;
+}) {
   return (
     <View style={styles.sentBubbleWrapper}>
-      <View style={[styles.sentBubble, message.status === 'read' && styles.sentBubbleRead]}>
-        <Text style={styles.sentText}>{message.text}</Text>
-      </View>
+      <TouchableOpacity activeOpacity={0.92} onLongPress={() => onLongPressReact(message.id)}>
+        <View style={[styles.sentBubble, message.status === 'read' && styles.sentBubbleRead]}>
+          <Text style={styles.sentText}>{message.text}</Text>
+        </View>
+      </TouchableOpacity>
+      {reaction ? (
+        <View style={styles.sentReactionBadge}>
+          <Text style={styles.reactionBadgeText}>{reaction}</Text>
+        </View>
+      ) : null}
       {message.status === 'read' ? <Text style={styles.sentRead}>{i18n.t('message_read')}</Text> : null}
     </View>
   );
@@ -228,6 +249,9 @@ export default function ChatScreen() {
   const [sentMessages, setSentMessages] = useState<VisibleSentMessage[]>([]);
   const [reportReasonModalVisible, setReportReasonModalVisible] = useState(false);
   const [pendingReportTarget, setPendingReportTarget] = useState<ReportTarget | null>(null);
+  const [messageReactions, setMessageReactions] = useState<Record<string, string>>({});
+  const [reactionPickerVisible, setReactionPickerVisible] = useState(false);
+  const [pendingReactionMessageId, setPendingReactionMessageId] = useState<string | null>(null);
 
   const lastRandomSoundRef = useRef<string | undefined>(undefined);
   const knownIncomingMessageIdsRef = useRef<Set<string>>(new Set());
@@ -235,6 +259,7 @@ export default function ChatScreen() {
   const scrollViewRef = useRef<ScrollView | null>(null);
   const inputRef = useRef<TextInput | null>(null);
   const reopenKeyboardAfterSoundPickRef = useRef(false);
+  const keyboardHeightSV = useSharedValue(0);
 
   const loadChatContext = useCallback(async () => {
     if (!friendId) return;
@@ -507,16 +532,44 @@ export default function ChatScreen() {
     void markConversationReadViaBackend(friendId, currentUserId);
   }, [currentUserId, friendId, receivedMessages]);
 
+  useKeyboardHandler({
+    onMove: (e: { height: number }) => {
+      'worklet';
+      if (Platform.OS !== 'android') return;
+      keyboardHeightSV.value = e.height;
+      runOnJS(setKeyboardVisible)(e.height > 0);
+    },
+    onInteractive: (e: { height: number }) => {
+      'worklet';
+      if (Platform.OS !== 'android') return;
+      keyboardHeightSV.value = e.height;
+      runOnJS(setKeyboardVisible)(e.height > 0);
+    },
+    onEnd: (e: { height: number }) => {
+      'worklet';
+      if (Platform.OS !== 'android') return;
+      keyboardHeightSV.value = e.height;
+      runOnJS(setKeyboardVisible)(e.height > 0);
+    },
+  });
+
   useEffect(() => {
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const subShow = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
-    const subHide = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+    if (Platform.OS !== 'ios') return;
+    const subShow = Keyboard.addListener('keyboardWillShow', () => setKeyboardVisible(true));
+    const subHide = Keyboard.addListener('keyboardWillHide', () => setKeyboardVisible(false));
     return () => {
       subShow.remove();
       subHide.remove();
     };
   }, []);
+
+  const composerKeyboardStyle = useAnimatedStyle(() => {
+    if (Platform.OS !== 'android') return {};
+    const keyboardOffset = Math.max(0, keyboardHeightSV.value);
+    return {
+      marginBottom: keyboardOffset > 0 ? keyboardOffset + 5 : 0,
+    };
+  });
 
   const timeline = useMemo(() => {
     const incoming = receivedMessages.map((m) => {
@@ -607,7 +660,7 @@ export default function ChatScreen() {
       return;
     }
 
-    Alert.alert(i18n.t('report_message_title'), i18n.t('report_message_reason_prompt'), [
+    Alert.alert(i18n.t('report_conversation_title'), i18n.t('report_conversation_reason_prompt'), [
       { text: i18n.t('report_reason_spam'), onPress: () => void submitReport('spam', reportTarget) },
       { text: i18n.t('report_reason_harassment'), onPress: () => void submitReport('harassment', reportTarget) },
       { text: i18n.t('report_reason_hate_speech'), onPress: () => void submitReport('hate_speech', reportTarget) },
@@ -626,6 +679,32 @@ export default function ChatScreen() {
     },
     [closeReportReasonModal, pendingReportTarget, submitReport]
   );
+
+  const openConversationReportSheet = useCallback(() => {
+    if (!friend) return;
+    openReportReasonSheet({
+      senderId: friend.id,
+    });
+  }, [friend, openReportReasonSheet]);
+
+  const openReactionPicker = useCallback((messageId: string) => {
+    setPendingReactionMessageId(messageId);
+    setReactionPickerVisible(true);
+  }, []);
+
+  const closeReactionPicker = useCallback(() => {
+    setReactionPickerVisible(false);
+    setPendingReactionMessageId(null);
+  }, []);
+
+  const handleReactionSelect = useCallback((emoji: string) => {
+    if (!pendingReactionMessageId) return;
+    setMessageReactions((prev) => ({
+      ...prev,
+      [pendingReactionMessageId]: emoji,
+    }));
+    closeReactionPicker();
+  }, [closeReactionPicker, pendingReactionMessageId]);
 
   const toggleChatMute = useCallback(() => {
     setChatSoundPickerVisible(false);
@@ -813,28 +892,39 @@ export default function ChatScreen() {
     <View style={styles.screen}>
       <KeyboardAvoidingView
         style={styles.screen}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={0}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : undefined}
       >
         <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
           <TouchableOpacity onPress={() => router.back()} style={styles.headerIcon}>
             <Ionicons name="chevron-back" size={26} color="#604a3e" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{i18n.t('sticky_chat_with', { pseudo: friend.pseudo })}</Text>
-          <TouchableOpacity
-            onPress={toggleChatMute}
-            style={styles.headerIcon}
-            activeOpacity={0.85}
-            accessibilityRole="button"
-            accessibilityLabel={isChatMuteEnabled ? 'Desactiver mute' : 'Activer mute'}
-          >
-            <Ionicons
-              name={isChatMuteEnabled ? 'volume-mute' : 'volume-medium'}
-              size={22}
-              color="#604a3e"
-              style={!isChatMuteEnabled ? styles.headerIconInactive : undefined}
-            />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              onPress={openConversationReportSheet}
+              style={[styles.headerIcon, styles.headerReportIcon]}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel={i18n.t('report_conversation_title')}
+            >
+              <Ionicons name="flag-outline" size={21} color="#604a3e" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={toggleChatMute}
+              style={styles.headerIcon}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel={isChatMuteEnabled ? 'Desactiver mute' : 'Activer mute'}
+            >
+              <Ionicons
+                name={isChatMuteEnabled ? 'volume-mute' : 'volume-medium'}
+                size={22}
+                color="#604a3e"
+                style={!isChatMuteEnabled ? styles.headerIconInactive : undefined}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.messagesArea}>
@@ -861,6 +951,8 @@ export default function ChatScreen() {
                       status: message.status,
                       readAt: message.readAt,
                     }}
+                    reaction={messageReactions[message.sourceMessageId || message.id]}
+                    onLongPressReact={openReactionPicker}
                   />
                 </View>
               ) : (
@@ -873,8 +965,9 @@ export default function ChatScreen() {
                       createdAt: message.ts,
                       senderId: friend.id,
                     }}
+                    reaction={messageReactions[message.sourceMessageId || message.id]}
                     onReplay={() => {}}
-                    onLongPressReport={openReportReasonSheet}
+                    onLongPressReact={openReactionPicker}
                   />
                 </View>
               )
@@ -882,50 +975,52 @@ export default function ChatScreen() {
           </ScrollView>
         </View>
 
-        <View style={[styles.composer, { paddingBottom: composerBottomPadding }]}>
-          {!!pendingChatSoundKey && (
-            <TouchableOpacity
-              style={styles.pendingSoundTag}
-              onPress={() => setPendingChatSoundKey(null)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.pendingSoundTagText}>{getDisplaySoundLabel(pendingChatSoundKey)}</Text>
-              <Ionicons name="close-circle" size={14} color="#604a3e" style={{ marginLeft: 4 }} />
-            </TouchableOpacity>
-          )}
-          <View style={styles.composerRow}>
-            <TouchableOpacity
-              style={styles.soundPickerButton}
-              onPress={openChatSoundPicker}
-              activeOpacity={0.85}
-              accessibilityRole="button"
-              accessibilityLabel={i18n.t('chat_sound_picker_inline_button')}
-            >
-              <Image source={CHAT_PROOTHAIL_THUMB} style={styles.soundPickerThumbImage} resizeMode="contain" />
-            </TouchableOpacity>
-          <TextInput
-            ref={inputRef}
-            style={styles.input}
-            placeholder={i18n.t('add_message_placeholder')}
-            placeholderTextColor="#777"
-            value={draft}
-            onChangeText={setDraft}
-            multiline
-            maxLength={140}
-            autoCorrect={false}
-            autoComplete="off"
-            autoFocus
-          />
-            <TouchableOpacity
-              onPress={() => void handleSend()}
-              style={[styles.sendButton, (!draft.trim() || sending) && styles.sendButtonDisabled]}
-              disabled={!draft.trim() || sending}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="send" size={18} color="#604a3e" />
-            </TouchableOpacity>
+        <Animated.View style={composerKeyboardStyle}>
+          <View style={[styles.composer, { paddingBottom: composerBottomPadding }]}>
+            {!!pendingChatSoundKey && (
+              <TouchableOpacity
+                style={styles.pendingSoundTag}
+                onPress={() => setPendingChatSoundKey(null)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.pendingSoundTagText}>{getDisplaySoundLabel(pendingChatSoundKey)}</Text>
+                <Ionicons name="close-circle" size={14} color="#604a3e" style={{ marginLeft: 4 }} />
+              </TouchableOpacity>
+            )}
+            <View style={styles.composerRow}>
+              <TouchableOpacity
+                style={styles.soundPickerButton}
+                onPress={openChatSoundPicker}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel={i18n.t('chat_sound_picker_inline_button')}
+              >
+                <Image source={CHAT_PROOTHAIL_THUMB} style={styles.soundPickerThumbImage} resizeMode="contain" />
+              </TouchableOpacity>
+            <TextInput
+              ref={inputRef}
+              style={styles.input}
+              placeholder={i18n.t('add_message_placeholder')}
+              placeholderTextColor="#777"
+              value={draft}
+              onChangeText={setDraft}
+              multiline
+              maxLength={140}
+              autoCorrect={false}
+              autoComplete="off"
+              autoFocus
+            />
+              <TouchableOpacity
+                onPress={() => void handleSend()}
+                style={[styles.sendButton, (!draft.trim() || sending) && styles.sendButtonDisabled]}
+                disabled={!draft.trim() || sending}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="send" size={18} color="#604a3e" />
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        </Animated.View>
       </KeyboardAvoidingView>
 
       <Modal
@@ -1067,8 +1162,8 @@ export default function ChatScreen() {
         backdropOpacity={0.4}
       >
         <View style={styles.reportReasonCard}>
-          <Text style={styles.reportReasonTitle}>{i18n.t('report_message_title')}</Text>
-          <Text style={styles.reportReasonSubtitle}>{i18n.t('report_message_reason_prompt')}</Text>
+          <Text style={styles.reportReasonTitle}>{i18n.t('report_conversation_title')}</Text>
+          <Text style={styles.reportReasonSubtitle}>{i18n.t('report_conversation_reason_prompt')}</Text>
           {([
             ['spam', i18n.t('report_reason_spam')],
             ['harassment', i18n.t('report_reason_harassment')],
@@ -1087,6 +1182,33 @@ export default function ChatScreen() {
           ))}
           <TouchableOpacity style={styles.reportReasonCancel} onPress={closeReportReasonModal} activeOpacity={0.85}>
             <Text style={styles.reportReasonCancelText}>{i18n.t('cancel')}</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
+      <Modal
+        isVisible={reactionPickerVisible}
+        onBackdropPress={closeReactionPicker}
+        onBackButtonPress={closeReactionPicker}
+        style={styles.reactionPickerModal}
+        backdropOpacity={0.25}
+      >
+        <View style={styles.reactionPickerCard}>
+          <Text style={styles.reactionPickerTitle}>Reagir au message</Text>
+          <View style={styles.reactionPickerRow}>
+            {QUICK_REACTIONS.map((emoji) => (
+              <TouchableOpacity
+                key={emoji}
+                style={styles.reactionOption}
+                onPress={() => handleReactionSelect(emoji)}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.reactionOptionText}>{emoji}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <TouchableOpacity style={styles.reactionPickerCancel} onPress={closeReactionPicker} activeOpacity={0.85}>
+            <Text style={styles.reactionPickerCancelText}>{i18n.t('cancel')}</Text>
           </TouchableOpacity>
         </View>
       </Modal>
@@ -1127,6 +1249,15 @@ const styles = StyleSheet.create({
   },
   headerIconInactive: {
     opacity: 0.4,
+  },
+  headerActions: {
+    width: 68,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerReportIcon: {
+    opacity: 0.55,
   },
   headerTitle: {
     flex: 1,
@@ -1175,6 +1306,12 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     maxWidth: '84%',
   },
+  receivedBubbleWrapper: {
+    alignItems: 'flex-start',
+    position: 'relative',
+    maxWidth: '88%',
+    paddingBottom: 12,
+  },
   receivedBubble: {
     maxWidth: '88%',
     backgroundColor: '#fff',
@@ -1210,6 +1347,37 @@ const styles = StyleSheet.create({
   },
   sentBubbleRead: {
     opacity: 0.75,
+  },
+  receivedReactionBadge: {
+    position: 'absolute',
+    right: 8,
+    bottom: 0,
+    minWidth: 28,
+    height: 24,
+    paddingHorizontal: 6,
+    borderRadius: 12,
+    backgroundColor: '#fff5ee',
+    borderWidth: 1,
+    borderColor: 'rgba(96, 74, 62, 0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sentReactionBadge: {
+    position: 'absolute',
+    left: 8,
+    bottom: 18,
+    minWidth: 28,
+    height: 24,
+    paddingHorizontal: 6,
+    borderRadius: 12,
+    backgroundColor: '#fff5ee',
+    borderWidth: 1,
+    borderColor: 'rgba(96, 74, 62, 0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reactionBadgeText: {
+    fontSize: 15,
   },
   sentText: {
     color: '#333',
@@ -1436,6 +1604,58 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   reportReasonCancelText: {
+    color: '#604a3e',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  reactionPickerModal: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    margin: 24,
+  },
+  reactionPickerCard: {
+    width: '100%',
+    backgroundColor: '#fff7f1',
+    borderRadius: 18,
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(96, 74, 62, 0.12)',
+  },
+  reactionPickerTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#604a3e',
+    textAlign: 'center',
+    marginBottom: 14,
+  },
+  reactionPickerRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  reactionOption: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(96, 74, 62, 0.12)',
+  },
+  reactionOptionText: {
+    fontSize: 24,
+  },
+  reactionPickerCancel: {
+    marginTop: 14,
+    alignSelf: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  reactionPickerCancelText: {
     color: '#604a3e',
     fontSize: 15,
     fontWeight: '700',

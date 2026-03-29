@@ -133,22 +133,13 @@ export function TutorialSwiper({ onClose }: { onClose: () => void }) {
               i18n.t('chat_onboarding_choose_specific_sound')
             )}
             {renderFeatureRow(
-              <Image
-                source={require('../assets/images/tap-gesture.png')}
-                style={styles.tapImage}
-                resizeMode="contain"
-              />,
-              i18n.t('chat_onboarding_tap_replay'),
-              12
-            )}
-            {renderFeatureRow(
               <Ionicons name="volume-mute" size={22} color="#604a3e" />,
               i18n.t('chat_onboarding_mute'),
               12
             )}
             {renderFeatureRow(
-              <Ionicons name="alert-circle" size={22} color="#604a3e" />,
-              i18n.t('chat_onboarding_long_press_report'),
+              <Ionicons name="flag-outline" size={22} color="#604a3e" />,
+              i18n.t('chat_onboarding_report_conversation'),
               12
             )}
           </View>
