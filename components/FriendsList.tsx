@@ -9,7 +9,7 @@ import * as Contacts from 'expo-contacts';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { Alert, AppState, DeviceEventEmitter, Dimensions, FlatList, Image, Keyboard, KeyboardAvoidingView, Linking, NativeModules, Platform, Animated as RNAnimated, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { Alert, AppState, DeviceEventEmitter, Dimensions, FlatList, Image, Keyboard, KeyboardAvoidingView, Linking, NativeModules, Platform, Animated as RNAnimated, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { Gesture, GestureDetector, TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
 // 👇 AJOUT : Hook pour capturer la hauteur réelle du clavier (Texte OU Emoji)
 import { useKeyboardHandler } from 'react-native-keyboard-controller';
@@ -58,8 +58,6 @@ import { SearchBar } from './SearchBar';
 import { SOUND_CATEGORY_KEY, type SoundCategory } from './SoundcheckSelector';
 
 const FIRST_FRIENDLIST_FOOTER_MODAL_KEY = 'first_friendlist_footer_modal_seen_v1';
-const FIRST_FRIENDLIST_FEATURES_MODAL_KEY = 'first_friendlist_features_modal_seen_v1';
-const FIRST_FRIENDLIST_ZEN_MODAL_KEY = 'first_friendlist_zen_modal_seen_v1';
 const FIRST_CHAT_MODAL_KEY = 'first_chat_modal_seen_v2';
 const CHAT_MESSAGE_SOUND_CHOICE_KEY = 'chat_message_sound_choice_v1';
 const CHAT_MESSAGE_MUTE_KEY = 'chat_message_mute_v2';
@@ -526,7 +524,7 @@ export function FriendsList({
   refreshTrigger?: number;
 } = {}) {
   const insets = useSafeAreaInsets();
-  const { isZenMode, isSilentMode, isHapticEnabled } = useAppStore();
+  const { isZenMode, isSilentMode, isHapticEnabled, pseudo: storePseudo } = useAppStore();
   const queryClient = useQueryClient();
   
   const [appUsers, setAppUsers] = useState<any[]>([]);
@@ -579,6 +577,8 @@ export function FriendsList({
 
   const [loading, setLoading] = useState(true); // Commencer à true, loadData gérera la suite
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Pas de fallback ici : le tuto 1ère installation ne doit pas s'afficher si la friendlist est vide.
   const [chatMessageSoundChoice, setChatMessageSoundChoice] = useState<ChatMessageSoundChoice>(
     getDefaultSoundCategoryForFirstLaunch() as ChatMessageSoundChoice
   );
@@ -599,7 +599,7 @@ export function FriendsList({
   const [globalDefaultCategory, setGlobalDefaultCategory] = useState<SoundCategory>(
     getDefaultSoundCategoryForFirstLaunch()
   );
-  const [firstFriendlistOnboardingStep, setFirstFriendlistOnboardingStep] = useState<'footer' | 'features' | 'zen' | null>(null);
+  const [firstFriendlistOnboardingStep, setFirstFriendlistOnboardingStep] = useState<'footer' | null>(null);
   const [isFirstChatModalVisible, setIsFirstChatModalVisible] = useState(false);
   const isFirstFriendlistOnboardingVisible = firstFriendlistOnboardingStep !== null;
   const [currentPseudo, setCurrentPseudo] = useState<string>("Un ami");
@@ -648,28 +648,18 @@ export function FriendsList({
     };
   }, []);
 
-  const markFirstFriendlistStepSeen = useCallback(async (step: 'footer' | 'features' | 'zen') => {
-    const keyByStep: Record<'footer' | 'features' | 'zen', string> = {
-      footer: FIRST_FRIENDLIST_FOOTER_MODAL_KEY,
-      features: FIRST_FRIENDLIST_FEATURES_MODAL_KEY,
-      zen: FIRST_FRIENDLIST_ZEN_MODAL_KEY,
-    };
+  const markFirstFriendlistFooterSeen = useCallback(async () => {
     try {
-      await AsyncStorage.setItem(keyByStep[step], '1');
-      if (step === 'features') {
-        await AsyncStorage.setItem(FIRST_CHAT_MODAL_KEY, '1');
-      }
+      await AsyncStorage.setItem(FIRST_FRIENDLIST_FOOTER_MODAL_KEY, '1');
     } catch {
       // non bloquant
     }
   }, []);
 
   const closeFirstFriendlistOnboarding = useCallback(async () => {
-    const currentStep = firstFriendlistOnboardingStep;
     setFirstFriendlistOnboardingStep(null);
-    if (!currentStep) return;
-    await markFirstFriendlistStepSeen(currentStep);
-  }, [firstFriendlistOnboardingStep, markFirstFriendlistStepSeen]);
+    await markFirstFriendlistFooterSeen();
+  }, [markFirstFriendlistFooterSeen]);
 
   const closeFirstChatModal = useCallback(async () => {
     setIsFirstChatModalVisible(false);
@@ -680,34 +670,34 @@ export function FriendsList({
     }
   }, []);
 
+  const handleInviteFriendsPress = useCallback(async () => {
+    try {
+      const shareText = i18n.t('share_message', { pseudo: currentPseudo || storePseudo || 'Un ami' }) || '';
+      await Share.share({
+        message: shareText,
+      });
+    } catch {
+      // non bloquant
+    }
+  }, [currentPseudo, storePseudo]);
+
   const handleFirstFriendlistOnboardingOk = useCallback(async () => {
-    const currentStep = firstFriendlistOnboardingStep;
-    if (!currentStep) return;
-    await markFirstFriendlistStepSeen(currentStep);
-    setFirstFriendlistOnboardingStep((prev) => {
-      if (prev === 'footer') return 'features';
-      if (prev === 'features') return 'zen';
-      return null;
-    });
-  }, [firstFriendlistOnboardingStep, markFirstFriendlistStepSeen]);
+    if (firstFriendlistOnboardingStep !== 'footer') return;
+    await markFirstFriendlistFooterSeen();
+    setFirstFriendlistOnboardingStep(null);
+  }, [firstFriendlistOnboardingStep, markFirstFriendlistFooterSeen]);
 
   // Pop-up unique à la première arrivée sur la friendlist
   useFocusEffect(
     useCallback(() => {
+      if (appUsers.length < 1) return;
       let cancelled = false;
       (async () => {
         try {
           const seenFooter = await AsyncStorage.getItem(FIRST_FRIENDLIST_FOOTER_MODAL_KEY);
-          const seenFeatures = await AsyncStorage.getItem(FIRST_FRIENDLIST_FEATURES_MODAL_KEY);
-          const seenZen = await AsyncStorage.getItem(FIRST_FRIENDLIST_ZEN_MODAL_KEY);
           if (cancelled) return;
           if (!seenFooter) {
             setFirstFriendlistOnboardingStep('footer');
-          } else if (!seenFeatures) {
-            // Fallback si la 1ère a été validée mais pas la 2e (ex: crash)
-            setFirstFriendlistOnboardingStep('features');
-          } else if (!seenZen) {
-            setFirstFriendlistOnboardingStep('zen');
           }
         } catch {
           // Si AsyncStorage échoue, on évite de spammer une modale
@@ -716,7 +706,7 @@ export function FriendsList({
       return () => {
         cancelled = true;
       };
-    }, [])
+    }, [appUsers.length])
   );
   const [keyboardVisible, setKeyboardVisible] = useState(false); // État local pour le clavier
   // const [keyboardHeight, setKeyboardHeight] = useState(0); // ❌ Supprimé : géré par Reanimated
@@ -4682,6 +4672,9 @@ const closeIdentityModal = useCallback(() => {
               showsVerticalScrollIndicator
               keyboardShouldPersistTaps="handled"
             >
+              <View style={styles.firstFooterModalTitleRow}>
+                <Text style={styles.firstFooterModalTitleText}>{i18n.t('tuto_chat_title')}</Text>
+              </View>
               <View style={styles.firstFooterModalFeatureRow}>
                 <View style={styles.chatOnboardingIconSlot}>
                   <Image
@@ -5181,10 +5174,41 @@ const closeIdentityModal = useCallback(() => {
                 // Message pour recherche sans résultat
                 <Text style={styles.emptyText}>Aucun ami</Text>
               ) : (
-                // Message par défaut
+                // Message par défaut (friendlist vide, hors recherche)
                 <>
                   <Text style={styles.emptyText}>{i18n.t('no_friends')}</Text>
-                  <Text style={styles.subText}>{i18n.t('invite_contacts')}</Text>
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => {
+                      // Ouvrir la même modale de recherche que depuis le menu liste
+                      DeviceEventEmitter.emit('OPEN_SEARCH_MODAL');
+                    }}
+                    style={styles.emptyActionRow}
+                  >
+                    <Ionicons name="search" size={18} color="#604a3e" style={styles.emptyActionIcon} />
+                    <Text style={styles.emptyActionText}>{i18n.t('empty_friendlist_search_pseudo')}</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => void handleInviteFriendsPress()}
+                    style={[styles.emptyActionRow, { marginTop: 10 }]}
+                  >
+                    <Ionicons name="share-social-outline" size={18} color="#604a3e" style={styles.emptyActionIcon} />
+                    <Text style={styles.emptyActionText}>{i18n.t('empty_friendlist_invite_friends')}</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => {
+                      // Ouvrir la même page profil que le header (vue interne dans index.tsx)
+                      DeviceEventEmitter.emit('OPEN_PROFILE_VIEW');
+                    }}
+                    style={[styles.emptyActionRow, { marginTop: 10 }]}
+                  >
+                    <Ionicons name="person-circle-outline" size={19} color="#604a3e" style={styles.emptyActionIcon} />
+                    <Text style={styles.emptyActionText}>{i18n.t('no_friends_phone_hint')}</Text>
+                  </TouchableOpacity>
                 </>
               )}
             </View>
@@ -5314,81 +5338,6 @@ const closeIdentityModal = useCallback(() => {
                 <Ionicons name="arrow-back" size={22} color="#604a3e" />
                 <Text style={styles.firstFooterModalFeatureText}>
                   {i18n.t('friendlist_onboarding_swipe_left_block')}
-                </Text>
-              </View>
-            </>
-          ) : null}
-
-          {firstFriendlistOnboardingStep === 'features' ? (
-            <>
-              <View style={styles.firstFooterModalTitleRow}>
-                <Text style={styles.firstFooterModalTitleText}>{i18n.t('tuto_chat_title')}</Text>
-              </View>
-              <View style={styles.firstFooterModalFeatureRow}>
-                <View style={styles.chatOnboardingIconSlot}>
-                  <Image
-                    source={require('../assets/images/proothail.png')}
-                    style={styles.chatOnboardingProothailImage}
-                    resizeMode="contain"
-                  />
-                </View>
-                <Text style={styles.firstFooterModalFeatureText}>
-                  {i18n.t('chat_onboarding_choose_specific_sound')}
-                </Text>
-              </View>
-              <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
-                <Ionicons name="volume-mute" size={22} color="#604a3e" />
-                <Text style={styles.firstFooterModalFeatureText}>
-                  {i18n.t('chat_onboarding_mute')}
-                </Text>
-              </View>
-              <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
-                <Ionicons name="flag-outline" size={22} color="#604a3e" />
-                <Text style={styles.firstFooterModalFeatureText}>
-                  {i18n.t('chat_onboarding_report_conversation')}
-                </Text>
-              </View>
-            </>
-          ) : null}
-
-          {firstFriendlistOnboardingStep === 'zen' ? (
-            <>
-              <View style={styles.firstFooterModalTitleRow}>
-                <Text style={styles.firstFooterModalTitleText}>{i18n.t('tuto_menu_title')}</Text>
-                <Image
-                  source={require('../assets/images/icon_compte.png')}
-                  style={styles.firstFooterModalTitleIcon}
-                  resizeMode="contain"
-                />
-              </View>
-              <View style={styles.firstFooterModalFeatureRow}>
-                <Ionicons name="moon" size={22} color="#604a3e" />
-                <Text style={styles.firstFooterModalFeatureText}>
-                  {i18n.t('friendlist_onboarding_zen')}
-                </Text>
-              </View>
-              <View style={[styles.firstFooterModalFeatureRow, { marginTop: 14 }]}>
-                <Ionicons name="volume-mute" size={22} color="#604a3e" />
-                <Text style={styles.firstFooterModalFeatureText}>
-                  {i18n.t('friendlist_onboarding_silent_send')}
-                </Text>
-              </View>
-              <View style={[styles.firstFooterModalFeatureRow, { marginTop: 14 }]}>
-                <Ionicons name="search" size={22} color="#604a3e" />
-                <Text style={styles.firstFooterModalFeatureText}>
-                  {i18n.t('friendlist_onboarding_search_contacts')}
-                </Text>
-              </View>
-              <View style={[styles.firstFooterModalFeatureRow, { marginTop: 14 }]}>
-                <Ionicons name="person-add-outline" size={22} color="#604a3e" />
-                <Text style={styles.firstFooterModalFeatureText}>
-                  {i18n.t('friendlist_onboarding_search_pseudo')}
-                </Text>
-              </View>
-              <View style={[styles.firstFooterModalFeatureRow, { marginTop: 14 }]}>
-                <Ionicons name="trophy" size={22} color="#604a3e" />
-                <Text style={styles.firstFooterModalFeatureText}>
-                  {i18n.t('friendlist_onboarding_resonance')}
                 </Text>
               </View>
             </>
@@ -5907,6 +5856,16 @@ const styles = StyleSheet.create({
   identityButtonText: { color: 'white', fontWeight: 'bold' },
   emptyCard: { backgroundColor: 'rgba(255,255,255,0.7)', padding: 20, borderRadius: 15, alignItems: 'center' },
   emptyText: { color: '#666', fontSize: 16, fontWeight: 'bold' },
+  emptyActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+    borderRadius: 10,
+  },
+  emptyActionIcon: { marginRight: 10, marginTop: 1 },
+  emptyActionText: { color: '#604a3e', fontSize: 14, fontWeight: '600', textAlign: 'left', flexShrink: 1 },
   subText: { color: '#888', fontSize: 14, marginTop: 5 },
   messageInputContainer: { backgroundColor: 'rgba(255,255,255,0.9)', marginTop: 0, marginBottom: 4, padding: 6, paddingBottom: 6, borderRadius: 12, borderWidth: 1, borderColor: '#d9e6e3' },
   messageInputContainerAndroid: { marginBottom: 0, paddingBottom: 0 },

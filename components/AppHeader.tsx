@@ -2,7 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef } from 'react';
 import { Animated, Image, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 
-const SHOW_SOUNDCHECK_BUTTON = false;
+const SHOW_SOUNDCHECK_BUTTON = true;
+const ENABLE_SOUNDCHECK_BUTTON_ANIMATION = false;
 
 interface AppHeaderProps {
   currentPseudo?: string;
@@ -14,6 +15,7 @@ interface AppHeaderProps {
   /** Recherche / filtre dans la liste d’amis */
   isSearchVisible?: boolean;
   onSearchToggle?: () => void;
+  onAddFriendPress?: () => void;
   onProfileMenuPress?: () => void;
   onProfilePress?: () => void;
   onZenModePress?: () => void;
@@ -32,6 +34,7 @@ export function AppHeader({
   isSilentMode = false,
   isSearchVisible = false,
   onSearchToggle,
+  onAddFriendPress,
   onProfileMenuPress,
   onProfilePress,
   onZenModePress,
@@ -54,6 +57,12 @@ export function AppHeader({
   } : {};
 
   useEffect(() => {
+    if (!ENABLE_SOUNDCHECK_BUTTON_ANIMATION) {
+      soundcheckVibeRunningRef.current = false;
+      soundcheckVibeY.stopAnimation();
+      soundcheckVibeY.setValue(0);
+      return;
+    }
     const canAnimate = !!onSoundcheckPress && !(isProfileMenuOpen || isProfileOpen);
     if (!canAnimate) {
       soundcheckVibeRunningRef.current = false;
@@ -162,6 +171,17 @@ export function AppHeader({
                 )}
               </TouchableOpacity>
             )}
+            {!(isProfileMenuOpen || isProfileOpen) && onAddFriendPress && (
+              <TouchableOpacity
+                onPress={onAddFriendPress}
+                style={[
+                  styles.iconButton,
+                  { justifyContent: 'center', alignItems: 'center', minHeight: 28 },
+                ]}
+              >
+                <Ionicons name="person-add-outline" size={24} color="#ffffff" />
+              </TouchableOpacity>
+            )}
             {isZenMode && (
               <TouchableOpacity
                 onPress={onZenModePress}
@@ -187,12 +207,12 @@ export function AppHeader({
             {SHOW_SOUNDCHECK_BUTTON && !(isProfileMenuOpen || isProfileOpen) && onSoundcheckPress && (
               <TouchableOpacity
                 onPress={onSoundcheckPress}
-                style={[styles.iconButton, { justifyContent: 'center', alignItems: 'center', minHeight: 48, marginTop: 0 }]}
+                style={[styles.iconButton, { justifyContent: 'center', alignItems: 'center', minHeight: 30, marginTop: 1 }]}
               >
                 <View style={styles.soundcheckCard}>
-                  <Animated.Image
+                  <Image
                     source={require('../assets/images/soundcheck3.png')}
-                    style={[styles.soundcheckIcon, soundcheckVibeStyle]}
+                    style={[styles.soundcheckIcon, ENABLE_SOUNDCHECK_BUTTON_ANIMATION ? soundcheckVibeStyle : undefined]}
                     resizeMode="contain"
                   />
                 </View>
@@ -245,7 +265,7 @@ const styles = StyleSheet.create({
   },
   navBar: {
     backgroundColor: 'transparent',
-    marginBottom: 5,
+    marginBottom: 2,
   },
   menuRow: {
     flexDirection: 'row',
@@ -317,13 +337,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(96, 74, 62, 0.2)',
     borderRadius: 8,
-    paddingVertical: 2,
+    paddingVertical: 1,
     paddingHorizontal: 4,
     backgroundColor: 'rgba(255,255,255,0.45)',
   },
   soundcheckIcon: {
-    width: 112,
-    height: 25,
+    width: 102,
+    height: 22,
   },
   navIcon: {
     width: 28,

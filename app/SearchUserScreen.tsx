@@ -151,7 +151,7 @@ export default function SearchUserScreen() {
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.subtitle}>Recherchez votre ami avec son pseudo</Text>
+        <Text style={styles.subtitle}>{i18n.t('search_subtitle')}</Text>
 
         <View style={styles.searchBox}>
           <TextInput

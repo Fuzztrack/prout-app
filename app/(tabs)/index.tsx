@@ -18,7 +18,7 @@ import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, ActionSheetIOS, Animated, Image, Keyboard, KeyboardAvoidingView, Platform, ScrollView, Share, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, Vibration, View } from 'react-native';
+import { Alert, ActionSheetIOS, Animated, DeviceEventEmitter, Image, Keyboard, KeyboardAvoidingView, Platform, ScrollView, Share, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, Vibration, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
@@ -284,6 +284,25 @@ export default function HomeScreen() {
     });
   }, []);
 
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener('OPEN_SEARCH_MODAL', () => {
+      setActiveView('list');
+      setShowSearch(true);
+    });
+    return () => {
+      sub.remove();
+    };
+  }, [setActiveView]);
+
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener('OPEN_PROFILE_VIEW', () => {
+      setActiveView('profile');
+    });
+    return () => {
+      sub.remove();
+    };
+  }, [setActiveView]);
+
   const getZenReasonLabel = useCallback((reason?: string | null) => {
     if (!reason) return null;
     if (reason === '1h' || reason === '8h') return reason;
@@ -313,6 +332,10 @@ export default function HomeScreen() {
       isSilentMode={isSilentMode}
       isSearchVisible={isSearchVisible}
       onSearchToggle={toggleSearchVisibility}
+      onAddFriendPress={() => {
+        setActiveView('list');
+        setShowSearch(true);
+      }}
       onZenModePress={() => {
         void applyZenMode(false);
       }}
@@ -325,7 +348,7 @@ export default function HomeScreen() {
       shakeX={shakeX}
       shakeY={shakeY}
     />
-  ), [currentPseudo, currentAvatarUrl, activeView, isZenMode, isSilentMode, isSearchVisible, toggleSearchVisibility, applyZenMode, setSilentMode, handleSoundcheckPress, toggleProfileMenu, shakeX, shakeY]);
+  ), [currentPseudo, currentAvatarUrl, activeView, isZenMode, isSilentMode, isSearchVisible, toggleSearchVisibility, setActiveView, applyZenMode, setSilentMode, handleSoundcheckPress, toggleProfileMenu, shakeX, shakeY]);
 
   // --- MODE ZEN ---
   const clearZenAutoOff = useCallback(async () => {
@@ -672,6 +695,7 @@ export default function HomeScreen() {
                      onSearchQueryChange={setSearchQuery}
                      listIntroTrigger={listIntroTrigger}
                      refreshTrigger={friendsRefreshTrigger}
+                    onSoundcheckPress={handleSoundcheckPress}
                      headerComponent={headerComponent}
                    />
        
@@ -688,11 +712,10 @@ export default function HomeScreen() {
                          
                          <View style={styles.menuCard}>
                            {[
-                             { label: i18n.t('search_title'), icon: 'person-add-outline', onPress: () => { setActiveView('list'); setShowSearch(true); }, iconColor: showSearch ? '#ebb89b' : '#604a3e' },
+                            { label: i18n.t('invite_friend'), icon: 'share-social-outline', onPress: handleShare, iconColor: '#604a3e' },
                             { label: zenMenuLabel, icon: zenModeEnabled ? 'moon' : 'moon-outline', onPress: () => { void toggleZenMode(); }, iconColor: zenModeEnabled ? '#ebb89b' : '#604a3e' },
                              { label: i18n.t('silent_mode'), icon: isSilentMode ? 'volume-mute' : 'volume-mute-outline', onPress: () => { toggleSilentMode(); }, iconColor: isSilentMode ? '#ebb89b' : '#604a3e' },
                              { label: i18n.t('resonance_dashboard_menu'), icon: 'trophy', onPress: () => { setActiveView('list'); router.push('/complicity'); }, iconColor: '#604a3e' },
-                             { label: i18n.t('invite_friend'), icon: 'share-social-outline', onPress: handleShare, iconColor: '#604a3e' },
                              { label: i18n.t('review_app_functions'), icon: 'help-circle-outline', onPress: () => setActiveView('tutorial'), iconColor: '#604a3e' },
                              { label: i18n.t('who_is_who'), icon: 'eye-outline', onPress: () => { setShowIdentity(true); setActiveView('list'); }, iconColor: '#604a3e' },
                              { label: i18n.t('blocked_friends_menu'), icon: 'ban-outline', onPress: () => { setShowBlockedUsers(true); setActiveView('list'); }, iconColor: '#604a3e' },
@@ -746,6 +769,7 @@ export default function HomeScreen() {
                   onSearchQueryChange={setSearchQuery}
                   listIntroTrigger={listIntroTrigger}
                   refreshTrigger={friendsRefreshTrigger}
+                  onSoundcheckPress={handleSoundcheckPress}
                   headerComponent={headerComponent}
                 />
     
@@ -762,11 +786,10 @@ export default function HomeScreen() {
                       
                       <View style={styles.menuCard}>
                           {[
-                            { label: i18n.t('search_title'), icon: 'person-add-outline', onPress: () => { setActiveView('list'); setShowSearch(true); }, iconColor: showSearch ? '#ebb89b' : '#604a3e' },
+                            { label: i18n.t('invite_friend'), icon: 'share-social-outline', onPress: handleShare, iconColor: '#604a3e' },
                             { label: zenMenuLabel, icon: zenModeEnabled ? 'moon' : 'moon-outline', onPress: () => { void toggleZenMode(); }, iconColor: zenModeEnabled ? '#ebb89b' : '#604a3e' },
                             { label: i18n.t('silent_mode'), icon: isSilentMode ? 'volume-mute' : 'volume-mute-outline', onPress: () => { toggleSilentMode(); }, iconColor: isSilentMode ? '#ebb89b' : '#604a3e' },
                             { label: i18n.t('resonance_dashboard_menu'), icon: 'trophy', onPress: () => { setActiveView('list'); router.push('/complicity'); }, iconColor: '#604a3e' },
-                            { label: i18n.t('invite_friend'), icon: 'share-social-outline', onPress: handleShare, iconColor: '#604a3e' },
                             { label: i18n.t('review_app_functions'), icon: 'help-circle-outline', onPress: () => setActiveView('tutorial'), iconColor: '#604a3e' },
                             { label: i18n.t('who_is_who'), icon: 'eye-outline', onPress: () => { setShowIdentity(true); setActiveView('list'); }, iconColor: '#604a3e' },
                             { label: i18n.t('blocked_friends_menu'), icon: 'ban-outline', onPress: () => { setShowBlockedUsers(true); setActiveView('list'); }, iconColor: '#604a3e' },

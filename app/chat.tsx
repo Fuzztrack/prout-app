@@ -107,6 +107,8 @@ type PendingReactionTarget = {
 
 const FRIEND_SOUND_CATEGORY_MAP_KEY = 'friend_sound_category_map_v1';
 const CHAT_MESSAGE_MUTE_KEY = 'chat_message_mute_v2';
+/** Même clé que FriendsList : tuto « page chat » à la première ouverture d’un chat. */
+const FIRST_CHAT_MODAL_KEY = 'first_chat_modal_seen_v2';
 const ACTIVE_CHAT_FRIEND_ID_KEY = 'active_chat_friend_id_v1';
 const QUICK_REACTIONS = ['❤️', '😂', '😍', '😮', '😢', '😡', '👍', '🔥'] as const;
 type ChatMessageSoundChoice = 'trll' | 'bzzz' | 'pop' | 'mood' | 'toot';
@@ -276,6 +278,7 @@ export default function ChatScreen() {
   const [messageReactions, setMessageReactions] = useState<Record<string, MessageReaction[]>>({});
   const [reactionPickerVisible, setReactionPickerVisible] = useState(false);
   const [pendingReactionTarget, setPendingReactionTarget] = useState<PendingReactionTarget | null>(null);
+  const [showFirstChatOnboarding, setShowFirstChatOnboarding] = useState(false);
 
   const lastRandomSoundRef = useRef<string | undefined>(undefined);
   const knownIncomingMessageIdsRef = useRef<Set<string>>(new Set());
@@ -347,6 +350,33 @@ export default function ChatScreen() {
         }
       })
       .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!friend || loadingFriend) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const seen = await AsyncStorage.getItem(FIRST_CHAT_MODAL_KEY);
+        if (!cancelled && !seen) {
+          setShowFirstChatOnboarding(true);
+        }
+      } catch {
+        // non bloquant
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [friend, loadingFriend]);
+
+  const dismissFirstChatOnboarding = useCallback(async () => {
+    setShowFirstChatOnboarding(false);
+    try {
+      await AsyncStorage.setItem(FIRST_CHAT_MODAL_KEY, '1');
+    } catch {
+      // non bloquant
+    }
   }, []);
 
   const refreshMessages = useCallback(async () => {
@@ -1400,6 +1430,48 @@ export default function ChatScreen() {
           </TouchableOpacity>
         </View>
       </Modal>
+
+      <Modal
+        isVisible={showFirstChatOnboarding}
+        onBackdropPress={dismissFirstChatOnboarding}
+        onBackButtonPress={dismissFirstChatOnboarding}
+        backdropOpacity={0.55}
+        animationIn="fadeIn"
+        animationOut="fadeOut"
+        useNativeDriver
+        style={styles.firstChatOnboardingModal}
+      >
+        <View style={styles.firstChatOnboardingCard}>
+          <View style={styles.firstChatOnboardingTitleRow}>
+            <Text style={styles.firstChatOnboardingTitleText}>{i18n.t('tuto_chat_title')}</Text>
+          </View>
+          <View style={styles.firstChatOnboardingFeatureRow}>
+            <View style={styles.firstChatOnboardingIconSlot}>
+              <Image source={CHAT_PROOTHAIL_THUMB} style={styles.firstChatOnboardingProothail} resizeMode="contain" />
+            </View>
+            <Text style={styles.firstChatOnboardingFeatureText}>
+              {i18n.t('chat_onboarding_choose_specific_sound')}
+            </Text>
+          </View>
+          <View style={[styles.firstChatOnboardingFeatureRow, { marginTop: 12 }]}>
+            <Ionicons name="volume-mute" size={22} color="#604a3e" />
+            <Text style={styles.firstChatOnboardingFeatureText}>{i18n.t('chat_onboarding_mute')}</Text>
+          </View>
+          <View style={[styles.firstChatOnboardingFeatureRow, { marginTop: 12 }]}>
+            <Ionicons name="flag-outline" size={22} color="#604a3e" />
+            <Text style={styles.firstChatOnboardingFeatureText}>
+              {i18n.t('chat_onboarding_report_conversation')}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={styles.firstChatOnboardingOkButton}
+            onPress={() => void dismissFirstChatOnboarding()}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.firstChatOnboardingOkText}>{i18n.t('ok')}</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1849,5 +1921,70 @@ const styles = StyleSheet.create({
     color: '#604a3e',
     fontSize: 15,
     fontWeight: '700',
+  },
+  firstChatOnboardingModal: {
+    justifyContent: 'center',
+    margin: 20,
+  },
+  firstChatOnboardingCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(96, 74, 62, 0.12)',
+  },
+  firstChatOnboardingTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  firstChatOnboardingTitleText: {
+    color: '#604a3e',
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  firstChatOnboardingFeatureRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  firstChatOnboardingIconSlot: {
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+    marginLeft: -4,
+  },
+  firstChatOnboardingProothail: {
+    width: 30,
+    height: 30,
+  },
+  firstChatOnboardingFeatureText: {
+    flex: 1,
+    marginLeft: 12,
+    color: '#604a3e',
+    fontSize: 14,
+    textAlign: 'left',
+    fontStyle: 'italic',
+    opacity: 0.88,
+    lineHeight: 19,
+  },
+  firstChatOnboardingOkButton: {
+    marginTop: 16,
+    alignSelf: 'center',
+    backgroundColor: '#604a3e',
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    borderRadius: 999,
+  },
+  firstChatOnboardingOkText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
 });
