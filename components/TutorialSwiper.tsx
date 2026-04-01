@@ -7,7 +7,7 @@ import i18n from '../lib/i18n';
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CHAT_TUTORIAL_IMAGE = Platform.OS === 'android'
   ? require('../assets/images/proothail2.png')
-  : require('../assets/images/proothail.png');
+  : require('../assets/images/proothail2.png');
 
 type TutorialSlide = {
   key: string;

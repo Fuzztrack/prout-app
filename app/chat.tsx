@@ -132,7 +132,7 @@ const CHAT_SPECIFIC_MIN_HEIGHT = MAX_PICKUP_ROWS * CHAT_SPECIFIC_ROW_HEIGHT + 50
 const TOOT_LOGO_IMAGE = require('../assets/images/proot.png');
 const CHAT_PROOTHAIL_THUMB = Platform.OS === 'android'
   ? require('../assets/images/proothail2.png')
-  : require('../assets/images/proothail.png');
+  : require('../assets/images/proothail2.png');
 const TOOT_CHAT_ICON_SIZE = Platform.OS === 'android' ? { width: 82, height: 55 } : { width: 84, height: 56 };
 const ANDROID_CHAT_BACKGROUND_HERO_SIZE = 520;
 const ANDROID_CHAT_THUMB_SIZE = { width: 48, height: 48 };

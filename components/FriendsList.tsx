@@ -65,6 +65,7 @@ const FRIEND_SOUND_CATEGORY_MAP_KEY = 'friend_sound_category_map_v1';
 const IOS_SOUNDWAVE_IMAGE = require('../assets/images/proothail.png');
 const ANDROID_ADAPTIVE_SOUNDWAVE_IMAGE = require('../assets/images/proothail2.png');
 const IOS_SENT_IMAGE = require('../assets/images/animprout4.png');
+const IOS_PRIMARY_SOUNDWAVE_IMAGE = require('../assets/images/proothail2.png');
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -94,7 +95,7 @@ const TOOT_LOGO_IMAGE = require('../assets/images/proot.png');
 /** Miniature cliquable sous le chat pour ouvrir le sélecteur de sons */
 const CHAT_PROOTHAIL_THUMB = Platform.OS === 'android'
   ? ANDROID_ADAPTIVE_SOUNDWAVE_IMAGE
-  : require('../assets/images/proothail.png');
+  : IOS_PRIMARY_SOUNDWAVE_IMAGE;
 const TOOT_CHAT_ICON_SIZE = Platform.OS === 'android'
   ? { width: 82, height: 55 }
   : USE_PROOT_TOOT_LOGO
@@ -140,11 +141,19 @@ function getChooseSoundCategorySubtitleKey(category: SoundCategory): string {
   }
 }
 
-function getAndroidSwipeImageForSoundKey(selectedSoundKey?: string | null) {
-  if (Platform.OS !== 'android') return IOS_SOUNDWAVE_IMAGE;
-  if (!selectedSoundKey) return ANDROID_ADAPTIVE_SOUNDWAVE_IMAGE;
+function getSwipeImageForSoundKey(selectedSoundKey?: string | null) {
+  if (Platform.OS === 'android') {
+    if (!selectedSoundKey) return ANDROID_ADAPTIVE_SOUNDWAVE_IMAGE;
+    return PICKUP_TOOT_KEYS.includes(selectedSoundKey)
+      ? ANDROID_ADAPTIVE_SOUNDWAVE_IMAGE
+      : IOS_SOUNDWAVE_IMAGE;
+  }
+
+  // iOS : même logique visuelle que Android (proothail2 par défaut),
+  // mais on garde proothail.png pour les sons non toot/proot.
+  if (!selectedSoundKey) return IOS_PRIMARY_SOUNDWAVE_IMAGE;
   return PICKUP_TOOT_KEYS.includes(selectedSoundKey)
-    ? ANDROID_ADAPTIVE_SOUNDWAVE_IMAGE
+    ? IOS_PRIMARY_SOUNDWAVE_IMAGE
     : IOS_SOUNDWAVE_IMAGE;
 }
 // Curseur « catégorie par défaut » dans le modal choose your sound (grille 5 icônes)
@@ -5312,7 +5321,7 @@ const closeIdentityModal = useCallback(() => {
               friend={item}
               backgroundColor={backgroundColor}
               getDisplaySoundLabel={getDisplaySoundLabel}
-              swipeImageSource={getAndroidSwipeImageForSoundKey(friendSoundKeyByFriend[item.id])}
+              swipeImageSource={getSwipeImageForSoundKey(friendSoundKeyByFriend[item.id])}
               onSendProut={() => handleSendProut(item)}
               onLongPressAvatar={() => handleLongPressName(item)}
               onLongPressRow={() => handleLongPressSoundCategory(item)}

@@ -135,7 +135,7 @@ export default function SoundcheckScreen() {
   const soundTitleAsset = Image.resolveAssetSource(require('../assets/images/sound.png'));
   const soundcheckTailImage = Platform.OS === 'android'
     ? require('../assets/images/proothail2.png')
-    : require('../assets/images/proothail.png');
+    : require('../assets/images/proothail2.png');
   const proothailAsset = Image.resolveAssetSource(soundcheckTailImage);
   const soundTitleAspectRatio =
     soundTitleAsset?.width && soundTitleAsset?.height
