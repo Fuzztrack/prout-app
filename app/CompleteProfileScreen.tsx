@@ -94,7 +94,15 @@ export default function CompleteProfileScreen() {
       safeReplace(router, '/', { skipInitialCheck: false });
 
     } catch (e: any) {
-      Alert.alert(i18n.t('error'), e.message);
+      if (
+        e?.code === '23505' ||
+        e?.message?.includes('unique') ||
+        e?.message?.includes('duplicate')
+      ) {
+        Alert.alert(i18n.t('error'), i18n.t('pseudo_already_used'));
+      } else {
+        Alert.alert(i18n.t('error'), e.message);
+      }
     } finally {
       setLoading(false);
     }

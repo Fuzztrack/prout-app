@@ -46,6 +46,7 @@ import {
 } from '@/lib/audioService';
 import {
   DIRECT_SEND_FALLBACK_CATEGORY,
+  SOUND_ASSETS,
   SOUND_KEYS_BY_CATEGORY,
 } from '@/lib/runtimeSounds';
 
@@ -256,9 +257,10 @@ export default function ChatScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const params = useLocalSearchParams<{ friendId?: string; pseudo?: string }>();
+  const params = useLocalSearchParams<{ friendId?: string; pseudo?: string; pendingSoundKey?: string }>();
   const friendId = typeof params.friendId === 'string' ? params.friendId : '';
   const pseudoParam = typeof params.pseudo === 'string' ? params.pseudo : '';
+  const pendingSoundKeyParam = typeof params.pendingSoundKey === 'string' ? params.pendingSoundKey : '';
 
   const { isZenMode, isSilentMode, isHapticEnabled, pseudo: storePseudo } = useAppStore();
 
@@ -355,6 +357,14 @@ export default function ChatScreen() {
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (pendingSoundKeyParam && SOUND_ASSETS[pendingSoundKeyParam]) {
+      setPendingChatSoundKey(pendingSoundKeyParam);
+      return;
+    }
+    setPendingChatSoundKey(null);
+  }, [friendId, pendingSoundKeyParam]);
 
   useEffect(() => {
     if (!friend || loadingFriend) return;
@@ -1057,6 +1067,8 @@ export default function ChatScreen() {
           receiverId: friend.id,
         }
       );
+
+      DeviceEventEmitter.emit('CLEAR_FRIENDLIST_PENDING_SOUND', { friendId: friend.id });
 
       queryClient.invalidateQueries({ queryKey: ['pendingMessages', currentUserId] });
       queryClient.invalidateQueries({ queryKey: ['pendingSentMessages', currentUserId] });

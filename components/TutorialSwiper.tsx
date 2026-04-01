@@ -63,17 +63,17 @@ export function TutorialSwiper({ onClose }: { onClose: () => void }) {
               i18n.t('friendlist_onboarding_swipe')
             )}
             {renderFeatureRow(
+              <Ionicons name="finger-print" size={22} color="#604a3e" />,
+              i18n.t('friendlist_onboarding_long_press'),
+              12
+            )}
+            {renderFeatureRow(
               <Image
                 source={require('../assets/images/tap-gesture.png')}
                 style={styles.tapImage}
                 resizeMode="contain"
               />,
               i18n.t('friendlist_onboarding_tap'),
-              12
-            )}
-            {renderFeatureRow(
-              <Ionicons name="finger-print" size={22} color="#604a3e" />,
-              i18n.t('friendlist_onboarding_long_press'),
               12
             )}
             {renderFeatureRow(

@@ -84,7 +84,7 @@ const CHAT_SPECIFIC_ROW_HEIGHT = 34;
 const CHAT_SPECIFIC_BOTTOM_GAP = 30;
 const CHAT_SPECIFIC_MIN_HEIGHT = MAX_PICKUP_ROWS * CHAT_SPECIFIC_ROW_HEIGHT + 50 + CHAT_SPECIFIC_BOTTOM_GAP;
 const USE_NATIVE_MODAL_DRIVER = Platform.OS !== 'android';
-const ANDROID_MODAL_CLOSE_TIMING = Platform.OS === 'android' ? 0 : 120;
+const ANDROID_MODAL_CLOSE_TIMING = Platform.OS === 'android' ? 1 : 120;
 const CHAT_MODAL_BACKDROP_OPACITY = Platform.OS === 'android' ? 0 : 0.3;
 const FRIEND_SOUND_MODAL_BACKDROP_OPACITY = Platform.OS === 'android' ? 0 : 0.45;
 const FRIEND_ROW_LONG_PRESS_DELAY_MS = 320;
@@ -543,6 +543,14 @@ export function FriendsList({
   listIntroTrigger?: number;
   refreshTrigger?: number;
 } = {}) {
+  const useStableCallback = <T extends (...args: any[]) => any>(callback: T) => {
+    const ref = useRef(callback);
+    useEffect(() => {
+      ref.current = callback;
+    });
+    return useCallback((...args: Parameters<T>) => ref.current(...args), []) as T;
+  };
+
   const insets = useSafeAreaInsets();
   const { isZenMode, isSilentMode, isHapticEnabled, pseudo: storePseudo } = useAppStore();
   const queryClient = useQueryClient();
@@ -634,6 +642,7 @@ export function FriendsList({
   const expandedFriendIdRef = useRef<string | null>(null);
   const lastRandomSoundByFriendRef = useRef<Record<string, string>>({});
   const friendSoundPickCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isClosingFriendSoundModalRef = useRef<boolean>(false);
   
   useEffect(() => {
     expandedFriendIdRef.current = expandedFriendId;
@@ -754,18 +763,21 @@ export function FriendsList({
       keyboardHeightSV.value = e.height;
       keyboardBottomOffsetSV.value = Math.max(0, e.height);
       keyboardVisibleSV.value = e.height > 0;
+      runOnJS(setKeyboardVisible)(e.height > 0);
     },
     onInteractive: (e: { height: number }) => {
       'worklet';
       keyboardHeightSV.value = e.height;
       keyboardBottomOffsetSV.value = Math.max(0, e.height);
       keyboardVisibleSV.value = e.height > 0;
+      runOnJS(setKeyboardVisible)(e.height > 0);
     },
     onEnd: (e: { height: number }) => {
       'worklet';
       keyboardHeightSV.value = e.height; // Peut être 0 si fermé, ou la hauteur finale
       keyboardBottomOffsetSV.value = Math.max(0, e.height);
       keyboardVisibleSV.value = e.height > 0;
+      runOnJS(setKeyboardVisible)(e.height > 0); // Synchroniser l'état local
     },
   });
 
@@ -1340,6 +1352,23 @@ export function FriendsList({
     };
   }, [currentUserId, isSilentMode, queryClient, refetchMessages]);
 
+  useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener('CLEAR_FRIENDLIST_PENDING_SOUND', (data?: any) => {
+      const friendId = typeof data?.friendId === 'string' ? data.friendId : null;
+      if (!friendId) return;
+
+      setFriendSoundKeyByFriend((prev) => {
+        if (!prev[friendId]) return prev;
+        const { [friendId]: _removed, ...rest } = prev;
+        return rest;
+      });
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
   // Durée de vie maximale d'un message (24h)
   const MESSAGE_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -1495,9 +1524,17 @@ export function FriendsList({
 
   useFocusEffect(
     useCallback(() => {
+      // Forcer la fermeture du clavier dès qu'on arrive sur cet écran
+      Keyboard.dismiss();
+      
       // Recharger les données à chaque fois que l'écran gagne le focus
       // Le tri se fait maintenant uniquement via last_interaction_at depuis Supabase
       loadData(false, false, false);
+      setTimeout(() => {
+        try {
+          flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+        } catch {}
+      }, 120);
     }, [])
   );
 
@@ -1814,14 +1851,19 @@ const handleLongPressSoundCategory = useCallback((friend: any) => {
   if (isModalTransitionActive()) return;
   if (identityModalVisible || isFirstFriendlistOnboardingVisible || isFirstChatModalVisible) return;
   markModalTransition();
+  isClosingFriendSoundModalRef.current = false;
   setIsFriendSoundModalContentVisible(true);
   setFriendSoundModalFriend(friend);
   setFriendSoundModalVisible(true);
 }, [identityModalVisible, isFirstFriendlistOnboardingVisible, isModalTransitionActive, markModalTransition]);
 
 const handleSelectFriendSpecificSoundKey = useCallback((soundKey: string) => {
+  if (isClosingFriendSoundModalRef.current) return;
+  isClosingFriendSoundModalRef.current = true;
+
   const friendId = friendSoundModalFriend?.id;
   if (!friendId || !SOUND_ASSETS[soundKey]) return;
+
   stopCurrentPlayback().catch(() => {});
   setPreviewingFriendSoundKey(null);
   setFriendSoundKeyByFriend((prev) => {
@@ -1832,7 +1874,7 @@ const handleSelectFriendSpecificSoundKey = useCallback((soundKey: string) => {
     friendSoundPickCloseTimeoutRef.current = null;
   }
   setIsFriendSoundModalContentVisible(false);
-  markModalTransition();
+  markModalTransition(0); // Libère immédiatement le verrou
   setFriendSoundModalVisible(false);
 }, [friendSoundModalFriend?.id, markModalTransition]);
 
@@ -1846,7 +1888,18 @@ const handlePreviewFriendSpecificSoundKey = useCallback((soundKey: string) => {
   });
 }, []);
 
+const handleClearSelectedSound = useCallback((friend: any) => {
+  setFriendSoundKeyByFriend((prev) => {
+    if (!prev[friend.id]) return prev;
+    const { [friend.id]: _removed, ...rest } = prev;
+    return rest;
+  });
+}, []);
+
 const closeFriendSoundModal = useCallback(() => {
+  if (isClosingFriendSoundModalRef.current) return;
+  isClosingFriendSoundModalRef.current = true;
+
   if (friendSoundPickCloseTimeoutRef.current) {
     clearTimeout(friendSoundPickCloseTimeoutRef.current);
     friendSoundPickCloseTimeoutRef.current = null;
@@ -1854,11 +1907,14 @@ const closeFriendSoundModal = useCallback(() => {
   stopCurrentPlayback().catch(() => {});
   setPreviewingFriendSoundKey(null);
   setIsFriendSoundModalContentVisible(false);
-  markModalTransition();
+  markModalTransition(0); // Libère immédiatement le verrou
   setFriendSoundModalVisible(false);
 }, [markModalTransition]);
 
 const closeFriendSoundPickModal = useCallback(() => {
+  if (isClosingFriendSoundModalRef.current) return;
+  isClosingFriendSoundModalRef.current = true;
+
   if (friendSoundPickCloseTimeoutRef.current) {
     clearTimeout(friendSoundPickCloseTimeoutRef.current);
     friendSoundPickCloseTimeoutRef.current = null;
@@ -1866,8 +1922,9 @@ const closeFriendSoundPickModal = useCallback(() => {
   stopCurrentPlayback().catch(() => {});
   setPreviewingFriendSoundKey(null);
   setIsFriendSoundModalContentVisible(false);
+  markModalTransition(0); // Libère immédiatement le verrou
   setFriendSoundModalVisible(false);
-}, []);
+}, [markModalTransition]);
 
 const renderFriendSoundPickItem = useCallback((soundKey: string) => {
   const isActive = !!(
@@ -1974,6 +2031,9 @@ const closeIdentityModal = useCallback(() => {
               if (res && typeof (res as any).notification === 'number') {
                 return (res as any).notification;
               }
+              if (res && typeof (res as any).ring === 'number') {
+                return (res as any).ring; // Fallback souvent utile sur Samsung
+              }
               if (typeof res?.volume === 'number') {
                 return res.volume; // fallback musique
               }
@@ -1995,12 +2055,13 @@ const closeIdentityModal = useCallback(() => {
               }
             }
 
-            // Écouter les changements de volume des notifications uniquement
+            // Écouter les changements de volume
             const volListener = VolumeManager.addVolumeListener((result) => {
               if (!mounted) return;
-              const isNotif = result?.type === 'notification';
+              // Sur Android/Samsung, le type peut être 'notification', 'ring', 'system' ou manquant.
+              const isRelevant = !result?.type || ['notification', 'ring', 'system'].includes(result.type);
               const vol = result?.volume;
-              if (isNotif && vol !== undefined) {
+              if (isRelevant && vol !== undefined) {
                 setNotificationVolume(vol);
                 if (ringerMode === RINGER_MODE.normal && vol === 0 && !dismissedSilentWarningRef.current) {
                   setShowSilentWarning(true);
@@ -2023,13 +2084,7 @@ const closeIdentityModal = useCallback(() => {
                   : RINGER_MODE.silent;
               setRingerMode(modeVal);
               // Re-évaluer avec le volume courant (relecture pour éviter la valeur stale)
-              VolumeManager.getVolume().then((res) => {
-                const notifVol =
-                  res && typeof (res as any).notification === 'number'
-                    ? (res as any).notification
-                    : typeof res?.volume === 'number'
-                    ? res.volume
-                    : undefined;
+              readNotificationVolume().then((notifVol) => {
                 if (notifVol !== undefined) {
                   setNotificationVolume(notifVol);
                   if (modeVal === RINGER_MODE.normal && notifVol === 0 && !dismissedSilentWarningRef.current) {
@@ -3628,7 +3683,7 @@ const closeIdentityModal = useCallback(() => {
     try { await supabase.from('friends').delete().eq('id', requestId); loadData(); } catch (e) {}
   };
 
-  const handleMuteFriend = async (friend: any) => {
+  const handleMuteFriend = useStableCallback(async (friend: any) => {
     if (!currentUserId) return;
     try {
       const { error } = await supabase
@@ -3648,9 +3703,9 @@ const closeIdentityModal = useCallback(() => {
       console.error('❌ Erreur mise en sourdine:', e);
       Alert.alert(i18n.t('error'), "Impossible d'activer la sourdine.");
     }
-  };
+  });
 
-  const handleUnmuteFriend = async (friend: any) => {
+  const handleUnmuteFriend = useStableCallback(async (friend: any) => {
     if (!currentUserId) return;
     try {
       const { error } = await supabase
@@ -3670,7 +3725,7 @@ const closeIdentityModal = useCallback(() => {
       console.error('❌ Erreur désactivation sourdine:', e);
       Alert.alert(i18n.t('error'), i18n.t('cannot_disable_mute'));
     }
-  };
+  });
 
   const isUuid = (value?: string | null) =>
     !!value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
@@ -3760,7 +3815,7 @@ const closeIdentityModal = useCallback(() => {
     };
   }, []);
 
-  const handleDeleteFriend = async (friend: any) => {
+  const handleDeleteFriend = useStableCallback(async (friend: any) => {
     if (!currentUserId) return;
 
     Alert.alert(
@@ -3836,7 +3891,7 @@ const closeIdentityModal = useCallback(() => {
         },
       ]
     );
-  };
+  });
 
   const showToast = (message: string) => {
     setToastMessage(message);
@@ -3858,7 +3913,7 @@ const closeIdentityModal = useCallback(() => {
     });
   };
 
-  const handleLongPressName = async (friend: any) => {
+  const handleLongPressName = useStableCallback(async (friend: any) => {
     if (isModalTransitionActive()) return;
     if (friendSoundModalVisible || isFirstFriendlistOnboardingVisible) return;
     markModalTransition();
@@ -3919,7 +3974,7 @@ const closeIdentityModal = useCallback(() => {
     setIdentityModalFriend(friend);
     setIdentityModalName(null);
     setIdentityModalVisible(true);
-  };
+  });
 
   const requestIdentityReveal = async (friend: any, options: { force?: boolean } = {}) => {
     if (!currentUserId) return;
@@ -4142,9 +4197,9 @@ const closeIdentityModal = useCallback(() => {
   //   }
   // }, [isSearchVisible, expandedFriendId]);
 
-  const handlePressFriend = (friend: any) => {
+  const handlePressFriend = useStableCallback((friend: any) => {
     if (isModalTransitionActive()) return;
-    if (friendSoundModalVisible || identityModalVisible || isFirstFriendlistOnboardingVisible || isFirstChatModalVisible) return;
+    if (identityModalVisible || isFirstFriendlistOnboardingVisible || isFirstChatModalVisible) return;
 
     const now = Date.now();
     if (now - lastPressTime.current < 500) return;
@@ -4162,13 +4217,14 @@ const closeIdentityModal = useCallback(() => {
         params: {
           friendId: friend.id,
           pseudo: friend.pseudo || '',
+          pendingSoundKey: friendSoundKeyByFriend[friend.id] || '',
         },
       },
       { skipInitialCheck: false }
     );
-  };
+  });
 
-  const handleSendProut = async (
+  const handleSendProut = useStableCallback(async (
     recipient: any,
     options?: { forcedCustomMessage?: string; forcedSoundKey?: string }
   ) => {
@@ -4505,7 +4561,7 @@ const closeIdentityModal = useCallback(() => {
       // En cas d'erreur, on retire le cooldown pour permettre une nouvelle tentative
       cooldownMapRef.current.delete(recipient.id);
     }
-  };
+  });
 
 
   const renderRequestsHeader = () => {
@@ -5322,26 +5378,20 @@ const closeIdentityModal = useCallback(() => {
               backgroundColor={backgroundColor}
               getDisplaySoundLabel={getDisplaySoundLabel}
               swipeImageSource={getSwipeImageForSoundKey(friendSoundKeyByFriend[item.id])}
-              onSendProut={() => handleSendProut(item)}
-              onLongPressAvatar={() => handleLongPressName(item)}
-              onLongPressRow={() => handleLongPressSoundCategory(item)}
-              onPressName={() => handlePressFriend(item)}
+              onSendProut={handleSendProut}
+              onLongPressAvatar={handleLongPressName}
+              onLongPressRow={handleLongPressSoundCategory}
+              onPressName={handlePressFriend}
               hasUnread={hasUnread}
               unreadMessage={truncateContactPreview(lastUnread?.message_content) || (hasUnread && unreadMessages.length > 1 ? `${unreadMessages.length} messages` : null)}
-              onDeleteFriend={() => handleDeleteFriend(item)}
-              onMuteFriend={() => handleMuteFriend(item)}
-              onUnmuteFriend={() => handleUnmuteFriend(item)}
+              onDeleteFriend={handleDeleteFriend}
+              onMuteFriend={handleMuteFriend}
+              onUnmuteFriend={handleUnmuteFriend}
               isMuted={item.is_muted || false}
               introDelay={index * 40}
               introTrigger={listIntroTrigger}
               selectedSoundKey={friendSoundKeyByFriend[item.id]}
-              onClearSelectedSound={() => {
-                setFriendSoundKeyByFriend((prev) => {
-                  if (!prev[item.id]) return prev;
-                  const { [item.id]: _removed, ...rest } = prev;
-                  return rest;
-                });
-              }}
+              onClearSelectedSound={handleClearSelectedSound}
             />
           );
         }}
@@ -5353,28 +5403,34 @@ const closeIdentityModal = useCallback(() => {
             <View style={styles.footerHelp}>
               <View style={styles.footerHelpLines}>
                 <View style={styles.footerHelpLine}>
-                  <Image
-                    source={require('../assets/images/tip.png')}
-                    style={styles.footerHelpTip}
-                    resizeMode="contain"
-                  />
-                  <Text style={styles.footerHelpText}>{i18n.t('friendlist_onboarding_swipe')}</Text>
+                  <View style={styles.footerHelpLineContent}>
+                    <Image
+                      source={require('../assets/images/tip.png')}
+                      style={styles.footerHelpTip}
+                      resizeMode="contain"
+                    />
+                    <Text style={styles.footerHelpText}>{i18n.t('friendlist_onboarding_swipe')}</Text>
+                  </View>
                 </View>
                 <View style={styles.footerHelpLine}>
-                  <Image
-                    source={require('../assets/images/tip.png')}
-                    style={styles.footerHelpTip}
-                    resizeMode="contain"
-                  />
-                  <Text style={styles.footerHelpText}>{i18n.t('friendlist_onboarding_tap')}</Text>
+                  <View style={styles.footerHelpLineContent}>
+                    <Image
+                      source={require('../assets/images/tip.png')}
+                      style={styles.footerHelpTip}
+                      resizeMode="contain"
+                    />
+                    <Text style={styles.footerHelpText}>{i18n.t('friendlist_onboarding_long_press')}</Text>
+                  </View>
                 </View>
                 <View style={styles.footerHelpLine}>
-                  <Image
-                    source={require('../assets/images/tip.png')}
-                    style={styles.footerHelpTip}
-                    resizeMode="contain"
-                  />
-                  <Text style={styles.footerHelpText}>{i18n.t('friendlist_onboarding_long_press')}</Text>
+                  <View style={styles.footerHelpLineContent}>
+                    <Image
+                      source={require('../assets/images/tip.png')}
+                      style={styles.footerHelpTip}
+                      resizeMode="contain"
+                    />
+                    <Text style={styles.footerHelpText}>{i18n.t('friendlist_onboarding_tap')}</Text>
+                  </View>
                 </View>
               </View>
             </View>
@@ -5403,6 +5459,12 @@ const closeIdentityModal = useCallback(() => {
                 </Text>
               </View>
               <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
+                <Ionicons name="finger-print" size={22} color="#604a3e" />
+                <Text style={styles.firstFooterModalFeatureText}>
+                  {i18n.t('friendlist_onboarding_long_press')}
+                </Text>
+              </View>
+              <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
                 <Image
                   source={require('../assets/images/tap-gesture.png')}
                   style={styles.firstFooterTapImage}
@@ -5410,12 +5472,6 @@ const closeIdentityModal = useCallback(() => {
                 />
                 <Text style={styles.firstFooterModalFeatureText}>
                   {i18n.t('friendlist_onboarding_tap')}
-                </Text>
-              </View>
-              <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
-                <Ionicons name="finger-print" size={22} color="#604a3e" />
-                <Text style={styles.firstFooterModalFeatureText}>
-                  {i18n.t('friendlist_onboarding_long_press')}
                 </Text>
               </View>
               <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
@@ -5493,8 +5549,8 @@ const closeIdentityModal = useCallback(() => {
         animationIn="fadeIn"
         animationOut="fadeOut"
         animationInTiming={150}
-        animationOutTiming={Platform.OS === 'android' ? 0 : 1} // Instantané à la fermeture
-        backdropTransitionOutTiming={0}
+        animationOutTiming={1} // Instantané à la fermeture
+        backdropTransitionOutTiming={1}
         avoidKeyboard={false} // Ancrage clavier géré de façon unifiée via keyboardHeightSV
       >
         <Animated.View
@@ -5527,9 +5583,9 @@ const closeIdentityModal = useCallback(() => {
         isVisible={friendSoundModalVisible}
         onBackdropPress={closeFriendSoundModal}
         onBackButtonPress={closeFriendSoundModal}
-        onModalShow={() => {
-          setIsFriendSoundModalContentVisible(true);
-        }}
+          onModalShow={() => {
+            setIsFriendSoundModalContentVisible(true);
+          }}
         onModalHide={() => {
           setIsFriendSoundModalContentVisible(false);
         }}
@@ -5541,7 +5597,7 @@ const closeIdentityModal = useCallback(() => {
         useNativeDriver={USE_NATIVE_MODAL_DRIVER}
         useNativeDriverForBackdrop={USE_NATIVE_MODAL_DRIVER}
         hideModalContentWhileAnimating
-        backdropTransitionOutTiming={0}
+        backdropTransitionOutTiming={1}
       >
         <View
           style={[
@@ -5811,7 +5867,7 @@ const closeIdentityModal = useCallback(() => {
         useNativeDriver={USE_NATIVE_MODAL_DRIVER}
         useNativeDriverForBackdrop={USE_NATIVE_MODAL_DRIVER}
         hideModalContentWhileAnimating
-        backdropTransitionOutTiming={0}
+        backdropTransitionOutTiming={1}
       >
         <View style={styles.identityModalContent}>
           {identityModalFriend && (
@@ -6260,26 +6316,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   footerHelpLine: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+    paddingHorizontal: 8,
+  },
+  footerHelpLineContent: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    alignSelf: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
-    maxWidth: '100%',
+    alignSelf: 'center',
+    maxWidth: 320,
   },
   footerHelpTip: {
     width: 15,
     height: 15,
     marginTop: 1,
-    marginRight: 2,
+    marginRight: 1,
   },
   footerHelpText: {
     color: '#604a3e',
     fontSize: 14,
-    textAlign: 'left',
+    textAlign: 'center',
     fontStyle: 'italic',
     opacity: 0.7,
     flexShrink: 1,
+    maxWidth: 290,
   },
   footerHelpTextSecondary: {
     marginTop: 10,

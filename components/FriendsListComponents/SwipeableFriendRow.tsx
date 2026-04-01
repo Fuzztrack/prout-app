@@ -34,21 +34,21 @@ export type SwipeableFriendRowHandle = {
 type SwipeableFriendRowProps = { 
   friend: any; 
   backgroundColor: string; 
-  onSendProut: () => void; 
-  onLongPressAvatar: () => void;
-  onLongPressRow: () => void;
-  onPressName?: () => void;
+  onSendProut: (friend: any) => void; 
+  onLongPressAvatar: (friend: any) => void;
+  onLongPressRow: (friend: any) => void;
+  onPressName?: (friend: any) => void;
   hasUnread?: boolean;
   unreadMessage?: string | null;
-  onDeleteFriend: () => void;
-  onMuteFriend: () => void;
-  onUnmuteFriend?: () => void;
+  onDeleteFriend: (friend: any) => void;
+  onMuteFriend: (friend: any) => void;
+  onUnmuteFriend?: (friend: any) => void;
   isMuted?: boolean;
   introDelay?: number;
   introTrigger?: number;
   selectedSoundKey?: string;
   swipeImageSource?: any;
-  onClearSelectedSound?: () => void;
+  onClearSelectedSound?: (friend: any) => void;
   getDisplaySoundLabel: (key: string) => string;
 };
 
@@ -100,7 +100,7 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
       suppressNextPressRef.current = false;
       return;
     }
-    onPressName?.();
+    onPressName?.(friend);
   };
 
   useEffect(() => {
@@ -146,7 +146,7 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
   
   const triggerAction = () => {
     setShowSentImage(true);
-    onSendProut();
+    onSendProut(friend);
     setTimeout(() => setShowSentImage(false), 600);
   };
 
@@ -172,7 +172,7 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
       '',
       [
         { text: i18n.t('cancel'), style: 'cancel' },
-        { text: i18n.t('block_user'), style: 'destructive', onPress: onDeleteFriend },
+        { text: i18n.t('block_user'), style: 'destructive', onPress: () => onDeleteFriend(friend) },
       ]
     );
   }, [onDeleteFriend]);
@@ -268,7 +268,7 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
                 if (avatarPressActiveRef.current) return;
                 setIsRowTouchActive(false);
                 markPressSuppressed();
-                onLongPressRow();
+                onLongPressRow(friend);
               }}
               delayLongPress={FRIEND_ROW_LONG_PRESS_DELAY_MS}
               activeOpacity={1}
@@ -283,7 +283,7 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
                     avatarPressActiveRef.current = false;
                     setIsRowTouchActive(false);
                     markPressSuppressed();
-                    onLongPressAvatar();
+                    onLongPressAvatar(friend);
                   }}
                   delayLongPress={500}
                   activeOpacity={0.9}
@@ -328,7 +328,7 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
                   {getDisplaySoundLabel(selectedSoundKey)}
                 </Text>
                 <GHTouchableOpacity
-                  onPress={() => onClearSelectedSound?.()}
+                  onPress={() => onClearSelectedSound?.(friend)}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   style={{ marginLeft: 4 }}
                 >
