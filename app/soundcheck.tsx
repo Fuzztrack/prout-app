@@ -133,7 +133,10 @@ export default function SoundcheckScreen() {
   // Taille du titre: on se base sur le vrai ratio de sound.png pour éviter
   // les "marges" visuelles créées par un ratio arbitraire + resizeMode="contain".
   const soundTitleAsset = Image.resolveAssetSource(require('../assets/images/sound.png'));
-  const proothailAsset = Image.resolveAssetSource(require('../assets/images/proothail.png'));
+  const soundcheckTailImage = Platform.OS === 'android'
+    ? require('../assets/images/proothail2.png')
+    : require('../assets/images/proothail.png');
+  const proothailAsset = Image.resolveAssetSource(soundcheckTailImage);
   const soundTitleAspectRatio =
     soundTitleAsset?.width && soundTitleAsset?.height
       ? soundTitleAsset.width / soundTitleAsset.height
@@ -146,7 +149,9 @@ export default function SoundcheckScreen() {
   const titleScale = 0.52;
   const titleImageWidth = Math.round(screenWidth * titleScale);
   const titleImageHeight = Math.round(titleImageWidth / soundTitleAspectRatio);
-  const proothailHeight = Math.min(56, Math.max(40, Math.round(titleImageHeight * 0.92)));
+  const proothailHeight = Platform.OS === 'android'
+    ? Math.min(78, Math.max(58, Math.round(titleImageHeight * 1.15)))
+    : Math.min(56, Math.max(40, Math.round(titleImageHeight * 0.92)));
   const proothailWidth = Math.round(proothailHeight * proothailAspectRatio);
   // Laisser le tableau descendre presque jusqu'en bas, en gardant ~200px de marge (titre + bas)
   const tableMaxHeight = Math.max(280, screenHeight - 200);
@@ -245,7 +250,7 @@ export default function SoundcheckScreen() {
         <View style={styles.titleRow} pointerEvents="none">
           <View style={styles.titleCluster}>
             <Image
-              source={require('../assets/images/proothail.png')}
+              source={soundcheckTailImage}
               style={[styles.proothailImage, { width: proothailWidth, height: proothailHeight }]}
               resizeMode="contain"
             />

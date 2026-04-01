@@ -63,6 +63,7 @@ const CHAT_MESSAGE_SOUND_CHOICE_KEY = 'chat_message_sound_choice_v1';
 const CHAT_MESSAGE_MUTE_KEY = 'chat_message_mute_v2';
 const FRIEND_SOUND_CATEGORY_MAP_KEY = 'friend_sound_category_map_v1';
 const IOS_SOUNDWAVE_IMAGE = require('../assets/images/proothail.png');
+const ANDROID_ADAPTIVE_SOUNDWAVE_IMAGE = require('../assets/images/proothail2.png');
 const IOS_SENT_IMAGE = require('../assets/images/animprout4.png');
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -91,7 +92,9 @@ const FRIEND_ROW_LONG_PRESS_DELAY_MS = 320;
 const USE_PROOT_TOOT_LOGO = true;
 const TOOT_LOGO_IMAGE = require('../assets/images/proot.png');
 /** Miniature cliquable sous le chat pour ouvrir le sélecteur de sons */
-const CHAT_PROOTHAIL_THUMB = require('../assets/images/proothail.png');
+const CHAT_PROOTHAIL_THUMB = Platform.OS === 'android'
+  ? ANDROID_ADAPTIVE_SOUNDWAVE_IMAGE
+  : require('../assets/images/proothail.png');
 const TOOT_CHAT_ICON_SIZE = Platform.OS === 'android'
   ? { width: 82, height: 55 }
   : USE_PROOT_TOOT_LOGO
@@ -135,6 +138,14 @@ function getChooseSoundCategorySubtitleKey(category: SoundCategory): string {
     case 'pop':
       return 'soundcheck_subtitle_pop';
   }
+}
+
+function getAndroidSwipeImageForSoundKey(selectedSoundKey?: string | null) {
+  if (Platform.OS !== 'android') return IOS_SOUNDWAVE_IMAGE;
+  if (!selectedSoundKey) return ANDROID_ADAPTIVE_SOUNDWAVE_IMAGE;
+  return PICKUP_TOOT_KEYS.includes(selectedSoundKey)
+    ? ANDROID_ADAPTIVE_SOUNDWAVE_IMAGE
+    : IOS_SOUNDWAVE_IMAGE;
 }
 // Curseur « catégorie par défaut » dans le modal choose your sound (grille 5 icônes)
 /** `false` = curseur masqué, défaut toujours proot (toot). Mettre à `true` pour réafficher le curseur. */
@@ -577,6 +588,7 @@ export function FriendsList({
 
   const [loading, setLoading] = useState(true); // Commencer à true, loadData gérera la suite
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showFriendlistRecoveryCard, setShowFriendlistRecoveryCard] = useState(false);
 
   // Pas de fallback ici : le tuto 1ère installation ne doit pas s'afficher si la friendlist est vide.
   const [chatMessageSoundChoice, setChatMessageSoundChoice] = useState<ChatMessageSoundChoice>(
@@ -928,6 +940,9 @@ export function FriendsList({
   } | null>(null);
   const lastLoadDataAtRef = useRef(0);
   const LOAD_DATA_MIN_INTERVAL_MS = 1200;
+  const LOAD_DATA_TIMEOUT_MS = 15000;
+  const loadDataRunIdRef = useRef(0);
+  const loadDataWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   
   // Polling simple (sans backoff exponentiel)
@@ -939,6 +954,12 @@ export function FriendsList({
   useEffect(() => {
     appUsersRef.current = appUsers;
   }, [appUsers]);
+
+  useEffect(() => {
+    if (appUsers.length > 0) {
+      setShowFriendlistRecoveryCard(false);
+    }
+  }, [appUsers.length]);
 
   // Focus automatique du TextInput quand le champ de message s'ouvre (iOS uniquement)
   useEffect(() => {
@@ -1202,7 +1223,7 @@ export function FriendsList({
 
 
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
+    let interval: ReturnType<typeof setInterval> | null = null;
     if (expandedFriendId) {
       // Polling de sécurité toutes les 5s quand un chat est ouvert
       // Garantit que le statut "Lu" arrive même si le Realtime échoue
@@ -2106,6 +2127,10 @@ const closeIdentityModal = useCallback(() => {
 
   useEffect(() => {
     return () => {
+      if (loadDataWatchdogRef.current) {
+        clearTimeout(loadDataWatchdogRef.current);
+        loadDataWatchdogRef.current = null;
+      }
       if (listTopAlignTimeoutRef.current) {
         clearTimeout(listTopAlignTimeoutRef.current);
         listTopAlignTimeoutRef.current = null;
@@ -2127,10 +2152,32 @@ const closeIdentityModal = useCallback(() => {
     const now = Date.now();
     // Anti-spam de 30 secondes
     if (now - lastOfflineToastTimeRef.current > 30000) {
-      showToast(i18n.t('connection_error_title'), i18n.t('check_connection_body'));
+      showToast(`${i18n.t('connection_error_title')}\n${i18n.t('check_connection_body')}`);
       lastOfflineToastTimeRef.current = now;
     }
   };
+
+  const clearLoadDataWatchdog = useCallback(() => {
+    if (loadDataWatchdogRef.current) {
+      clearTimeout(loadDataWatchdogRef.current);
+      loadDataWatchdogRef.current = null;
+    }
+  }, []);
+
+  const startLoadDataWatchdog = useCallback((runId: number) => {
+    clearLoadDataWatchdog();
+    loadDataWatchdogRef.current = setTimeout(() => {
+      if (loadDataRunIdRef.current !== runId) return;
+      console.warn('⚠️ loadData timeout: fallback recovery UI enabled');
+      loadDataInFlightRef.current = false;
+      setLoading(false);
+      setIsRefreshing(false);
+      if ((appUsersRef.current?.length ?? 0) === 0) {
+        setShowFriendlistRecoveryCard(true);
+      }
+      showOfflineToast();
+    }, LOAD_DATA_TIMEOUT_MS);
+  }, [clearLoadDataWatchdog]);
 
   const loadData = async (hasCacheFromInit: boolean = false, forceLoading: boolean = false, syncContacts: boolean = true) => {
     // Évite les fetch concurrents + les rafales de triggers Realtime/polling
@@ -2145,6 +2192,9 @@ const closeIdentityModal = useCallback(() => {
     }
     loadDataInFlightRef.current = true;
     lastLoadDataAtRef.current = now;
+    const runId = ++loadDataRunIdRef.current;
+    startLoadDataWatchdog(runId);
+    setShowFriendlistRecoveryCard(false);
 
     // Ne plus mettre loading à true ici pour éviter le flash blanc
     // Seul le chargement initial (si la liste est vide) peut l'activer
@@ -2472,6 +2522,7 @@ const closeIdentityModal = useCallback(() => {
           if (shouldUpdate) {
             setAppUsers(sortedList);
             await saveCacheSafely(CACHE_KEY_FRIENDS, sortedList);
+            setShowFriendlistRecoveryCard(false);
           }
           }
       } else {
@@ -2482,6 +2533,7 @@ const closeIdentityModal = useCallback(() => {
           if (!hasNetworkError) {
             setAppUsers([]);
             await saveCacheSafely(CACHE_KEY_FRIENDS, []);
+            setShowFriendlistRecoveryCard(false);
           }
       }
 
@@ -2878,8 +2930,14 @@ const closeIdentityModal = useCallback(() => {
     } catch (e) {
       // En cas d'erreur réseau, avertir l'utilisateur (avec anti-spam)
       console.warn('⚠️ Erreur loadData:', e);
+      if ((appUsersRef.current?.length ?? 0) === 0) {
+        setShowFriendlistRecoveryCard(true);
+      }
       showOfflineToast();
     } finally { 
+      if (loadDataRunIdRef.current === runId) {
+        clearLoadDataWatchdog();
+      }
       loadDataInFlightRef.current = false;
       setLoading(false); 
       const queued = queuedLoadDataArgsRef.current;
@@ -4678,7 +4736,7 @@ const closeIdentityModal = useCallback(() => {
               <View style={styles.firstFooterModalFeatureRow}>
                 <View style={styles.chatOnboardingIconSlot}>
                   <Image
-                    source={require('../assets/images/proothail.png')}
+                    source={CHAT_PROOTHAIL_THUMB}
                     style={styles.chatOnboardingProothailImage}
                     resizeMode="contain"
                   />
@@ -5022,12 +5080,16 @@ const closeIdentityModal = useCallback(() => {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
+    setShowFriendlistRecoveryCard(false);
+    if ((appUsersRef.current?.length ?? 0) === 0) {
+      setLoading(true);
+    }
     if (__DEV__) console.log('🔄 [FriendsList] Refresh manuel...');
     try {
       await Promise.all([
         refetchMessages(),
         refetchSentMessages(),
-        loadData(false, false, true) // loadData est maintenant "silent" (pas de flash)
+        loadData(false, true, true) // bypass throttle et réarme le watchdog
       ]);
     } finally {
       setIsRefreshing(false);
@@ -5168,9 +5230,21 @@ const closeIdentityModal = useCallback(() => {
           </View>
         }
         ListEmptyComponent={
-          loading ? null : (
+          loading && !showFriendlistRecoveryCard ? null : (
             <View style={styles.emptyCard}>
-              {searchQuery.trim() ? (
+              {showFriendlistRecoveryCard && !searchQuery.trim() ? (
+                <>
+                  <Text style={styles.emptyText}>{i18n.t('connection_error_title')}</Text>
+                  <Text style={styles.subText}>{i18n.t('friendlist_loading_too_long')}</Text>
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => void handleRefresh()}
+                    style={styles.friendlistRecoveryButton}
+                  >
+                    <Text style={styles.friendlistRecoveryButtonText}>{i18n.t('reload_list')}</Text>
+                  </TouchableOpacity>
+                </>
+              ) : searchQuery.trim() ? (
                 // Message pour recherche sans résultat
                 <Text style={styles.emptyText}>Aucun ami</Text>
               ) : (
@@ -5238,6 +5312,7 @@ const closeIdentityModal = useCallback(() => {
               friend={item}
               backgroundColor={backgroundColor}
               getDisplaySoundLabel={getDisplaySoundLabel}
+              swipeImageSource={getAndroidSwipeImageForSoundKey(friendSoundKeyByFriend[item.id])}
               onSendProut={() => handleSendProut(item)}
               onLongPressAvatar={() => handleLongPressName(item)}
               onLongPressRow={() => handleLongPressSoundCategory(item)}
@@ -5469,7 +5544,7 @@ const closeIdentityModal = useCallback(() => {
           <View style={styles.friendSoundPickTitleRow}>
             <View style={styles.friendSoundPickTitleContent}>
               <Image
-                source={require('../assets/images/proothail.png')}
+                source={CHAT_PROOTHAIL_THUMB}
                 style={styles.friendSoundPickTitleTail}
                 resizeMode="contain"
               />
@@ -5867,6 +5942,20 @@ const styles = StyleSheet.create({
   emptyActionIcon: { marginRight: 10, marginTop: 1 },
   emptyActionText: { color: '#604a3e', fontSize: 14, fontWeight: '600', textAlign: 'left', flexShrink: 1 },
   subText: { color: '#888', fontSize: 14, marginTop: 5 },
+  friendlistRecoveryButton: {
+    marginTop: 16,
+    alignSelf: 'center',
+    backgroundColor: '#604a3e',
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 999,
+  },
+  friendlistRecoveryButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
   messageInputContainer: { backgroundColor: 'rgba(255,255,255,0.9)', marginTop: 0, marginBottom: 4, padding: 6, paddingBottom: 6, borderRadius: 12, borderWidth: 1, borderColor: '#d9e6e3' },
   messageInputContainerAndroid: { marginBottom: 0, paddingBottom: 0 },
   messageLabel: { color: '#604a3e', fontWeight: '600', marginBottom: 6 },

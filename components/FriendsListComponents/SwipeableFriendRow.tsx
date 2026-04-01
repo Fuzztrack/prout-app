@@ -47,6 +47,7 @@ type SwipeableFriendRowProps = {
   introDelay?: number;
   introTrigger?: number;
   selectedSoundKey?: string;
+  swipeImageSource?: any;
   onClearSelectedSound?: () => void;
   getDisplaySoundLabel: (key: string) => string;
 };
@@ -67,6 +68,7 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
   introDelay = 0,
   introTrigger = 0,
   selectedSoundKey,
+  swipeImageSource,
   onClearSelectedSound,
   getDisplaySoundLabel,
 }, ref) => {
@@ -244,7 +246,7 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
 
         <View style={styles.swipeBackground} collapsable={false}>
           <Animated.Image
-            source={showSentImage ? IOS_SENT_IMAGE : IOS_SOUNDWAVE_IMAGE}
+            source={showSentImage ? IOS_SENT_IMAGE : (swipeImageSource || IOS_SOUNDWAVE_IMAGE)}
             style={[styles.animImage, animatedImageScale]}
             resizeMode="contain"
           />
@@ -434,8 +436,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#4CAF50', // Vert vif pour être bien visible
   },
   animImage: {
-    width: 60,
-    height: 60,
+    width: Platform.OS === 'android' ? 74 : 60,
+    height: Platform.OS === 'android' ? 74 : 60,
   },
   deleteBackground: {
     ...StyleSheet.absoluteFillObject,

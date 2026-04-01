@@ -1,10 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useRef, useState } from 'react';
-import { Dimensions, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, FlatList, Image, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import i18n from '../lib/i18n';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
+const CHAT_TUTORIAL_IMAGE = Platform.OS === 'android'
+  ? require('../assets/images/proothail2.png')
+  : require('../assets/images/proothail.png');
 
 type TutorialSlide = {
   key: string;
@@ -125,7 +128,7 @@ export function TutorialSwiper({ onClose }: { onClose: () => void }) {
             {renderFeatureRow(
               <View style={styles.chatIconSlot}>
                 <Image
-                  source={require('../assets/images/proothail.png')}
+                  source={CHAT_TUTORIAL_IMAGE}
                   style={styles.chatProothailImage}
                   resizeMode="contain"
                 />

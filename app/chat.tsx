@@ -130,8 +130,12 @@ const CHAT_SPECIFIC_ROW_HEIGHT = 34;
 const CHAT_SPECIFIC_BOTTOM_GAP = 30;
 const CHAT_SPECIFIC_MIN_HEIGHT = MAX_PICKUP_ROWS * CHAT_SPECIFIC_ROW_HEIGHT + 50 + CHAT_SPECIFIC_BOTTOM_GAP;
 const TOOT_LOGO_IMAGE = require('../assets/images/proot.png');
-const CHAT_PROOTHAIL_THUMB = require('../assets/images/proothail.png');
+const CHAT_PROOTHAIL_THUMB = Platform.OS === 'android'
+  ? require('../assets/images/proothail2.png')
+  : require('../assets/images/proothail.png');
 const TOOT_CHAT_ICON_SIZE = Platform.OS === 'android' ? { width: 82, height: 55 } : { width: 84, height: 56 };
+const ANDROID_CHAT_BACKGROUND_HERO_SIZE = 520;
+const ANDROID_CHAT_THUMB_SIZE = { width: 48, height: 48 };
 
 const androidBrand = String((Platform.constants as { Brand?: string; Manufacturer?: string } | undefined)?.Brand
   || (Platform.constants as { Brand?: string; Manufacturer?: string } | undefined)?.Manufacturer
@@ -1541,9 +1545,9 @@ const styles = StyleSheet.create({
   },
   chatBackgroundHero: {
     position: 'absolute',
-    width: 420,
-    height: 420,
-    right: -120,
+    width: Platform.OS === 'android' ? ANDROID_CHAT_BACKGROUND_HERO_SIZE : 420,
+    height: Platform.OS === 'android' ? ANDROID_CHAT_BACKGROUND_HERO_SIZE : 420,
+    right: Platform.OS === 'android' ? -150 : -120,
     top: '18%',
     transform: [{ rotate: '-8deg' }],
   },
@@ -1687,8 +1691,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   soundPickerButton: {
-    width: 34,
-    height: 44,
+    width: Platform.OS === 'android' ? 48 : 34,
+    height: Platform.OS === 'android' ? 52 : 44,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 0,
@@ -1698,8 +1702,8 @@ const styles = StyleSheet.create({
     paddingRight: 0,
   },
   soundPickerThumbImage: {
-    width: 34,
-    height: 34,
+    width: Platform.OS === 'android' ? ANDROID_CHAT_THUMB_SIZE.width : 34,
+    height: Platform.OS === 'android' ? ANDROID_CHAT_THUMB_SIZE.height : 34,
   },
   input: {
     flex: 1,
