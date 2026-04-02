@@ -294,11 +294,11 @@ function ComplicityRow({
     if (animationMeta.trend === 'up') {
       return (
         <View style={styles.trendContainer}>
-          <Ionicons 
-            name="arrow-up" 
-            size={12} 
-            color="#27ae60" 
-            style={{ transform: [{ rotate: '45deg' }] }} 
+          <Ionicons
+            name="arrow-up"
+            size={16}
+            color="#27ae60"
+            style={{ transform: [{ rotate: '45deg' }] }}
           />
         </View>
       );
@@ -306,16 +306,15 @@ function ComplicityRow({
     if (animationMeta.trend === 'down') {
       return (
         <View style={styles.trendContainer}>
-          <Ionicons 
-            name="arrow-down" 
-            size={12} 
-            color="#e74c3c" 
-            style={{ transform: [{ rotate: '-45deg' }] }} 
+          <Ionicons
+            name="arrow-down"
+            size={16}
+            color="#e74c3c"
+            style={{ transform: [{ rotate: '-45deg' }] }}
           />
         </View>
       );
-    }
-    return null;
+    }    return null;
   };
 
   return (

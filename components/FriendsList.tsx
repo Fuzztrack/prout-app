@@ -56,6 +56,7 @@ import { supabase } from '../lib/supabase';
 import { safePush } from '../lib/navigation';
 import { SearchBar } from './SearchBar';
 import { SOUND_CATEGORY_KEY, type SoundCategory } from './SoundcheckSelector';
+import ProotSilenceChallenge from './ProotSilenceChallenge';
 
 const FIRST_FRIENDLIST_FOOTER_MODAL_KEY = 'first_friendlist_footer_modal_seen_v1';
 const FIRST_CHAT_MODAL_KEY = 'first_chat_modal_seen_v2';
@@ -557,6 +558,7 @@ export function FriendsList({
   
   const [appUsers, setAppUsers] = useState<any[]>([]);
   const [pendingMessages, setPendingMessages] = useState<PendingMessage[]>([]);
+  const [isGameVisible, setIsGameVisible] = useState(false);
   
   const { data: pendingMessagesData, refetch: refetchMessages } = usePendingMessages(currentUserId);
   const { data: pendingSentData, refetch: refetchSentMessages } = usePendingSentMessages(currentUserId);
@@ -5437,6 +5439,8 @@ const closeIdentityModal = useCallback(() => {
           ) : null
         }
       />
+
+      <ProotSilenceChallenge isVisible={isGameVisible} onClose={() => setIsGameVisible(false)} />
 
       <Modal
         isVisible={isFirstFriendlistOnboardingVisible}
