@@ -55,23 +55,49 @@ export default function RegisterEmailScreen() {
     setLoading(true);
     
     try {
+      const trimmedPseudo = pseudo.trim();
+      const cleanEmail = email.trim().toLowerCase();
+
+      // 🔍 1. Vérification rapide du pseudo avant de lancer l'inscription lourde
+      const { data: existingProfile } = await supabase
+        .from('user_profiles')
+        .select('id')
+        .eq('pseudo', trimmedPseudo)
+        .maybeSingle();
+
+      if (existingProfile) {
+        setLoading(false);
+        return Alert.alert(i18n.t('error'), i18n.t('pseudo_already_used'));
+      }
+
       const cleanPhone = phone.trim() === '' ? null : phone.trim();
       const acceptedAt = new Date().toISOString();
 
+      // 2. Tentative d'inscription
       const { data, error } = await supabase.auth.signUp({
-        email: email.trim(),
+        email: cleanEmail,
         password: password,
         options: {
           emailRedirectTo: getRedirectUrl(),
           data: buildAcceptedEulaMetadata({
-            pseudo: pseudo.trim(),
+            pseudo: trimmedPseudo,
             phone: cleanPhone,
             pseudo_validated: true
           }, acceptedAt),
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        // 3. Traduction des erreurs techniques courantes
+        if (error.message?.includes('unique') || error.message?.includes('already used') || error.message?.includes('duplicate')) {
+          throw new Error(i18n.t('pseudo_already_used'));
+        }
+        if (error.message?.includes('already registered') || error.status === 422) {
+          throw new Error(i18n.t('email_already_used'));
+        }
+        throw error;
+      }
+
       await setLocalEulaAccepted();
 
       // Si une session est créée (email confirmé automatiquement ou pas de confirmation requise)

@@ -96,12 +96,13 @@ export default function CompleteProfileScreen() {
     } catch (e: any) {
       if (
         e?.code === '23505' ||
-        e?.message?.includes('unique') ||
-        e?.message?.includes('duplicate')
+        e?.message?.toLowerCase().includes('unique') ||
+        e?.message?.toLowerCase().includes('already used') ||
+        e?.message?.toLowerCase().includes('duplicate')
       ) {
         Alert.alert(i18n.t('error'), i18n.t('pseudo_already_used'));
       } else {
-        Alert.alert(i18n.t('error'), e.message);
+        Alert.alert(i18n.t('error'), e.message || i18n.t('error_occurred'));
       }
     } finally {
       setLoading(false);
