@@ -106,6 +106,7 @@ interface FriendRowAnimationMeta {
   rankChanged: boolean;
   medalAppeared: boolean;
   animate: boolean;
+  trend: 'up' | 'down' | 'stable';
 }
 
 const RESONANCE_SNAPSHOT_KEY = 'resonance_dashboard_snapshot_v1';
@@ -289,6 +290,34 @@ function ComplicityRow({
   const nextScore = getNextLevelScore(displayScore);
   const rankEmoji = getRankEmoji();
 
+  const renderTrendIcon = () => {
+    if (animationMeta.trend === 'up') {
+      return (
+        <View style={styles.trendContainer}>
+          <Ionicons 
+            name="arrow-up" 
+            size={12} 
+            color="#27ae60" 
+            style={{ transform: [{ rotate: '45deg' }] }} 
+          />
+        </View>
+      );
+    }
+    if (animationMeta.trend === 'down') {
+      return (
+        <View style={styles.trendContainer}>
+          <Ionicons 
+            name="arrow-down" 
+            size={12} 
+            color="#e74c3c" 
+            style={{ transform: [{ rotate: '-45deg' }] }} 
+          />
+        </View>
+      );
+    }
+    return null;
+  };
+
   return (
     <Animated.View
       layout={LinearTransition.duration(700).easing(Easing.out(Easing.cubic))}
@@ -324,9 +353,12 @@ function ComplicityRow({
 
         <View style={styles.scoreZone}>
           <View style={styles.scoreContainer}>
-            <Text style={styles.scoreValue}>
-              {displayScore} <Text style={styles.scoreUnit}>pts</Text>
-            </Text>
+            <View style={styles.scoreValueRow}>
+              {renderTrendIcon()}
+              <Text style={styles.scoreValue}>
+                {displayScore} <Text style={styles.scoreUnit}>pts</Text>
+              </Text>
+            </View>
             <View style={styles.progressBarBg}>
               <Animated.View style={[styles.progressFillWrap, progressAnimatedStyle]}>
                 <LinearGradient
@@ -419,6 +451,10 @@ export default function ComplicityDashboard() {
         const fromProgress = canAnimate ? (prev ? getProgressForScore(prev.complicity_score) : 0) : toProgress;
         const fromRank = canAnimate ? (typeof prev?.rank === 'number' ? prev.rank : rank) : rank;
 
+        let trend: 'up' | 'down' | 'stable' = 'stable';
+        if (toScore > fromScore) trend = 'up';
+        else if (toScore < fromScore) trend = 'down';
+
         nextMeta[friend.id] = {
           fromScore,
           toScore,
@@ -432,6 +468,7 @@ export default function ComplicityDashboard() {
           rankChanged: canAnimate && fromRank !== rank,
           medalAppeared: canAnimate && fromRank > 2 && rank <= 2,
           animate: canAnimate,
+          trend,
         };
       });
 
@@ -489,6 +526,7 @@ export default function ComplicityDashboard() {
           rankChanged: false,
           medalAppeared: false,
           animate: false,
+          trend: 'stable',
         }
       }
       animationSeed={animationSeed}
@@ -895,6 +933,15 @@ const styles = StyleSheet.create({
   scoreContainer: {
     alignItems: 'flex-end',
     width: '100%',
+  },
+  scoreValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  trendContainer: {
+    marginRight: 4,
+    marginBottom: -2, // Ajustement optique pour l'alignement avec le texte
   },
   scoreValue: {
     color: COLORS.textMain,
