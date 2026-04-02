@@ -22,7 +22,15 @@ import {
 } from 'react-native';
 import Modal from 'react-native-modal';
 import { useKeyboardHandler } from 'react-native-keyboard-controller';
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '@/lib/store';
@@ -293,6 +301,46 @@ export default function ChatScreen() {
   const inputRef = useRef<TextInput | null>(null);
   const reopenKeyboardAfterSoundPickRef = useRef(false);
   const keyboardHeightSV = useSharedValue(0);
+  const keyboardVisibleRef = useRef(false);
+
+  const pulseScale = useSharedValue(1);
+
+  useEffect(() => {
+    const onShow = () => {
+      keyboardVisibleRef.current = true;
+    };
+    const onHide = () => {
+      keyboardVisibleRef.current = false;
+    };
+    const subShow = Keyboard.addListener('keyboardDidShow', onShow);
+    const subHide = Keyboard.addListener('keyboardDidHide', onHide);
+    return () => {
+      subShow.remove();
+      subHide.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    pulseScale.value = withRepeat(
+      withSequence(
+        withTiming(1.2, { duration: 400 }),
+        withTiming(1, { duration: 400 }),
+        withTiming(1, { duration: 4200 }) // Wait the rest of the 5s
+      ),
+      -1,
+      false
+    );
+  }, [pulseScale]);
+
+  const pulseAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulseScale.value }],
+  }));
+
+  useEffect(() => {
+    return () => {
+      Keyboard.dismiss();
+    };
+  }, []);
 
   const loadChatContext = useCallback(async () => {
     if (!friendId) return;
@@ -947,6 +995,7 @@ export default function ChatScreen() {
   }, []);
 
   const openChatSoundPicker = useCallback(() => {
+    reopenKeyboardAfterSoundPickRef.current = keyboardVisibleRef.current;
     Keyboard.dismiss();
     setChatSoundPickerVisible(true);
   }, []);
@@ -1229,7 +1278,11 @@ export default function ChatScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={i18n.t('chat_sound_picker_inline_button')}
               >
-                <Image source={CHAT_PROOTHAIL_THUMB} style={styles.soundPickerThumbImage} resizeMode="contain" />
+                <Animated.Image
+                  source={CHAT_PROOTHAIL_THUMB}
+                  style={[styles.soundPickerThumbImage, pulseAnimatedStyle]}
+                  resizeMode="contain"
+                />
               </TouchableOpacity>
             <TextInput
               ref={inputRef}
