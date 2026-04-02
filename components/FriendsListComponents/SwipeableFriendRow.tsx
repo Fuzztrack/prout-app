@@ -82,6 +82,7 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
   const suppressNextPressRef = useRef(false);
   const suppressPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const panGestureHandledRef = useRef(false);
+  const lastPressTimeRef = useRef(0);
 
   const markPressSuppressed = () => {
     suppressNextPressRef.current = true;
@@ -91,13 +92,25 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
     suppressPressTimerRef.current = setTimeout(() => {
       suppressNextPressRef.current = false;
       suppressPressTimerRef.current = null;
-    }, 350);
+    }, 1200); // Augmenté à 1200ms pour les swipes hésitants
   };
 
   const handleSafePressName = () => {
     setIsRowTouchActive(false);
+
+    // Anti-double-déclenchement (throttle)
+    const now = Date.now();
+    if (now - lastPressTimeRef.current < 300) {
+      return;
+    }
+    lastPressTimeRef.current = now;
+
     if (suppressNextPressRef.current) {
       suppressNextPressRef.current = false;
+      if (suppressPressTimerRef.current) {
+        clearTimeout(suppressPressTimerRef.current);
+        suppressPressTimerRef.current = null;
+      }
       return;
     }
     onPressName?.(friend);
@@ -119,6 +132,7 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
     introOffset.value = 0;
     setShowSentImage(false);
     setIsRowTouchActive(false);
+    panGestureHandledRef.current = false;
   }, [friend.id]);
 
   useEffect(() => {
@@ -178,8 +192,8 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
   }, [onDeleteFriend]);
 
   const gesture = Gesture.Pan()
-    .activeOffsetX([-20, 20])
-    .failOffsetY([-20, 20])
+    .activeOffsetX(Platform.OS === 'android' ? [-25, 25] : [-20, 20])
+    .failOffsetY(Platform.OS === 'android' ? [-25, 25] : [-20, 20])
     .onBegin(() => {
       panGestureHandledRef.current = false;
     })
@@ -194,7 +208,8 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
       const finalX = e.translationX;
       const finalY = e.translationY;
 
-      if (Math.abs(finalX) < TAP_THRESHOLD && Math.abs(finalY || 0) < TAP_THRESHOLD) {
+      // Uniquement si le geste n'a PAS été considéré comme un swipe (panGestureHandledRef)
+      if (!panGestureHandledRef.current && Math.abs(finalX) < TAP_THRESHOLD && Math.abs(finalY || 0) < TAP_THRESHOLD) {
         runOnJS(handleSafePressName)();
         translationX.value = withSpring(0, { damping: 15, stiffness: 150 });
         return;
