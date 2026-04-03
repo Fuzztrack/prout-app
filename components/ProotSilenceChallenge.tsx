@@ -25,9 +25,8 @@ import { Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
 const GRID_PADDING = 20;
-const GRID_WIDTH = width - (GRID_PADDING * 2);
-const CELL_MARGIN = 6;
-const CELL_SIZE = (GRID_WIDTH / 3) - (CELL_MARGIN * 2);
+const MAX_GRID_WIDTH = Math.min(width - 40, 340);
+const CELL_SIZE = Math.floor(MAX_GRID_WIDTH / 3);
 
 const TOOT_SOUNDS = [
   require('../assets/sounds/toot1.wav'),
@@ -80,6 +79,8 @@ const ProotSilenceChallenge: React.FC<ProotSilenceChallengeProps> = ({ isVisible
   const [poppingHoles, setPoppingHoles] = useState<number[]>([]);
   const [status, setStatus] = useState<GameStatus>('idle');
   const [levelTimeLeft, setLevelTimeLeft] = useState(10);
+  const [difficulty, setDifficulty] = useState<'easy' | 'hard'>('easy');
+  const [showReplayButton, setShowReplayButton] = useState(false);
   
   const cloudTimeoutsRef = useRef<Record<number, NodeJS.Timeout>>({});
   const spawnTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -167,7 +168,13 @@ const ProotSilenceChallenge: React.FC<ProotSilenceChallengeProps> = ({ isVisible
       if (emptyHoles.length === 0) return prev;
 
       const randomHole = emptyHoles[Math.floor(Math.random() * emptyHoles.length)];
-      const lifeDuration = Math.max(1155 - (levelRef.current * 55), 800);
+      
+      // Mode Easy : 1150ms -> 950ms (decrement 50ms per level)
+      // Mode Hard : 1050ms -> 800ms (decrement 83.3ms per level, cap at level 4)
+      const effectiveLevel = levelRef.current;
+      const lifeDuration = difficulty === 'easy' 
+        ? 1150 - ((effectiveLevel - 1) * 50)
+        : 1050 - ((Math.min(effectiveLevel, 4) - 1) * 83.33);
 
       cloudTimeoutsRef.current[randomHole] = setTimeout(() => {
         playRandomToot();
@@ -176,14 +183,14 @@ const ProotSilenceChallenge: React.FC<ProotSilenceChallengeProps> = ({ isVisible
 
       return [...prev, randomHole];
     });
-  }, []);
+  }, [difficulty]);
 
   const runSpawner = useCallback(() => {
     if (status !== 'playing' || !isVisible) return;
     
     // Rythme d'apparition légèrement plus doux au niveau 5
-    // L1: ~400ms | L5: ~180ms
-    const baseDelay = Math.max(450 - (levelRef.current * 60), 180);
+    // L1: ~395ms | L5: ~230ms (un peu plus lent qu'avant pour l'équilibrage)
+    const baseDelay = Math.max(450 - (levelRef.current * 55), 230);
     const nextSpawnDelay = baseDelay + (Math.random() * 200);
 
     spawnTimerRef.current = setTimeout(() => {
@@ -229,12 +236,14 @@ const ProotSilenceChallenge: React.FC<ProotSilenceChallengeProps> = ({ isVisible
   const startGame = () => {
     setScore(0);
     setMissedCount(0);
+    setShowReplayButton(false);
     startLevel(1);
   };
 
   const stopGame = () => {
     clearAllTimers();
     setActiveHoles([]);
+    setShowReplayButton(false);
     setStatus('idle');
   };
 
@@ -242,6 +251,10 @@ const ProotSilenceChallenge: React.FC<ProotSilenceChallengeProps> = ({ isVisible
     setStatus('finished');
     clearAllTimers();
     setActiveHoles([]);
+    // Delai pour laisser l'animation du score se faire
+    setTimeout(() => {
+      setShowReplayButton(true);
+    }, 1200);
   };
 
   useEffect(() => {
@@ -283,12 +296,12 @@ const ProotSilenceChallenge: React.FC<ProotSilenceChallengeProps> = ({ isVisible
           <View style={styles.header}>
             <TouchableOpacity onPress={onClose} style={styles.exitButton} activeOpacity={0.7}>
               <Ionicons name="close-circle" size={44} color="#604a3e" />
-              <Text style={styles.exitText}>QUITTER</Text>
+              <Text style={styles.exitText}>EXIT</Text>
             </TouchableOpacity>
             
             <View style={styles.statsContainer}>
               <View style={styles.statBox}>
-                <Text style={styles.statLabel}>STOPPÉS</Text>
+                <Text style={styles.statLabel}>STOPPED</Text>
                 <Text style={styles.statValue}>{score}</Text>
               </View>
               <View style={[styles.statBox, { marginLeft: 10, backgroundColor: 'rgba(211, 47, 47, 0.15)' }]}>
@@ -317,41 +330,61 @@ const ProotSilenceChallenge: React.FC<ProotSilenceChallengeProps> = ({ isVisible
                 </TouchableOpacity>
               ))}
             </View>
+            
+            {status === 'idle' && (
+              <View style={styles.idleControls}>
+                <TouchableOpacity style={styles.mainButton} onPress={startGame}>
+                  <Text style={styles.mainButtonText}>START</Text>
+                </TouchableOpacity>
+
+                <View style={styles.difficultyContainer}>
+                  <TouchableOpacity 
+                    style={[styles.difficultyBtn, difficulty === 'easy' && styles.difficultyBtnActive]} 
+                    onPress={() => setDifficulty('easy')}
+                  >
+                    <Text style={[styles.difficultyText, difficulty === 'easy' && styles.difficultyTextActive]}>EASY</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.difficultyBtn, difficulty === 'hard' && styles.difficultyBtnActive]} 
+                    onPress={() => setDifficulty('hard')}
+                  >
+                    <Text style={[styles.difficultyText, difficulty === 'hard' && styles.difficultyTextActive]}>HARD</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
           </View>
 
           <View style={styles.footerInfo}>
              {status === 'playing' && (
                <TouchableOpacity style={styles.stopButton} onPress={stopGame}>
                  <Ionicons name="stop-circle" size={24} color="#ebb89b" />
-                 <Text style={styles.stopButtonText}>STOP PARTIE</Text>
+                 <Text style={styles.stopButtonText}>STOP GAME</Text>
                </TouchableOpacity>
              )}
-             <Text style={styles.levelIndicator}>NIVEAU {level} / 5</Text>
+             <Text style={styles.levelIndicator}>LEVEL {level} / 5</Text>
           </View>
 
-          {status !== 'playing' && (
+          {(status === 'levelUp' || status === 'finished') && (
             <View style={styles.fullOverlay}>
-              {status === 'idle' && (
-                <TouchableOpacity style={styles.mainButton} onPress={startGame}>
-                  <Text style={styles.mainButtonText}>COMMENCER</Text>
-                </TouchableOpacity>
-              )}
               {status === 'levelUp' && (
                 <Animated.View style={[styles.levelMessage, levelMessageStyle]}>
-                  <Text style={styles.levelText}>NIVEAU {level} !</Text>
-                  <Text style={styles.levelSubText}>Restez concentré...</Text>
+                  <Text style={styles.levelText} numberOfLines={1}>LEVEL {level}</Text>
+                  <Text style={styles.levelSubText}>Stay focused...</Text>
                 </Animated.View>
               )}
               {status === 'finished' && (
                 <View style={styles.gameOverBox}>
-                  <Text style={styles.gameOverTitle}>TERMINÉ !</Text>
+                  <Text style={styles.gameOverTitle} numberOfLines={1} adjustsFontSizeToFit>GAME OVER!</Text>
                   <AnimatedSuccessScore 
                     percentage={Math.round((score / (score + missedCount)) * 100) || 0} 
                   />
-                  <Text style={styles.finalMissed}>Taux de réussite</Text>
-                  <TouchableOpacity style={styles.retryButton} onPress={startGame}>
-                    <Text style={styles.retryButtonText}>REJOUER</Text>
-                  </TouchableOpacity>
+                  <Text style={styles.finalMissed}>Success Rate</Text>
+                  {showReplayButton && (
+                    <TouchableOpacity style={styles.retryButton} onPress={startGame}>
+                      <Text style={styles.retryButtonText}>REPLAY</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               )}
             </View>
@@ -413,28 +446,60 @@ const styles = StyleSheet.create({
   },
   statLabel: { fontSize: 9, fontWeight: 'bold', color: '#604a3e', opacity: 0.8 },
   statValue: { fontSize: 22, fontWeight: '900', color: '#604a3e' },
-  titleContainer: { alignItems: 'center', height: 100, marginBottom: 80 },
-  titleImage: { width: '95%', height: '100%' },
+  titleContainer: { alignItems: 'center', height: 70, marginTop: 10, marginBottom: 10 },
+  titleImage: { width: '80%', height: '100%' },
   gridContainer: { flex: 1, justifyContent: 'flex-start', alignItems: 'center' },
-  grid: { width: width - 40, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' },
-  cell: { width: '33.33%', aspectRatio: 1, justifyContent: 'center', alignItems: 'center', padding: 6 },
+  grid: { width: MAX_GRID_WIDTH, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' },
+  cell: { width: CELL_SIZE, height: CELL_SIZE, justifyContent: 'center', alignItems: 'center', padding: 4 },
   hole: { width: '100%', height: '100%', backgroundColor: '#604a3e', borderRadius: 1000, borderWidth: 5, borderColor: 'rgba(0,0,0,0.15)' },
   cloudContainer: { position: 'absolute', width: '80%', height: '80%', justifyContent: 'center', alignItems: 'center' },
   cloudImage: { width: '100%', height: '100%' },
   popContainer: { position: 'absolute', justifyContent: 'center', alignItems: 'center' },
   popEmoji: { fontSize: 40 },
-  footerInfo: { paddingBottom: 20, alignItems: 'center' },
-  levelIndicator: { fontSize: 20, fontWeight: '900', color: '#604a3e', opacity: 0.6, marginTop: 10 },
-  stopButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#604a3e', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20 },
-  stopButtonText: { color: '#ebb89b', fontWeight: 'bold', marginLeft: 5, fontSize: 12 },
+  idleControls: { 
+    alignItems: 'center', 
+    marginTop: 8, 
+    width: '100%' 
+  },
+  footerInfo: { paddingBottom: 10, alignItems: 'center' },
+  levelIndicator: { fontSize: 18, fontWeight: '900', color: '#604a3e', opacity: 0.6, marginTop: 5 },
+  stopButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#d32f2f', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20 },
+  stopButtonText: { color: '#FFF', fontWeight: 'bold', marginLeft: 5, fontSize: 12 },
   fullOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(235, 184, 155, 0.3)', justifyContent: 'center', alignItems: 'center', zIndex: 100 },
-  mainButton: { backgroundColor: '#604a3e', paddingHorizontal: 50, paddingVertical: 20, borderRadius: 30, elevation: 12 },
-  mainButtonText: { color: '#ebb89b', fontSize: 28, fontWeight: '900' },
-  levelMessage: { alignItems: 'center', backgroundColor: '#604a3e', padding: 40, borderRadius: 30 },
-  levelText: { fontSize: 56, fontWeight: '900', color: '#ebb89b' },
-  levelSubText: { fontSize: 20, color: '#ebb89b', fontWeight: 'bold' },
+  mainButton: { backgroundColor: '#4CAF50', paddingHorizontal: 50, paddingVertical: 15, borderRadius: 30, elevation: 12 },
+  mainButtonText: { color: '#FFF', fontSize: 24, fontWeight: '900' },
+  difficultyContainer: { 
+    flexDirection: 'row', 
+    marginTop: 10, 
+    backgroundColor: 'rgba(96, 74, 62, 0.2)', 
+    borderRadius: 20, 
+    padding: 4 
+  },
+  difficultyBtn: { 
+    paddingHorizontal: 20, 
+    paddingVertical: 6, 
+    borderRadius: 15,
+    minWidth: 80,
+    alignItems: 'center'
+  },
+  difficultyBtnActive: { 
+    backgroundColor: '#604a3e' 
+  },
+  difficultyText: { 
+    color: '#604a3e', 
+    fontWeight: '900', 
+    fontSize: 16,
+    opacity: 0.7
+  },
+  difficultyTextActive: { 
+    color: '#ebb89b',
+    opacity: 1
+  },
+  levelMessage: { alignItems: 'center', backgroundColor: '#604a3e', padding: 40, borderRadius: 30, width: '90%' },
+  levelText: { fontSize: 44, fontWeight: '900', color: '#ebb89b', textAlign: 'center' },
+  levelSubText: { fontSize: 18, color: '#ebb89b', fontWeight: 'bold', marginTop: 10 },
   gameOverBox: { backgroundColor: '#604a3e', padding: 40, borderRadius: 35, width: '85%', alignItems: 'center' },
-  gameOverTitle: { fontSize: 40, fontWeight: '900', color: '#ebb89b', marginBottom: 10 },
+  gameOverTitle: { fontSize: 36, fontWeight: '900', color: '#ebb89b', marginBottom: 10, textAlign: 'center', width: '100%' },
   finalScore: { fontSize: 32, color: '#FFF', fontWeight: 'bold' },
   finalMissed: { fontSize: 18, color: '#ebb89b', marginBottom: 30 },
   retryButton: { backgroundColor: '#ebb89b', paddingHorizontal: 50, paddingVertical: 18, borderRadius: 35 },

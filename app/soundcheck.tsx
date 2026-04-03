@@ -130,9 +130,12 @@ export default function SoundcheckScreen() {
   const titleImageHeight = Math.round(titleImageWidth / soundTitleAspectRatio);
   const proothailHeight = Platform.OS === 'android'
     ? Math.min(78, Math.max(58, Math.round(titleImageHeight * 1.15)))
-    : Math.min(56, Math.max(40, Math.round(titleImageHeight * 0.92)));
+    : Math.min(72, Math.max(52, Math.round(titleImageHeight * 1.15)));
   const proothailWidth = Math.round(proothailHeight * proothailAspectRatio);
   const tableMaxHeight = Math.max(280, screenHeight - 200);
+
+  // Ajustement spécifique pour petit écran iOS (< 380px de large)
+  const proothailMarginRight = (Platform.OS === 'ios' && screenWidth < 380) ? -18 : -24;
 
   const stopCurrentSound = useCallback(async () => {
     const current = currentSoundRef.current;
@@ -211,7 +214,15 @@ export default function SoundcheckScreen() {
             >
               <Animated.Image
                 source={soundcheckTailImage}
-                style={[styles.proothailImage, { width: proothailWidth, height: proothailHeight }, pulseStyle]}
+                style={[
+                  styles.proothailImage, 
+                  { 
+                    width: proothailWidth, 
+                    height: proothailHeight,
+                    marginRight: proothailMarginRight 
+                  }, 
+                  pulseStyle
+                ]}
                 resizeMode="contain"
               />
             </TouchableOpacity>
@@ -244,48 +255,59 @@ export default function SoundcheckScreen() {
           >
             <View style={styles.libraryColumns}>
               <View style={styles.libraryColumn}>
-                {Platform.OS === 'android' && (
-                  <>
-                    <View style={styles.libraryHeaderCol}>
-                      <AnimatedLibraryHeaderImage source={TOOT_LOGO_IMAGE} style={[styles.libraryHeaderImage, TOOT_HEADER_SIZE]} isActive={previewingCategory === 'toot'} />
-                      <Text style={styles.libraryHeaderSubtitle}>{i18n.t(Platform.OS === 'android' ? 'soundcheck_subtitle_toot_android' : 'soundcheck_subtitle_toot')}</Text>
-                    </View>
-                    {playableTootKeys.map((soundKey) => renderSoundRow(soundKey))}
-                    <View style={[styles.libraryHeaderCol, { marginTop: 16 }]}>
-                      <AnimatedLibraryHeaderImage source={require('../assets/images/buzz.png')} style={styles.libraryHeaderImage} isActive={previewingCategory === 'bzzz'} />
-                      <Text style={styles.libraryHeaderSubtitle}>{i18n.t('soundcheck_subtitle_buzz')}</Text>
-                    </View>
-                    {playableBzzzKeys.map((soundKey) => renderSoundRow(soundKey))}
-                  </>
-                )}
-                {Platform.OS !== 'android' && (
-                  <View style={styles.libraryHeaderCol}>
-                    <AnimatedLibraryHeaderImage source={require('../assets/images/mood.png')} style={[styles.libraryHeaderImage, MOOD_HEADER_SIZE]} isActive={previewingCategory === 'mood'} />
-                    <Text style={styles.libraryHeaderSubtitle}>{i18n.t('soundcheck_subtitle_mood')}</Text>
-                  </View>
-                )}
-                {Platform.OS !== 'android' && playableMoodKeys.map((soundKey) => renderSoundRow(soundKey))}
+                <View style={styles.libraryHeaderCol}>
+                  <AnimatedLibraryHeaderImage 
+                    source={TOOT_LOGO_IMAGE} 
+                    style={[styles.libraryHeaderImage, TOOT_HEADER_SIZE]} 
+                    isActive={previewingCategory === 'toot'} 
+                  />
+                  <Text style={styles.libraryHeaderSubtitle}>
+                    {i18n.t('soundcheck_subtitle_toot_android')}
+                  </Text>
+                </View>
+                {playableTootKeys.map((soundKey) => renderSoundRow(soundKey))}
+                
+                <View style={[styles.libraryHeaderCol, { marginTop: 16 }]}>
+                  <AnimatedLibraryHeaderImage 
+                    source={require('../assets/images/buzz.png')} 
+                    style={styles.libraryHeaderImage} 
+                    isActive={previewingCategory === 'bzzz'} 
+                  />
+                  <Text style={styles.libraryHeaderSubtitle}>{i18n.t('soundcheck_subtitle_buzz')}</Text>
+                </View>
+                {playableBzzzKeys.map((soundKey) => renderSoundRow(soundKey))}
               </View>
+
               <View style={styles.libraryColumn}>
                 <View style={styles.libraryHeaderCol}>
-                  <AnimatedLibraryHeaderImage source={require('../assets/images/pop.png')} style={[styles.libraryHeaderImage, { width: 78, height: 32 }]} isActive={previewingCategory === 'pop'} />
+                  <AnimatedLibraryHeaderImage 
+                    source={require('../assets/images/pop.png')} 
+                    style={[styles.libraryHeaderImage, { width: 78, height: 32 }]} 
+                    isActive={previewingCategory === 'pop'} 
+                  />
                   <Text style={styles.libraryHeaderSubtitle}>{i18n.t('soundcheck_subtitle_pop')}</Text>
                 </View>
                 {playablePopKeys.map((soundKey) => renderSoundRow(soundKey))}
-                {Platform.OS === 'android' && (
-                  <>
-                    <View style={[styles.libraryHeaderCol, { marginTop: 16 }]}>
-                      <AnimatedLibraryHeaderImage source={require('../assets/images/mood.png')} style={[styles.libraryHeaderImage, MOOD_HEADER_SIZE]} isActive={previewingCategory === 'mood'} />
-                      <Text style={styles.libraryHeaderSubtitle}>{i18n.t('soundcheck_subtitle_mood')}</Text>
-                    </View>
-                    {playableMoodKeys.map((soundKey) => renderSoundRow(soundKey))}
-                    <View style={[styles.libraryHeaderCol, { marginTop: 16 }]}>
-                      <AnimatedLibraryHeaderImage source={require('../assets/images/tweet.png')} style={styles.libraryHeaderImage} isActive={previewingCategory === 'trll'} />
-                      <Text style={styles.libraryHeaderSubtitle}>{i18n.t('soundcheck_subtitle_tweet')}</Text>
-                    </View>
-                    {playableTrllKeys.map((soundKey) => renderSoundRow(soundKey))}
-                  </>
-                )}
+
+                <View style={[styles.libraryHeaderCol, { marginTop: 16 }]}>
+                  <AnimatedLibraryHeaderImage 
+                    source={require('../assets/images/mood.png')} 
+                    style={[styles.libraryHeaderImage, MOOD_HEADER_SIZE]} 
+                    isActive={previewingCategory === 'mood'} 
+                  />
+                  <Text style={styles.libraryHeaderSubtitle}>{i18n.t('soundcheck_subtitle_mood')}</Text>
+                </View>
+                {playableMoodKeys.map((soundKey) => renderSoundRow(soundKey))}
+
+                <View style={[styles.libraryHeaderCol, { marginTop: 16 }]}>
+                  <AnimatedLibraryHeaderImage 
+                    source={require('../assets/images/tweet.png')} 
+                    style={styles.libraryHeaderImage} 
+                    isActive={previewingCategory === 'trll'} 
+                  />
+                  <Text style={styles.libraryHeaderSubtitle}>{i18n.t('soundcheck_subtitle_tweet')}</Text>
+                </View>
+                {playableTrllKeys.map((soundKey) => renderSoundRow(soundKey))}
               </View>
             </View>
           </ScrollView>
