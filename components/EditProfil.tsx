@@ -12,7 +12,7 @@ import { supabase, supabaseAnonKey, supabaseUrl } from '../lib/supabase';
 
 const PREVIEW_MAX = Dimensions.get('window').width - 32;
 
-export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void; onProfileUpdated?: (newPseudo: string) => void }) {
+export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void; onProfileUpdated?: (newPseudo: string, newAvatarUrl?: string | null) => void }) {
   const router = useRouter(); // Toujours nécessaire pour la déconnexion
   const [pseudo, setPseudo] = useState('');
   const [email, setEmail] = useState('');
@@ -110,6 +110,8 @@ export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void;
 
       // Mettre à jour l'état local pour affichage immédiat
       setAvatarUrl(publicUrl);
+      // Notifier le parent pour l'avatar également
+      onProfileUpdated?.(pseudo, publicUrl);
       Alert.alert(i18n.t('success'), 'Photo de profil mise à jour');
     } catch (error: any) {
       console.error('Erreur upload avatar:', error);
@@ -383,12 +385,12 @@ export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void;
           throw profileError;
         }
 
-        // Mettre à jour les états locaux
+        // IMPORTANT : Mettre à jour l'état local AVANT les éventuelles opérations Auth
         if (pseudoChanged) {
           setCurrentPseudo(trimmedPseudo);
           setPseudo(trimmedPseudo);
-          // Notifier le parent pour mettre à jour le greeting immédiatement
-          onProfileUpdated?.(trimmedPseudo);
+          // Notifier le parent immédiatement pour le greeting et l'avatar
+          onProfileUpdated?.(trimmedPseudo, avatarUrl);
         }
         if (phoneChanged) {
           setCurrentPhone(normalizedPhone || '');

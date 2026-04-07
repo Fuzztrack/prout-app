@@ -759,27 +759,33 @@ export function FriendsList({
   const keyboardHeightSV = useSharedValue(0);
   const keyboardBottomOffsetSV = useSharedValue(0);
   const keyboardVisibleSV = useSharedValue(false);
+
+  // Utiliser une fonction stable pour éviter les erreurs Reanimated Worklets sur les refs (key 'current')
+  const setKeyboardVisibleStable = useStableCallback((visible: boolean) => {
+    setKeyboardVisible(visible);
+  });
+
   useKeyboardHandler({
     onMove: (e: { height: number }) => {
       'worklet';
       keyboardHeightSV.value = e.height;
       keyboardBottomOffsetSV.value = Math.max(0, e.height);
       keyboardVisibleSV.value = e.height > 0;
-      runOnJS(setKeyboardVisible)(e.height > 0);
+      runOnJS(setKeyboardVisibleStable)(e.height > 0);
     },
     onInteractive: (e: { height: number }) => {
       'worklet';
       keyboardHeightSV.value = e.height;
       keyboardBottomOffsetSV.value = Math.max(0, e.height);
       keyboardVisibleSV.value = e.height > 0;
-      runOnJS(setKeyboardVisible)(e.height > 0);
+      runOnJS(setKeyboardVisibleStable)(e.height > 0);
     },
     onEnd: (e: { height: number }) => {
       'worklet';
       keyboardHeightSV.value = e.height; // Peut être 0 si fermé, ou la hauteur finale
       keyboardBottomOffsetSV.value = Math.max(0, e.height);
       keyboardVisibleSV.value = e.height > 0;
-      runOnJS(setKeyboardVisible)(e.height > 0); // Synchroniser l'état local
+      runOnJS(setKeyboardVisibleStable)(e.height > 0); // Synchroniser l'état local
     },
   });
 
@@ -2473,9 +2479,7 @@ const closeIdentityModal = useCallback(() => {
           const { data: finalFriends, error: profilesError } = await supabase
             .from('user_profiles')
             .select('id, pseudo, phone, expo_push_token, push_platform, is_zen_mode, avatar_url')
-            .in('id', allFriendIds)
-            .not('expo_push_token', 'is', null)
-            .neq('expo_push_token', '');
+            .in('id', allFriendIds);
           
           // En cas d'erreur réseau sur user_profiles, ne pas toucher à la liste (garder en mémoire)
           if (profilesError) {

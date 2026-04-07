@@ -1,13 +1,14 @@
 {
   "name": "proutapp",
   "main": "expo-router/entry",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
+    "bump": "node scripts/bump_version.js",
     "lint": "expo lint",
     "type-check": "tsc --noEmit --skipLibCheck 2>&1 | grep -v 'node_modules/expo/tsconfig.base.json' || true",
     "check": "npm run lint && npm run type-check",

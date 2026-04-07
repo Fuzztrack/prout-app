@@ -24,7 +24,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const appVersion = Constants.expoConfig?.version ?? '1.1.5';
+  const appVersion = Constants.expoConfig?.version ?? '1.1.6';
   
   const isLoadedRef = useRef(false);
   
@@ -679,10 +679,11 @@ export default function HomeScreen() {
                ) : activeView === 'profile' ? (
                  <EditProfil 
                    onClose={() => setActiveView('list')} 
-                   onProfileUpdated={(newPseudo) => {
-                     setCurrentPseudo(newPseudo);
+                   onProfileUpdated={(newPseudo, newAvatarUrl) => {
+                     // Mettre à jour le store global immédiatement pour changer le greeting et l'avatar
+                     setProfile({ pseudo: newPseudo, avatarUrl: newAvatarUrl });
+                     // Sauvegarder dans le cache pour le prochain démarrage
                      AsyncStorage.setItem(CACHE_PSEUDO_KEY, newPseudo).catch(() => {});
-                      refreshCurrentProfile();
                    }}
                  />
                ) : (
@@ -753,10 +754,11 @@ export default function HomeScreen() {
             ) : activeView === 'profile' ? (
               <EditProfil 
                 onClose={() => setActiveView('list')} 
-                onProfileUpdated={(newPseudo) => {
-                  setCurrentPseudo(newPseudo);
+                onProfileUpdated={(newPseudo, newAvatarUrl) => {
+                  // Mettre à jour le store global immédiatement pour changer le greeting et l'avatar
+                  setProfile({ pseudo: newPseudo, avatarUrl: newAvatarUrl });
+                  // Sauvegarder dans le cache pour le prochain démarrage
                   AsyncStorage.setItem(CACHE_PSEUDO_KEY, newPseudo).catch(() => {});
-                  refreshCurrentProfile();
                 }}
               />
             ) : (
