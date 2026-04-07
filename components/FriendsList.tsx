@@ -2028,18 +2028,19 @@ const closeIdentityModal = useCallback(() => {
           // Android : vérifier uniquement le volume des notifications (pas le mode sonnerie)
           try {
             const readNotificationVolume = async (): Promise<number | undefined> => {
-              // API officielle : getVolume() renvoie un map avec notification/ring/etc.
-              const res = await VolumeManager.getVolume();
-              if (res && typeof (res as any).notification === 'number') {
-                return (res as any).notification;
+              try {
+                const res = await VolumeManager.getVolume();
+                if (!res) return undefined;
+                const v = res as any;
+                // Priorité au flux notification, surtout sur Samsung
+                if (typeof v.notification === 'number') return v.notification;
+                if (typeof v.ring === 'number') return v.ring;
+                if (typeof v.system === 'number') return v.system;
+                if (typeof v.volume === 'number') return v.volume;
+                return undefined;
+              } catch (e) {
+                return undefined;
               }
-              if (res && typeof (res as any).ring === 'number') {
-                return (res as any).ring; // Fallback souvent utile sur Samsung
-              }
-              if (typeof res?.volume === 'number') {
-                return res.volume; // fallback musique
-              }
-              return undefined;
             };
 
             const mode = await VolumeManager.getRingerMode();
@@ -2050,26 +2051,28 @@ const closeIdentityModal = useCallback(() => {
             const vol = await readNotificationVolume();
             if (mounted && vol !== undefined) {
               setNotificationVolume(vol);
-              if (mode === RINGER_MODE.normal && vol === 0 && !dismissedSilentWarningRef.current) {
-                setShowSilentWarning(true);
-              } else {
-                setShowSilentWarning(false);
-              }
+              // On laisse le second useEffect gérer l'affichage de la bannière
             }
 
             // Écouter les changements de volume
             const volListener = VolumeManager.addVolumeListener((result) => {
               if (!mounted) return;
-              // Sur Android/Samsung, le type peut être 'notification', 'ring', 'system' ou manquant.
-              const isRelevant = !result?.type || ['notification', 'ring', 'system'].includes(result.type);
+              const type = result?.type;
               const vol = result?.volume;
-              if (isRelevant && vol !== undefined) {
+              if (vol === undefined) return;
+
+              if (type === 'notification') {
                 setNotificationVolume(vol);
-                if (ringerMode === RINGER_MODE.normal && vol === 0 && !dismissedSilentWarningRef.current) {
-                  setShowSilentWarning(true);
-                } else if (vol > 0) {
-                  setShowSilentWarning(false);
-                }
+              } else if (isSamsungDevice) {
+                // Sur Samsung, OneUI peut router les changements de volume de manière complexe.
+                // On re-lit systématiquement le volume des notifications pour tout type d'événement volume
+                // (musique, alarme, etc.) au cas où cela impacterait indirectement les notifications.
+                readNotificationVolume().then((v) => {
+                  if (mounted && v !== undefined) setNotificationVolume(v);
+                });
+              } else if (!isSamsungDevice && (!type || ['notification', 'ring', 'system'].includes(type))) {
+                // Pour les autres (Pixel...), on conserve le comportement de lien par défaut
+                setNotificationVolume(vol);
               }
             });
             volumeListenerRef.current = volListener;
@@ -2085,21 +2088,16 @@ const closeIdentityModal = useCallback(() => {
                   ? RINGER_MODE.vibrate
                   : RINGER_MODE.silent;
               setRingerMode(modeVal);
-              // Re-évaluer avec le volume courant (relecture pour éviter la valeur stale)
+
+              // Re-évaluer le volume de notification
               readNotificationVolume().then((notifVol) => {
-                if (notifVol !== undefined) {
+                if (mounted && notifVol !== undefined) {
                   setNotificationVolume(notifVol);
-                  if (modeVal === RINGER_MODE.normal && notifVol === 0 && !dismissedSilentWarningRef.current) {
-                    setShowSilentWarning(true);
-                  } else {
-                    setShowSilentWarning(false);
-                  }
                 }
               });
             });
             ringerListenerRef.current = ringListener;
           } catch (e) {
-            // En cas d'erreur, ne pas afficher la bannière
             if (mounted) {
               setShowSilentWarning(false);
             }
@@ -2152,9 +2150,11 @@ const closeIdentityModal = useCallback(() => {
     }
 
     // Android : ne pas afficher si le ringer n'est pas en mode normal
+    // Sur Samsung, on suit strictement le volume (isSilent) pour décider de l'affichage,
+    // car l'utilisateur veut voir le message disparaître dès qu'il remonte le volume.
     const androidCanShow =
       Platform.OS === 'android'
-        ? ringerMode !== RINGER_MODE.normal || isSilent
+        ? (isSamsungDevice ? isSilent : (ringerMode !== RINGER_MODE.normal || isSilent))
         : isSilent;
 
     // Si l'utilisateur revient en mode normal, on réarme l'alerte pour
