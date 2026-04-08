@@ -42,6 +42,7 @@ import { safePush, safeReplace } from '../lib/navigation';
 import { ensureAndroidNotificationChannel } from '../lib/notifications';
 import { supabase } from '../lib/supabase';
 
+import { registerPushTokenForUser } from '../lib/pushTokenRegistration';
 import i18n, { updateLocale } from '../lib/i18n';
 
 const ACTIVE_CHAT_FRIEND_ID_KEY = 'active_chat_friend_id_v1';
@@ -216,6 +217,9 @@ export default function RootLayout() {
           if (!mounted) return;
           logSessionSnapshot('init:getSession', session);
           setSession(session);
+          if (session?.user?.id) {
+            registerPushTokenForUser(session.user.id).catch(() => {});
+          }
         } catch (authError) {
           console.warn('⚠️ Erreur auth initial:', authError);
           // Si erreur (ex: réseau), vérifier si on était connecté avant
@@ -259,6 +263,8 @@ export default function RootLayout() {
         setSession(session);
         AsyncStorage.setItem('supabase_was_logged_in', 'true');
         saveLocaleToSupabase();
+        // Tentative d'enregistrement du token push dès que la session est dispo
+        registerPushTokenForUser(session.user.id).catch(() => {});
       } else if (event === 'SIGNED_OUT') {
         setSession(null);
         AsyncStorage.removeItem('supabase_was_logged_in');

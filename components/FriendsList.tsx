@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // import { useAudioPlayer } from 'expo-audio'; // Supprimé
 import { Audio } from 'expo-av';
 import * as Contacts from 'expo-contacts';
+import * as Notifications from 'expo-notifications';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
@@ -638,6 +639,8 @@ export function FriendsList({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [lastSentMessages, setLastSentMessages] = useState<LastSentMap>({});
   const [showSilentWarning, setShowSilentWarning] = useState(false);
+  const [showPermissionWarning, setShowPermissionWarning] = useState(false);
+  const [dismissedPermissionWarning, setDismissedPermissionWarning] = useState(false);
   const [dismissedSilentWarning, setDismissedSilentWarning] = useState(dismissedSilentWarningSession); // reste à true pour toute la session après clic OK
   const dismissedSilentWarningRef = useRef(dismissedSilentWarningSession);
   const [expandedFriendId, setExpandedFriendId] = useState<string | null>(null);
@@ -1991,7 +1994,36 @@ const closeIdentityModal = useCallback(() => {
   setIdentityModalVisible(false);
 }, [markModalTransition]);
 
+// Vérifier les permissions de notifications
+useEffect(() => {
+  let mounted = true;
+  const checkPermissions = async () => {
+    try {
+      const { status } = await Notifications.getPermissionsAsync();
+      if (mounted) {
+        setShowPermissionWarning(status !== 'granted');
+      }
+    } catch (e) {
+      console.error("Erreur lors de la vérification des permissions:", e);
+    }
+  };
+
+  checkPermissions();
+
+  const subscription = AppState.addEventListener('change', nextAppState => {
+    if (nextAppState === 'active') {
+      checkPermissions();
+    }
+  });
+
+  return () => {
+    mounted = false;
+    subscription.remove();
+  };
+}, []);
+
 // Vérifier si les notifications sont silencieuses
+
   // iOS : via VolumeManager.getVolume() + addSilentListener()
   // Android : via expo-notifications (permissions + canaux)
   useEffect(() => {
@@ -4420,7 +4452,17 @@ const closeIdentityModal = useCallback(() => {
         } else {
           Alert.alert(
             i18n.t('error'), 
-            i18n.t('notifications_not_enabled', { pseudo: recipient.pseudo })
+            i18n.t('notifications_not_enabled', { pseudo: recipient.pseudo }),
+            [
+              { text: i18n.t('ok'), style: 'cancel' },
+              { 
+                text: i18n.t('retry'), 
+                onPress: () => {
+                  if (CHAT_VERBOSE_LOGS) console.log(`🔄 [CLIENT] Retry loadData suite à token manquant`);
+                  loadData(false, true, true);
+                } 
+              }
+            ]
           );
           // Retirer le cooldown en cas d'erreur
           cooldownMapRef.current.delete(recipient.id);
@@ -4573,9 +4615,27 @@ const closeIdentityModal = useCallback(() => {
   const renderRequestsHeader = () => {
     const hasRequests = pendingRequests.length > 0 || identityRequests.length > 0;
     const shouldShowSilentWarning = showSilentWarning && !dismissedSilentWarning;
-    if (!hasRequests && !shouldShowSilentWarning) return null;
+    const shouldShowPermissionWarning = showPermissionWarning && !dismissedPermissionWarning;
+
+    if (!hasRequests && !shouldShowSilentWarning && !shouldShowPermissionWarning) return null;
+
     return (
       <View style={styles.requestsContainer}>
+        {shouldShowPermissionWarning && (
+          <View style={styles.silentWarning}>
+            <Text style={styles.silentWarningText}>{i18n.t('notifications_disabled_warning')}</Text>
+            <View style={styles.silentWarningActions}>
+              <TouchableOpacity style={styles.silentWarningButton} onPress={() => Linking.openSettings()}>
+                <Text style={styles.silentWarningButtonText}>{i18n.t('settings')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.silentWarningButtonOk} onPress={() => {
+                setDismissedPermissionWarning(true);
+              }}>
+                <Text style={styles.silentWarningButtonText}>{i18n.t('ok')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
         {shouldShowSilentWarning && (
           <View style={styles.silentWarning}>
             <Text style={styles.silentWarningText}>{i18n.t('silent_notifications_warning')}</Text>

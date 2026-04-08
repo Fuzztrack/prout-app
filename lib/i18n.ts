@@ -374,9 +374,10 @@ const i18n = new I18n({
     chat_onboarding_report_conversation: "Permet de signaler la conversation",
 
     // Notifications & Errors
-    notifications_not_enabled: "%{pseudo} n'a pas activé les notifications. Le token n'est pas disponible dans la base de données.",
+    notifications_not_enabled: "%{pseudo} n'a pas encore finalisé sa configuration. Demande-lui d'ouvrir l'application pour activer les notifications !",
     app_uninstalled: "%{pseudo} n'a plus l'application installée !",
     silent_notifications_warning: "Vos notifications sont silencieuses !",
+    notifications_disabled_warning: "Les notifications sont désactivées ! Active-les pour que l'app fonctionne.",
 
     // Identity Reveal
     identity_revealed_title: "Identité révélée",
@@ -981,9 +982,10 @@ const i18n = new I18n({
     chat_onboarding_report_conversation: "Lets you report the conversation",
 
     // Notifications & Errors
-    notifications_not_enabled: "%{pseudo} has not enabled notifications. The token is not available in the database.",
+    notifications_not_enabled: "%{pseudo} has not finished their setup yet. Ask them to open the app to enable notifications!",
     app_uninstalled: "%{pseudo} no longer has the app installed!",
     silent_notifications_warning: "Your notifications are silent!",
+    notifications_disabled_warning: "Notifications are disabled! Enable them for the app to work properly.",
 
     // Identity Reveal
     identity_revealed_title: "Identity revealed",
@@ -1567,9 +1569,10 @@ const i18n = new I18n({
     chat_onboarding_report_conversation: "Permite reportar la conversación",
 
     // Notifications & Errors
-    notifications_not_enabled: "%{pseudo} no ha activado las notificaciones. El token no está disponible en la base de datos.",
+    notifications_not_enabled: "¡%{pseudo} no ha terminado su configuración! Pídele que abra la aplicación para activar las notificaciones.",
     app_uninstalled: "%{pseudo} ya no tiene la aplicación instalada!",
     silent_notifications_warning: "¡Tus notificaciones están silenciosas!",
+    notifications_disabled_warning: "¡Las notificaciones están desactivadas! Actívalas para que la aplicación funcione.",
 
     // Identity Reveal
     identity_revealed_title: "Identidad revelada",
@@ -2152,9 +2155,10 @@ const i18n = new I18n({
     chat_onboarding_report_conversation: "Permite denunciar a conversa",
 
     // Notifications & Errors
-    notifications_not_enabled: "%{pseudo} não ativou notificação. Sem token.",
+    notifications_not_enabled: "%{pseudo} ainda não terminou a configuração. Peça para ele(a) abrir o app para ativar as notificações!",
     app_uninstalled: "%{pseudo} desinstalou o app!",
-    silent_notifications_warning: "Suas notificações tão no mudo!",
+    silent_notifications_warning: "Suas notifications tão no mudo!",
+    notifications_disabled_warning: "Notificações desativadas! Ative nas configurações para o app funcionar.",
 
     // Identity Reveal
     identity_revealed_title: "Identidade revelada",
@@ -2737,9 +2741,10 @@ const i18n = new I18n({
     chat_onboarding_report_conversation: "Ermöglicht es dir, die Unterhaltung zu melden",
 
     // Notifications & Errors
-    notifications_not_enabled: "%{pseudo} hat Benachrichtigungen nicht aktiviert. Kein Token.",
+    notifications_not_enabled: "%{pseudo} hat sein Setup noch nicht abgeschlossen. Bitte ihn/sie, die App zu öffnen, um Benachrichtigungen zu aktivieren!",
     app_uninstalled: "%{pseudo} hat die App deinstalliert!",
     silent_notifications_warning: "Deine Benachrichtigungen sind stummgeschaltet!",
+    notifications_disabled_warning: "Benachrichtigungen sind deaktiviert! Aktiviere sie, damit die App funktioniert.",
 
     // Identity Reveal
     identity_revealed_title: "Identität enthüllt",
@@ -3322,9 +3327,10 @@ const i18n = new I18n({
     chat_onboarding_report_conversation: "Ti permette di segnalare la conversazione",
 
     // Notifications & Errors
-    notifications_not_enabled: "%{pseudo} non ha abilitato le notifiche. Nessun token.",
+    notifications_not_enabled: "%{pseudo} non ha ancora completato la configurazione. Chiedigli di aprire l'app per attivare le notifiche!",
     app_uninstalled: "%{pseudo} ha disinstallato l'app!",
     silent_notifications_warning: "Le tue notifiche sono silenziate!",
+    notifications_disabled_warning: "Le notifiche sono disabilitate! Attivale per far funzionare l'app.",
 
     // Identity Reveal
     identity_revealed_title: "Identità rivelata",

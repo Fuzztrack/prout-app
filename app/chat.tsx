@@ -1057,7 +1057,30 @@ export default function ChatScreen() {
     }
 
     if (!friend.expo_push_token) {
-      Alert.alert(i18n.t('error'), i18n.t('notifications_not_enabled', { pseudo: friend.pseudo }));
+      Alert.alert(
+        i18n.t('error'), 
+        i18n.t('notifications_not_enabled', { pseudo: friend.pseudo }),
+        [
+          { text: i18n.t('ok'), style: 'cancel' },
+          { 
+            text: i18n.t('retry'), 
+            onPress: async () => {
+              // Rafraîchir le profil de l'ami pour voir si le token est arrivé
+              const { data: profile } = await supabase
+                .from('user_profiles')
+                .select('expo_push_token, push_platform')
+                .eq('id', friend.id)
+                .single();
+              
+              if (profile?.expo_push_token) {
+                setFriend(prev => prev ? ({ ...prev, expo_push_token: profile.expo_push_token, push_platform: profile.push_platform || prev.push_platform }) : null);
+              } else {
+                // Toujours pas de token, on peut ré-afficher l'alerte ou ne rien faire
+              }
+            } 
+          }
+        ]
+      );
       return;
     }
 

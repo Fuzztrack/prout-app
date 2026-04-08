@@ -34,35 +34,56 @@ export async function clearCurrentUserPushToken() {
 export async function registerPushTokenForUser(userId: string) {
   if (Platform.OS === 'web') return;
 
-  const { status } = await Notifications.getPermissionsAsync();
-  if (status !== 'granted') return;
+  try {
+    const { status } = await Notifications.getPermissionsAsync();
+    
+    // Si permission indéterminée, on ne fait rien (on attend que l'utilisateur passe par l'onboarding)
+    if (status !== 'granted') {
+      if (__DEV__) console.log('🔔 [PushToken] Permission non accordée (status:', status, ')');
+      return;
+    }
 
-  const pushToken = await getFCMToken();
-  if (!pushToken) return;
+    const pushToken = await getFCMToken();
+    if (!pushToken) {
+      if (__DEV__) console.log('🔔 [PushToken] Impossible de récupérer le token');
+      return;
+    }
 
-  await supabase
-    .from('user_profiles')
-    .update(EMPTY_PUSH_PAYLOAD)
-    .eq('expo_push_token', pushToken)
-    .neq('id', userId);
+    if (__DEV__) console.log('🔔 [PushToken] Tentative d\'enregistrement pour', userId);
 
-  const updatePayload: Record<string, unknown> = {
-    expo_push_token: pushToken,
-    push_platform: Platform.OS,
-    push_ios_bundle: null,
-  };
+    // 1. Nettoyer le token s'il est déjà utilisé par un autre compte (évite les doublons de notifs)
+    // On ignore l'erreur car elle peut être due à des restrictions de RLS si on tente d'update un autre profil
+    await supabase
+      .from('user_profiles')
+      .update(EMPTY_PUSH_PAYLOAD)
+      .eq('expo_push_token', pushToken)
+      .neq('id', userId);
 
-  if (Platform.OS === 'ios') {
-    const bundleId = Constants.expoConfig?.ios?.bundleIdentifier;
-    if (bundleId) updatePayload.push_ios_bundle = bundleId;
-  }
+    // 2. Préparer les données de mise à jour
+    const updatePayload: Record<string, any> = {
+      expo_push_token: pushToken,
+      push_platform: Platform.OS,
+      updated_at: new Date().toISOString()
+    };
 
-  const { error } = await supabase
-    .from('user_profiles')
-    .update(updatePayload)
-    .eq('id', userId);
+    if (Platform.OS === 'ios') {
+      const bundleId = Constants.expoConfig?.ios?.bundleIdentifier || Constants.easConfig?.projectId;
+      if (bundleId) updatePayload.push_ios_bundle = bundleId;
+    }
 
-  if (error) {
-    throw error;
+    // 3. Mettre à jour le profil de l'utilisateur actuel
+    const { error } = await supabase
+      .from('user_profiles')
+      .update(updatePayload)
+      .eq('id', userId);
+
+    if (error) {
+      console.error('❌ [PushToken] Erreur lors de la mise à jour du profil:', error.message);
+      // Optionnel : essayer un upsert si l'update échoue (si le profil n'existe pas encore par exemple)
+    } else {
+      if (__DEV__) console.log('✅ [PushToken] Token enregistré avec succès');
+    }
+  } catch (e: any) {
+    console.error('❌ [PushToken] Exception lors de l\'enregistrement:', e?.message || e);
   }
 }
