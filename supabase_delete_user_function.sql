@@ -30,6 +30,10 @@ BEGIN
   DELETE FROM public.invitations
   WHERE from_user_id = current_user_id OR to_user_id = current_user_id;
 
+  -- Supprimer les messages en attente pour éviter les erreurs de contrainte
+  DELETE FROM public.pending_messages
+  WHERE from_user_id = current_user_id OR to_user_id = current_user_id;
+
   -- Table ajoutée par la feature "complicity"
   DELETE FROM public.interaction_logs
   WHERE sender_id = current_user_id OR receiver_id = current_user_id;
