@@ -34,6 +34,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '@/lib/store';
+import { useChatStore, type PendingMessage, type VisibleSentMessage } from '@/lib/chatStore';
 import i18n from '@/lib/i18n';
 import { safePush } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
@@ -62,24 +63,6 @@ type ParsedMessage = {
   text: string;
   isRead: boolean;
   soundKey?: string;
-};
-
-type PendingMessage = {
-  id: string;
-  from_user_id: string;
-  to_user_id?: string;
-  message_content?: string | null;
-  created_at: string;
-};
-
-type VisibleSentMessage = {
-  id: string;
-  text: string;
-  ts: string;
-  soundKey?: string;
-  status?: 'read';
-  readAt?: number;
-  optimistic?: boolean;
 };
 
 type FriendProfile = {
@@ -271,6 +254,15 @@ export default function ChatScreen() {
   const pendingSoundKeyParam = typeof params.pendingSoundKey === 'string' ? params.pendingSoundKey : '';
 
   const { isZenMode, isSilentMode, isHapticEnabled, pseudo: storePseudo } = useAppStore();
+  const { 
+    receivedByFriend, 
+    sentByFriend, 
+    addReceivedMessages, 
+    addSentMessages, 
+    retentionHours, 
+    setRetentionHours, 
+    cleanupExpired 
+  } = useChatStore();
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentPseudo, setCurrentPseudo] = useState<string>(storePseudo || 'Un ami');
@@ -285,8 +277,11 @@ export default function ChatScreen() {
     getDefaultSoundCategoryForFirstLaunch() as ChatMessageSoundChoice
   );
   const [pendingChatSoundKey, setPendingChatSoundKey] = useState<string | null>(null);
-  const [receivedMessages, setReceivedMessages] = useState<PendingMessage[]>([]);
-  const [sentMessages, setSentMessages] = useState<VisibleSentMessage[]>([]);
+  
+  // Initialisation à partir du store local
+  const [receivedMessages, setReceivedMessages] = useState<PendingMessage[]>(receivedByFriend[friendId] || []);
+  const [sentMessages, setSentMessages] = useState<VisibleSentMessage[]>(sentByFriend[friendId] || []);
+  
   const [reportReasonModalVisible, setReportReasonModalVisible] = useState(false);
   const [pendingReportTarget, setPendingReportTarget] = useState<ReportTarget | null>(null);
   const [messageReactions, setMessageReactions] = useState<Record<string, MessageReaction[]>>({});
@@ -295,7 +290,8 @@ export default function ChatScreen() {
   const [showFirstChatOnboarding, setShowFirstChatOnboarding] = useState(false);
 
   const lastRandomSoundRef = useRef<string | undefined>(undefined);
-  const knownIncomingMessageIdsRef = useRef<Set<string>>(new Set());
+  // On remplit le Set des IDs connus avec ceux déjà présents en cache
+  const knownIncomingMessageIdsRef = useRef<Set<string>>(new Set(receivedMessages.map(m => m.id)));
   const hasHydratedIncomingMessagesRef = useRef(false);
   const scrollViewRef = useRef<ScrollView | null>(null);
   const inputRef = useRef<TextInput | null>(null);
@@ -304,6 +300,11 @@ export default function ChatScreen() {
   const keyboardVisibleRef = useRef(false);
 
   const pulseScale = useSharedValue(1);
+
+  // Nettoyage des messages expirés au montage
+  useEffect(() => {
+    cleanupExpired();
+  }, [cleanupExpired]);
 
   useEffect(() => {
     const onShow = () => {
@@ -452,14 +453,21 @@ export default function ChatScreen() {
       .filter((m: any) => m.from_user_id === friendId)
       .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) as PendingMessage[];
 
+    const incomingWithTs = filteredIncoming.map(m => ({ ...m, local_ts: Date.now() }));
+    
+    // Sauvegarde dans le store persistant
+    addReceivedMessages(friendId, incomingWithTs);
+
     const incomingIds = filteredIncoming.map((m) => m.id);
     const newIncoming = filteredIncoming.filter((m) => !knownIncomingMessageIdsRef.current.has(m.id));
     knownIncomingMessageIdsRef.current = new Set(incomingIds);
 
     setReceivedMessages((prev) => {
       const merged = new Map<string, PendingMessage>();
+      // On prend d'abord ce qu'on a déjà (qui peut venir du store local au montage)
       prev.forEach((msg) => merged.set(msg.id, msg));
-      filteredIncoming.forEach((msg) => merged.set(msg.id, msg));
+      // On ajoute ce qui vient du serveur
+      incomingWithTs.forEach((msg) => merged.set(msg.id, msg));
       return Array.from(merged.values()).sort(
         (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
       );
@@ -482,9 +490,13 @@ export default function ChatScreen() {
           ts: m.created_at,
           status: parsed.isRead ? ('read' as const) : undefined,
           readAt: parsed.isRead ? Date.now() : undefined,
+          local_ts: Date.now(),
         } satisfies VisibleSentMessage;
       })
       .sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
+
+    // Sauvegarde dans le store persistant
+    addSentMessages(friendId, serverSent);
 
     setSentMessages((prev) => {
       const next = [...serverSent];
@@ -519,7 +531,7 @@ export default function ChatScreen() {
       });
       return next.sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
     });
-  }, [currentUserId, friendId, isHapticEnabled]);
+  }, [currentUserId, friendId, isHapticEnabled, addReceivedMessages, addSentMessages]);
 
   const triggerGlobalMessageRefresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['pendingMessages'] });
@@ -1216,6 +1228,32 @@ export default function ChatScreen() {
             >
               <Ionicons name="flag-outline" size={21} color="#604a3e" />
             </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {
+                const next = retentionHours === 12 ? 0 : 12;
+                setRetentionHours(next);
+                if (next === 0) {
+                  setReceivedMessages([]);
+                  setSentMessages([]);
+                }
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+              }}
+              style={styles.headerIcon}
+              activeOpacity={0.85}
+            >
+              <View style={[styles.retentionBadge, retentionHours === 12 && styles.retentionBadgeActive]}>
+                <Ionicons 
+                  name={retentionHours === 12 ? "timer-outline" : "flash"} 
+                  size={12} 
+                  color="#604a3e" 
+                />
+                <Text style={styles.retentionBadgeText}>
+                  {retentionHours === 12 ? "12h" : "0"}
+                </Text>
+              </View>
+            </TouchableOpacity>
+
             <TouchableOpacity
               onPress={toggleChatMute}
               style={styles.headerIcon}
@@ -1603,13 +1641,32 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   headerActions: {
-    width: 68,
+    width: 100,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   headerReportIcon: {
     opacity: 0.55,
+  },
+  retentionBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#604a3e',
+    opacity: 0.4,
+    minWidth: 28,
+    alignItems: 'center',
+  },
+  retentionBadgeActive: {
+    opacity: 1,
+    backgroundColor: 'rgba(96, 74, 62, 0.1)',
+  },
+  retentionBadgeText: {
+    fontSize: 9,
+    fontWeight: 'bold',
+    color: '#604a3e',
   },
   headerTitle: {
     flex: 1,
