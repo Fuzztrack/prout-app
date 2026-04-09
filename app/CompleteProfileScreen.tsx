@@ -79,6 +79,13 @@ export default function CompleteProfileScreen() {
 
       if (error) throw error;
 
+      // ✅ TENTATIVE D'ENREGISTREMENT DU TOKEN PUSH APRÈS CRÉATION DU PROFIL
+      try {
+        await registerPushTokenForUser(userId);
+      } catch (tokenError) {
+        console.warn('⚠️ Erreur enregistrement token push lors de la finalisation:', tokenError);
+      }
+
       try {
         await supabase.auth.updateUser({
           data: buildAcceptedEulaMetadata({

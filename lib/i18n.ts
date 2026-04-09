@@ -374,7 +374,7 @@ const i18n = new I18n({
     chat_onboarding_report_conversation: "Permet de signaler la conversation",
 
     // Notifications & Errors
-    notifications_not_enabled: "%{pseudo} n'a pas encore finalisé sa configuration. Demande-lui d'ouvrir l'application pour activer les notifications !",
+    notifications_not_enabled: "%{pseudo} ne peut pas recevoir de notifications pour le moment. Demande-lui d'ouvrir l'application !",
     app_uninstalled: "%{pseudo} n'a plus l'application installée !",
     silent_notifications_warning: "Vos notifications sont silencieuses !",
     notifications_disabled_warning: "Les notifications sont désactivées ! Active-les pour que l'app fonctionne.",
@@ -982,7 +982,7 @@ const i18n = new I18n({
     chat_onboarding_report_conversation: "Lets you report the conversation",
 
     // Notifications & Errors
-    notifications_not_enabled: "%{pseudo} has not finished their setup yet. Ask them to open the app to enable notifications!",
+    notifications_not_enabled: "%{pseudo} cannot receive notifications right now. Ask them to open the app!",
     app_uninstalled: "%{pseudo} no longer has the app installed!",
     silent_notifications_warning: "Your notifications are silent!",
     notifications_disabled_warning: "Notifications are disabled! Enable them for the app to work properly.",
@@ -1569,7 +1569,7 @@ const i18n = new I18n({
     chat_onboarding_report_conversation: "Permite reportar la conversación",
 
     // Notifications & Errors
-    notifications_not_enabled: "¡%{pseudo} no ha terminado su configuración! Pídele que abra la aplicación para activar las notificaciones.",
+    notifications_not_enabled: "%{pseudo} no puede recibir notificaciones por ahora. ¡Pídele que abra la aplicación!",
     app_uninstalled: "%{pseudo} ya no tiene la aplicación instalada!",
     silent_notifications_warning: "¡Tus notificaciones están silenciosas!",
     notifications_disabled_warning: "¡Las notificaciones están desactivadas! Actívalas para que la aplicación funcione.",
@@ -2155,7 +2155,8 @@ const i18n = new I18n({
     chat_onboarding_report_conversation: "Permite denunciar a conversa",
 
     // Notifications & Errors
-    notifications_not_enabled: "%{pseudo} ainda não terminou a configuração. Peça para ele(a) abrir o app para ativar as notificações!",
+    notifications_not_enabled: "%{pseudo} não pode receber notificações no momento. Peça para ele(a) abrir o app!",
+
     app_uninstalled: "%{pseudo} desinstalou o app!",
     silent_notifications_warning: "Suas notifications tão no mudo!",
     notifications_disabled_warning: "Notificações desativadas! Ative nas configurações para o app funcionar.",
@@ -2741,7 +2742,7 @@ const i18n = new I18n({
     chat_onboarding_report_conversation: "Ermöglicht es dir, die Unterhaltung zu melden",
 
     // Notifications & Errors
-    notifications_not_enabled: "%{pseudo} hat sein Setup noch nicht abgeschlossen. Bitte ihn/sie, die App zu öffnen, um Benachrichtigungen zu aktivieren!",
+    notifications_not_enabled: "%{pseudo} kann gerade keine Benachrichtigungen empfangen. Bitte ihn/sie, die App zu öffnen!",
     app_uninstalled: "%{pseudo} hat die App deinstalliert!",
     silent_notifications_warning: "Deine Benachrichtigungen sind stummgeschaltet!",
     notifications_disabled_warning: "Benachrichtigungen sind deaktiviert! Aktiviere sie, damit die App funktioniert.",
@@ -3327,7 +3328,7 @@ const i18n = new I18n({
     chat_onboarding_report_conversation: "Ti permette di segnalare la conversazione",
 
     // Notifications & Errors
-    notifications_not_enabled: "%{pseudo} non ha ancora completato la configurazione. Chiedigli di aprire l'app per attivare le notifiche!",
+    notifications_not_enabled: "%{pseudo} non può ricevere notifiche al momento. Chiedigli di aprire l'app!",
     app_uninstalled: "%{pseudo} ha disinstallato l'app!",
     silent_notifications_warning: "Le tue notifiche sono silenziate!",
     notifications_disabled_warning: "Le notifiche sono disabilitate! Attivale per far funzionare l'app.",

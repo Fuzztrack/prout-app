@@ -4,8 +4,8 @@ import { Platform } from 'react-native';
 
 // ⚠️ SECURITE: Utiliser UNIQUEMENT les variables d'environnement
 // Ne jamais hardcoder de clés dans le code source
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://utfwujyymaikraaigvuv.supabase.co';
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+export const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://utfwujyymaikraaigvuv.supabase.co';
+export const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
 if (!supabaseAnonKey) {
   throw new Error('EXPO_PUBLIC_SUPABASE_ANON_KEY must be defined in environment variables. Please set it in your .env file or EAS secrets.');
