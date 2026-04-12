@@ -460,18 +460,7 @@ export default function ChatScreen() {
 
     const incomingIds = filteredIncoming.map((m) => m.id);
     const newIncoming = filteredIncoming.filter((m) => !knownIncomingMessageIdsRef.current.has(m.id));
-    knownIncomingMessageIdsRef.current = new Set(incomingIds);
-
-    setReceivedMessages((prev) => {
-      const merged = new Map<string, PendingMessage>();
-      // On prend d'abord ce qu'on a déjà (qui peut venir du store local au montage)
-      prev.forEach((msg) => merged.set(msg.id, msg));
-      // On ajoute ce qui vient du serveur
-      incomingWithTs.forEach((msg) => merged.set(msg.id, msg));
-      return Array.from(merged.values()).sort(
-        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-      );
-    });
+    // knownIncomingMessageIdsRef est mis à jour dans le useEffect de sync
 
     if (!hasHydratedIncomingMessagesRef.current) {
       hasHydratedIncomingMessagesRef.current = true;
@@ -497,40 +486,6 @@ export default function ChatScreen() {
 
     // Sauvegarde dans le store persistant
     addSentMessages(friendId, serverSent);
-
-    setSentMessages((prev) => {
-      const next = [...serverSent];
-      prev.forEach((localMsg) => {
-        const localTime = new Date(localMsg.ts).getTime();
-        const duplicate = serverSent.some((serverMsg) => {
-          const serverTime = new Date(serverMsg.ts).getTime();
-          return (
-            (localMsg.id === serverMsg.id ||
-              (serverMsg.text === localMsg.text &&
-                serverMsg.soundKey === localMsg.soundKey &&
-                Math.abs(serverTime - localTime) < 5000))
-          );
-        });
-
-        if (duplicate) {
-          return;
-        }
-
-        if (localMsg.optimistic) {
-          next.push(localMsg);
-          return;
-        }
-
-        // Garder les messages déjà visibles dans le chat même s'ils ne sont plus
-        // renvoyés par le backend (cas d'un message passé en lu/supprimé).
-        next.push({
-          ...localMsg,
-          status: 'read',
-          readAt: localMsg.readAt ?? Date.now(),
-        });
-      });
-      return next.sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
-    });
   }, [currentUserId, friendId, isHapticEnabled, addReceivedMessages, addSentMessages]);
 
   const triggerGlobalMessageRefresh = useCallback(() => {
@@ -570,6 +525,31 @@ export default function ChatScreen() {
     return () => clearInterval(interval);
   }, [currentUserId, friendId, refreshMessages]);
 
+  // Synchronisation avec le store persistant (pour l'hydratation et l'historique 12h)
+  useEffect(() => {
+    const fromStore = receivedByFriend[friendId] || [];
+    setReceivedMessages(fromStore);
+    knownIncomingMessageIdsRef.current = new Set(fromStore.map(m => m.id));
+  }, [receivedByFriend, friendId]);
+
+  useEffect(() => {
+    const fromStore = sentByFriend[friendId] || [];
+    setSentMessages(prev => {
+      const optimistic = prev.filter(m => m.optimistic);
+      // On fusionne le store avec les messages optimistiques non encore confirmés
+      const next = [...fromStore];
+      optimistic.forEach(opt => {
+        const alreadyInStore = fromStore.some(m => 
+          m.id === opt.id || (m.text === opt.text && m.soundKey === opt.soundKey && Math.abs(new Date(m.ts).getTime() - new Date(opt.ts).getTime()) < 10000)
+        );
+        if (!alreadyInStore) {
+          next.push(opt);
+        }
+      });
+      return next.sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
+    });
+  }, [sentByFriend, friendId]);
+
   useFocusEffect(
     useCallback(() => {
       void loadConversationReactions();
@@ -595,12 +575,8 @@ export default function ChatScreen() {
             if (!newMessage || newMessage.from_user_id !== friendId) return;
             const parsedMessage = parseMessageContent(newMessage.message_content);
 
-            setReceivedMessages((prev) => {
-              if (prev.some((msg) => msg.id === newMessage.id)) return prev;
-              return [...prev, newMessage].sort(
-                (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-              );
-            });
+            // Mise à jour du store persistant IMMEDIATEMENT
+            addReceivedMessages(friendId, [{ ...newMessage, local_ts: Date.now() }]);
 
             queryClient.invalidateQueries({ queryKey: ['pendingMessages'] });
             queryClient.invalidateQueries({ queryKey: ['friends'] });

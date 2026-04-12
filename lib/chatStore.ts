@@ -49,22 +49,32 @@ export const useChatStore = create<ChatState>()(
 
       addReceivedMessages: (friendId, newMsgs) => {
         const { receivedByFriend, retentionHours } = get();
-        if (retentionHours === 0) return; // Mode immédiat, on ne stocke rien en persistant
+        if (retentionHours === 0) return;
 
         const current = receivedByFriend[friendId] || [];
-        const existingIds = new Set(current.map(m => m.id));
+        const currentMap = new Map(current.map(m => [m.id, m]));
         
-        // On ne garde que les nouveaux et on ajoute le timestamp local
-        const toAdd = newMsgs
-          .filter(m => !existingIds.has(m.id))
-          .map(m => ({ ...m, local_ts: m.local_ts || Date.now() }));
+        let changed = false;
+        newMsgs.forEach(m => {
+          const existing = currentMap.get(m.id);
+          if (!existing) {
+            currentMap.set(m.id, { ...m, local_ts: m.local_ts || Date.now() });
+            changed = true;
+          } else {
+            // Optionnel: mettre à jour si le contenu change (peu probable pour du "received")
+            if (m.message_content !== existing.message_content) {
+              currentMap.set(m.id, { ...existing, ...m });
+              changed = true;
+            }
+          }
+        });
 
-        if (toAdd.length === 0) return;
+        if (!changed) return;
 
         set({
           receivedByFriend: {
             ...receivedByFriend,
-            [friendId]: [...current, ...toAdd].sort(
+            [friendId]: Array.from(currentMap.values()).sort(
               (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
             ),
           },
@@ -76,18 +86,29 @@ export const useChatStore = create<ChatState>()(
         if (retentionHours === 0) return;
 
         const current = sentByFriend[friendId] || [];
-        const existingIds = new Set(current.map(m => m.id));
+        const currentMap = new Map(current.map(m => [m.id, m]));
         
-        const toAdd = newMsgs
-          .filter(m => !existingIds.has(m.id))
-          .map(m => ({ ...m, local_ts: m.local_ts || Date.now() }));
+        let changed = false;
+        newMsgs.forEach(m => {
+          const existing = currentMap.get(m.id);
+          if (!existing) {
+            currentMap.set(m.id, { ...m, local_ts: m.local_ts || Date.now() });
+            changed = true;
+          } else {
+            // Crucial : mettre à jour le statut (ex: 'read')
+            if (m.status !== existing.status || m.readAt !== existing.readAt) {
+              currentMap.set(m.id, { ...existing, ...m });
+              changed = true;
+            }
+          }
+        });
 
-        if (toAdd.length === 0) return;
+        if (!changed) return;
 
         set({
           sentByFriend: {
             ...sentByFriend,
-            [friendId]: [...current, ...toAdd].sort(
+            [friendId]: Array.from(currentMap.values()).sort(
               (a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime()
             ),
           },
