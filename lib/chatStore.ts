@@ -27,12 +27,16 @@ interface ChatState {
   receivedByFriend: Record<string, PendingMessage[]>;
   sentByFriend: Record<string, VisibleSentMessage[]>;
   
+  // Réactions indexées par friendId puis messageId
+  messageReactionsByFriend: Record<string, Record<string, any[]>>;
+
   // Rétention en heures (0 = immédiat, 12, 24)
   retentionHours: number;
 
   // Actions
   addReceivedMessages: (friendId: string, messages: PendingMessage[]) => void;
   addSentMessages: (friendId: string, messages: VisibleSentMessage[]) => void;
+  setReactions: (friendId: string, reactions: Record<string, any[]>) => void;
   setRetentionHours: (hours: number) => void;
   clearHistory: (friendId: string) => void;
   cleanupExpired: () => void;
@@ -45,6 +49,7 @@ export const useChatStore = create<ChatState>()(
     (set, get) => ({
       receivedByFriend: {},
       sentByFriend: {},
+      messageReactionsByFriend: {},
       retentionHours: 12,
 
       addReceivedMessages: (friendId, newMsgs) => {
@@ -115,26 +120,38 @@ export const useChatStore = create<ChatState>()(
         });
       },
 
+      setReactions: (friendId, reactions) => {
+        const { messageReactionsByFriend } = get();
+        set({
+          messageReactionsByFriend: {
+            ...messageReactionsByFriend,
+            [friendId]: reactions,
+          },
+        });
+      },
+
       setRetentionHours: (hours) => {
         if (hours === 0) {
           // Si on passe en immédiat, on vide tout l'historique
-          set({ retentionHours: 0, receivedByFriend: {}, sentByFriend: {} });
+          set({ retentionHours: 0, receivedByFriend: {}, sentByFriend: {}, messageReactionsByFriend: {} });
         } else {
           set({ retentionHours: hours });
         }
       },
 
       clearHistory: (friendId) => {
-        const { receivedByFriend, sentByFriend } = get();
+        const { receivedByFriend, sentByFriend, messageReactionsByFriend } = get();
         const newReceived = { ...receivedByFriend };
         const newSent = { ...sentByFriend };
+        const newReactions = { ...messageReactionsByFriend };
         delete newReceived[friendId];
         delete newSent[friendId];
-        set({ receivedByFriend: newReceived, sentByFriend: newSent });
+        delete newReactions[friendId];
+        set({ receivedByFriend: newReceived, sentByFriend: newSent, messageReactionsByFriend: newReactions });
       },
 
       cleanupExpired: () => {
-        const { receivedByFriend, sentByFriend, retentionHours } = get();
+        const { receivedByFriend, sentByFriend, messageReactionsByFriend, retentionHours } = get();
         if (retentionHours === 0) return;
 
         const now = Date.now();
@@ -142,6 +159,7 @@ export const useChatStore = create<ChatState>()(
 
         const newReceived: Record<string, PendingMessage[]> = {};
         const newSent: Record<string, VisibleSentMessage[]> = {};
+        const newReactions: Record<string, Record<string, any[]>> = {};
 
         Object.keys(receivedByFriend).forEach(fid => {
           const filtered = receivedByFriend[fid].filter(m => m.local_ts > threshold);
@@ -153,7 +171,28 @@ export const useChatStore = create<ChatState>()(
           if (filtered.length > 0) newSent[fid] = filtered;
         });
 
-        set({ receivedByFriend: newReceived, sentByFriend: newSent });
+        // Pour les réactions, on garde celles qui correspondent à des messages encore présents
+        Object.keys(messageReactionsByFriend).forEach(fid => {
+          const currentReactions = messageReactionsByFriend[fid];
+          const keptReactions: Record<string, any[]> = {};
+          
+          const validMessageIds = new Set([
+            ...(newReceived[fid] || []).map(m => m.id),
+            ...(newSent[fid] || []).map(m => m.id)
+          ]);
+
+          Object.keys(currentReactions).forEach(mid => {
+            if (validMessageIds.has(mid)) {
+              keptReactions[mid] = currentReactions[mid];
+            }
+          });
+
+          if (Object.keys(keptReactions).length > 0) {
+            newReactions[fid] = keptReactions;
+          }
+        });
+
+        set({ receivedByFriend: newReceived, sentByFriend: newSent, messageReactionsByFriend: newReactions });
       },
     }),
     {

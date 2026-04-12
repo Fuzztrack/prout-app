@@ -257,8 +257,10 @@ export default function ChatScreen() {
   const { 
     receivedByFriend, 
     sentByFriend, 
+    messageReactionsByFriend,
     addReceivedMessages, 
     addSentMessages, 
+    setReactions,
     retentionHours, 
     setRetentionHours, 
     cleanupExpired 
@@ -284,7 +286,7 @@ export default function ChatScreen() {
   
   const [reportReasonModalVisible, setReportReasonModalVisible] = useState(false);
   const [pendingReportTarget, setPendingReportTarget] = useState<ReportTarget | null>(null);
-  const [messageReactions, setMessageReactions] = useState<Record<string, MessageReaction[]>>({});
+  const [messageReactions, setMessageReactions] = useState<Record<string, MessageReaction[]>>(messageReactionsByFriend[friendId] || {});
   const [reactionPickerVisible, setReactionPickerVisible] = useState(false);
   const [pendingReactionTarget, setPendingReactionTarget] = useState<PendingReactionTarget | null>(null);
   const [showFirstChatOnboarding, setShowFirstChatOnboarding] = useState(false);
@@ -767,34 +769,44 @@ export default function ChatScreen() {
     [chatSoundCategory]
   );
 
+  useEffect(() => {
+    const fromStore = messageReactionsByFriend[friendId] || {};
+    setMessageReactions(fromStore);
+  }, [messageReactionsByFriend, friendId]);
+
   const replaceReactionForMessage = useCallback((row: MessageReaction) => {
     setMessageReactions((prev) => {
       const nextRows = [...(prev[row.message_id] || []).filter((item) => item.reactor_user_id !== row.reactor_user_id), row]
         .sort((a, b) => (a.updated_at || '').localeCompare(b.updated_at || ''));
 
-      return {
+      const next = {
         ...prev,
         [row.message_id]: nextRows,
       };
+      setReactions(friendId, next);
+      return next;
     });
-  }, []);
+  }, [friendId, setReactions]);
 
   const removeReactionForMessage = useCallback((messageId: string, reactorUserId: string) => {
     setMessageReactions((prev) => {
       const existing = prev[messageId] || [];
       const nextRows = existing.filter((item) => item.reactor_user_id !== reactorUserId);
 
+      let next;
       if (nextRows.length === 0) {
         const { [messageId]: _removed, ...rest } = prev;
-        return rest;
+        next = rest;
+      } else {
+        next = {
+          ...prev,
+          [messageId]: nextRows,
+        };
       }
-
-      return {
-        ...prev,
-        [messageId]: nextRows,
-      };
+      setReactions(friendId, next);
+      return next;
     });
-  }, []);
+  }, [friendId, setReactions]);
 
   const hydrateConversationReactions = useCallback((rows: MessageReaction[]) => {
     const grouped: Record<string, MessageReaction[]> = {};
@@ -811,7 +823,8 @@ export default function ChatScreen() {
     });
 
     setMessageReactions(grouped);
-  }, []);
+    setReactions(friendId, grouped);
+  }, [friendId, setReactions]);
 
   const isReactionForCurrentConversation = useCallback(
     (row?: Partial<MessageReaction> | null) => {
