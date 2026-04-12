@@ -2,7 +2,7 @@
   "expo": {
     "name": "Proot !",
     "slug": "prrtapp",
-    "version": "1.1.11",
+    "version": "1.1.12",
     "orientation": "portrait",
     "icon": "./asset/images/Prrt_icon.png",
     "scheme": "prootapp",
@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.prrt.app",
-      "buildNumber": "46",
+      "buildNumber": "47",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "CFBundleDisplayName": "Proot !",
