@@ -32,7 +32,14 @@ export async function getFCMToken(): Promise<string | null> {
     }
 
     // iOS : on continue d'utiliser le token Expo (géré par APNs via Expo)
-    const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
+    const projectId = 
+      (Constants?.expoConfig?.extra?.eas?.projectId ?? 
+       Constants?.easConfig?.projectId ?? 
+       Constants?.expoConfig?.updates?.url?.split('/')?.pop()) || // Parentthèses ajoutées pour corriger l'erreur de build
+      '38706df8-6933-40e1-8848-d3e7a086057e'; // Ton Project ID réel par défaut
+    
+    if (__DEV__) console.log('🔔 [getFCMToken] Utilisation du Project ID:', projectId);
+    
     const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
     return tokenData.data;
   } catch (error) {

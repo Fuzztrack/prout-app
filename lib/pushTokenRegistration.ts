@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
@@ -32,34 +33,52 @@ export async function clearCurrentUserPushToken() {
 }
 
 export async function registerPushTokenForUser(userId: string) {
-  if (Platform.OS === 'web') return;
+  if (Platform.OS === 'web' || !userId) return;
 
   try {
+    // 1. Vérifier si l'utilisateur est passé par l'onboarding
+    const onboardingSeen = await AsyncStorage.getItem('hasSeenOnboarding');
+    const isPastOnboarding = onboardingSeen === 'true';
+
+    // 2. Vérifier les permissions actuelles
     const { status } = await Notifications.getPermissionsAsync();
     
-    // Si permission indéterminée, on ne fait rien (on attend que l'utilisateur passe par l'onboarding)
-    if (status !== 'granted') {
-      if (__DEV__) console.log('🔔 [PushToken] Permission non accordée (status:', status, ')');
+    // Si permission indéterminée ET qu'on n'est pas encore passé par l'onboarding,
+    // on ne fait rien pour éviter de déclencher le popup système trop tôt.
+    if (status === 'undetermined' && !isPastOnboarding) {
+      if (__DEV__) console.log('🔔 [PushToken] Onboarding non terminé, on attend avant de demander la permission');
       return;
     }
 
+    // Si permission déjà refusée, on ne peut plus rien faire automatiquement.
+    // L'utilisateur devra aller dans les réglages.
+    if (status === 'denied') {
+      if (__DEV__) console.log('🔔 [PushToken] Permission refusée par l\'utilisateur');
+      return;
+    }
+
+    // 3. Récupérer le token (getFCMToken gère lui-même la demande de permission si status est undetermined)
     const pushToken = await getFCMToken();
     if (!pushToken) {
-      if (__DEV__) console.log('🔔 [PushToken] Impossible de récupérer le token');
+      if (__DEV__) console.log('🔔 [PushToken] Impossible de récupérer le token (probablement refusé ou erreur)');
       return;
     }
 
     if (__DEV__) console.log('🔔 [PushToken] Tentative d\'enregistrement pour', userId);
 
-    // 1. Nettoyer le token s'il est déjà utilisé par un autre compte (évite les doublons de notifs)
-    // On ignore l'erreur car elle peut être due à des restrictions de RLS si on tente d'update un autre profil
-    await supabase
-      .from('user_profiles')
-      .update(EMPTY_PUSH_PAYLOAD)
-      .eq('expo_push_token', pushToken)
-      .neq('id', userId);
+    // 4. Nettoyer le token s'il est déjà utilisé par un autre compte (évite les doublons de notifs)
+    // On ignore l'erreur car elle peut être due à des restrictions de RLS
+    try {
+      await supabase
+        .from('user_profiles')
+        .update(EMPTY_PUSH_PAYLOAD)
+        .eq('expo_push_token', pushToken)
+        .neq('id', userId);
+    } catch (cleanError) {
+      if (__DEV__) console.log('🔔 [PushToken] Note: Impossible de nettoyer les anciens tokens (normal si RLS activé)');
+    }
 
-    // 2. Préparer les données de mise à jour
+    // 5. Préparer les données de mise à jour
     const updatePayload: Record<string, any> = {
       expo_push_token: pushToken,
       push_platform: Platform.OS,
@@ -71,7 +90,9 @@ export async function registerPushTokenForUser(userId: string) {
       if (bundleId) updatePayload.push_ios_bundle = bundleId;
     }
 
-    // 3. Mettre à jour le profil de l'utilisateur actuel
+    // 6. Mettre à jour le profil de l'utilisateur actuel
+    // On utilise UPDATE au lieu de UPSERT pour éviter de violer la contrainte NOT NULL sur le pseudo
+    // si le profil est en cours de création par le trigger.
     const { error } = await supabase
       .from('user_profiles')
       .update(updatePayload)
@@ -79,9 +100,8 @@ export async function registerPushTokenForUser(userId: string) {
 
     if (error) {
       console.error('❌ [PushToken] Erreur lors de la mise à jour du profil:', error.message);
-      // Optionnel : essayer un upsert si l'update échoue (si le profil n'existe pas encore par exemple)
     } else {
-      if (__DEV__) console.log('✅ [PushToken] Token enregistré avec succès');
+      if (__DEV__) console.log('✅ [PushToken] Token mis à jour avec succès');
     }
   } catch (e: any) {
     console.error('❌ [PushToken] Exception lors de l\'enregistrement:', e?.message || e);

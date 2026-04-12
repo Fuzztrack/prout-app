@@ -494,6 +494,9 @@ export default function RootLayout() {
               logSessionSnapshot('foreground:getSession', session);
               if (session) setSession(session);
             });
+            // ✅ SÉCURITÉ : Ré-enregistrer le token push au retour au premier plan
+            // Cela permet de capturer le token si l'utilisateur vient de donner la permission dans les réglages
+            registerPushTokenForUser(user.id).catch(() => {});
           }
         }).catch(err => {
           console.warn('⚠️ Erreur validation session au retour:', err);
@@ -517,9 +520,16 @@ export default function RootLayout() {
     }
 
     try {
-      await Notifications.requestPermissionsAsync();
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status === 'granted') {
+        // Si l'utilisateur est déjà connecté, on enregistre le token immédiatement
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user?.id) {
+          registerPushTokenForUser(session.user.id).catch(() => {});
+        }
+      }
     } catch (e) {
-      console.warn('⚠️ Permission notifications refusée:', e);
+      console.warn('⚠️ Permission notifications refusée ou erreur:', e);
     }
 
     try {

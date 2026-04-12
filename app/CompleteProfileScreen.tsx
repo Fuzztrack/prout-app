@@ -5,7 +5,7 @@ import { CustomButton } from '../components/CustomButton';
 import { logSignOutIntent } from '../lib/authDebug';
 import { buildAcceptedEulaMetadata } from '../lib/eula';
 import { normalizePhone } from '../lib/normalizePhone';
-import { clearCurrentUserPushToken } from '../lib/pushTokenRegistration';
+import { registerPushTokenForUser, clearCurrentUserPushToken } from '../lib/pushTokenRegistration';
 import { safePush, safeReplace } from '../lib/navigation';
 import { supabase } from '../lib/supabase';
 import i18n from '../lib/i18n';

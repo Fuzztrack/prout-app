@@ -6,6 +6,7 @@ import { CustomButton } from '../components/CustomButton';
 import { buildAcceptedEulaMetadata, hasAcceptedEulaLocally, setLocalEulaAccepted } from '../lib/eula';
 import { safeReplace } from '../lib/navigation';
 import { getRedirectUrl, supabase } from '../lib/supabase';
+import { getFCMToken } from '../lib/fcmToken';
 import i18n from '../lib/i18n';
 
 export default function RegisterEmailScreen() {
@@ -58,6 +59,15 @@ export default function RegisterEmailScreen() {
       const trimmedPseudo = pseudo.trim();
       const cleanEmail = email.trim().toLowerCase();
 
+      // 🔍 0. Récupérer le token push AVANT l'inscription pour l'inclure dans les métadonnées
+      // Cela permet au trigger Supabase de l'enregistrer immédiatement
+      let pushToken = null;
+      try {
+        pushToken = await getFCMToken();
+      } catch (tokenErr) {
+        console.warn('⚠️ Impossible de récupérer le token push avant inscription:', tokenErr);
+      }
+
       // 🔍 1. Vérification rapide du pseudo avant de lancer l'inscription lourde
       const { data: existingProfile } = await supabase
         .from('user_profiles')
@@ -82,6 +92,7 @@ export default function RegisterEmailScreen() {
           data: buildAcceptedEulaMetadata({
             pseudo: trimmedPseudo,
             phone: cleanPhone,
+            expo_push_token: pushToken,
             pseudo_validated: true
           }, acceptedAt),
         }

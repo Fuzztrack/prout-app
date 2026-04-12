@@ -6,6 +6,7 @@ import { CustomButton } from '../components/CustomButton';
 import { logSessionSnapshot, maskToken } from '../lib/authDebug';
 import { ensureUserEulaAccepted, hasAcceptedEulaLocally, isUserEulaAccepted, syncLocalEulaAcceptanceFromUser } from '../lib/eula';
 import { safePush, safeReplace } from '../lib/navigation';
+import { registerPushTokenForUser } from '../lib/pushTokenRegistration';
 import { getRedirectUrl, supabase } from '../lib/supabase';
 import i18n from '../lib/i18n';
 
@@ -200,6 +201,13 @@ export default function AuthChoiceScreen() {
             
             if (data.session?.user) {
               console.log('✅ Session créée pour:', data.session.user.id);
+              
+              // ✅ TENTATIVE D'ENREGISTREMENT DU TOKEN PUSH IMMÉDIATE APRÈS OAUTH
+              // Sur iOS, le retour du navigateur peut parfois être trop rapide pour le listener global
+              registerPushTokenForUser(data.session.user.id).catch(err => {
+                console.warn('⚠️ Erreur enregistrement token post-OAuth:', err);
+              });
+
               console.log('🍏 [AuthDebug:oauthTokens]', {
                 accessTokenPreview: maskToken(accessToken),
                 refreshTokenPreview: maskToken(refreshToken),
