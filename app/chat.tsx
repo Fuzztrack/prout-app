@@ -42,6 +42,7 @@ import {
   fetchPendingReceivedViaBackend,
   fetchPendingSentViaBackend,
   markConversationReadViaBackend,
+  purgeChatViaBackend,
   sendProutViaBackend,
 } from '@/lib/sendProutBackend';
 import {
@@ -263,7 +264,8 @@ export default function ChatScreen() {
     setReactions,
     retentionHours, 
     setRetentionHours, 
-    cleanupExpired 
+    cleanupExpired,
+    clearHistory 
   } = useChatStore();
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -460,6 +462,20 @@ export default function ChatScreen() {
     // Sauvegarde dans le store persistant
     addReceivedMessages(friendId, incomingWithTs);
 
+    // Si on est en mode instantané (0), addReceivedMessages ne fait rien dans le store.
+    // On fusionne donc la mise à jour locale pour que les messages soient visibles.
+    if (retentionHours === 0) {
+      setReceivedMessages(prev => {
+        const next = [...prev];
+        incomingWithTs.forEach(m => {
+          if (!next.some(em => em.id === m.id)) {
+            next.push(m);
+          }
+        });
+        return next;
+      });
+    }
+
     const incomingIds = filteredIncoming.map((m) => m.id);
     const newIncoming = filteredIncoming.filter((m) => !knownIncomingMessageIdsRef.current.has(m.id));
     // knownIncomingMessageIdsRef est mis à jour dans le useEffect de sync
@@ -488,7 +504,18 @@ export default function ChatScreen() {
 
     // Sauvegarde dans le store persistant
     addSentMessages(friendId, serverSent);
-  }, [currentUserId, friendId, isHapticEnabled, addReceivedMessages, addSentMessages]);
+    if (retentionHours === 0) {
+      setSentMessages(prev => {
+        const next = [...prev];
+        serverSent.forEach(m => {
+          if (!next.some(em => em.id === m.id)) {
+            next.push(m);
+          }
+        });
+        return next;
+      });
+    }
+  }, [currentUserId, friendId, isHapticEnabled, addReceivedMessages, addSentMessages, retentionHours]);
 
   const triggerGlobalMessageRefresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['pendingMessages'] });
@@ -580,6 +607,15 @@ export default function ChatScreen() {
             // Mise à jour du store persistant IMMEDIATEMENT
             addReceivedMessages(friendId, [{ ...newMessage, local_ts: Date.now() }]);
 
+            // Si on est en mode instantané (0), addReceivedMessages ne fait rien dans le store.
+            // On force donc l'affichage local dans receivedMessages pour que l'utilisateur le voie.
+            if (retentionHours === 0) {
+              setReceivedMessages((prev) => {
+                if (prev.some((m) => m.id === newMessage.id)) return prev;
+                return [...prev, { ...newMessage, local_ts: Date.now() }];
+              });
+            }
+
             queryClient.invalidateQueries({ queryKey: ['pendingMessages'] });
             queryClient.invalidateQueries({ queryKey: ['friends'] });
             DeviceEventEmitter.emit('REFRESH_DATA', { source: 'chat_insert' });
@@ -631,7 +667,7 @@ export default function ChatScreen() {
       return () => {
         supabase.removeChannel(channel);
       };
-    }, [currentUserId, friendId, isHapticEnabled, queryClient, triggerGlobalMessageRefresh])
+    }, [currentUserId, friendId, isHapticEnabled, queryClient, triggerGlobalMessageRefresh, retentionHours])
   );
 
   useFocusEffect(
@@ -679,6 +715,21 @@ export default function ChatScreen() {
     if (unreadIds.length === 0) return;
     void markConversationReadViaBackend(friendId, currentUserId);
   }, [currentUserId, friendId, receivedMessages]);
+
+  const retentionHoursRef = useRef(retentionHours);
+  useEffect(() => {
+    retentionHoursRef.current = retentionHours;
+  }, [retentionHours]);
+
+  useEffect(() => {
+    return () => {
+      // Purge automatique en mode instantané uniquement à la fermeture réelle du chat
+      if (retentionHoursRef.current === 0 && currentUserId && friendId) {
+        void purgeChatViaBackend(currentUserId, friendId);
+        clearHistory(friendId);
+      }
+    };
+  }, [currentUserId, friendId, clearHistory]); // On ne met pas retentionHours ici pour éviter le déclenchement au toggle
 
   useKeyboardHandler({
     onMove: (e: { height: number }) => {
@@ -1222,9 +1273,8 @@ export default function ChatScreen() {
               onPress={() => {
                 const next = retentionHours === 12 ? 0 : 12;
                 setRetentionHours(next);
-                if (next === 0) {
-                  setReceivedMessages([]);
-                  setSentMessages([]);
+                if (next === 12) {
+                  void refreshMessages();
                 }
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
               }}

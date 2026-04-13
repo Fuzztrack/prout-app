@@ -26,16 +26,30 @@ function bumpVersion() {
   fs.writeFileSync(PACKAGE_JSON_PATH, JSON.stringify(packageJson, null, 2) + '\n');
   console.log(`✅ package.json mis à jour : ${newVersion}`);
 
-  // 3. Mettre à jour app/(tabs)/index.tsx (fallback version)
+  // 3. Mettre à jour app/(tabs)/index.tsx (fallback version et texte UI)
   let indexTsx = fs.readFileSync(INDEX_TSX_PATH, 'utf8');
   const indexVersionRegex = /(const appVersion = Constants\.expoConfig\?\.version \?\? ')[0-9.]+(';)/;
+  const uiVersionRegex = /(`Proot ! version \${appVersion}`)|(Proot ! version )[0-9.]+/g;
   
+  let modified = false;
   if (indexVersionRegex.test(indexTsx)) {
     indexTsx = indexTsx.replace(indexVersionRegex, `$1${newVersion}$2`);
+    modified = true;
+  }
+
+  // On s'assure que si le texte est en dur quelque part (pour le rendu), il soit mis à jour
+  // Même si ici c'est une template string, on prépare le terrain pour toute variante
+  const hardcodedTextRegex = /Proot ! version [0-9.]+/g;
+  if (hardcodedTextRegex.test(indexTsx)) {
+    indexTsx = indexTsx.replace(hardcodedTextRegex, `Proot ! version ${newVersion}`);
+    modified = true;
+  }
+  
+  if (modified) {
     fs.writeFileSync(INDEX_TSX_PATH, indexTsx);
     console.log(`✅ app/(tabs)/index.tsx mis à jour : ${newVersion}`);
   } else {
-    console.warn('⚠️ Impossible de trouver la version fallback dans app/(tabs)/index.tsx');
+    console.warn('⚠️ Impossible de trouver la version dans app/(tabs)/index.tsx');
   }
 
   return newVersion;

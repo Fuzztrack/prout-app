@@ -131,12 +131,7 @@ export const useChatStore = create<ChatState>()(
       },
 
       setRetentionHours: (hours) => {
-        if (hours === 0) {
-          // Si on passe en immédiat, on vide tout l'historique
-          set({ retentionHours: 0, receivedByFriend: {}, sentByFriend: {}, messageReactionsByFriend: {} });
-        } else {
-          set({ retentionHours: hours });
-        }
+        set({ retentionHours: hours });
       },
 
       clearHistory: (friendId) => {
