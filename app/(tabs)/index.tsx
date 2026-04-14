@@ -743,7 +743,7 @@ export default function HomeScreen() {
                           <TouchableOpacity 
                             onPress={() => {
                               const url = Platform.OS === 'ios' 
-                                ? 'apps://itunes.apple.com/app/id6475736737'
+                                ? 'itms-apps://itunes.apple.com/app/id6475736737'
                                 : 'market://details?id=com.fuzztrack.proutapp';
                               Linking.openURL(url).catch(() => {});
                             }}
@@ -833,7 +833,7 @@ export default function HomeScreen() {
                         <TouchableOpacity 
                           onPress={() => {
                             const url = Platform.OS === 'ios' 
-                              ? 'apps://itunes.apple.com/app/id6475736737'
+                              ? 'itms-apps://itunes.apple.com/app/id6475736737'
                               : 'market://details?id=com.fuzztrack.proutapp';
                             Linking.openURL(url).catch(() => {});
                           }}
