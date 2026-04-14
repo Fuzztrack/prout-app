@@ -2620,11 +2620,17 @@ useEffect(() => {
           const sortedList = sortFriends(friendsList);
           // Ne jamais remplacer une liste déjà affichée par une liste vide en cas de réponse vide
           // (réseau flageolant, timeout, etc.) : on garde la liste en mémoire.
-          const shouldUpdate = sortedList.length > 0 || (appUsersRef.current?.length ?? 0) === 0;
+          // On n'autorise le vidage que si la liste était déjà vide ou si c'est un rafraîchissement manuel (isRefreshing).
+          const hadFriends = (appUsersRef.current?.length ?? 0) > 0;
+          const shouldUpdate = sortedList.length > 0 || !hadFriends || isRefreshing;
           if (shouldUpdate) {
-            setAppUsers(sortedList);
-            await saveCacheSafely(CACHE_KEY_FRIENDS, sortedList);
-            setShowFriendlistRecoveryCard(false);
+            if (sortedList.length === 0 && hadFriends && !isRefreshing) {
+              if (__DEV__) console.log('⚠️ [loadData] sortedList est vide alors qu\'on avait des amis. Remplacement ignoré par sécurité.');
+            } else {
+              setAppUsers(sortedList);
+              await saveCacheSafely(CACHE_KEY_FRIENDS, sortedList);
+              setShowFriendlistRecoveryCard(false);
+            }
           }
           }
       } else {
@@ -2633,8 +2639,16 @@ useEffect(() => {
           // on garde la liste en mémoire affichée ; elle sera mise à jour à la prochaine connexion.
           const hasNetworkError = addedFriendsResult.error != null || friendsWhereIAmFriendResult.error != null;
           if (!hasNetworkError) {
-            setAppUsers([]);
-            await saveCacheSafely(CACHE_KEY_FRIENDS, []);
+            // SÉCURITÉ : Si on avait des amis en mémoire, on ne vide pas tout au premier "0" reçu
+            // car cela peut être un glitch RLS/Supabase transitoire.
+            // On n'autorise le vidage que si la liste était déjà vide ou si c'est un rafraîchissement manuel (isRefreshing).
+            const hadFriends = (appUsersRef.current?.length ?? 0) > 0;
+            if (!hadFriends || isRefreshing) {
+              setAppUsers([]);
+              await saveCacheSafely(CACHE_KEY_FRIENDS, []);
+            } else {
+              if (__DEV__) console.log('⚠️ [loadData] Supabase a renvoyé 0 amis alors qu\'on en avait en mémoire. Vidage ignoré par sécurité.');
+            }
             setShowFriendlistRecoveryCard(false);
           }
       }

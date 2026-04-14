@@ -14,8 +14,9 @@ export type Friend = {
 export const useFriends = (userId: string | null) => {
   return useQuery({
     queryKey: ['friends', userId],
-    queryFn: async () => {
-      if (!userId) return [];
+    queryFn: async ({ queryKey }) => {
+      const [_key, uid] = queryKey;
+      if (!uid) return [];
 
       const { data: friends, error } = await supabase
         .from('friends')
@@ -29,7 +30,7 @@ export const useFriends = (userId: string | null) => {
             last_interaction_at
           )
         `)
-        .eq('user_id', userId)
+        .eq('user_id', uid)
         .eq('status', 'accepted');
 
       if (error) throw error;
@@ -50,6 +51,7 @@ export const useFriends = (userId: string | null) => {
       });
     },
     enabled: !!userId,
+    placeholderData: (previousData) => previousData, // Garder les anciennes données pendant le chargement ou si erreur
     refetchInterval: 15000,
     refetchOnWindowFocus: true,
     retry: 3,

@@ -99,8 +99,10 @@ export default function SoundcheckScreen() {
   const [previewingSoundKey, setPreviewingSoundKey] = useState<string | null>(null);
   const [isChallengeVisible, setIsChallengeVisible] = useState(false);
 
-  // Animation de "respiration" vive pour le personnage secret
+  // Animation de "respiration" vive pour le personnage secret + vibration
   const pulseScale = useSharedValue(1);
+  const shakeX = useSharedValue(0);
+
   useEffect(() => {
     pulseScale.value = withRepeat(
       withSequence(
@@ -111,10 +113,35 @@ export default function SoundcheckScreen() {
       -1,
       false
     );
+
+    shakeX.value = withRepeat(
+      withSequence(
+        // Phase active (environ 400ms pour correspondre au grossissement)
+        withSequence(
+          withTiming(-2.5, { duration: 40 }),
+          withTiming(2.5, { duration: 40 }),
+          withTiming(-2.5, { duration: 40 }),
+          withTiming(2.5, { duration: 40 }),
+          withTiming(-2.5, { duration: 40 }),
+          withTiming(2.5, { duration: 40 }),
+          withTiming(-2.5, { duration: 40 }),
+          withTiming(2.5, { duration: 40 }),
+          withTiming(-2.5, { duration: 40 }),
+          withTiming(0, { duration: 40 }),
+        ),
+        // Phase de repos (2600ms)
+        withTiming(0, { duration: 2600 }),
+      ),
+      -1,
+      false
+    );
   }, []);
 
   const pulseStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: pulseScale.value }],
+    transform: [
+      { scale: pulseScale.value },
+      { translateX: shakeX.value }
+    ],
   }));
 
   const soundTitleAsset = Image.resolveAssetSource(require('../assets/images/sound.png'));
