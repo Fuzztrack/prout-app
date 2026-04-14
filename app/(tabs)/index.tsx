@@ -18,7 +18,7 @@ import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, ActionSheetIOS, Animated, DeviceEventEmitter, Image, Keyboard, KeyboardAvoidingView, Platform, ScrollView, Share, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, Vibration, View } from 'react-native';
+import { Alert, ActionSheetIOS, Animated, DeviceEventEmitter, Image, Keyboard, KeyboardAvoidingView, Linking, Platform, ScrollView, Share, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, Vibration, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
@@ -738,7 +738,22 @@ export default function HomeScreen() {
                              </TouchableOpacity>
                            ))}
                          </View>
-                        <Text style={styles.menuVersionText}>{`Proot ! version ${appVersion}`}</Text>
+                        <View style={{ alignItems: 'center', marginTop: 8, marginBottom: 8 }}>
+                          <Text style={styles.menuVersionText}>{`Proot ! version ${appVersion}`}</Text>
+                          <TouchableOpacity 
+                            onPress={() => {
+                              const url = Platform.OS === 'ios' 
+                                ? 'https://apps.apple.com/us/app/proot-send-sounds-instantly/id6758890809'
+                                : 'https://play.google.com/store/apps/details?id=com.fuzztrack.proutapp';
+                              Linking.openURL(url).catch(() => {});
+                            }}
+                            style={{ marginTop: -4 }}
+                          >
+                            <Text style={[styles.menuVersionText, { color: '#604a3e', textDecorationLine: 'underline', opacity: 1, fontWeight: '600' }]}>
+                              {i18n.t('check_for_updates') || 'Vérifier la mise à jour'}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
                        </ScrollView>
                      </View>
                    )}
@@ -813,7 +828,22 @@ export default function HomeScreen() {
                           </TouchableOpacity>
                         ))}
                       </View>
-                      <Text style={styles.menuVersionText}>{`Proot ! version ${appVersion}`}</Text>
+                      <View style={{ alignItems: 'center', marginTop: 8, marginBottom: 8 }}>
+                        <Text style={styles.menuVersionText}>{`Proot ! version ${appVersion}`}</Text>
+                        <TouchableOpacity 
+                          onPress={() => {
+                            const url = Platform.OS === 'ios' 
+                              ? 'https://apps.apple.com/us/app/proot-send-sounds-instantly/id6758890809'
+                              : 'https://play.google.com/store/apps/details?id=com.fuzztrack.proutapp';
+                            Linking.openURL(url).catch(() => {});
+                          }}
+                          style={{ marginTop: -4 }}
+                        >
+                          <Text style={[styles.menuVersionText, { color: '#604a3e', textDecorationLine: 'underline', opacity: 1, fontWeight: '600' }]}>
+                            {i18n.t('check_for_updates') || 'Vérifier la mise à jour'}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
                     </ScrollView>
                   </View>
                 )}
