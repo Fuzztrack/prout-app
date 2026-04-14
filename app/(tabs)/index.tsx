@@ -743,8 +743,8 @@ export default function HomeScreen() {
                           <TouchableOpacity 
                             onPress={() => {
                               const url = Platform.OS === 'ios' 
-                                ? 'https://apps.apple.com/us/app/proot-send-sounds-instantly/id6758890809'
-                                : 'https://play.google.com/store/apps/details?id=com.fuzztrack.proutapp';
+                                ? 'apps://itunes.apple.com/app/id6475736737'
+                                : 'market://details?id=com.fuzztrack.proutapp';
                               Linking.openURL(url).catch(() => {});
                             }}
                             style={{ marginTop: -4 }}
@@ -833,8 +833,8 @@ export default function HomeScreen() {
                         <TouchableOpacity 
                           onPress={() => {
                             const url = Platform.OS === 'ios' 
-                              ? 'https://apps.apple.com/us/app/proot-send-sounds-instantly/id6758890809'
-                              : 'https://play.google.com/store/apps/details?id=com.fuzztrack.proutapp';
+                              ? 'apps://itunes.apple.com/app/id6475736737'
+                              : 'market://details?id=com.fuzztrack.proutapp';
                             Linking.openURL(url).catch(() => {});
                           }}
                           style={{ marginTop: -4 }}
