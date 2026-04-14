@@ -3352,6 +3352,7 @@ const i18n = new I18n({
     who_is_who: "Chi è chi?",
     blocked_friends_menu: "Amici bloccati",
     privacy_policy_menu: "Privacy",
+    check_for_updates: "Verifica aggiornamenti",
 
     // Logout & Account
     logout_success_title: "Disconnesso con successo",
@@ -3645,6 +3646,9 @@ if (Platform.OS === 'ios') {
 
 
 export default i18n;
+
+
+
 
 
 
