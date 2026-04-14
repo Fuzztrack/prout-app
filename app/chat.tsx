@@ -262,11 +262,13 @@ export default function ChatScreen() {
     addReceivedMessages, 
     addSentMessages, 
     setReactions,
-    retentionHours, 
+    retentionByFriend, 
     setRetentionHours, 
     cleanupExpired,
     clearHistory 
   } = useChatStore();
+
+  const retentionHours = retentionByFriend[friendId] ?? 12;
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentPseudo, setCurrentPseudo] = useState<string>(storePseudo || 'Un ami');
@@ -667,7 +669,7 @@ export default function ChatScreen() {
       return () => {
         supabase.removeChannel(channel);
       };
-    }, [currentUserId, friendId, isHapticEnabled, queryClient, triggerGlobalMessageRefresh, retentionHours])
+    }, [currentUserId, friendId, isHapticEnabled, queryClient, triggerGlobalMessageRefresh, retentionHours, addReceivedMessages])
   );
 
   useFocusEffect(
@@ -1272,7 +1274,7 @@ export default function ChatScreen() {
             <TouchableOpacity
               onPress={() => {
                 const next = retentionHours === 12 ? 0 : 12;
-                setRetentionHours(next);
+                setRetentionHours(friendId, next);
                 if (next === 12) {
                   void refreshMessages();
                 }

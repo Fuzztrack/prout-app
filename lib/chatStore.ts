@@ -30,19 +30,20 @@ interface ChatState {
   // Réactions indexées par friendId puis messageId
   messageReactionsByFriend: Record<string, Record<string, any[]>>;
 
-  // Rétention en heures (0 = immédiat, 12, 24)
-  retentionHours: number;
+  // Rétention par ami (id_ami -> heures, 0 = immédiat, 12, etc.)
+  retentionByFriend: Record<string, number>;
 
   // Actions
   addReceivedMessages: (friendId: string, messages: PendingMessage[]) => void;
   addSentMessages: (friendId: string, messages: VisibleSentMessage[]) => void;
   setReactions: (friendId: string, reactions: Record<string, any[]>) => void;
-  setRetentionHours: (hours: number) => void;
+  setRetentionHours: (friendId: string, hours: number) => void;
   clearHistory: (friendId: string) => void;
   cleanupExpired: () => void;
 }
 
 const MS_PER_HOUR = 3600000;
+const DEFAULT_RETENTION = 12;
 
 export const useChatStore = create<ChatState>()(
   persist(
@@ -50,10 +51,11 @@ export const useChatStore = create<ChatState>()(
       receivedByFriend: {},
       sentByFriend: {},
       messageReactionsByFriend: {},
-      retentionHours: 12,
+      retentionByFriend: {},
 
       addReceivedMessages: (friendId, newMsgs) => {
-        const { receivedByFriend, retentionHours } = get();
+        const { receivedByFriend, retentionByFriend } = get();
+        const retentionHours = retentionByFriend[friendId] ?? DEFAULT_RETENTION;
         if (retentionHours === 0) return;
 
         const current = receivedByFriend[friendId] || [];
@@ -87,7 +89,8 @@ export const useChatStore = create<ChatState>()(
       },
 
       addSentMessages: (friendId, newMsgs) => {
-        const { sentByFriend, retentionHours } = get();
+        const { sentByFriend, retentionByFriend } = get();
+        const retentionHours = retentionByFriend[friendId] ?? DEFAULT_RETENTION;
         if (retentionHours === 0) return;
 
         const current = sentByFriend[friendId] || [];
@@ -130,8 +133,14 @@ export const useChatStore = create<ChatState>()(
         });
       },
 
-      setRetentionHours: (hours) => {
-        set({ retentionHours: hours });
+      setRetentionHours: (friendId, hours) => {
+        const { retentionByFriend } = get();
+        set({ 
+          retentionByFriend: {
+            ...retentionByFriend,
+            [friendId]: hours
+          }
+        });
       },
 
       clearHistory: (friendId) => {
@@ -146,22 +155,28 @@ export const useChatStore = create<ChatState>()(
       },
 
       cleanupExpired: () => {
-        const { receivedByFriend, sentByFriend, messageReactionsByFriend, retentionHours } = get();
-        if (retentionHours === 0) return;
-
+        const { receivedByFriend, sentByFriend, messageReactionsByFriend, retentionByFriend } = get();
+        
         const now = Date.now();
-        const threshold = now - (retentionHours * MS_PER_HOUR);
-
         const newReceived: Record<string, PendingMessage[]> = {};
         const newSent: Record<string, VisibleSentMessage[]> = {};
         const newReactions: Record<string, Record<string, any[]>> = {};
 
+        // On nettoie pour chaque ami en utilisant sa propre rétention
         Object.keys(receivedByFriend).forEach(fid => {
+          const hours = retentionByFriend[fid] ?? DEFAULT_RETENTION;
+          if (hours === 0) return; // Si 0, techniquement on devrait tout supprimer ? 
+          // En fait si hours === 0, addReceivedMessages ne les ajoute même pas au store local.
+          // Mais au cas où, on traite :
+          const threshold = now - (hours * MS_PER_HOUR);
           const filtered = receivedByFriend[fid].filter(m => m.local_ts > threshold);
           if (filtered.length > 0) newReceived[fid] = filtered;
         });
 
         Object.keys(sentByFriend).forEach(fid => {
+          const hours = retentionByFriend[fid] ?? DEFAULT_RETENTION;
+          if (hours === 0) return;
+          const threshold = now - (hours * MS_PER_HOUR);
           const filtered = sentByFriend[fid].filter(m => m.local_ts > threshold);
           if (filtered.length > 0) newSent[fid] = filtered;
         });
