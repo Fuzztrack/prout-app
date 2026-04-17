@@ -75,3 +75,5 @@ temp.apks
 firebase-service-account.json
 firebase-service-account.json
 .tmp_env
+.env
+backend/.env
