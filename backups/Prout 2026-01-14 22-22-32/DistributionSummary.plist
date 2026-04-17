@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Prout.ipa</key>
+	<array>
+		<dict>
+			<key>architectures</key>
+			<array>
+				<string>arm64</string>
+			</array>
+			<key>buildNumber</key>
+			<string>8</string>
+			<key>certificate</key>
+			<dict>
+				<key>SHA1</key>
+				<string>49D595E52BF6F38F05B130580F5EC0496E4E90B6</string>
+				<key>dateExpires</key>
+				<string>14/01/2027</string>
+				<key>type</key>
+				<string>Cloud Managed Apple Distribution</string>
+			</dict>
+			<key>embeddedBinaries</key>
+			<array>
+				<dict>
+					<key>architectures</key>
+					<array>
+						<string>arm64</string>
+					</array>
+					<key>buildNumber</key>
+					<string>1</string>
+					<key>certificate</key>
+					<dict>
+						<key>SHA1</key>
+						<string>49D595E52BF6F38F05B130580F5EC0496E4E90B6</string>
+						<key>dateExpires</key>
+						<string>14/01/2027</string>
+						<key>type</key>
+						<string>Cloud Managed Apple Distribution</string>
+					</dict>
+					<key>name</key>
+					<string>React.framework</string>
+					<key>team</key>
+					<dict>
+						<key>id</key>
+						<string>3HZZD83D85</string>
+						<key>name</key>
+						<string>Mathieu Lalande</string>
+					</dict>
+					<key>versionNumber</key>
+					<string>1.0</string>
+				</dict>
+				<dict>
+					<key>architectures</key>
+					<array>
+						<string>arm64</string>
+					</array>
+					<key>buildNumber</key>
+					<string>1</string>
+					<key>certificate</key>
+					<dict>
+						<key>SHA1</key>
+						<string>49D595E52BF6F38F05B130580F5EC0496E4E90B6</string>
+						<key>dateExpires</key>
+						<string>14/01/2027</string>
+						<key>type</key>
+						<string>Cloud Managed Apple Distribution</string>
+					</dict>
+					<key>name</key>
+					<string>ReactNativeDependencies.framework</string>
+					<key>team</key>
+					<dict>
+						<key>id</key>
+						<string>3HZZD83D85</string>
+						<key>name</key>
+						<string>Mathieu Lalande</string>
+					</dict>
+					<key>versionNumber</key>
+					<string>1.0</string>
+				</dict>
+				<dict>
+					<key>architectures</key>
+					<array>
+						<string>arm64</string>
+					</array>
+					<key>buildNumber</key>
+					<string>0.12.0</string>
+					<key>certificate</key>
+					<dict>
+						<key>SHA1</key>
+						<string>49D595E52BF6F38F05B130580F5EC0496E4E90B6</string>
+						<key>dateExpires</key>
+						<string>14/01/2027</string>
+						<key>type</key>
+						<string>Cloud Managed Apple Distribution</string>
+					</dict>
+					<key>name</key>
+					<string>hermes.framework</string>
+					<key>team</key>
+					<dict>
+						<key>id</key>
+						<string>3HZZD83D85</string>
+						<key>name</key>
+						<string>Mathieu Lalande</string>
+					</dict>
+					<key>versionNumber</key>
+					<string>0.12.0</string>
+				</dict>
+			</array>
+			<key>entitlements</key>
+			<dict>
+				<key>application-identifier</key>
+				<string>3HZZD83D85.com.fuzztrack.proutapp</string>
+				<key>aps-environment</key>
+				<string>production</string>
+				<key>com.apple.developer.applesignin</key>
+				<array>
+					<string>Default</string>
+				</array>
+				<key>com.apple.developer.team-identifier</key>
+				<string>3HZZD83D85</string>
+				<key>get-task-allow</key>
+				<false/>
+			</dict>
+			<key>name</key>
+			<string>Prout.app</string>
+			<key>profile</key>
+			<dict>
+				<key>UUID</key>
+				<string>fdabd826-8b68-4818-ad4e-973aa5192083</string>
+				<key>dateExpires</key>
+				<string>14/01/2027</string>
+				<key>name</key>
+				<string>iOS Team Ad Hoc Provisioning Profile: com.fuzztrack.proutapp</string>
+			</dict>
+			<key>team</key>
+			<dict>
+				<key>id</key>
+				<string>3HZZD83D85</string>
+				<key>name</key>
+				<string>Mathieu Lalande</string>
+			</dict>
+			<key>versionNumber</key>
+			<string>1.0.0</string>
+		</dict>
+	</array>
+</dict>
+</plist>

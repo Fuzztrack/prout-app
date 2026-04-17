@@ -554,7 +554,10 @@ export function FriendsList({
   };
 
   const insets = useSafeAreaInsets();
-  const { isZenMode, isSilentMode, isHapticEnabled, pseudo: storePseudo } = useAppStore();
+  const isZenMode = useAppStore(state => state.isZenMode);
+  const isSilentMode = useAppStore(state => state.isSilentMode);
+  const isHapticEnabled = useAppStore(state => state.isHapticEnabled);
+  const storePseudo = useAppStore(state => state.pseudo);
   const queryClient = useQueryClient();
   
   const [appUsers, setAppUsers] = useState<any[]>([]);

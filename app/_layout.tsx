@@ -1,88 +1,53 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Haptics from 'expo-haptics';
-import * as Linking from 'expo-linking';
-import * as Notifications from 'expo-notifications';
 import { Stack, useRouter, useSegments } from 'expo-router';
+import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
-import * as SystemUI from 'expo-system-ui'; // ← Solution native pour fond StatusBar
+import * as SystemUI from 'expo-system-ui';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Animated, AppState, DeviceEventEmitter, NativeModules, Platform, StatusBar, StyleSheet, Text, Vibration, View } from 'react-native';
+import { ActivityIndicator, Animated, AppState, NativeModules, Platform, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-// 👇 AJOUT : Provider indispensable pour gérer le clavier Android (Emoji vs Texte)
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-
-// ✅ INITIALISATION TANSTACK QUERY
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60, // 1 minute avant de considérer les données comme périmées
-      gcTime: 1000 * 60 * 60 * 24, // Garder en cache 24h
-      retry: 2,
-    },
-  },
-});
-
-// Empêcher le splash screen de disparaître automatiquement
-SplashScreen.preventAutoHideAsync().catch(() => {
-  /* reloading the app might trigger some race conditions, ignore them */
-});
-
-// ✅ CORRECTION ROOT VIEW : Forcer la couleur de fond native AVANT que React ne monte
-// Cela évite le flash noir au démarrage (StatusBar noire)
-SystemUI.setBackgroundColorAsync("#ebb89b");
 
 import Onboarding from '../components/Onboarding';
 import EulaAcceptScreen from './eula-accept';
 import { logSessionSnapshot } from '../lib/authDebug';
 import { ensureContactPermissionWithDisclosure } from '../lib/contactConsent';
 import { hasAcceptedEulaLocally } from '../lib/eula';
-import { safePush, safeReplace } from '../lib/navigation';
-import { ensureAndroidNotificationChannel } from '../lib/notifications';
 import { supabase } from '../lib/supabase';
-
 import { registerPushTokenForUser } from '../lib/pushTokenRegistration';
-import i18n, { updateLocale } from '../lib/i18n';
+import i18n from '../lib/i18n';
 
-const ACTIVE_CHAT_FRIEND_ID_KEY = 'active_chat_friend_id_v1';
+// Services
+import { initNotificationHandler, setupNotificationListeners } from '@/lib/services/NotificationService';
+import { saveLocaleToSupabase } from '@/lib/services/AuthService';
+import { initializeApp } from '@/lib/services/AppInitializer';
 
-// 🔔 CONFIGURATION GLOBALE
-Notifications.setNotificationHandler({
-  handleNotification: async (notification) => {
-    const senderId =
-      typeof notification.request.content.data?.senderId === 'string'
-        ? notification.request.content.data.senderId
-        : null;
-    const activeChatFriendId = await AsyncStorage.getItem(ACTIVE_CHAT_FRIEND_ID_KEY);
-    const suppressSystemNotification =
-      AppState.currentState === 'active' &&
-      !!senderId &&
-      activeChatFriendId === senderId;
+// Hooks
+import { useDeepLinking } from '@/hooks/useDeepLinking';
 
-    return {
-      shouldPlaySound: !suppressSystemNotification,
-      shouldSetBadge: false,
-      shouldShowBanner: !suppressSystemNotification,
-      shouldShowList: !suppressSystemNotification,
-    };
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60,
+      gcTime: 1000 * 60 * 60 * 24,
+      retry: 2,
+    },
   },
 });
+
+SplashScreen.preventAutoHideAsync().catch(() => {});
+SystemUI.setBackgroundColorAsync("#ebb89b");
+initNotificationHandler();
 
 class AppErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
   constructor(props: { children: React.ReactNode }) {
     super(props);
     this.state = { hasError: false };
   }
-
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-
-  componentDidCatch(error: any, info: any) {
-    console.error('App error boundary caught:', error, info);
-  }
-
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(error: any, info: any) { console.error('App error boundary caught:', error, info); }
   render() {
     if (this.state.hasError) {
       return (
@@ -104,21 +69,19 @@ export default function RootLayout() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showEulaGate, setShowEulaGate] = useState(false);
   const router = useRouter();
-  const segments = useSegments();
   const [toastMessage, setToastMessage] = useState<{ title: string, body: string } | null>(null);
   const [toastOpacity] = useState(new Animated.Value(0));
+
+  // Activer le Deep Linking
+  useDeepLinking();
 
   useEffect(() => {
     const nativeSoundSettingsModule = NativeModules.SoundSettingsModule;
     nativeSoundSettingsModule?.setAppInForeground?.(AppState.currentState === 'active');
-
     const subscription = AppState.addEventListener('change', (nextState) => {
       nativeSoundSettingsModule?.setAppInForeground?.(nextState === 'active');
     });
-
-    return () => {
-      subscription.remove();
-    };
+    return () => subscription.remove();
   }, []);
 
   const showToast = (title: string, body: string) => {
@@ -130,140 +93,28 @@ export default function RootLayout() {
     ]).start(() => setToastMessage(null));
   };
 
-  // Fonction pour sauvegarder la locale dans Supabase
-  const saveLocaleToSupabase = async () => {
-    try {
-      // Forcer la mise à jour de la locale avant de sauvegarder
-      const detectedLocale = updateLocale();
-      const currentLocale = i18n.locale || detectedLocale || 'en';
-      
-      
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        
-        // Vérifier d'abord si le profil existe
-        const { data: existingProfile, error: checkError } = await supabase
-          .from('user_profiles')
-          .select('id, locale')
-          .eq('id', user.id)
-          .maybeSingle();
-        
-        if (checkError) {
-          console.error(`❌ [saveLocaleToSupabase] Erreur lors de la vérification du profil:`, checkError.message);
-          if (checkError.message.includes('column') && checkError.message.includes('locale')) {
-            console.error('❌ La colonne locale n\'existe pas dans Supabase ! Exécutez le script supabase_add_locale.sql');
-          }
-          return;
-        }
-        
-        if (!existingProfile) {
-          console.warn(`⚠️ [saveLocaleToSupabase] Profil non trouvé pour ${user.id}`);
-          return;
-        }
-        
-        
-        // Mettre à jour la locale
-        const { error } = await supabase
-          .from('user_profiles')
-          .update({ locale: currentLocale })
-          .eq('id', user.id);
-        
-        if (error) {
-          console.error(`❌ [saveLocaleToSupabase] Erreur lors de la mise à jour:`, error.message);
-          if (error.message.includes('column') && error.message.includes('locale')) {
-            console.error('❌ La colonne locale n\'existe pas dans Supabase ! Exécutez le script supabase_add_locale.sql');
-          }
-        } else {
-        }
-      } else {
-      }
-    } catch (error: any) {
-      console.error('❌ [saveLocaleToSupabase] Exception:', error?.message || error);
-    }
-  };
-
-  // Mise à jour de la langue au démarrage (important pour iOS)
   useEffect(() => {
-    // Forcer la mise à jour de la locale au démarrage de l'app
-    // Cela garantit que la langue est correctement détectée sur iOS
-    updateLocale();
-    
-    // Tenter de sauvegarder la locale si l'utilisateur est déjà connecté
-    saveLocaleToSupabase();
-  }, []);
-
-  useEffect(() => {
-    let mounted = true;
     const init = async () => {
-      try {
-        // React Native: Supabase ne rafraîchit pas automatiquement les tokens
-        // tant qu'on n'indique pas explicitement que l'app est active.
-        supabase.auth.startAutoRefresh();
-
-        // 📢 CONFIGURATION DES CANAUX ANDROID AU DÉMARRAGE
-        if (Platform.OS === 'android') {
-          await ensureAndroidNotificationChannel();
-        }
-
-        // 🔴 Réinitialiser le badge iOS au démarrage de l'app
-        if (Platform.OS === 'ios') {
-          await Notifications.setBadgeCountAsync(0);
-        }
-
-        try {
-          const { data: { session }, error } = await supabase.auth.getSession();
-          if (error) throw error;
-          
-          if (!mounted) return;
-          logSessionSnapshot('init:getSession', session);
-          setSession(session);
-          if (session?.user?.id) {
-            registerPushTokenForUser(session.user.id).catch(() => {});
-          }
-        } catch (authError) {
-          console.warn('⚠️ Erreur auth initial:', authError);
-          // Si erreur (ex: réseau), vérifier si on était connecté avant
-          const wasLoggedIn = await AsyncStorage.getItem('supabase_was_logged_in');
-          if (wasLoggedIn === 'true') {
-            console.log('⚡ Mode offline activé (basé sur supabase_was_logged_in)');
-            setOfflineAccess(true);
-          }
-        }
-        setLoading(false);
-      } catch (err) {
-        console.warn('⚠️ Init app error:', err);
-        if (mounted) setLoading(false);
-      }
+      const result = await initializeApp();
+      setSession(result.session);
+      setOfflineAccess(result.offlineAccess);
+      setShowOnboarding(result.showOnboarding);
+      setShowEulaGate(result.showEulaGate);
+      setCheckingOnboarding(false);
+      setLoading(false);
+      
+      // Sauvegarde locale au démarrage si possible
+      if (result.session) saveLocaleToSupabase();
     };
 
     init();
 
-    // Timeout de 5s pour éviter le chargement infini
-    const timeout = setTimeout(() => {
-      setLoading((currentLoading) => {
-        if (currentLoading) {
-          Alert.alert(
-            i18n.t('connection_error_title'),
-            i18n.t('connection_error_body'),
-            [{ text: i18n.t('ok') }]
-          );
-          return false; // Arrêter le chargement
-        }
-        return currentLoading;
-      });
-    }, 5000);
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (__DEV__) console.log('🔔 [AuthChange] Event:', event);
-      logSessionSnapshot(`onAuthStateChange:${event}`, session);
-      
-      // On ne met à jour la session que si on a vraiment un changement d'utilisateur
-      // ou une déconnexion explicite (SIGNED_OUT)
       if (session) {
         setSession(session);
         AsyncStorage.setItem('supabase_was_logged_in', 'true');
         saveLocaleToSupabase();
-        // Tentative d'enregistrement du token push dès que la session est dispo
         registerPushTokenForUser(session.user.id).catch(() => {});
       } else if (event === 'SIGNED_OUT') {
         setSession(null);
@@ -272,285 +123,41 @@ export default function RootLayout() {
       }
     });
 
-    const notificationListener = Notifications.addNotificationReceivedListener(async (notification) => {
-      const { title, body, data } = notification.request.content;
-      if (__DEV__) console.log('🔔 [RootLayout] Notification reçue en premier plan:', JSON.stringify(data));
-
-      // Émettre un événement global avec les données pour jouer le son et rafraîchir
-      // Si data est null ou undefined ou vide, ne rien émettre pour éviter d'écraser l'UI
-      if (data && Object.keys(data).length > 0) {
-        DeviceEventEmitter.emit('REFRESH_DATA', data);
-      }
-
-      // Vérifier si le retour haptique est activé (iOS uniquement)
-      if (Platform.OS === 'ios') {
-        try {
-          const hapticEnabled = await AsyncStorage.getItem('haptic_feedback_enabled');
-          // Vérifier explicitement : activé seulement si 'true' ou non défini (par défaut activé)
-          const shouldTriggerHaptic = hapticEnabled === null || hapticEnabled === 'true';
-          
-          console.log('🔔 [HAPTIC] Notification reçue, hapticEnabled:', hapticEnabled, 'shouldTrigger:', shouldTriggerHaptic);
-          
-          if (shouldTriggerHaptic) {
-            try {
-              // Retour haptique pour les notifications (iOS uniquement)
-              console.log('🔔 [HAPTIC] Déclenchement iOS (Heavy + séquence)...');
-              // Utiliser Heavy pour une vibration plus forte
-              await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-              // Ajouter une deuxième vibration légère après un court délai pour prolonger l'effet
-              setTimeout(async () => {
-                await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              }, 100);
-              console.log('🔔 [HAPTIC] iOS déclenché avec succès');
-            } catch (hapticError: any) {
-              console.error('❌ [HAPTIC] Erreur lors du déclenchement:', hapticError?.message || hapticError);
-            }
-          }
-        } catch (e) {
-          console.error('❌ [HAPTIC] Erreur vérification AsyncStorage:', e);
-        }
-        
-        // Sur iOS, la notification système s'affiche déjà, donc on peut retourner ici
-        return;
-      }
-      
-      if (data?.type === 'prout') {
-        showToast(title || 'Prout !', body || '');
-      } else if (data?.type === 'identity_response') {
-        showToast(i18n.t('identity_revealed_title'), body || i18n.t('identity_revealed_body'));
-      }
-    });
-
-    const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
-      const data: any = response.notification.request.content.data;
-      // Attendre un peu pour que l'app soit prête avant de naviguer
-      setTimeout(() => {
-        if (data?.type === 'identity_request') {
-          safePush(router, {
-            pathname: '/IdentityRevealScreen',
-            params: {
-              requesterId: data.requesterId,
-              requesterPseudo: data.requesterPseudo,
-            }
-          }, { skipInitialCheck: false });
-        } else if (data?.type === 'identity_response') {
-          safeReplace(router, '/(tabs)', { skipInitialCheck: false });
-        } else if (data?.type === 'prout') {
-          safeReplace(router, '/(tabs)', { skipInitialCheck: false });
-        }
-      }, 500);
-    });
+    const cleanupNotifications = setupNotificationListeners(router, showToast);
 
     return () => {
-      mounted = false;
       supabase.auth.stopAutoRefresh();
-      clearTimeout(timeout);
       subscription.unsubscribe();
-      notificationListener.remove();
-      responseListener.remove();
+      cleanupNotifications();
     };
-  }, []);
+  }, [router]);
 
-  // Masquer le splash screen une fois que le chargement initial est terminé
   useEffect(() => {
     if (!loading) {
-      SplashScreen.hideAsync().catch(console.warn);
+      SplashScreen.hideAsync().catch(() => {});
     }
   }, [loading]);
 
-  // Deep Linking
-  useEffect(() => {
-    const handleUrl = async (url: string) => {
-      if (!url) return;
-
-      // Regex flexible pour capturer les tokens dans query string (?) ou fragment (#)
-      const accessTokenMatch = url.match(/[?&#]access_token=([^&]+)/);
-      const refreshTokenMatch = url.match(/[?&#]refresh_token=([^&]+)/);
-
-      if (url.includes('confirm-email')) {
-        if (accessTokenMatch && refreshTokenMatch) {
-          try {
-            console.log('🔑 Tokens confirmation trouvés, établissement session...');
-            const { data, error } = await supabase.auth.setSession({
-              access_token: decodeURIComponent(accessTokenMatch[1]),
-              refresh_token: decodeURIComponent(refreshTokenMatch[1]),
-            });
-            if (error) console.error('❌ Erreur session confirm-email:', error);
-            else {
-              console.log('✅ Session établie pour confirm-email');
-              logSessionSnapshot('deepLink:confirm-email:setSession', data.session);
-            }
-          } catch (e) {
-            console.error('❌ Exception session confirm-email:', e);
-          }
-        }
-        safeReplace(router, '/confirm-email', { skipInitialCheck: false });
-      } 
-      else if (url.includes('reset-password')) {
-        if (accessTokenMatch && refreshTokenMatch) {
-          try {
-            console.log('🔑 Tokens reset trouvés, établissement session...');
-            const { data, error } = await supabase.auth.setSession({
-              access_token: decodeURIComponent(accessTokenMatch[1]),
-              refresh_token: decodeURIComponent(refreshTokenMatch[1]),
-            });
-            
-            if (error) {
-              console.error('❌ Erreur session reset-password:', error);
-              Alert.alert(i18n.t('error'), i18n.t('reset_link_invalid'));
-              return;
-            }
-            
-            console.log('✅ Session établie pour reset-password');
-            logSessionSnapshot('deepLink:reset-password:setSession', data.session);
-            safeReplace(router, '/reset-password', { skipInitialCheck: false });
-          } catch (err) {
-            console.error('❌ Exception session reset-password:', err);
-            Alert.alert(i18n.t('error'), i18n.t('reset_link_invalid'));
-          }
-        } else {
-          console.warn('⚠️ Lien reset sans tokens');
-          Alert.alert(i18n.t('error'), i18n.t('reset_link_invalid'));
-        }
-      }
-    };
-
-    // 1. Cold Start (App fermée)
-    Linking.getInitialURL().then((url) => {
-      if (url) handleUrl(url);
-    });
-
-    // 2. Warm Start (App en arrière-plan)
-    const subscription = Linking.addEventListener('url', (event) => handleUrl(event.url));
-    return () => subscription.remove();
-  }, []);
-
-  useEffect(() => {
-    let isMounted = true;
-    (async () => {
-      try {
-        const [onboardingSeen, welcomeSeen, eulaAccepted] = await Promise.all([
-          AsyncStorage.getItem('hasSeenOnboarding'),
-          AsyncStorage.getItem('hasSeenWelcome'),
-          hasAcceptedEulaLocally(),
-        ]);
-
-        if (welcomeSeen === 'true' && !onboardingSeen) {
-          await AsyncStorage.setItem('hasSeenOnboarding', 'true');
-        }
-
-        const shouldShowOnboarding =
-          (!onboardingSeen || onboardingSeen !== 'true') &&
-          (!welcomeSeen || welcomeSeen !== 'true');
-
-        if (isMounted) {
-          setShowOnboarding(shouldShowOnboarding);
-          setShowEulaGate(!shouldShowOnboarding && !eulaAccepted);
-        }
-      } catch (error) {
-        console.warn('❌ Vérification onboarding impossible:', error);
-      } finally {
-        if (isMounted) setCheckingOnboarding(false);
-      }
-    })();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [segments.join('/')]);
-
-  // 🔴 Réinitialiser le badge iOS et RAFRAICHIR LA SESSION quand l'app revient au premier plan
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (nextAppState) => {
-      if (nextAppState === 'active') {
-        if (__DEV__) console.log('🧭 [AppState] active -> startAutoRefresh');
-        supabase.auth.startAutoRefresh();
-
-        // 1. Réinitialiser le badge
-        if (Platform.OS === 'ios') {
-          Notifications.setBadgeCountAsync(0).catch(err => {
-            console.warn('⚠️ Impossible de réinitialiser le badge:', err);
-          });
-        }
-        
-        // 2. RAFRAICHIR LA SESSION SUPABASE
-        // getUser() est plus lent mais plus sûr : il valide le token avec le serveur
-        // et déclenche un rafraîchissement (refresh_token) s'il est expiré.
-        supabase.auth.getUser().then(({ data: { user } }) => {
-          if (__DEV__) {
-            console.log('🧭 [Session:foreground:getUser]', {
-              hasUser: !!user,
-              userId: user?.id,
-              provider:
-                user?.app_metadata?.provider ||
-                user?.identities?.[0]?.provider ||
-                'unknown',
-            });
-          }
-          if (user) {
-            if (__DEV__) console.log('🔄 Session validée/rafraîchie au retour au premier plan');
-            // Récupérer la session complète pour mettre à jour l'état
-            supabase.auth.getSession().then(({ data: { session } }) => {
-              logSessionSnapshot('foreground:getSession', session);
-              if (session) setSession(session);
-            });
-            // ✅ SÉCURITÉ : Ré-enregistrer le token push au retour au premier plan
-            // Cela permet de capturer le token si l'utilisateur vient de donner la permission dans les réglages
-            registerPushTokenForUser(user.id).catch(() => {});
-          }
-        }).catch(err => {
-          console.warn('⚠️ Erreur validation session au retour:', err);
-        });
-      } else {
-        if (__DEV__) console.log(`🧭 [AppState] ${nextAppState} -> stopAutoRefresh`);
-        supabase.auth.stopAutoRefresh();
-      }
-    });
-
-    return () => {
-      subscription.remove();
-    };
-  }, []);
-
   const handleOnboardingFinish = async () => {
-    try {
-      await AsyncStorage.setItem('hasSeenWelcome', 'true');
-    } catch (e) {
-      console.warn('❌ Impossible de stocker hasSeenWelcome:', e);
-    }
+    try { await AsyncStorage.setItem('hasSeenWelcome', 'true'); } catch (e) {}
 
+    // 1. Contacts
+    try { await ensureContactPermissionWithDisclosure(); } catch (e) {}
+
+    // 2. Notifications
     try {
       const { status } = await Notifications.requestPermissionsAsync();
       if (status === 'granted') {
-        // Si l'utilisateur est déjà connecté, on enregistre le token immédiatement
         const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user?.id) {
-          registerPushTokenForUser(session.user.id).catch(() => {});
-        }
+        if (session?.user?.id) registerPushTokenForUser(session.user.id).catch(() => {});
       }
-    } catch (e) {
-      console.warn('⚠️ Permission notifications refusée ou erreur:', e);
-    }
+    } catch (e) {}
 
-    try {
-      await ensureContactPermissionWithDisclosure();
-    } catch (e) {
-      console.warn('⚠️ Permission contacts refusée:', e);
-    }
-
+    const eulaAccepted = await hasAcceptedEulaLocally();
+    setShowEulaGate(!eulaAccepted);
     setShowOnboarding(false);
-    setShowEulaGate(!(await hasAcceptedEulaLocally()));
   };
-
-  if (loading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#ebb89b' }}>
-        <ActivityIndicator size="large" color="#ffffff" />
-      </View>
-    );
-  }
-
-  if (checkingOnboarding) {
+  if (loading || checkingOnboarding) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#ebb89b' }}>
         <ActivityIndicator size="large" color="#ffffff" />
@@ -561,11 +168,9 @@ export default function RootLayout() {
   return (
     <AppErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        {/* 👇 AJOUT : KeyboardProvider enveloppe tout pour gérer les events clavier Android */}
         <KeyboardProvider statusBarTranslucent>
           <SafeAreaProvider>
             <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#ebb89b' }}>
-              {/* StatusBar Edge-to-Edge : transparente pour permettre aux overlays de couvrir tout l'écran */}
               <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
               {!showOnboarding && !showEulaGate ? (
                 <>
@@ -577,7 +182,6 @@ export default function RootLayout() {
                     <Stack.Screen name="RegisterEmailScreen" />
                     <Stack.Screen name="CompleteProfileScreen" />
                     <Stack.Screen name="IdentityRevealScreen" options={{ presentation: 'modal' }} />
-                    {/* SearchUserScreen est maintenant intégré dans index.tsx, plus besoin de route dédiée */}
                     <Stack.Screen name="(tabs)" />
                     <Stack.Screen name="chat" options={{ gestureEnabled: true }} />
                     <Stack.Screen name="soundcheck" options={{ gestureEnabled: true }} />
@@ -587,7 +191,6 @@ export default function RootLayout() {
                     <Stack.Screen name="edit-profile" options={{ presentation: 'transparentModal', animation: 'fade', headerShown: false }} />
                     <Stack.Screen name="complicity" />
                   </Stack>
-
                   {toastMessage && (
                     <Animated.View style={[styles.toast, { opacity: toastOpacity }]}>
                       <Text style={styles.toastTitle}>{toastMessage.title}</Text>
@@ -641,3 +244,4 @@ const styles = StyleSheet.create({
     elevation: 20,
   },
 });
+

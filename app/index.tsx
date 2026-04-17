@@ -92,6 +92,18 @@ export default function Index() {
 
           if (!isMounted) return;
 
+          // ✅ FIX : Si le profil existe déjà avec un pseudo valide (pas le nom par défaut),
+          // on va directement à la Home sans vérifier les métadonnées sociales.
+          // Cela évite de redemander la complétion car les logins Google/Apple écrasent pseudo_validated.
+          if (profile && profile.pseudo && profile.pseudo !== 'Nouveau Membre') {
+            console.log('➡️ Direction: Home (profil déjà existant)');
+            if (!hasNavigated.current) {
+              hasNavigated.current = true;
+              safeReplace(router, '/(tabs)', { skipInitialCheck: false });
+            }
+            return;
+          }
+
           // Si le pseudo est dans les métadonnées mais pas dans le profil (ou = "Nouveau Membre"), le mettre à jour
           if (pseudoFromMetadata && (!profile || profile.pseudo === 'Nouveau Membre' || !profile.pseudo)) {
             // Attendre un peu pour laisser le trigger créer le profil si nécessaire

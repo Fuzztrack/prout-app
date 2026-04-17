@@ -2,7 +2,7 @@
   "expo": {
     "name": "Proot !",
     "slug": "prrtapp",
-    "version": "1.1.17",
+    "version": "1.1.19",
     "orientation": "portrait",
     "icon": "./asset/images/Prrt_icon.png",
     "scheme": "prootapp",
@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.prrt.app",
-      "buildNumber": "59",
+      "buildNumber": "64",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "CFBundleDisplayName": "Proot !",
@@ -38,7 +38,7 @@
         "backgroundColor": "#ebb89b"
       },
       "package": "com.fuzztrack.proutapp",
-      "versionCode": 186,
+      "versionCode": 188,
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.MODIFY_AUDIO_SETTINGS",
@@ -55,14 +55,14 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      "./withIOSPrrtSounds",
-      "./withAndroidNotificationMetadata",
-      "./withAndroidProutMessaging",
-      "./withAndroidAppName",
-      "./withIOSAppName",
-      "./withIOSContactsLocalization",
-      "./withVolumeManager",
-      "./withSoundSettings",
+      "./plugins/withIOSPrrtSounds",
+      "./plugins/withAndroidNotificationMetadata",
+      "./plugins/withAndroidProutMessaging",
+      "./plugins/withAndroidAppName",
+      "./plugins/withIOSAppName",
+      "./plugins/withIOSContactsLocalization",
+      "./plugins/withVolumeManager",
+      "./plugins/withSoundSettings",
       "expo-router",
       "expo-secure-store",
       "expo-apple-authentication",
@@ -141,7 +141,7 @@
       ],
       "expo-localization",
       "expo-asset",
-      "./withRemoveLocationPermission",
+      "./plugins/withRemoveLocationPermission",
       "expo-font"
     ],
     "assetBundlePatterns": [

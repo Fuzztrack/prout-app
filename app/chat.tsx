@@ -60,6 +60,11 @@ import {
   SOUND_KEYS_BY_CATEGORY,
 } from '@/lib/runtimeSounds';
 
+import { ReceivedBubble } from '@/components/chat/ReceivedBubble';
+import { SentBubble } from '@/components/chat/SentBubble';
+import { ChatComposer } from '@/components/chat/ChatComposer';
+import { chatStyles as bubbleStyles } from '@/components/chat/chatStyles';
+
 type ParsedMessage = {
   text: string;
   isRead: boolean;
@@ -162,89 +167,6 @@ function isUuid(value?: string | null) {
   return !!value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
-function ReceivedBubble({
-  message,
-  onReplay,
-  onLongPressReact,
-  reaction,
-}: {
-  message: { id: string; text: string; soundKey?: string; createdAt?: string; senderId: string };
-  onReplay: (soundKey?: string) => void;
-  onLongPressReact: (messageId: string) => void;
-  reaction?: string;
-}) {
-  const [isReplayActive, setIsReplayActive] = useState(false);
-  const canReplaySound = !!message.soundKey && message.soundKey !== 'mute';
-
-  return (
-    <View style={styles.receivedBubbleWrapper}>
-      <View style={{ position: 'relative' }}>
-        <TouchableOpacity
-          activeOpacity={0.88}
-          onPress={() => {
-            if (!canReplaySound) return;
-            setIsReplayActive(true);
-            playSound(message.soundKey, {
-              onEnd: () => setIsReplayActive(false),
-            });
-            onReplay(message.soundKey);
-          }}
-          onLongPress={() => onLongPressReact(message.id)}
-          style={[
-            styles.receivedBubble,
-            canReplaySound ? styles.receivedBubbleWithIcon : undefined,
-            isReplayActive && styles.receivedBubbleActive,
-          ]}
-        >
-          {canReplaySound ? (
-            <Ionicons
-              name="play"
-              size={16}
-              color="#604a3e"
-              style={styles.receivedPlayIcon}
-              accessibilityLabel={i18n.t('chat_replay_sound_hint')}
-            />
-          ) : null}
-          <Text style={styles.receivedText}>{message.text}</Text>
-        </TouchableOpacity>
-        {reaction ? (
-          <View style={styles.receivedReactionBadge}>
-            <Text style={styles.reactionBadgeText}>{reaction}</Text>
-          </View>
-        ) : null}
-      </View>
-    </View>
-  );
-}
-
-function SentBubble({
-  message,
-  onLongPressReact,
-  reaction,
-}: {
-  message: VisibleSentMessage;
-  onLongPressReact: (messageId: string) => void;
-  reaction?: string;
-}) {
-  return (
-    <View style={styles.sentBubbleWrapper}>
-      <View style={{ position: 'relative' }}>
-        <TouchableOpacity activeOpacity={0.92} onLongPress={() => onLongPressReact(message.id)}>
-          <View style={[styles.sentBubble, message.status === 'read' && styles.sentBubbleRead]}>
-            <Text style={styles.sentText}>{message.text}</Text>
-          </View>
-        </TouchableOpacity>
-        {reaction ? (
-          <View style={styles.sentReactionBadge}>
-            <Text style={styles.reactionBadgeText}>{reaction}</Text>
-          </View>
-        ) : null}
-      </View>
-      {message.status === 'read' ? <Text style={styles.sentRead}>{i18n.t('message_read')}</Text> : null}
-    </View>
-  );
-}
-
 export default function ChatScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -254,19 +176,21 @@ export default function ChatScreen() {
   const pseudoParam = typeof params.pseudo === 'string' ? params.pseudo : '';
   const pendingSoundKeyParam = typeof params.pendingSoundKey === 'string' ? params.pendingSoundKey : '';
 
-  const { isZenMode, isSilentMode, isHapticEnabled, pseudo: storePseudo } = useAppStore();
-  const { 
-    receivedByFriend, 
-    sentByFriend, 
-    messageReactionsByFriend,
-    addReceivedMessages, 
-    addSentMessages, 
-    setReactions,
-    retentionByFriend, 
-    setRetentionHours, 
-    cleanupExpired,
-    clearHistory 
-  } = useChatStore();
+  const isZenMode = useAppStore(state => state.isZenMode);
+  const isSilentMode = useAppStore(state => state.isSilentMode);
+  const isHapticEnabled = useAppStore(state => state.isHapticEnabled);
+  const storePseudo = useAppStore(state => state.pseudo);
+
+  const receivedByFriend = useChatStore(state => state.receivedByFriend);
+  const sentByFriend = useChatStore(state => state.sentByFriend);
+  const messageReactionsByFriend = useChatStore(state => state.messageReactionsByFriend);
+  const addReceivedMessages = useChatStore(state => state.addReceivedMessages);
+  const addSentMessages = useChatStore(state => state.addSentMessages);
+  const setReactions = useChatStore(state => state.setReactions);
+  const retentionByFriend = useChatStore(state => state.retentionByFriend);
+  const setRetentionHours = useChatStore(state => state.setRetentionHours);
+  const cleanupExpired = useChatStore(state => state.cleanupExpired);
+  const clearHistory = useChatStore(state => state.clearHistory);
 
   const retentionHours = retentionByFriend[friendId] ?? 12;
 
@@ -275,8 +199,6 @@ export default function ChatScreen() {
   const [friend, setFriend] = useState<FriendProfile | null>(null);
   const [draft, setDraft] = useState('');
   const [loadingFriend, setLoadingFriend] = useState(true);
-  const [sending, setSending] = useState(false);
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [isChatMuteEnabled, setIsChatMuteEnabled] = useState(false);
   const [chatSoundPickerVisible, setChatSoundPickerVisible] = useState(false);
   const [chatSoundCategory, setChatSoundCategory] = useState<ChatMessageSoundChoice>(
@@ -294,8 +216,8 @@ export default function ChatScreen() {
   const [reactionPickerVisible, setReactionPickerVisible] = useState(false);
   const [pendingReactionTarget, setPendingReactionTarget] = useState<PendingReactionTarget | null>(null);
   const [showFirstChatOnboarding, setShowFirstChatOnboarding] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
-  const lastRandomSoundRef = useRef<string | undefined>(undefined);
   // On remplit le Set des IDs connus avec ceux déjà présents en cache
   const knownIncomingMessageIdsRef = useRef<Set<string>>(new Set(receivedMessages.map(m => m.id)));
   const hasHydratedIncomingMessagesRef = useRef(false);
@@ -303,28 +225,20 @@ export default function ChatScreen() {
   const inputRef = useRef<TextInput | null>(null);
   const reopenKeyboardAfterSoundPickRef = useRef(false);
   const keyboardHeightSV = useSharedValue(0);
-  const keyboardVisibleRef = useRef(false);
 
   const pulseScale = useSharedValue(1);
 
   // Nettoyage des messages expirés au montage
   useEffect(() => {
+    // Si aucune rétention n'est définie pour cet ami, on force 12h par défaut dans le store
+    if (friendId && retentionByFriend[friendId] === undefined) {
+      setRetentionHours(friendId, 12);
+    }
     cleanupExpired();
-  }, [cleanupExpired]);
+  }, [cleanupExpired, friendId, retentionByFriend, setRetentionHours]);
 
-  useEffect(() => {
-    const onShow = () => {
-      keyboardVisibleRef.current = true;
-    };
-    const onHide = () => {
-      keyboardVisibleRef.current = false;
-    };
-    const subShow = Keyboard.addListener('keyboardDidShow', onShow);
-    const subHide = Keyboard.addListener('keyboardDidHide', onHide);
-    return () => {
-      subShow.remove();
-      subHide.remove();
-    };
+  const handleMessageSent = useCallback((msg: VisibleSentMessage) => {
+    setSentMessages((prev) => [...prev, msg]);
   }, []);
 
   useEffect(() => {
@@ -342,6 +256,11 @@ export default function ChatScreen() {
   const pulseAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pulseScale.value }],
   }));
+
+  const currentUserIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    currentUserIdRef.current = currentUserId;
+  }, [currentUserId]);
 
   useEffect(() => {
     return () => {
@@ -404,14 +323,13 @@ export default function ChatScreen() {
   }, [loadChatContext]);
 
   useEffect(() => {
-    AsyncStorage.getItem(CHAT_MESSAGE_MUTE_KEY)
+    if (!friendId) return;
+    AsyncStorage.getItem(CHAT_MESSAGE_MUTE_KEY + '_' + friendId)
       .then((savedMute) => {
-        if (savedMute === '1') {
-          setIsChatMuteEnabled(true);
-        }
+        setIsChatMuteEnabled(savedMute === '1');
       })
       .catch(() => {});
-  }, []);
+  }, [friendId]);
 
   useEffect(() => {
     if (pendingSoundKeyParam && SOUND_ASSETS[pendingSoundKeyParam]) {
@@ -459,17 +377,14 @@ export default function ChatScreen() {
       .filter((m: any) => m.from_user_id === friendId)
       .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) as PendingMessage[];
 
-    const incomingWithTs = filteredIncoming.map(m => ({ ...m, local_ts: Date.now() }));
-    
     // Sauvegarde dans le store persistant
-    addReceivedMessages(friendId, incomingWithTs);
+    addReceivedMessages(friendId, filteredIncoming);
 
     // Si on est en mode instantané (0), addReceivedMessages ne fait rien dans le store.
-    // On fusionne donc la mise à jour locale pour que les messages soient visibles.
     if (retentionHours === 0) {
       setReceivedMessages(prev => {
         const next = [...prev];
-        incomingWithTs.forEach(m => {
+        filteredIncoming.forEach(m => {
           if (!next.some(em => em.id === m.id)) {
             next.push(m);
           }
@@ -499,7 +414,6 @@ export default function ChatScreen() {
           ts: m.created_at,
           status: parsed.isRead ? ('read' as const) : undefined,
           readAt: parsed.isRead ? Date.now() : undefined,
-          local_ts: Date.now(),
         } satisfies VisibleSentMessage;
       })
       .sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
@@ -510,8 +424,12 @@ export default function ChatScreen() {
       setSentMessages(prev => {
         const next = [...prev];
         serverSent.forEach(m => {
-          if (!next.some(em => em.id === m.id)) {
+          const idx = next.findIndex(em => em.id === m.id);
+          if (idx === -1) {
             next.push(m);
+          } else {
+            // Mise à jour du statut (lu) sur le message existant
+            next[idx] = { ...next[idx], status: m.status, readAt: m.readAt };
           }
         });
         return next;
@@ -548,38 +466,51 @@ export default function ChatScreen() {
     }, [friendId])
   );
 
-  useEffect(() => {
-    if (!currentUserId || !friendId) return;
-    const interval = setInterval(() => {
-      void refreshMessages();
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [currentUserId, friendId, refreshMessages]);
-
   // Synchronisation avec le store persistant (pour l'hydratation et l'historique 12h)
   useEffect(() => {
     const fromStore = receivedByFriend[friendId] || [];
-    setReceivedMessages(fromStore);
+    setReceivedMessages(prev => {
+      // On ne veut pas que les messages disparaissent IMMEDIATEMENT si on passe en mode 0h
+      // On garde donc ce qu'on a déjà, et on ajoute ce qui vient du store (nouveautés)
+      const next = [...prev];
+      fromStore.forEach(m => {
+        if (!next.some(em => em.id === m.id)) {
+          next.push(m);
+        }
+      });
+      return next.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    });
     knownIncomingMessageIdsRef.current = new Set(fromStore.map(m => m.id));
   }, [receivedByFriend, friendId]);
 
   useEffect(() => {
     const fromStore = sentByFriend[friendId] || [];
     setSentMessages(prev => {
-      const optimistic = prev.filter(m => m.optimistic);
-      // On fusionne le store avec les messages optimistiques non encore confirmés
+      // 1. On part des messages officiels du store
       const next = [...fromStore];
-      optimistic.forEach(opt => {
-        const alreadyInStore = fromStore.some(m => 
-          m.id === opt.id || (m.text === opt.text && m.soundKey === opt.soundKey && Math.abs(new Date(m.ts).getTime() - new Date(opt.ts).getTime()) < 10000)
+      
+      // 2. Gestion des messages déjà à l'écran (optimistes ou mode 0h)
+      prev.forEach(existing => {
+        // Est-ce que ce message est déjà représenté dans le store ?
+        const isRepresented = fromStore.some(m => 
+          m.id === existing.id || 
+          (m.text === existing.text && 
+           m.soundKey === existing.soundKey && 
+           Math.abs(new Date(m.ts).getTime() - new Date(existing.ts).getTime()) < 20000)
         );
-        if (!alreadyInStore) {
-          next.push(opt);
+
+        if (!isRepresented) {
+          // Si on est en mode 0h, on garde tout ce qui n'est pas dans le store
+          // Si on est en mode 12h, on ne garde que les messages optimistes non encore confirmés
+          if (retentionHours === 0 || existing.optimistic) {
+            next.push(existing);
+          }
         }
       });
+
       return next.sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
     });
-  }, [sentByFriend, friendId]);
+  }, [sentByFriend, friendId, retentionHours]);
 
   useFocusEffect(
     useCallback(() => {
@@ -634,12 +565,47 @@ export default function ChatScreen() {
         .on(
           'postgres_changes',
           {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'pending_messages',
+            filter: `from_user_id=eq.${currentUserId}`,
+          },
+          (payload: any) => {
+            // Un message que j'ai envoyé a été mis à jour (ex: marqué comme LU)
+            const updated = payload.new;
+            if (updated.to_user_id !== friendId) return;
+            
+            const parsed = parseMessageContent(updated.message_content);
+            const serverSent: VisibleSentMessage = {
+              id: updated.id,
+              text: parsed.text,
+              soundKey: parsed.soundKey,
+              ts: updated.created_at,
+              status: parsed.isRead ? 'read' : undefined,
+              readAt: parsed.isRead ? Date.now() : undefined,
+              local_ts: 0, // Sera préservé par le store
+            };
+
+            addSentMessages(friendId, [serverSent]);
+            
+            // Si mode 0h, on met aussi à jour l'écran
+            if (retentionHours === 0) {
+              setSentMessages(prev => {
+                return prev.map(m => m.id === updated.id ? { ...m, status: serverSent.status, readAt: serverSent.readAt } : m);
+              });
+            }
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
             event: '*',
             schema: 'public',
             table: 'pending_messages',
             filter: `from_user_id=eq.${currentUserId}`,
           },
           (payload: any) => {
+            if (payload.eventType === 'UPDATE') return;
             const targetUserId =
               payload.eventType === 'DELETE'
                 ? (payload.old as any)?.to_user_id
@@ -669,7 +635,7 @@ export default function ChatScreen() {
       return () => {
         supabase.removeChannel(channel);
       };
-    }, [currentUserId, friendId, isHapticEnabled, queryClient, triggerGlobalMessageRefresh, retentionHours, addReceivedMessages])
+    }, [currentUserId, friendId, isHapticEnabled, queryClient, triggerGlobalMessageRefresh, retentionHours, addReceivedMessages, addSentMessages])
   );
 
   useFocusEffect(
@@ -718,51 +684,40 @@ export default function ChatScreen() {
     void markConversationReadViaBackend(friendId, currentUserId);
   }, [currentUserId, friendId, receivedMessages]);
 
-  const retentionHoursRef = useRef(retentionHours);
-  useEffect(() => {
-    retentionHoursRef.current = retentionHours;
-  }, [retentionHours]);
-
   useEffect(() => {
     return () => {
+      // On utilise les refs pour avoir les valeurs à jour au moment du démontage réel
+      const finalUserId = currentUserIdRef.current;
+      const hours = useChatStore.getState().retentionByFriend[friendId] ?? 12;
+
       // Purge automatique en mode instantané uniquement à la fermeture réelle du chat
-      if (retentionHoursRef.current === 0 && currentUserId && friendId) {
-        void purgeChatViaBackend(currentUserId, friendId);
+      if (hours === 0 && finalUserId && friendId) {
+        void purgeChatViaBackend(finalUserId, friendId);
         clearHistory(friendId);
       }
     };
-  }, [currentUserId, friendId, clearHistory]); // On ne met pas retentionHours ici pour éviter le déclenchement au toggle
+  }, [friendId, clearHistory]); // On dépend de friendId car c'est lui qui définit la conversation
 
   useKeyboardHandler({
     onMove: (e: { height: number }) => {
       'worklet';
       if (Platform.OS !== 'android') return;
       keyboardHeightSV.value = e.height;
-      runOnJS(setKeyboardVisible)(e.height > 0);
     },
-    onInteractive: (e: { height: number }) => {
+    onStart: (e: { height: number }) => {
       'worklet';
-      if (Platform.OS !== 'android') return;
-      keyboardHeightSV.value = e.height;
-      runOnJS(setKeyboardVisible)(e.height > 0);
+      if (e.height > 0) {
+        runOnJS(setIsKeyboardVisible)(true);
+      }
     },
     onEnd: (e: { height: number }) => {
       'worklet';
-      if (Platform.OS !== 'android') return;
-      keyboardHeightSV.value = e.height;
-      runOnJS(setKeyboardVisible)(e.height > 0);
+      if (Platform.OS === 'android') {
+        keyboardHeightSV.value = e.height;
+      }
+      runOnJS(setIsKeyboardVisible)(e.height > 0);
     },
   });
-
-  useEffect(() => {
-    if (Platform.OS !== 'ios') return;
-    const subShow = Keyboard.addListener('keyboardWillShow', () => setKeyboardVisible(true));
-    const subHide = Keyboard.addListener('keyboardWillHide', () => setKeyboardVisible(false));
-    return () => {
-      subShow.remove();
-      subHide.remove();
-    };
-  }, []);
 
   const composerKeyboardStyle = useAnimatedStyle(() => {
     if (Platform.OS !== 'android') return {};
@@ -1043,14 +998,15 @@ export default function ChatScreen() {
     setChatSoundPickerVisible(false);
     setIsChatMuteEnabled((prev) => {
       const next = !prev;
-      AsyncStorage.setItem(CHAT_MESSAGE_MUTE_KEY, next ? '1' : '0').catch(() => {});
+      if (friendId) {
+        AsyncStorage.setItem(CHAT_MESSAGE_MUTE_KEY + '_' + friendId, next ? '1' : '0').catch(() => {});
+      }
       return next;
     });
-  }, []);
+  }, [friendId]);
 
   const openChatSoundPicker = useCallback(() => {
-    reopenKeyboardAfterSoundPickRef.current = keyboardVisibleRef.current;
-    Keyboard.dismiss();
+        Keyboard.dismiss();
     setChatSoundPickerVisible(true);
   }, []);
 
@@ -1072,157 +1028,6 @@ export default function ChatScreen() {
     }
   }, []);
 
-  const handleSend = useCallback(async () => {
-    if (!friend || !currentUserId) return;
-
-    const customMessage = draft.trim().slice(0, 140);
-    if (!customMessage) return;
-
-    if (isZenMode) {
-      Alert.alert(i18n.t('zen_mode_active_me_title'), i18n.t('zen_mode_active_me_body'));
-      return;
-    }
-
-    if (friend.is_zen_mode) {
-      Alert.alert(
-        i18n.t('zen_mode_active_friend_title'),
-        i18n.t('zen_mode_active_friend_body', { pseudo: friend.pseudo })
-      );
-      return;
-    }
-
-    try {
-      const { data: muteCheck } = await supabase
-        .from('friends')
-        .select('is_muted')
-        .eq('user_id', friend.id)
-        .eq('friend_id', currentUserId)
-        .maybeSingle();
-
-      if (muteCheck?.is_muted) {
-        Alert.alert(
-          i18n.t('mute_mode_active_title'),
-          i18n.t('mute_mode_active_body', { pseudo: friend.pseudo })
-        );
-        return;
-      }
-    } catch (e) {
-      console.error('❌ Erreur vérification sourdine:', e);
-    }
-
-    if (!friend.expo_push_token) {
-      Alert.alert(
-        i18n.t('error'), 
-        i18n.t('notifications_not_enabled', { pseudo: friend.pseudo }),
-        [
-          { text: i18n.t('ok'), style: 'cancel' },
-          { 
-            text: i18n.t('retry'), 
-            onPress: async () => {
-              // Rafraîchir le profil de l'ami pour voir si le token est arrivé
-              const { data: profile } = await supabase
-                .from('user_profiles')
-                .select('expo_push_token, push_platform')
-                .eq('id', friend.id)
-                .single();
-              
-              if (profile?.expo_push_token) {
-                setFriend(prev => prev ? ({ ...prev, expo_push_token: profile.expo_push_token, push_platform: profile.push_platform || prev.push_platform }) : null);
-              } else {
-                // Toujours pas de token, on peut ré-afficher l'alerte ou ne rien faire
-              }
-            } 
-          }
-        ]
-      );
-      return;
-    }
-
-    setSending(true);
-
-    try {
-      let randomKey: string;
-      let isSilentMessage = false;
-
-      if (isChatMuteEnabled) {
-        randomKey = 'mute';
-        isSilentMessage = true;
-      } else if (pendingChatSoundKey) {
-        randomKey = pendingChatSoundKey;
-      } else {
-        const savedMap = await AsyncStorage.getItem(FRIEND_SOUND_CATEGORY_MAP_KEY);
-        const parsedMap = savedMap ? JSON.parse(savedMap) : {};
-        const selectedCategory = parsedMap?.[friend.id] || (await getSelectedSoundCategory());
-        const candidates =
-          SOUND_KEYS_BY_CATEGORY[selectedCategory] ||
-          SOUND_KEYS_BY_CATEGORY[DIRECT_SEND_FALLBACK_CATEGORY] ||
-          SOUND_KEYS_BY_CATEGORY.trll;
-        randomKey =
-          pickRandomWithoutImmediateRepeat(candidates, lastRandomSoundRef.current) || pickRandom(candidates);
-      }
-      lastRandomSoundRef.current = randomKey;
-
-      const optimisticMessage: VisibleSentMessage = {
-        id: `local-${Date.now()}`,
-        text: customMessage,
-        ts: new Date().toISOString(),
-        soundKey: randomKey,
-        optimistic: true,
-      };
-
-      setSentMessages((prev) => [...prev, optimisticMessage]);
-      setDraft('');
-      setPendingChatSoundKey(null);
-
-      if (Platform.OS === 'ios' && isHapticEnabled) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      }
-
-      if (!isSilentMessage && !isSilentMode) {
-        playSound(randomKey);
-      }
-
-      await sendProutViaBackend(
-        friend.expo_push_token,
-        currentPseudo || 'Un ami',
-        randomKey,
-        friend.push_platform || 'android',
-        {
-          customMessage,
-          senderId: currentUserId,
-          receiverId: friend.id,
-        }
-      );
-
-      DeviceEventEmitter.emit('CLEAR_FRIENDLIST_PENDING_SOUND', { friendId: friend.id });
-
-      queryClient.invalidateQueries({ queryKey: ['pendingMessages', currentUserId] });
-      queryClient.invalidateQueries({ queryKey: ['pendingSentMessages', currentUserId] });
-      setTimeout(() => {
-        void refreshMessages();
-      }, 500);
-    } catch (error: any) {
-      console.error("Erreur lors de l'envoi du message:", error?.message || error);
-      Alert.alert(i18n.t('error'), "Impossible d'envoyer le message.");
-      setDraft(customMessage);
-      setSentMessages((prev) => prev.filter((msg) => !msg.optimistic));
-    } finally {
-      setSending(false);
-    }
-  }, [
-    currentPseudo,
-    currentUserId,
-    draft,
-    friend,
-    isHapticEnabled,
-    isChatMuteEnabled,
-    isSilentMode,
-    isZenMode,
-    pendingChatSoundKey,
-    queryClient,
-    refreshMessages,
-  ]);
-
   if (!friendId) {
     return (
       <View style={styles.centered}>
@@ -1231,7 +1036,7 @@ export default function ChatScreen() {
     );
   }
 
-  if (loadingFriend || !friend) {
+  if (loadingFriend || !friend || !currentUserId) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator color="#604a3e" />
@@ -1241,10 +1046,10 @@ export default function ChatScreen() {
 
   const composerBottomPadding =
     Platform.OS === 'android'
-      ? keyboardVisible
+      ? isKeyboardVisible
         ? 10
         : Math.max(insets.bottom + 5, 5)
-      : keyboardVisible
+      : isKeyboardVisible
         ? 5
         : Math.max(insets.bottom, 10);
 
@@ -1276,6 +1081,10 @@ export default function ChatScreen() {
                 const next = retentionHours === 12 ? 0 : 12;
                 setRetentionHours(friendId, next);
                 if (next === 12) {
+                  // ✅ IMPORTANT : Sauvegarder ce qui est déjà à l'écran dans le store permanent
+                  // Cela permet de maintenir les messages reçus/envoyés pendant qu'on était en mode 0h
+                  addReceivedMessages(friendId, receivedMessages);
+                  addSentMessages(friendId, sentMessages);
                   void refreshMessages();
                 }
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -1326,7 +1135,7 @@ export default function ChatScreen() {
           >
             {timeline.map((message) =>
               message.isMe ? (
-                <View key={message.id} style={styles.sentRow}>
+                <View key={message.id} style={bubbleStyles.sentRow}>
                   <SentBubble
                     message={{
                       id: message.sourceMessageId || message.id,
@@ -1335,13 +1144,14 @@ export default function ChatScreen() {
                       soundKey: message.soundKey,
                       status: message.status,
                       readAt: message.readAt,
-                    }}
+                      local_ts: 0 // Non utilisé dans le rendu mais requis par le type
+                    } as any}
                     reaction={getReactionBadgeText(message.sourceMessageId || message.id)}
                     onLongPressReact={() => openReactionPicker(message.sourceMessageId || message.id, true)}
                   />
                 </View>
               ) : (
-                <View key={message.id} style={styles.receivedRow}>
+                <View key={message.id} style={bubbleStyles.receivedRow}>
                   <ReceivedBubble
                     message={{
                       id: message.sourceMessageId || message.id,
@@ -1361,54 +1171,22 @@ export default function ChatScreen() {
         </View>
 
         <Animated.View style={composerKeyboardStyle}>
-          <View style={[styles.composer, { paddingBottom: composerBottomPadding }]}>
-            {!!pendingChatSoundKey && (
-              <TouchableOpacity
-                style={styles.pendingSoundTag}
-                onPress={() => setPendingChatSoundKey(null)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.pendingSoundTagText}>{getDisplaySoundLabel(pendingChatSoundKey)}</Text>
-                <Ionicons name="close-circle" size={14} color="#604a3e" style={{ marginLeft: 4 }} />
-              </TouchableOpacity>
-            )}
-            <View style={styles.composerRow}>
-              <TouchableOpacity
-                style={styles.soundPickerButton}
-                onPress={openChatSoundPicker}
-                activeOpacity={0.85}
-                accessibilityRole="button"
-                accessibilityLabel={i18n.t('chat_sound_picker_inline_button')}
-              >
-                <Animated.Image
-                  source={CHAT_PROOTHAIL_THUMB}
-                  style={[styles.soundPickerThumbImage, pulseAnimatedStyle]}
-                  resizeMode="contain"
-                />
-              </TouchableOpacity>
-            <TextInput
-              ref={inputRef}
-              style={styles.input}
-              placeholder={i18n.t('add_message_placeholder')}
-              placeholderTextColor="#777"
-              value={draft}
-              onChangeText={setDraft}
-              multiline
-              maxLength={140}
-              autoCorrect={false}
-              autoComplete="off"
-              autoFocus
-            />
-              <TouchableOpacity
-                onPress={() => void handleSend()}
-                style={[styles.sendButton, (!draft.trim() || sending) && styles.sendButtonDisabled]}
-                disabled={!draft.trim() || sending}
-                activeOpacity={0.85}
-              >
-                <Ionicons name="send" size={18} color="#604a3e" />
-              </TouchableOpacity>
-            </View>
-          </View>
+          <ChatComposer
+            friend={friend}
+            currentUserId={currentUserId}
+            currentPseudo={currentPseudo}
+            isZenMode={isZenMode}
+            isSilentMode={isSilentMode}
+            isHapticEnabled={isHapticEnabled}
+            onMessageSent={handleMessageSent}
+            onOpenSoundPicker={openChatSoundPicker}
+            pendingChatSoundKey={pendingChatSoundKey}
+            setPendingChatSoundKey={setPendingChatSoundKey}
+            isChatMuteEnabled={isChatMuteEnabled}
+            pulseAnimatedStyle={pulseAnimatedStyle}
+            composerBottomPadding={composerBottomPadding}
+            inputRef={inputRef}
+          />
         </Animated.View>
       </KeyboardAvoidingView>
 
@@ -1629,6 +1407,10 @@ export default function ChatScreen() {
             <Text style={styles.firstChatOnboardingFeatureText}>{i18n.t('chat_onboarding_mute')}</Text>
           </View>
           <View style={[styles.firstChatOnboardingFeatureRow, { marginTop: 12 }]}>
+            <Ionicons name="timer-outline" size={22} color="#604a3e" />
+            <Text style={styles.firstChatOnboardingFeatureText}>{i18n.t('chat_onboarding_retention')}</Text>
+          </View>
+          <View style={[styles.firstChatOnboardingFeatureRow, { marginTop: 12 }]}>
             <Ionicons name="flag-outline" size={22} color="#604a3e" />
             <Text style={styles.firstChatOnboardingFeatureText}>
               {i18n.t('chat_onboarding_report_conversation')}
@@ -1743,180 +1525,6 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     flexGrow: 1,
     justifyContent: 'flex-end',
-  },
-  receivedRow: {
-    alignItems: 'flex-start',
-    marginBottom: 6,
-  },
-  sentRow: {
-    alignItems: 'flex-end',
-    marginBottom: 6,
-  },
-  sentBubbleWrapper: {
-    alignItems: 'flex-end',
-    maxWidth: '84%',
-    position: 'relative',
-    paddingBottom: 12,
-  },
-  receivedBubbleWrapper: {
-    alignItems: 'flex-start',
-    position: 'relative',
-    maxWidth: '88%',
-    paddingBottom: 12,
-  },
-  receivedBubble: {
-    maxWidth: '88%',
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    borderTopLeftRadius: 4,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  receivedBubbleWithIcon: {
-    paddingLeft: 34,
-  },
-  receivedPlayIcon: {
-    position: 'absolute',
-    left: 12,
-    top: 11,
-    opacity: 0.9,
-  },
-  receivedText: {
-    color: '#333',
-    fontSize: 18,
-  },
-  receivedBubbleActive: {
-    backgroundColor: '#A2E4D4',
-    borderWidth: 1,
-    borderColor: '#1a1a1a',
-  },
-  sentBubble: {
-    backgroundColor: '#e3f2fd',
-    borderRadius: 16,
-    borderTopRightRadius: 4,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  sentBubbleRead: {
-    opacity: 0.75,
-  },
-  receivedReactionBadge: {
-    position: 'absolute',
-    right: -6,
-    bottom: -10,
-    minWidth: 28,
-    height: 24,
-    paddingHorizontal: 6,
-    borderRadius: 12,
-    backgroundColor: '#fff5ee',
-    borderWidth: 1,
-    borderColor: 'rgba(96, 74, 62, 0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sentReactionBadge: {
-    position: 'absolute',
-    left: -6,
-    bottom: -10,
-    minWidth: 28,
-    height: 24,
-    paddingHorizontal: 6,
-    borderRadius: 12,
-    backgroundColor: '#fff5ee',
-    borderWidth: 1,
-    borderColor: 'rgba(96, 74, 62, 0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  reactionBadgeText: {
-    fontSize: 15,
-  },
-  sentText: {
-    color: '#333',
-    fontSize: 18,
-  },
-  sentRead: {
-    color: '#604a3e',
-    fontSize: 12,
-    marginTop: 4,
-    fontStyle: 'italic',
-    textAlign: 'right',
-    alignSelf: 'flex-end',
-  },
-  composer: {
-    flexDirection: 'column',
-    alignItems: 'stretch',
-    paddingLeft: 6,
-    paddingRight: 12,
-    paddingTop: 10,
-    backgroundColor: '#ebb89b',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(96, 74, 62, 0.12)',
-  },
-  composerRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 5,
-  },
-  pendingSoundTag: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#A2E4D4',
-    borderWidth: 1,
-    borderColor: '#1a1a1a',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    marginBottom: 6,
-    marginLeft: 4,
-  },
-  pendingSoundTagText: {
-    color: '#604a3e',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  soundPickerButton: {
-    width: Platform.OS === 'android' ? 48 : 34,
-    height: Platform.OS === 'android' ? 52 : 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 0,
-    marginRight: 0,
-    paddingHorizontal: 0,
-    paddingLeft: 0,
-    paddingRight: 0,
-  },
-  soundPickerThumbImage: {
-    width: Platform.OS === 'android' ? ANDROID_CHAT_THUMB_SIZE.width : 34,
-    height: Platform.OS === 'android' ? ANDROID_CHAT_THUMB_SIZE.height : 34,
-  },
-  input: {
-    flex: 1,
-    minHeight: 44,
-    maxHeight: 110,
-    borderWidth: 1,
-    borderColor: '#c5d7d3',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: '#fff',
-    color: '#333',
-    fontSize: 18,
-  },
-  sendButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    marginLeft: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#d2f1ef',
-    borderWidth: 1,
-    borderColor: 'rgba(96, 74, 62, 0.15)',
-  },
-  sendButtonDisabled: {
-    opacity: 0.5,
   },
   soundPickerModal: {
     justifyContent: 'flex-end',

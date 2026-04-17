@@ -358,29 +358,37 @@ export default function AuthChoiceScreen() {
                 return randomPattern.test(pseudo) && !pseudo.includes(' ') || uuidPattern.test(pseudo);
               };
               
-              // IMPORTANT :
-              // Après OAuth, on est toujours sur cet écran (Welcome/AuthChoiceScreen).
-              // RootLayout/index ne sera pas forcément monté → si on "attend" sa redirection, on reste bloqué ici.
-              // Donc on navigue directement.
               const pseudoValidated = effectiveUser?.user_metadata?.pseudo_validated === true;
               const finalPseudo = profile?.pseudo || finalPseudoFromMetadata || null;
-              const hasRealPseudo = !!finalPseudo && finalPseudo !== 'Nouveau Membre' && !isPseudoRandom(finalPseudo);
-              
+
+              // ✅ Détection robuste du pseudo :
+              // On considère le pseudo comme "choisi" s'il existe en DB, 
+              // qu'il n'est pas le nom par défaut, ET qu'il ne ressemble pas à un ID généré.
+              const isSystemPseudo = (p: string | null) => {
+                if (!p || p === 'Nouveau Membre') return true;
+                // Détecte le format User_ + caractères aléatoires (format par défaut du trigger)
+                if (p.toLowerCase().startsWith('user_') && p.length > 10) return true;
+                return false;
+              };
+
+              const hasRealChosenPseudo = !!profile?.pseudo && !isSystemPseudo(profile.pseudo);
+
               // Fin du flux OAuth : on libère le routeur global et on navigue
               if (typeof (global as any).__isOAuthFlow === 'function') {
                 (global as any).__isOAuthFlow(false);
               }
-              
-              if (!pseudoValidated || !hasRealPseudo) {
-                console.log('➡️ OAuth OK → CompleteProfileScreen (validation requise)');
-                replaceWithSkip('/CompleteProfileScreen');
+
+              // Si l'utilisateur a déjà validé son pseudo dans le passé OU s'il en a un vrai en DB
+              if (pseudoValidated || hasRealChosenPseudo) {
+                console.log('➡️ OAuth OK → Home (profil déjà valide)');
+                replaceWithSkip('/');
                 return true;
               }
-              
-              console.log('➡️ OAuth OK → Home');
-              replaceWithSkip('/');
-              
-              return true;
+
+              // Sinon, passage obligé par la case départ
+              console.log('➡️ OAuth OK → CompleteProfileScreen (nouvel utilisateur ou pseudo système)');
+              replaceWithSkip('/CompleteProfileScreen');
+              return true;              return true;
             }
           } else {
             console.error('❌ Tokens OAuth introuvables ou invalides dans l’URL callback');

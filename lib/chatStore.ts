@@ -65,12 +65,13 @@ export const useChatStore = create<ChatState>()(
         newMsgs.forEach(m => {
           const existing = currentMap.get(m.id);
           if (!existing) {
+            // Nouveau message : on garde le local_ts s'il existe déjà (cas rare) ou on en crée un
             currentMap.set(m.id, { ...m, local_ts: m.local_ts || Date.now() });
             changed = true;
           } else {
-            // Optionnel: mettre à jour si le contenu change (peu probable pour du "received")
+            // Message existant : on met à jour le contenu MAIS on préserve absolument le local_ts d'origine
             if (m.message_content !== existing.message_content) {
-              currentMap.set(m.id, { ...existing, ...m });
+              currentMap.set(m.id, { ...existing, ...m, local_ts: existing.local_ts });
               changed = true;
             }
           }
@@ -103,9 +104,9 @@ export const useChatStore = create<ChatState>()(
             currentMap.set(m.id, { ...m, local_ts: m.local_ts || Date.now() });
             changed = true;
           } else {
-            // Crucial : mettre à jour le statut (ex: 'read')
+            // Crucial : mettre à jour le statut (ex: 'read') MAIS préserver local_ts
             if (m.status !== existing.status || m.readAt !== existing.readAt) {
-              currentMap.set(m.id, { ...existing, ...m });
+              currentMap.set(m.id, { ...existing, ...m, local_ts: existing.local_ts });
               changed = true;
             }
           }
@@ -162,22 +163,33 @@ export const useChatStore = create<ChatState>()(
         const newSent: Record<string, VisibleSentMessage[]> = {};
         const newReactions: Record<string, Record<string, any[]>> = {};
 
-        // On nettoie pour chaque ami en utilisant sa propre rétention
+        // 1. Nettoyage des messages reçus
         Object.keys(receivedByFriend).forEach(fid => {
           const hours = retentionByFriend[fid] ?? DEFAULT_RETENTION;
-          if (hours === 0) return; // Si 0, techniquement on devrait tout supprimer ? 
-          // En fait si hours === 0, addReceivedMessages ne les ajoute même pas au store local.
-          // Mais au cas où, on traite :
+          if (hours === 0) return; 
+
           const threshold = now - (hours * MS_PER_HOUR);
-          const filtered = receivedByFriend[fid].filter(m => m.local_ts > threshold);
+          const filtered = receivedByFriend[fid].filter(m => {
+            // Source de vérité : created_at (serveur)
+            // Fallback : local_ts ou temps actuel
+            const serverTs = new Date(m.created_at).getTime();
+            const ts = isNaN(serverTs) ? (m.local_ts || now) : serverTs;
+            return ts > threshold;
+          });
           if (filtered.length > 0) newReceived[fid] = filtered;
         });
 
+        // 2. Nettoyage des messages envoyés
         Object.keys(sentByFriend).forEach(fid => {
           const hours = retentionByFriend[fid] ?? DEFAULT_RETENTION;
           if (hours === 0) return;
+
           const threshold = now - (hours * MS_PER_HOUR);
-          const filtered = sentByFriend[fid].filter(m => m.local_ts > threshold);
+          const filtered = sentByFriend[fid].filter(m => {
+            const serverTs = new Date(m.ts).getTime();
+            const ts = isNaN(serverTs) ? (m.local_ts || now) : serverTs;
+            return ts > threshold;
+          });
           if (filtered.length > 0) newSent[fid] = filtered;
         });
 

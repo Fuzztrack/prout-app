@@ -51,13 +51,13 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      "./withAndroidNotificationMetadata",
-      "./withAndroidProutMessaging",
-      "./withAndroidAppName",
-      "./withIOSAppName",
-      "./withIOSContactsLocalization",
-      "./withVolumeManager",
-      "./withSoundSettings",
+      "./plugins/withAndroidNotificationMetadata",
+      "./plugins/withAndroidProutMessaging",
+      "./plugins/withAndroidAppName",
+      "./plugins/withIOSAppName",
+      "./plugins/withIOSContactsLocalization",
+      "./plugins/withVolumeManager",
+      "./plugins/withSoundSettings",
       "expo-router",
       "expo-secure-store",
       "expo-apple-authentication",
@@ -68,7 +68,7 @@
       ["expo-contacts", { "contactsPermission": "Cette app envoie les numéros de vos contacts vers les serveurs sécurisés de Prrt! pour retrouver automatiquement vos amis. Ces données ne sont pas partagées avec des tiers." }],
       "expo-localization",
       "expo-asset",
-      "./withRemoveLocationPermission"
+      "./plugins/withRemoveLocationPermission"
     ],
     "assetBundlePatterns": ["assets/**/*"],
     "experiments": { "typedRoutes": true, "reactCompiler": true },

@@ -234,12 +234,11 @@ export default function SoundcheckScreen() {
       <View style={[styles.header, { paddingTop: insets.top }]}>
         <View style={styles.titleRow}>
           <View style={styles.titleCluster}>
-            {/* PERSONNAGE SECRET CLIQUABLE ET QUI RESPIRE */}
             <TouchableOpacity 
               onPress={() => setIsChallengeVisible(true)}
               activeOpacity={0.9}
             >
-              <Animated.Image
+              <Image
                 source={soundcheckTailImage}
                 style={[
                   styles.proothailImage, 
@@ -247,8 +246,7 @@ export default function SoundcheckScreen() {
                     width: proothailWidth, 
                     height: proothailHeight,
                     marginRight: proothailMarginRight 
-                  }, 
-                  pulseStyle
+                  }
                 ]}
                 resizeMode="contain"
               />
@@ -259,6 +257,21 @@ export default function SoundcheckScreen() {
               resizeMode="contain"
             />
           </View>
+
+          {/* Bouton Challenge déplacé tout à droite */}
+          <TouchableOpacity
+            onPress={() => setIsChallengeVisible(true)}
+            style={styles.challengeButtonContainer}
+            activeOpacity={0.8}
+          >
+            <View style={styles.challengeCard}>
+              <Image
+                source={require('../assets/images/challenge.png')}
+                style={styles.challengeIcon}
+                resizeMode="contain"
+              />
+            </View>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.navRow}>
@@ -353,10 +366,33 @@ const styles = StyleSheet.create({
   navRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginTop: 0, paddingHorizontal: 12 },
   backButton: { paddingHorizontal: 8, paddingTop: 8, paddingBottom: 0 },
   headerSpacer: { width: 40 },
-  titleRow: { width: '100%', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
-  titleCluster: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  titleRow: { width: '100%', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8, overflow: 'visible' },
+  titleCluster: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 10, overflow: 'visible' },
   titleImage: { marginTop: 0, marginBottom: 0, zIndex: 2, elevation: 4 },
   proothailImage: { marginTop: -4, marginBottom: 0, marginLeft: -12, marginRight: -24, zIndex: 0 },
+  challengeButtonContainer: {
+    position: 'absolute',
+    right: 12,
+    bottom: 0,
+    zIndex: 10,
+    elevation: 6,
+  },
+  challengeCard: {
+    borderWidth: 1.5,
+    borderColor: 'rgba(96, 74, 62, 0.25)',
+    borderRadius: 8,
+    paddingVertical: 1,
+    paddingHorizontal: 0, // Supprimé pour maximiser l'espace
+    backgroundColor: '#FFEB3B', // Fond jaune
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+  },
+  challengeIcon: {
+    width: 94, // Encore plus gros
+    height: 28, // Encore plus gros
+  },
   pageSubtitleNav: { flex: 1, textAlign: 'center', fontSize: 12, fontStyle: 'italic', fontWeight: '700', color: '#604a3e', marginTop: 0, marginBottom: 0 },
   libraryArea: { flex: 1, paddingHorizontal: 12, paddingTop: 8, justifyContent: 'flex-start' },
   libraryHeaderCol: { justifyContent: 'center', alignItems: 'center', marginBottom: 8 },

@@ -141,6 +141,11 @@ export function TutorialSwiper({ onClose }: { onClose: () => void }) {
               12
             )}
             {renderFeatureRow(
+              <Ionicons name="timer-outline" size={22} color="#604a3e" />,
+              i18n.t('chat_onboarding_retention'),
+              12
+            )}
+            {renderFeatureRow(
               <Ionicons name="flag-outline" size={22} color="#604a3e" />,
               i18n.t('chat_onboarding_report_conversation'),
               12

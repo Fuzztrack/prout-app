@@ -17,7 +17,6 @@ export default function RegisterEmailScreen() {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [checkingEula, setCheckingEula] = useState(true);
 
@@ -51,7 +50,7 @@ export default function RegisterEmailScreen() {
     if (!pseudo.trim()) return Alert.alert("Oups", "Il nous faut un Pseudo !");
     if (!email.trim()) return Alert.alert("Oups", "L'email est obligatoire.");
     if (!password || password.length < 6) return Alert.alert(i18n.t('security'), i18n.t('password_min_length'));
-    if (!agreed || loading) return;
+    if (loading) return;
 
     setLoading(true);
     
@@ -240,7 +239,7 @@ export default function RegisterEmailScreen() {
                 keyboardType="phone-pad" 
                 placeholderTextColor="#999"
             />
-            <Text style={styles.helperText}>Permet à vos amis de vous retrouver plus facilement.</Text>
+            <Text style={styles.helperText}>{i18n.t('phone_helper')}</Text>
         </View>
 
         <View style={styles.inputGroup}>
@@ -260,25 +259,11 @@ export default function RegisterEmailScreen() {
             </View>
         </View>
 
-        <TouchableOpacity
-          style={styles.checkboxRow}
-          onPress={() => setAgreed(prev => !prev)}
-          activeOpacity={0.8}
-          disabled={loading}
-        >
-          <Ionicons
-            name={agreed ? 'checkmark-circle' : 'ellipse-outline'}
-            size={24}
-            color={agreed ? '#604a3e' : 'rgba(96, 74, 62, 0.6)'}
-          />
-          <Text style={styles.checkboxLabel}>{i18n.t('eula_accept_checkbox')}</Text>
-        </TouchableOpacity>
-
         <View style={styles.footer}>
             <CustomButton 
                 title={loading ? i18n.t('creating_account') : i18n.t('sign_up')} 
                 onPress={handleSignup} 
-                disabled={loading || !agreed} 
+                disabled={loading} 
                 color="#604a3e" 
                 textColor="#ebb89b" 
             />

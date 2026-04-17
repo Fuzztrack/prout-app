@@ -1,0 +1,6 @@
+sb_secret_FBhnOtjQ94fwofT67Fqgow_KNSAE27n
+# Variables d'environnement Supabase
+# ⚠️ NE JAMAIS COMMITER CE FICHIER (déjà dans .gitignore)
+
+EXPO_PUBLIC_SUPABASE_URL=https://utfwujyymaikraaigvuv.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=TA_CLE_ICI

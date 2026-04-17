@@ -24,16 +24,23 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const appVersion = Constants.expoConfig?.version ?? '1.1.17';
+  const appVersion = Constants.expoConfig?.version ?? '1.1.19';
   
   const isLoadedRef = useRef(false);
   
-  // Utilisation du Store Zustand pour l'état global
-  const { 
-    userId, pseudo: currentPseudo, avatarUrl: currentAvatarUrl, 
-    isZenMode, isSilentMode, isHapticEnabled, activeView,
-    setProfile, setZenMode, setSilentMode, setHapticEnabled, setActiveView 
-  } = useAppStore();
+  const userId = useAppStore(state => state.userId);
+  const currentPseudo = useAppStore(state => state.pseudo);
+  const currentAvatarUrl = useAppStore(state => state.avatarUrl);
+  const isZenMode = useAppStore(state => state.isZenMode);
+  const isSilentMode = useAppStore(state => state.isSilentMode);
+  const isHapticEnabled = useAppStore(state => state.isHapticEnabled);
+  const activeView = useAppStore(state => state.activeView);
+  
+  const setProfile = useAppStore(state => state.setProfile);
+  const setZenMode = useAppStore(state => state.setZenMode);
+  const setSilentMode = useAppStore(state => state.setSilentMode);
+  const setHapticEnabled = useAppStore(state => state.setHapticEnabled);
+  const setActiveView = useAppStore(state => state.setActiveView);
 
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
@@ -50,6 +57,8 @@ export default function HomeScreen() {
   const ZEN_REASON_KEY = 'zen_reason';
   const ZEN_START_KEY = 'zen_start_at';
   const SILENT_MODE_KEY = 'silent_mode_enabled';
+  const ZEN_PERSISTENT_TYPE_KEY = 'zen_persistent_type';
+  const handleZenSelectionRef = useRef<((type: '1h' | '8h' | 'job' | 'night') => Promise<void>) | null>(null);
   const [showZenOptions, setShowZenOptions] = useState(false);
   const [showSilentModal, setShowSilentModal] = useState(false);
   const [zenModeReason, setZenModeReason] = useState<string | null>(null);
@@ -388,6 +397,18 @@ export default function HomeScreen() {
           setZenModeReason(null);
           await clearZenAutoOff();
           await clearZenAutoOn();
+
+          if (fromAuto) {
+            // Si c'est une fin de fenêtre automatique, on regarde s'il y a un mode persistant
+            const persistentType = await AsyncStorage.getItem(ZEN_PERSISTENT_TYPE_KEY);
+            if (persistentType === 'job' || persistentType === 'night') {
+              // Programmer la PROCHAINE fenêtre
+              handleZenSelectionRef.current?.(persistentType as any);
+            }
+          } else {
+            // Désactivation MANUELLE : on supprime aussi le mode persistant
+            await AsyncStorage.removeItem(ZEN_PERSISTENT_TYPE_KEY);
+          }
         }
       } catch (e) {
         console.error('Erreur mode Zen:', e);
@@ -470,13 +491,20 @@ export default function HomeScreen() {
   const restoreZenAutoOff = useCallback(async () => {
     try {
       const [[, startRaw], [, endRaw], [, reason]] = await AsyncStorage.multiGet([ZEN_START_KEY, ZEN_END_KEY, ZEN_REASON_KEY]);
+      const persistentType = await AsyncStorage.getItem(ZEN_PERSISTENT_TYPE_KEY);
+      
       const startAt = startRaw ? Number(startRaw) : null;
       const endAt = endRaw ? Number(endRaw) : null;
       setZenModeReason(reason || null);
       setHasScheduledZenMode(!!endAt && Number.isFinite(endAt) && Date.now() < endAt);
+      
       if (!endAt || !Number.isFinite(endAt)) {
-        await clearZenAutoOff();
-        await clearZenAutoOn();
+        if (persistentType === 'job' || persistentType === 'night') {
+          handleZenSelectionRef.current?.(persistentType as any);
+        } else {
+          await clearZenAutoOff();
+          await clearZenAutoOn();
+        }
         return;
       }
       if (startAt && !Number.isFinite(startAt)) {
@@ -487,6 +515,11 @@ export default function HomeScreen() {
         await applyZenMode(false, true);
         await clearZenAutoOff();
         await clearZenAutoOn();
+        
+        // Si mode persistant, on programme la suite
+        if (persistentType === 'job' || persistentType === 'night') {
+          handleZenSelectionRef.current?.(persistentType as any);
+        }
         return;
       }
       if (startAt && now < startAt) {
@@ -508,6 +541,12 @@ export default function HomeScreen() {
 
   const handleZenSelection = useCallback(
     async (type: '1h' | '8h' | 'job' | 'night') => {
+      if (type === 'job' || type === 'night') {
+        await AsyncStorage.setItem(ZEN_PERSISTENT_TYPE_KEY, type);
+      } else {
+        await AsyncStorage.removeItem(ZEN_PERSISTENT_TYPE_KEY);
+      }
+
       const now = new Date();
       const handleDuration = async (hours: number, label: string) => {
         const endAt = Date.now() + hours * 60 * 60 * 1000;
@@ -578,6 +617,10 @@ export default function HomeScreen() {
     },
     [scheduleZenWindow]
   );
+
+  useEffect(() => {
+    handleZenSelectionRef.current = handleZenSelection;
+  }, [handleZenSelection]);
 
   const toggleZenMode = async () => {
     if (!userId) return;
