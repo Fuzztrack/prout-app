@@ -72,3 +72,5 @@ android_backup_*
 # Gros fichiers temporaires
 temp.apks
 *.tar.gz
+firebase-service-account.json
+firebase-service-account.json
