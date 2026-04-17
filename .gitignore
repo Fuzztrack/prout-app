@@ -74,3 +74,4 @@ temp.apks
 *.tar.gz
 firebase-service-account.json
 firebase-service-account.json
+.tmp_env
