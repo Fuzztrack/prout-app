@@ -54,7 +54,7 @@ Et plus d'erreur `Unregistered API key`.
 
 ## ⚠️ Note sur la clé fournie
 
-La clé `sb_secret_FBhnOtjQ94fwofT67Fqgow_KNSAE27n` que tu as fournie semble être une clé personnalisée, pas la Service Role Key Supabase standard.
+La clé `REDACTED_BY_FUZZ` que tu as fournie semble être une clé personnalisée, pas la Service Role Key Supabase standard.
 
 Si c'est bien la clé que tu veux utiliser, assure-toi qu'elle a les permissions nécessaires pour lire la table `user_profiles` dans Supabase.
 

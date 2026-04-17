@@ -16,12 +16,12 @@ GitGuardian a détecté une clé Supabase anon key (JWT) hardcodée dans le code
 Créer un fichier `.env` à la racine du projet :
 ```env
 EXPO_PUBLIC_SUPABASE_URL=https://utfwujyymaikraaigvuv.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=sb_secret_FBhnOtjQ94fwofT67Fqgow_KNSAE27n
+EXPO_PUBLIC_SUPABASE_ANON_KEY=REDACTED_BY_FUZZ
 ```
 
 **Option B : Via EAS Secrets (production)**
 ```bash
-eas secret:create --scope project --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value sb_secret_FBhnOtjQ94fwofT67Fqgow_KNSAE27n
+eas secret:create --scope project --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value REDACTED_BY_FUZZ
 eas secret:create --scope project --name EXPO_PUBLIC_SUPABASE_URL --value https://utfwujyymaikraaigvuv.supabase.co
 ```
 
@@ -125,6 +125,6 @@ npx expo start
 
 ## ⚠️ Notes importantes
 
-- La nouvelle clé `sb_secret_FBhnOtjQ94fwofT67Fqgow_KNSAE27n` ne doit **JAMAIS** être commitée dans le code
+- La nouvelle clé `REDACTED_BY_FUZZ` ne doit **JAMAIS** être commitée dans le code
 - Le fichier `.env` est déjà dans `.gitignore` (c'est bien)
 - Après le force push, tous les collaborateurs devront refaire `git clone` ou `git pull --rebase`
