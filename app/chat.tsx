@@ -914,7 +914,7 @@ export default function ChatScreen() {
     Alert.alert(i18n.t('report_conversation_title'), i18n.t('report_conversation_reason_prompt'), [
       { text: i18n.t('report_reason_spam'), onPress: () => void submitReport('spam', reportTarget) },
       { text: i18n.t('report_reason_harassment'), onPress: () => void submitReport('harassment', reportTarget) },
-      { text: i18n.t('report_reason_hate_speech'), onPress: () => void submitReport('hate_speech', reportTarget) },
+      { text: i18n.t('report_reason_hate_speech'), onPress: () => void submitReport('harassment', reportTarget) },
       { text: i18n.t('report_reason_explicit_content'), onPress: () => void submitReport('explicit_content', reportTarget) },
       { text: i18n.t('report_reason_other'), onPress: () => void submitReport('other', reportTarget) },
       { text: i18n.t('cancel'), style: 'cancel' },

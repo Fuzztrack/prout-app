@@ -296,7 +296,11 @@ export default function AuthChoiceScreen() {
                 }
                 
                 if (updateError) {
-                  console.error('❌ Erreur mise à jour pseudo:', updateError);
+                  if ((updateError as any).code === '23505') {
+                    console.log('ℹ️ Pseudo Google/Apple déjà pris, l\'utilisateur devra en choisir un autre.');
+                  } else {
+                    console.error('❌ Erreur mise à jour pseudo:', updateError);
+                  }
                 } else {
                   console.log('✅ Pseudo mis à jour:', pseudoFromMetadata);
                   // Attendre que la mise à jour soit propagée dans la base
@@ -359,34 +363,21 @@ export default function AuthChoiceScreen() {
               };
               
               const pseudoValidated = effectiveUser?.user_metadata?.pseudo_validated === true;
-              const finalPseudo = profile?.pseudo || finalPseudoFromMetadata || null;
-
-              // ✅ Détection robuste du pseudo :
-              // On considère le pseudo comme "choisi" s'il existe en DB, 
-              // qu'il n'est pas le nom par défaut, ET qu'il ne ressemble pas à un ID généré.
-              const isSystemPseudo = (p: string | null) => {
-                if (!p || p === 'Nouveau Membre') return true;
-                // Détecte le format User_ + caractères aléatoires (format par défaut du trigger)
-                if (p.toLowerCase().startsWith('user_') && p.length > 10) return true;
-                return false;
-              };
-
-              const hasRealChosenPseudo = !!profile?.pseudo && !isSystemPseudo(profile.pseudo);
 
               // Fin du flux OAuth : on libère le routeur global et on navigue
               if (typeof (global as any).__isOAuthFlow === 'function') {
                 (global as any).__isOAuthFlow(false);
               }
 
-              // Si l'utilisateur a déjà validé son pseudo dans le passé OU s'il en a un vrai en DB
-              if (pseudoValidated || hasRealChosenPseudo) {
-                console.log('➡️ OAuth OK → Home (profil déjà valide)');
+              // ✅ FIX : On ne redirige vers la Home QUE si le pseudo a été explicitement validé par l'utilisateur.
+              if (pseudoValidated) {
+                console.log('➡️ OAuth OK → Home (pseudo déjà validé)');
                 replaceWithSkip('/');
                 return true;
               }
 
-              // Sinon, passage obligé par la case départ
-              console.log('➡️ OAuth OK → CompleteProfileScreen (nouvel utilisateur ou pseudo système)');
+              // Sinon, passage obligé par la case départ pour choisir/confirmer le pseudo
+              console.log('➡️ OAuth OK → CompleteProfileScreen (nouvel utilisateur ou validation requise)');
               replaceWithSkip('/CompleteProfileScreen');
               return true;              return true;
             }

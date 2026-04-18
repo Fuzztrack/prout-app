@@ -61,3 +61,5 @@ export const ReceivedBubble = React.memo(({
     </View>
   );
 });
+
+ReceivedBubble.displayName = 'ReceivedBubble';

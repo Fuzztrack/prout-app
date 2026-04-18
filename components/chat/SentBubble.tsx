@@ -33,3 +33,5 @@ export const SentBubble = React.memo(({
     </View>
   );
 });
+
+SentBubble.displayName = 'SentBubble';

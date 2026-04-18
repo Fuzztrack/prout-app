@@ -92,11 +92,17 @@ export default function Index() {
 
           if (!isMounted) return;
 
-          // ✅ FIX : Si le profil existe déjà avec un pseudo valide (pas le nom par défaut),
-          // on va directement à la Home sans vérifier les métadonnées sociales.
-          // Cela évite de redemander la complétion car les logins Google/Apple écrasent pseudo_validated.
-          if (profile && profile.pseudo && profile.pseudo !== 'Nouveau Membre') {
-            console.log('➡️ Direction: Home (profil déjà existant)');
+          // ✅ DÉTECTION ROBUSTE DU PSEUDO SYSTÈME
+          // On considère comme système : "Nouveau Membre" ou "User_" suivi de caractères
+          const isSystemPseudo = (p: string | null | undefined) => {
+            if (!p || p === 'Nouveau Membre') return true;
+            if (p.toLowerCase().startsWith('user_')) return true;
+            return false;
+          };
+
+          // ✅ FIX : On va à la Home QUE si le pseudo a été validé ET n'est pas un pseudo système.
+          if (pseudoValidated && profile && profile.pseudo && !isSystemPseudo(profile.pseudo)) {
+            console.log('➡️ Direction: Home (profil validé)');
             if (!hasNavigated.current) {
               hasNavigated.current = true;
               safeReplace(router, '/(tabs)', { skipInitialCheck: false });
@@ -104,8 +110,8 @@ export default function Index() {
             return;
           }
 
-          // Si le pseudo est dans les métadonnées mais pas dans le profil (ou = "Nouveau Membre"), le mettre à jour
-          if (pseudoFromMetadata && (!profile || profile.pseudo === 'Nouveau Membre' || !profile.pseudo)) {
+          // Si le pseudo est dans les métadonnées mais pas dans le profil (ou système), le mettre à jour
+          if (pseudoFromMetadata && (!profile || isSystemPseudo(profile.pseudo))) {
             // Attendre un peu pour laisser le trigger créer le profil si nécessaire
             await new Promise(resolve => setTimeout(resolve, 1500));
             
@@ -252,23 +258,19 @@ export default function Index() {
             return;
           }
 
-          // Si le profil existe ET que ce n'est pas le nom par défaut du Trigger
-          if (finalProfile && finalProfile.pseudo && finalProfile.pseudo !== 'Nouveau Membre') {
+          // Si le profil existe ET a été validé ET n'est pas système
+          if (pseudoValidated && finalProfile && finalProfile.pseudo && !isSystemPseudo(finalProfile.pseudo)) {
             console.log('➡️ Direction: Home');
             if (!hasNavigated.current) {
               hasNavigated.current = true;
               safeReplace(router, '/(tabs)', { skipInitialCheck: false }); 
             }
-          } else if (!pseudoValidated) {
-            console.log('➡️ Direction: Complétion');
+          } else {
+            // Dans tous les autres cas (pas validé, ou pas de profil, ou pseudo User_...), direction complétion
+            console.log('➡️ Direction: Complétion (sécurité)');
             if (!hasNavigated.current) {
               hasNavigated.current = true;
               safeReplace(router, '/CompleteProfileScreen', { skipInitialCheck: false });
-            }
-          } else {
-            if (!hasNavigated.current) {
-              hasNavigated.current = true;
-              safeReplace(router, '/(tabs)', { skipInitialCheck: false });
             }
           }
         } else {

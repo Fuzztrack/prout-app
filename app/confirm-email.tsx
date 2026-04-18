@@ -64,104 +64,71 @@ export default function ConfirmEmailScreen() {
               updated_at: new Date().toISOString()
             };
             
-            let updateError, updateResult;
+            let updateError;
             if (checkProfile) {
-              updateResult = await supabase
-                .from('user_profiles')
-                .update(updateData)
-                .eq('id', userId)
-                .select();
-              updateError = updateResult.error;
+              const res = await supabase.from('user_profiles').update(updateData).eq('id', userId);
+              updateError = res.error;
             } else {
-              updateResult = await supabase
-                .from('user_profiles')
-                .upsert({ 
-                  id: userId,
-                  ...updateData
-                }, {
-                  onConflict: 'id'
-                })
-                .select();
-              updateError = updateResult.error;
+              const res = await supabase.from('user_profiles').upsert({ id: userId, ...updateData }, { onConflict: 'id' });
+              updateError = res.error;
             }
             
             if (updateError) {
               console.error('❌ Erreur mise à jour pseudo:', updateError);
-              // Retry après un délai plus long avec upsert pour être sûr
+              // Retry avec upsert
               await new Promise(resolve => setTimeout(resolve, 2000));
-              const retryResult = await supabase
-                .from('user_profiles')
-                .upsert({ 
-                  id: userId,
-                  pseudo: pseudoFromMetadata,
-                  phone: phoneFromMetadata || null,
-                  updated_at: new Date().toISOString()
-                }, {
-                  onConflict: 'id'
-                })
-                .select();
-              
-              if (!retryResult.error) {
-                const { data: verifyProfile } = await supabase
-                  .from('user_profiles')
-                  .select('pseudo')
-                  .eq('id', userId)
-                  .maybeSingle();
-                
-                if (verifyProfile && verifyProfile.pseudo && verifyProfile.pseudo !== 'Nouveau Membre') {
-                  safeReplace(router, '/');
-                  return;
-                }
-              }
-            } else {
-              const { data: verifyProfile } = await supabase
-                .from('user_profiles')
-                .select('pseudo')
-                .eq('id', userId)
-                .maybeSingle();
-              
-              if (verifyProfile && verifyProfile.pseudo && verifyProfile.pseudo !== 'Nouveau Membre') {
-                safeReplace(router, '/');
-                return;
-              }
+              await supabase.from('user_profiles').upsert({ id: userId, ...updateData }, { onConflict: 'id' });
             }
           }
         }
 
-        // Si le profil existe et a un vrai pseudo (pas le placeholder) -> Home
-        if (profile && profile.pseudo && profile.pseudo !== 'Nouveau Membre') {
+        // Vérification finale du profil
+        const { data: finalProfile } = await supabase
+          .from('user_profiles')
+          .select('pseudo')
+          .eq('id', userId)
+          .maybeSingle();
+
+        const isSystemPseudo = (p: string | null | undefined) => {
+          if (!p || p === 'Nouveau Membre') return true;
+          if (p.toLowerCase().startsWith('user_')) return true;
+          return false;
+        };
+
+        const hasValidPseudo = finalProfile && finalProfile.pseudo && !isSystemPseudo(finalProfile.pseudo);
+
+        if (hasValidPseudo && pseudoValidated) {
           safeReplace(router, '/');
-        } else if (!pseudoValidated) {
-          safeReplace(router, '/CompleteProfileScreen');
         } else {
-          safeReplace(router, '/');
+          safeReplace(router, '/CompleteProfileScreen');
         }
+
       } catch (e) {
         console.error("❌ Erreur lors de la vérification du profil:", e);
         safeReplace(router, '/AuthChoiceScreen');
       }
     };
 
-    // 1. Vérification immédiate (Si _layout a déjà fini le travail avant qu'on arrive)
+    // 1. Vérification immédiate
     supabase.auth.getUser().then(({ data }) => {
       if (data?.user) {
         handleSuccess(data.user.id);
       }
     });
 
-    // 2. Écouteur (Si _layout est en train de travailler)
+    // 2. Écouteur
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
         handleSuccess(session.user.id);
       }
     });
 
-    // 3. Sécurité : Si au bout de 5 secondes on est toujours là, c'est qu'il y a un souci
+    // 3. Sécurité
     const timeout = setTimeout(() => {
       if (isMounted) {
         safeReplace(router, '/AuthChoiceScreen');
       }
-    }, 5000);
+    }, 10000); // Augmenté à 10s pour être plus large
 
     return () => {
       isMounted = false;

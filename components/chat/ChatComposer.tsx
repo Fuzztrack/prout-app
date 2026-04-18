@@ -258,6 +258,8 @@ export const ChatComposer = React.memo(({
   );
 });
 
+ChatComposer.displayName = 'ChatComposer';
+
 const styles = StyleSheet.create({
   composer: {
     flexDirection: 'column',
