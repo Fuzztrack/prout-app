@@ -58,12 +58,32 @@ export async function registerPushTokenForUser(userId: string) {
     if (status === 'denied') {
       if (__DEV__) console.log('🔔 [PushToken] Permission refusée par l\'utilisateur');
       
-      // On log quand même dans la DB que la plateforme est identifiée mais sans token
-      await supabase
+      const updatePayload = { 
+        push_platform: Platform.OS, 
+        updated_at: new Date().toISOString() 
+      };
+
+      // On essaie d'abord un UPDATE
+      const { count } = await supabase
         .from('user_profiles')
-        .update({ push_platform: Platform.OS, updated_at: new Date().toISOString() })
+        .update(updatePayload)
         .eq('id', userId)
-        .eq('expo_push_token', null); // Seulement si pas déjà de token
+        .select('id');
+
+      // Si le profil n'existe pas encore (compte tout juste créé), on force un UPSERT
+      if (!count || count === 0) {
+        const { data: existing } = await supabase
+          .from('user_profiles')
+          .select('pseudo')
+          .eq('id', userId)
+          .maybeSingle();
+
+        await supabase.from('user_profiles').upsert({
+          id: userId,
+          ...updatePayload,
+          pseudo: existing?.pseudo || 'Nouveau Membre',
+        });
+      }
       return;
     }
 

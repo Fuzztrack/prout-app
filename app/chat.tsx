@@ -203,14 +203,20 @@ export default function ChatScreen() {
   const [editingMessage, setEditingMessage] = useState<VisibleSentMessage | null>(null);
 
   const handleMessageEdited = useCallback((messageId: string, newText: string) => {
+    // 1. Mettre à jour l'état UI local pour un feedback immédiat
     setSentMessages((prev) => 
       prev.map((msg) => msg.id === messageId ? { ...msg, text: newText } : msg)
     );
-    // Mettre à jour le store permanent
-    const updatedSent = sentByFriend[friendId]?.map(msg => msg.id === messageId ? { ...msg, text: newText } : msg) || [];
-    addSentMessages(friendId, updatedSent);
+    
+    // 2. Mettre à jour le store permanent. 
+    // On récupère le message existant pour conserver ses autres propriétés (ts, soundKey, etc.)
+    const existing = sentMessages.find(m => (m.sourceMessageId || m.id) === messageId);
+    if (existing) {
+      addSentMessages(friendId, [{ ...existing, text: newText }]);
+    }
+    
     setEditingMessage(null);
-  }, [friendId, sentByFriend, addSentMessages]);
+  }, [friendId, sentMessages, addSentMessages]);
 
   const optimisticFriend = useMemo((): FriendProfile | null => {
     if (!friendId || !isUuid(friendId)) return null;
@@ -581,7 +587,7 @@ export default function ChatScreen() {
           m.id === existing.id || 
           (m.text === existing.text && 
            m.soundKey === existing.soundKey && 
-           Math.abs(new Date(m.ts).getTime() - new Date(existing.ts).getTime()) < 20000)
+           Math.abs(new Date(m.ts).getTime() - new Date(existing.ts).getTime()) < 30000)
         );
 
         if (!isRepresented) {
@@ -849,7 +855,20 @@ export default function ChatScreen() {
       };
     });
 
-    const outgoing = sentMessages.map((m) => ({
+    // 1. Séparer les messages confirmés (UUID) et optimistes (local-)
+    const confirmedSent = sentMessages.filter(m => !m.id.startsWith('local-'));
+    const optimisticSent = sentMessages.filter(m => m.id.startsWith('local-'));
+
+    // 2. Ne garder que les optimistes qui ne sont pas encore représentés dans les confirmés
+    const filteredOptimistic = optimisticSent.filter(opt => {
+      return !confirmedSent.some(conf => 
+        conf.text === opt.text && 
+        conf.soundKey === opt.soundKey &&
+        Math.abs(new Date(conf.ts).getTime() - new Date(opt.ts).getTime()) < 30000
+      );
+    });
+
+    const outgoing = [...confirmedSent, ...filteredOptimistic].map((m) => ({
       id: `sent-${m.id}`,
       ts: m.ts,
       isMe: true,

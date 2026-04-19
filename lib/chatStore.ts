@@ -104,8 +104,12 @@ export const useChatStore = create<ChatState>()(
             currentMap.set(m.id, { ...m, local_ts: m.local_ts || Date.now() });
             changed = true;
           } else {
-            // Crucial : mettre à jour le statut (ex: 'read') MAIS préserver local_ts
-            if (m.status !== existing.status || m.readAt !== existing.readAt) {
+            // Crucial : mettre à jour le statut (ex: 'read') OU le texte (édition) MAIS préserver local_ts
+            if (
+              m.status !== existing.status || 
+              m.readAt !== existing.readAt || 
+              (m.text !== undefined && m.text !== existing.text)
+            ) {
               currentMap.set(m.id, { ...existing, ...m, local_ts: existing.local_ts });
               changed = true;
             }
