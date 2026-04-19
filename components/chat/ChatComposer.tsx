@@ -300,6 +300,7 @@ export const ChatComposer = React.memo(({
           autoCorrect={false}
           autoComplete="off"
           autoFocus
+          keyboardAppearance="light"
         />
         <TouchableOpacity
           onPress={() => void handleSend()}
