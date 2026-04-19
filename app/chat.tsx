@@ -109,7 +109,7 @@ const CHAT_MESSAGE_MUTE_KEY = 'chat_message_mute_v2';
 /** Même clé que FriendsList : tuto « page chat » à la première ouverture d’un chat. */
 const FIRST_CHAT_MODAL_KEY = 'first_chat_modal_seen_v2';
 const ACTIVE_CHAT_FRIEND_ID_KEY = 'active_chat_friend_id_v1';
-const QUICK_REACTIONS = ['❤️', '😂', '😍', '😮', '😢', '😡', '👍', '🔥'] as const;
+const QUICK_REACTIONS = ['❤️', '😂', '😘', '💨', '😍', '😮', '😢', '😡', '👍', '🔥'] as const;
 type ChatMessageSoundChoice = 'trll' | 'bzzz' | 'pop' | 'mood' | 'toot';
 const PICKUP_TRLL_KEYS = getPickupKeys('trll');
 const PICKUP_BZZZ_KEYS = getPickupKeys('bzzz');
