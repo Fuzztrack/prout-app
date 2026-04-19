@@ -25,6 +25,11 @@ type RouterLike = Pick<Router, 'replace' | 'push'>;
 type BaseOptions = {
   /** Active la mise en pause de l'auto-routeur (`index.tsx`) pour cette navigation. */
   skipInitialCheck?: boolean;
+  /**
+   * Si true, exécute la navigation au prochain frame sans attendre
+   * `InteractionManager.runAfterInteractions` (meilleure réactivité depuis une liste déjà montée).
+   */
+  immediate?: boolean;
 };
 
 type SafeReplaceOptions = BaseOptions & {
@@ -38,7 +43,7 @@ type SafePushOptions = BaseOptions & {
 
 function withNavigationLock(
   action: () => void,
-  { skipInitialCheck = true }: BaseOptions = {},
+  { skipInitialCheck = true, immediate = false }: BaseOptions = {},
 ) {
   ensureGlobals();
 
@@ -70,6 +75,13 @@ function withNavigationLock(
       }, RELEASE_DELAY_MS);
     }
   };
+
+  if (immediate) {
+    requestAnimationFrame(() => {
+      executeAction();
+    });
+    return true;
+  }
 
   // Timeout de sécurité pour éviter le blocage si InteractionManager ne se déclenche pas
   const safetyTimeout = setTimeout(() => {
@@ -103,22 +115,22 @@ function withNavigationLock(
 export function safeReplace(
   router: RouterLike,
   path: Parameters<RouterLike['replace']>[0],
-  { skipInitialCheck = true, navigationOptions }: SafeReplaceOptions = {},
+  { skipInitialCheck = true, immediate = false, navigationOptions }: SafeReplaceOptions = {},
 ) {
   withNavigationLock(
     () => router.replace(path, navigationOptions),
-    { skipInitialCheck },
+    { skipInitialCheck, immediate },
   );
 }
 
 export function safePush(
   router: RouterLike,
   path: Parameters<RouterLike['push']>[0],
-  { skipInitialCheck = true, navigationOptions }: SafePushOptions = {},
+  { skipInitialCheck = true, immediate = false, navigationOptions }: SafePushOptions = {},
 ) {
   withNavigationLock(
     () => router.push(path, navigationOptions),
-    { skipInitialCheck },
+    { skipInitialCheck, immediate },
   );
 }
 

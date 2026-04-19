@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -180,6 +180,7 @@ export default function ChatScreen() {
   const isSilentMode = useAppStore(state => state.isSilentMode);
   const isHapticEnabled = useAppStore(state => state.isHapticEnabled);
   const storePseudo = useAppStore(state => state.pseudo);
+  const storeUserId = useAppStore(state => state.userId);
 
   const receivedByFriend = useChatStore(state => state.receivedByFriend);
   const sentByFriend = useChatStore(state => state.sentByFriend);
@@ -196,9 +197,27 @@ export default function ChatScreen() {
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentPseudo, setCurrentPseudo] = useState<string>(storePseudo || 'Un ami');
-  const [friend, setFriend] = useState<FriendProfile | null>(null);
+  const [serverFriend, setServerFriend] = useState<FriendProfile | null>(null);
   const [draft, setDraft] = useState('');
-  const [loadingFriend, setLoadingFriend] = useState(true);
+
+  const optimisticFriend = useMemo((): FriendProfile | null => {
+    if (!friendId || !isUuid(friendId)) return null;
+    return {
+      id: friendId,
+      pseudo: pseudoParam || 'Ami',
+      avatar_url: null,
+      expo_push_token: null,
+      push_platform: null,
+      is_zen_mode: false,
+    };
+  }, [friendId, pseudoParam]);
+
+  const friend = serverFriend ?? optimisticFriend;
+  const profileConfirmed = !!serverFriend;
+
+  useEffect(() => {
+    setServerFriend(null);
+  }, [friendId]);
   const [isChatMuteEnabled, setIsChatMuteEnabled] = useState(false);
   const [chatSoundPickerVisible, setChatSoundPickerVisible] = useState(false);
   const [chatSoundCategory, setChatSoundCategory] = useState<ChatMessageSoundChoice>(
@@ -262,6 +281,22 @@ export default function ChatScreen() {
     currentUserIdRef.current = currentUserId;
   }, [currentUserId]);
 
+  useLayoutEffect(() => {
+    if (storeUserId) {
+      setCurrentUserId(storeUserId);
+      return;
+    }
+    let cancelled = false;
+    void supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!cancelled && session?.user?.id) {
+        setCurrentUserId(session.user.id);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [storeUserId, friendId]);
+
   useEffect(() => {
     return () => {
       Keyboard.dismiss();
@@ -270,10 +305,13 @@ export default function ChatScreen() {
 
   const loadChatContext = useCallback(async () => {
     if (!friendId) return;
-    setLoadingFriend(true);
     try {
-      const { data: authData } = await supabase.auth.getUser();
-      const user = authData?.user;
+      const { data: sessionData } = await supabase.auth.getSession();
+      let user = sessionData?.session?.user ?? null;
+      if (!user) {
+        const { data: authData } = await supabase.auth.getUser();
+        user = authData?.user ?? null;
+      }
       if (!user) {
         safePush(router, '/(tabs)', { skipInitialCheck: false });
         return;
@@ -299,10 +337,11 @@ export default function ChatScreen() {
       if (!friendProfile) {
         Alert.alert(i18n.t('error'), 'Ami introuvable.');
         safePush(router, '/(tabs)', { skipInitialCheck: false });
+        setServerFriend(null);
         return;
       }
 
-      setFriend({
+      setServerFriend({
         id: friendProfile.id,
         pseudo: friendProfile.pseudo || pseudoParam || 'Ami',
         avatar_url: friendProfile.avatar_url || null,
@@ -313,8 +352,6 @@ export default function ChatScreen() {
     } catch (error) {
       console.error('❌ Erreur chargement chat:', error);
       Alert.alert(i18n.t('error'), 'Impossible de charger ce chat.');
-    } finally {
-      setLoadingFriend(false);
     }
   }, [friendId, pseudoParam, router, storePseudo]);
 
@@ -340,7 +377,7 @@ export default function ChatScreen() {
   }, [friendId, pendingSoundKeyParam]);
 
   useEffect(() => {
-    if (!friend || loadingFriend) return;
+    if (!friend || !profileConfirmed) return;
     let cancelled = false;
     (async () => {
       try {
@@ -355,7 +392,7 @@ export default function ChatScreen() {
     return () => {
       cancelled = true;
     };
-  }, [friend, loadingFriend]);
+  }, [friend, profileConfirmed]);
 
   const dismissFirstChatOnboarding = useCallback(async () => {
     setShowFirstChatOnboarding(false);
@@ -1036,7 +1073,15 @@ export default function ChatScreen() {
     );
   }
 
-  if (loadingFriend || !friend || !currentUserId) {
+  if (!isUuid(friendId)) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.errorText}>Chat introuvable.</Text>
+      </View>
+    );
+  }
+
+  if (!friend || !currentUserId) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator color="#604a3e" />
@@ -1186,6 +1231,7 @@ export default function ChatScreen() {
             pulseAnimatedStyle={pulseAnimatedStyle}
             composerBottomPadding={composerBottomPadding}
             inputRef={inputRef}
+            isProfileHydrated={profileConfirmed}
           />
         </Animated.View>
       </KeyboardAvoidingView>

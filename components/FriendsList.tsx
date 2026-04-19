@@ -4275,7 +4275,7 @@ useEffect(() => {
           pendingSoundKey: friendSoundKeyByFriend[friend.id] || '',
         },
       },
-      { skipInitialCheck: false }
+      { skipInitialCheck: true, immediate: true }
     );
   });
 

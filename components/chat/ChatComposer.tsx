@@ -56,6 +56,8 @@ interface ChatComposerProps {
   pulseAnimatedStyle: any;
   composerBottomPadding: number;
   inputRef: React.RefObject<TextInput>;
+  /** false tant que le profil destinataire n'est pas confirmé côté serveur (évite envoi avec jeton push absent). */
+  isProfileHydrated?: boolean;
 }
 
 export const ChatComposer = React.memo(({
@@ -73,6 +75,7 @@ export const ChatComposer = React.memo(({
   pulseAnimatedStyle,
   composerBottomPadding,
   inputRef,
+  isProfileHydrated = true,
 }: ChatComposerProps) => {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
@@ -247,8 +250,11 @@ export const ChatComposer = React.memo(({
         />
         <TouchableOpacity
           onPress={() => void handleSend()}
-          style={[styles.sendButton, (!draft.trim() || sending) && styles.sendButtonDisabled]}
-          disabled={!draft.trim() || sending}
+          style={[
+            styles.sendButton,
+            (!draft.trim() || sending || !isProfileHydrated) && styles.sendButtonDisabled,
+          ]}
+          disabled={!draft.trim() || sending || !isProfileHydrated}
           activeOpacity={0.85}
         >
           <Ionicons name="send" size={18} color="#604a3e" />
