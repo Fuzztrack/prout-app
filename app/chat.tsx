@@ -8,6 +8,7 @@ import {
   Alert,
   DeviceEventEmitter,
   Image,
+  InteractionManager,
   Keyboard,
   KeyboardAvoidingView,
   NativeModules,
@@ -199,6 +200,17 @@ export default function ChatScreen() {
   const [currentPseudo, setCurrentPseudo] = useState<string>(storePseudo || 'Un ami');
   const [serverFriend, setServerFriend] = useState<FriendProfile | null>(null);
   const [draft, setDraft] = useState('');
+  const [editingMessage, setEditingMessage] = useState<VisibleSentMessage | null>(null);
+
+  const handleMessageEdited = useCallback((messageId: string, newText: string) => {
+    setSentMessages((prev) => 
+      prev.map((msg) => msg.id === messageId ? { ...msg, text: newText } : msg)
+    );
+    // Mettre à jour le store permanent
+    const updatedSent = sentByFriend[friendId]?.map(msg => msg.id === messageId ? { ...msg, text: newText } : msg) || [];
+    addSentMessages(friendId, updatedSent);
+    setEditingMessage(null);
+  }, [friendId, sentByFriend, addSentMessages]);
 
   const optimisticFriend = useMemo((): FriendProfile | null => {
     if (!friendId || !isUuid(friendId)) return null;
@@ -244,6 +256,29 @@ export default function ChatScreen() {
   const inputRef = useRef<TextInput | null>(null);
   const reopenKeyboardAfterSoundPickRef = useRef(false);
   const keyboardHeightSV = useSharedValue(0);
+
+  /** iOS : un seul scrollToEnd(animated) au premier layout d’un long fil reste souvent en haut ; on force le bas sans animation puis rAF. */
+  const flushScrollToBottom = useCallback(() => {
+    const sv = scrollViewRef.current;
+    if (!sv) return;
+    try {
+      sv.scrollToEnd({ animated: false });
+    } catch {
+      /* ignore */
+    }
+    requestAnimationFrame(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: false });
+    });
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: false });
+      });
+    });
+  }, []);
+
+  const handleMessagesContentSizeChange = useCallback(() => {
+    flushScrollToBottom();
+  }, [flushScrollToBottom]);
 
   const pulseScale = useSharedValue(1);
 
@@ -490,6 +525,19 @@ export default function ChatScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      flushScrollToBottom();
+      const afterInteractions = InteractionManager.runAfterInteractions(() => flushScrollToBottom());
+      const timeouts = [16, 64, 160, 320].map((ms) => setTimeout(flushScrollToBottom, ms));
+      return () => {
+        timeouts.forEach(clearTimeout);
+        const cancel = (afterInteractions as { cancel?: () => void } | undefined)?.cancel;
+        cancel?.();
+      };
+    }, [flushScrollToBottom])
+  );
+
+  useFocusEffect(
+    useCallback(() => {
       if (!friendId) return;
 
       const nativeSoundSettingsModule = NativeModules.SoundSettingsModule;
@@ -597,6 +645,30 @@ export default function ChatScreen() {
             if (Platform.OS === 'ios' && isHapticEnabled) {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
             }
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'pending_messages',
+            filter: `to_user_id=eq.${currentUserId}`,
+          },
+          (payload: any) => {
+            // Un message que j'ai reçu a été mis à jour (ex: édité par l'expéditeur)
+            const updated = payload.new;
+            if (updated.from_user_id !== friendId) return;
+
+            const parsed = parseMessageContent(updated.message_content);
+            
+            // Mettre à jour le store permanent
+            addReceivedMessages(friendId, [{ ...updated, local_ts: Date.now() }]);
+
+            // Mettre à jour l'état local
+            setReceivedMessages((prev) =>
+              prev.map((m) => (m.id === updated.id ? { ...m, message_content: updated.message_content } : m))
+            );
           }
         )
         .on(
@@ -792,6 +864,16 @@ export default function ChatScreen() {
       (a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime()
     );
   }, [receivedMessages, sentMessages]);
+
+  // Long fil : le contenu arrive souvent en plusieurs passes (réseau + layout) — recaler le bas après stabilisation.
+  useEffect(() => {
+    if (timeline.length === 0) return;
+    const t = setTimeout(() => {
+      flushScrollToBottom();
+      InteractionManager.runAfterInteractions(() => flushScrollToBottom());
+    }, 72);
+    return () => clearTimeout(t);
+  }, [friendId, timeline.length, flushScrollToBottom]);
 
   const currentSoundChoices = useMemo(() => {
     switch (chatSoundCategory) {
@@ -1176,7 +1258,7 @@ export default function ChatScreen() {
             style={styles.messages}
             contentContainerStyle={styles.messagesContent}
             keyboardShouldPersistTaps="handled"
-            onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
+            onContentSizeChange={handleMessagesContentSizeChange}
           >
             {timeline.map((message) =>
               message.isMe ? (
@@ -1193,6 +1275,7 @@ export default function ChatScreen() {
                     } as any}
                     reaction={getReactionBadgeText(message.sourceMessageId || message.id)}
                     onLongPressReact={() => openReactionPicker(message.sourceMessageId || message.id, true)}
+                    onLongPressEdit={(msg) => setEditingMessage(msg)}
                   />
                 </View>
               ) : (
@@ -1232,6 +1315,9 @@ export default function ChatScreen() {
             composerBottomPadding={composerBottomPadding}
             inputRef={inputRef}
             isProfileHydrated={profileConfirmed}
+            editingMessage={editingMessage}
+            onCancelEdit={() => setEditingMessage(null)}
+            onMessageEdited={handleMessageEdited}
           />
         </Animated.View>
       </KeyboardAvoidingView>

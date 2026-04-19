@@ -132,6 +132,21 @@ export default function RootLayout() {
     };
   }, [router]);
 
+  // Rattrapage du token Push au premier plan (Foreground)
+  useEffect(() => {
+    if (!session?.user?.id) return;
+
+    const handleAppStateChange = (nextAppState: string) => {
+      if (nextAppState === 'active') {
+        if (__DEV__) console.log('🔄 [Layout] Rattrapage token push (Foreground)');
+        registerPushTokenForUser(session.user.id).catch(() => {});
+      }
+    };
+
+    const sub = AppState.addEventListener('change', handleAppStateChange);
+    return () => sub.remove();
+  }, [session?.user?.id]);
+
   useEffect(() => {
     if (!loading) {
       SplashScreen.hideAsync().catch(() => {});

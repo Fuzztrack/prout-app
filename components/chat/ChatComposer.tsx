@@ -17,7 +17,7 @@ import Animated from 'react-native-reanimated';
 import { useQueryClient } from '@tanstack/react-query';
 import i18n from '@/lib/i18n';
 import { supabase } from '@/lib/supabase';
-import { sendProutViaBackend } from '@/lib/sendProutBackend';
+import { sendProutViaBackend, editMessageViaBackend } from '@/lib/sendProutBackend';
 import {
   getDisplaySoundLabel,
   getSelectedSoundCategory,
@@ -58,6 +58,9 @@ interface ChatComposerProps {
   inputRef: React.RefObject<TextInput>;
   /** false tant que le profil destinataire n'est pas confirmé côté serveur (évite envoi avec jeton push absent). */
   isProfileHydrated?: boolean;
+  editingMessage?: VisibleSentMessage | null;
+  onCancelEdit?: () => void;
+  onMessageEdited?: (messageId: string, newText: string) => void;
 }
 
 export const ChatComposer = React.memo(({
@@ -76,11 +79,23 @@ export const ChatComposer = React.memo(({
   composerBottomPadding,
   inputRef,
   isProfileHydrated = true,
+  editingMessage,
+  onCancelEdit,
+  onMessageEdited,
 }: ChatComposerProps) => {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const lastRandomSoundRef = useRef<string | undefined>(undefined);
   const queryClient = useQueryClient();
+
+  // Remplir le draft quand on commence l'édition
+  useEffect(() => {
+    if (editingMessage) {
+      setDraft(editingMessage.text);
+      // Donner le focus à l'input
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [editingMessage, inputRef]);
 
   const handleSend = useCallback(async () => {
     const customMessage = draft.trim().slice(0, 140);
@@ -99,37 +114,61 @@ export const ChatComposer = React.memo(({
       return;
     }
 
-    try {
-      const { data: muteCheck } = await supabase
-        .from('friends')
-        .select('is_muted')
-        .eq('user_id', friend.id)
-        .eq('friend_id', currentUserId)
-        .maybeSingle();
-
-      if (muteCheck?.is_muted) {
-        Alert.alert(
-          i18n.t('mute_mode_active_title'),
-          i18n.t('mute_mode_active_body', { pseudo: friend.pseudo })
-        );
-        return;
-      }
-    } catch (e) {
-      console.error('❌ Erreur vérification sourdine:', e);
-    }
-
-    if (!friend.expo_push_token) {
-      Alert.alert(
-        i18n.t('error'), 
-        i18n.t('notifications_not_enabled', { pseudo: friend.pseudo }),
-        [{ text: i18n.t('ok'), style: 'cancel' }]
-      );
-      return;
-    }
-
     setSending(true);
 
     try {
+      if (editingMessage) {
+        // MODE ÉDITION
+        const result = await editMessageViaBackend(editingMessage.id, customMessage, currentUserId);
+        if (result.success) {
+          onMessageEdited?.(editingMessage.id, customMessage);
+          setDraft('');
+          if (Platform.OS === 'ios' && isHapticEnabled) {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+          }
+        } else {
+          if (result.status === 403) {
+            Alert.alert(i18n.t('error'), "Impossible de modifier un message déjà lu.");
+            onCancelEdit?.();
+            setDraft('');
+          } else {
+            Alert.alert(i18n.t('error'), "Erreur lors de la modification.");
+          }
+        }
+        return;
+      }
+
+      // MODE ENVOI
+      try {
+        const { data: muteCheck } = await supabase
+          .from('friends')
+          .select('is_muted')
+          .eq('friend_id', currentUserId)
+          .eq('user_id', friend.id)
+          .maybeSingle();
+
+        if (muteCheck?.is_muted) {
+          Alert.alert(
+            i18n.t('mute_mode_active_title'),
+            i18n.t('mute_mode_active_body', { pseudo: friend.pseudo })
+          );
+          setSending(false);
+          return;
+        }
+      } catch (e) {
+        console.error('❌ Erreur vérification sourdine:', e);
+      }
+
+      if (!friend.expo_push_token) {
+        Alert.alert(
+          i18n.t('error'), 
+          i18n.t('notifications_not_enabled', { pseudo: friend.pseudo }),
+          [{ text: i18n.t('ok'), style: 'cancel' }]
+        );
+        setSending(false);
+        return;
+      }
+
       let randomKey: string;
       let isSilentMessage = false;
 
@@ -188,9 +227,9 @@ export const ChatComposer = React.memo(({
       queryClient.invalidateQueries({ queryKey: ['pendingMessages', currentUserId] });
       queryClient.invalidateQueries({ queryKey: ['pendingSentMessages', currentUserId] });
     } catch (error: any) {
-      console.error("Erreur lors de l'envoi du message:", error?.message || error);
-      Alert.alert(i18n.t('error'), "Impossible d'envoyer le message.");
-      setDraft(customMessage);
+      console.error("Erreur lors de l'envoi/modif du message:", error?.message || error);
+      Alert.alert(i18n.t('error'), "Une erreur est survenue.");
+      if (!editingMessage) setDraft(customMessage);
     } finally {
       setSending(false);
     }
@@ -206,12 +245,24 @@ export const ChatComposer = React.memo(({
     pendingChatSoundKey,
     onMessageSent,
     setPendingChatSoundKey,
-    queryClient
+    queryClient,
+    editingMessage,
+    onMessageEdited,
+    onCancelEdit,
+    inputRef
   ]);
 
   return (
     <View style={[styles.composer, { paddingBottom: composerBottomPadding }]}>
-      {!!pendingChatSoundKey && (
+      {editingMessage && (
+        <View style={styles.editingBanner}>
+          <Text style={styles.editingBannerText}>Modification du message...</Text>
+          <TouchableOpacity onPress={() => { setDraft(''); onCancelEdit?.(); }}>
+            <Ionicons name="close-circle" size={20} color="#604a3e" />
+          </TouchableOpacity>
+        </View>
+      )}
+      {!!pendingChatSoundKey && !editingMessage && (
         <TouchableOpacity
           style={styles.pendingSoundTag}
           onPress={() => setPendingChatSoundKey(null)}
@@ -222,22 +273,24 @@ export const ChatComposer = React.memo(({
         </TouchableOpacity>
       )}
       <View style={styles.composerRow}>
-        <TouchableOpacity
-          style={styles.soundPickerButton}
-          onPress={onOpenSoundPicker}
-          activeOpacity={0.85}
-          accessibilityRole="button"
-          accessibilityLabel={i18n.t('chat_sound_picker_inline_button')}
-        >
-          <Animated.Image
-            source={CHAT_PROOTHAIL_THUMB}
-            style={[styles.soundPickerThumbImage, pulseAnimatedStyle]}
-            resizeMode="contain"
-          />
-        </TouchableOpacity>
+        {!editingMessage && (
+          <TouchableOpacity
+            style={styles.soundPickerButton}
+            onPress={onOpenSoundPicker}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel={i18n.t('chat_sound_picker_inline_button')}
+          >
+            <Animated.Image
+              source={CHAT_PROOTHAIL_THUMB}
+              style={[styles.soundPickerThumbImage, pulseAnimatedStyle]}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
+        )}
         <TextInput
           ref={inputRef}
-          style={styles.input}
+          style={[styles.input, editingMessage && styles.inputEditing]}
           placeholder={i18n.t('add_message_placeholder')}
           placeholderTextColor="#777"
           value={draft}
@@ -253,11 +306,12 @@ export const ChatComposer = React.memo(({
           style={[
             styles.sendButton,
             (!draft.trim() || sending || !isProfileHydrated) && styles.sendButtonDisabled,
+            editingMessage && styles.editConfirmButton,
           ]}
           disabled={!draft.trim() || sending || !isProfileHydrated}
           activeOpacity={0.85}
         >
-          <Ionicons name="send" size={18} color="#604a3e" />
+          <Ionicons name={editingMessage ? "checkmark" : "send"} size={editingMessage ? 22 : 18} color="#604a3e" />
         </TouchableOpacity>
       </View>
     </View>
@@ -281,6 +335,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: 5,
+  },
+  editingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255,255,255,0.4)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginBottom: 8,
+    marginHorizontal: 4,
+  },
+  editingBannerText: {
+    color: '#604a3e',
+    fontSize: 13,
+    fontWeight: 'bold',
   },
   pendingSoundTag: {
     alignSelf: 'flex-start',
@@ -323,6 +393,10 @@ const styles = StyleSheet.create({
     color: '#333',
     fontSize: 18,
   },
+  inputEditing: {
+    borderColor: '#604a3e',
+    backgroundColor: '#fffcf5',
+  },
   sendButton: {
     width: 44,
     height: 44,
@@ -333,6 +407,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#d2f1ef',
     borderWidth: 1,
     borderColor: 'rgba(96, 74, 62, 0.15)',
+  },
+  editConfirmButton: {
+    backgroundColor: '#A2E4D4',
   },
   sendButtonDisabled: {
     opacity: 0.5,

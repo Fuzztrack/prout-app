@@ -168,6 +168,41 @@ const pendingRateLimitCooldownMs = 8_000;
 let pendingReceivedBlockedUntil = 0;
 let pendingSentBlockedUntil = 0;
 
+export async function editMessageViaBackend(
+  messageId: string,
+  newText: string,
+  senderId: string
+) {
+  const API_URL = 'https://prout-backend.onrender.com/prout/edit';
+  const API_KEY = '82d6d94d97ad501a596bf866c2831623';
+
+  try {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': API_KEY,
+      },
+      body: JSON.stringify({
+        messageId,
+        newText,
+        senderId,
+      }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      console.error(`Erreur backend editMessage (${res.status}):`, text);
+      return { success: false, status: res.status, message: text };
+    }
+    
+    return { success: true };
+  } catch (err: any) {
+    console.error('Erreur réseau/Backend editMessage:', err?.message || err);
+    return { success: false, message: err?.message };
+  }
+}
+
 export async function fetchPendingReceivedViaBackend(userId: string) {
   const API_URL = 'https://prout-backend.onrender.com/prout/pendingReceived';
   const API_KEY = '82d6d94d97ad501a596bf866c2831623';

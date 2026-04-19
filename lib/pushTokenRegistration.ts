@@ -45,29 +45,38 @@ export async function registerPushTokenForUser(userId: string) {
     
     // Si permission indéterminée ET qu'on n'est pas encore passé par l'onboarding,
     // on ne fait rien pour éviter de déclencher le popup système trop tôt.
+    // MAIS on laisse passer si c'est un utilisateur déjà "en place" (a déjà un pseudo validé par ex)
+    // pour le rattrapage sur les sessions suivantes.
     if (status === 'undetermined' && !isPastOnboarding) {
       if (__DEV__) console.log('🔔 [PushToken] Onboarding non terminé, on attend avant de demander la permission');
       return;
     }
 
+    if (__DEV__) console.log(`🔔 [PushToken] Status: ${status}, PastOnboarding: ${isPastOnboarding}`);
+
     // Si permission déjà refusée, on ne peut plus rien faire automatiquement.
-    // L'utilisateur devra aller dans les réglages.
     if (status === 'denied') {
       if (__DEV__) console.log('🔔 [PushToken] Permission refusée par l\'utilisateur');
+      
+      // On log quand même dans la DB que la plateforme est identifiée mais sans token
+      await supabase
+        .from('user_profiles')
+        .update({ push_platform: Platform.OS, updated_at: new Date().toISOString() })
+        .eq('id', userId)
+        .eq('expo_push_token', null); // Seulement si pas déjà de token
       return;
     }
 
     // 3. Récupérer le token (getFCMToken gère lui-même la demande de permission si status est undetermined)
     const pushToken = await getFCMToken();
     if (!pushToken) {
-      if (__DEV__) console.log('🔔 [PushToken] Impossible de récupérer le token (probablement refusé ou erreur)');
+      if (__DEV__) console.log('🔔 [PushToken] Impossible de récupérer le token (probablement refusé ou erreur SDK)');
       return;
     }
 
-    if (__DEV__) console.log('🔔 [PushToken] Tentative d\'enregistrement pour', userId);
+    if (__DEV__) console.log('🔔 [PushToken] Tentative d\'enregistrement pour', userId, 'Format:', pushToken.includes(':') ? 'FCM' : 'Expo');
 
-    // 4. Nettoyer le token s'il est déjà utilisé par un autre compte (évite les doublons de notifs)
-    // On ignore l'erreur car elle peut être due à des restrictions de RLS
+    // 4. Nettoyer le token s'il est déjà utilisé par un autre compte
     try {
       await supabase
         .from('user_profiles')
@@ -75,7 +84,7 @@ export async function registerPushTokenForUser(userId: string) {
         .eq('expo_push_token', pushToken)
         .neq('id', userId);
     } catch (cleanError) {
-      if (__DEV__) console.log('🔔 [PushToken] Note: Impossible de nettoyer les anciens tokens (normal si RLS activé)');
+      if (__DEV__) console.log('🔔 [PushToken] Note: Nettoyage doublons ignoré');
     }
 
     // 5. Préparer les données de mise à jour
@@ -91,19 +100,47 @@ export async function registerPushTokenForUser(userId: string) {
     }
 
     // 6. Mettre à jour le profil de l'utilisateur actuel
-    // On utilise UPDATE au lieu de UPSERT pour éviter de violer la contrainte NOT NULL sur le pseudo
-    // si le profil est en cours de création par le trigger.
-    const { error } = await supabase
+    // On essaie d'abord un UPDATE
+    const { error, count } = await supabase
       .from('user_profiles')
       .update(updatePayload)
-      .eq('id', userId);
+      .eq('id', userId)
+      .select('id');
 
     if (error) {
-      console.error('❌ [PushToken] Erreur lors de la mise à jour du profil:', error.message);
+      console.error('❌ [PushToken] Erreur update profil:', error.message);
+      throw error;
+    }
+
+    // Si aucune ligne n'a été modifiée (count === 0 ou select vide), on tente un UPSERT
+    // car le trigger de création de profil a peut-être échoué ou n'est pas encore passé.
+    if (!count || count === 0) {
+      if (__DEV__) console.log('🔔 [PushToken] Aucune ligne trouvée avec update, tentative upsert...');
+      
+      // Récupérer le pseudo actuel pour ne pas l'écraser si on upsert
+      const { data: existing } = await supabase
+        .from('user_profiles')
+        .select('pseudo')
+        .eq('id', userId)
+        .maybeSingle();
+
+      const { error: upsertError } = await supabase
+        .from('user_profiles')
+        .upsert({
+          id: userId,
+          ...updatePayload,
+          pseudo: existing?.pseudo || 'Nouveau Membre', // Fallback sécu
+        });
+
+      if (upsertError) {
+        console.error('❌ [PushToken] Erreur upsert profil:', upsertError.message);
+      } else {
+        if (__DEV__) console.log('✅ [PushToken] Token enregistré via UPSERT');
+      }
     } else {
-      if (__DEV__) console.log('✅ [PushToken] Token mis à jour avec succès');
+      if (__DEV__) console.log('✅ [PushToken] Token mis à jour via UPDATE');
     }
   } catch (e: any) {
-    console.error('❌ [PushToken] Exception lors de l\'enregistrement:', e?.message || e);
+    console.error('❌ [PushToken] Exception critique:', e?.message || e);
   }
 }
