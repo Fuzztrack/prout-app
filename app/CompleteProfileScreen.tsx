@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { CustomButton } from '../components/CustomButton';
 import { logSignOutIntent } from '../lib/authDebug';
 import { buildAcceptedEulaMetadata } from '../lib/eula';
@@ -39,9 +40,6 @@ export default function CompleteProfileScreen() {
         if (phoneFromMetadata) {
           setPhone(phoneFromMetadata);
         }
-        
-        // Le pseudo est pré-rempli dans le champ, l'utilisateur doit valider manuellement
-        // Pas de mise à jour automatique ni de redirection automatique
       } else {
         safeReplace(router, '/AuthChoiceScreen', { skipInitialCheck: false });
       }
@@ -56,6 +54,19 @@ export default function CompleteProfileScreen() {
 
   const handleSave = async () => {
     if (!pseudo.trim()) return Alert.alert(i18n.t('error'), i18n.t('choose_pseudo'));
+    
+    // Vérifier les permissions de notification avant de sauvegarder
+    // Si elles sont indéterminées, on tente de les demander une dernière fois
+    try {
+      const { status } = await Notifications.getPermissionsAsync();
+      if (status === 'undetermined') {
+        const { status: newStatus } = await Notifications.requestPermissionsAsync();
+        if (__DEV__) console.log('🔔 [CompleteProfile] Nouvelles permissions:', newStatus);
+      }
+    } catch (e) {
+      console.warn('⚠️ [CompleteProfile] Erreur check permissions:', e);
+    }
+
     setLoading(true);
 
     try {
@@ -65,9 +76,6 @@ export default function CompleteProfileScreen() {
       // Normaliser le téléphone si fourni (non obligatoire)
       const normalizedPhone = phone.trim() ? normalizePhone(phone.trim()) : null;
 
-      // Utilisation de UPSERT : 
-      // Si le profil a été supprimé, ça le recrée.
-      // Si le profil existe, ça le met à jour.
       const { error } = await supabase
         .from('user_profiles')
         .upsert({
@@ -80,6 +88,9 @@ export default function CompleteProfileScreen() {
       if (error) throw error;
 
       // ✅ TENTATIVE D'ENREGISTREMENT DU TOKEN PUSH APRÈS CRÉATION DU PROFIL
+      // On attend un tout petit peu pour s'assurer que le profil est bien propagé dans Supabase
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       try {
         await registerPushTokenForUser(userId);
       } catch (tokenError) {
@@ -116,7 +127,6 @@ export default function CompleteProfileScreen() {
     }
   };
 
-  // 🚪 LA FONCTION DE SORTIE
   const handleLogout = async () => {
     try {
         await logSignOutIntent('CompleteProfileScreen:logout', () => supabase.auth.getUser());
@@ -153,6 +163,7 @@ export default function CompleteProfileScreen() {
             placeholder={i18n.t('complete_profile_pseudo_placeholder')}
             placeholderTextColor="#604a3e"
             autoCapitalize="none"
+            keyboardAppearance="light"
         />
 
         <TextInput 
@@ -163,6 +174,7 @@ export default function CompleteProfileScreen() {
             placeholderTextColor="#604a3e"
             keyboardType="phone-pad"
             autoCapitalize="none"
+            keyboardAppearance="light"
         />
 
         <CustomButton 
@@ -173,7 +185,6 @@ export default function CompleteProfileScreen() {
             textColor="#ebb89b"
         />
 
-        {/* BOUTON DE SECOURS */}
         <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
             <Text style={styles.logoutText}>{i18n.t('cancel_and_logout')}</Text>
         </TouchableOpacity>

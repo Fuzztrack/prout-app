@@ -212,6 +212,7 @@ export default function RegisterEmailScreen() {
                 style={styles.input} 
                 placeholder={i18n.t('pseudo_placeholder')} 
                 placeholderTextColor="#999"
+                keyboardAppearance="light"
             />
         </View>
 
@@ -225,6 +226,7 @@ export default function RegisterEmailScreen() {
                 keyboardType="email-address" 
                 autoCapitalize="none" 
                 placeholderTextColor="#999"
+                keyboardAppearance="light"
             />
             <Text style={styles.helperText}>{i18n.t('validation_link_sent')}</Text>
         </View>
@@ -238,6 +240,7 @@ export default function RegisterEmailScreen() {
                 placeholder={i18n.t('phone_format_placeholder')} 
                 keyboardType="phone-pad" 
                 placeholderTextColor="#999"
+                keyboardAppearance="light"
             />
             <Text style={styles.helperText}>{i18n.t('phone_helper')}</Text>
         </View>
@@ -252,6 +255,7 @@ export default function RegisterEmailScreen() {
                     placeholder={i18n.t('password_placeholder')}
                     placeholderTextColor="#999"
                     secureTextEntry={!showPassword} 
+                    keyboardAppearance="light"
                 />
                 <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
                     <Ionicons name={showPassword ? "eye-off" : "eye"} size={24} color="#604a3e" />

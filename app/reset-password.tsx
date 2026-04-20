@@ -157,6 +157,7 @@ export default function ResetPasswordScreen() {
               secureTextEntry={!showPassword}
               style={styles.passwordInput}
               placeholderTextColor="#999"
+              keyboardAppearance="light"
             />
             <TouchableOpacity
               onPress={() => setShowPassword(!showPassword)}
@@ -181,6 +182,7 @@ export default function ResetPasswordScreen() {
               secureTextEntry={!showConfirmPassword}
               style={styles.passwordInput}
               placeholderTextColor="#999"
+              keyboardAppearance="light"
             />
             <TouchableOpacity
               onPress={() => setShowConfirmPassword(!showConfirmPassword)}

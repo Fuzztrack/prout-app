@@ -364,22 +364,40 @@ export default function AuthChoiceScreen() {
               
               const pseudoValidated = effectiveUser?.user_metadata?.pseudo_validated === true;
 
-              // Fin du flux OAuth : on libère le routeur global et on navigue
+              // Fin du flux OAuth : on libère le routeur global
               if (typeof (global as any).__isOAuthFlow === 'function') {
                 (global as any).__isOAuthFlow(false);
               }
 
-              // ✅ FIX : On ne redirige vers la Home QUE si le pseudo a été explicitement validé par l'utilisateur.
+              // ✅ FIX : On redirige vers la Home QUE si le pseudo a été explicitement validé par l'utilisateur.
               if (pseudoValidated) {
                 console.log('➡️ OAuth OK → Home (pseudo déjà validé)');
-                replaceWithSkip('/');
+                replaceWithSkip('/(tabs)');
                 return true;
               }
 
               // Sinon, passage obligé par la case départ pour choisir/confirmer le pseudo
-              console.log('➡️ OAuth OK → CompleteProfileScreen (nouvel utilisateur ou validation requise)');
-              replaceWithSkip('/CompleteProfileScreen');
-              return true;              return true;
+              // AVEC VÉRIFICATION DES PERMISSIONS DE NOTIFICATION AU PRÉALABLE
+              console.log('➡️ OAuth OK → Vérification Permissions -> CompleteProfileScreen');
+              
+              // On importe dynamiquement Notifications pour éviter les dépendances circulaires
+              const Notifications = require('expo-notifications');
+              
+              try {
+                const { status } = await Notifications.getPermissionsAsync();
+                if (status === 'undetermined') {
+                  console.log('➡️ Direction: NotificationPermissionScreen');
+                  replaceWithSkip('/NotificationPermissionScreen?next=%2FCompleteProfileScreen');
+                } else {
+                  console.log('➡️ Direction: CompleteProfileScreen');
+                  replaceWithSkip('/CompleteProfileScreen');
+                }
+              } catch (e) {
+                console.warn('⚠️ Erreur lors de la vérification des permissions, redirection par défaut:', e);
+                replaceWithSkip('/CompleteProfileScreen');
+              }
+              
+              return true;
             }
           } else {
             console.error('❌ Tokens OAuth introuvables ou invalides dans l’URL callback');

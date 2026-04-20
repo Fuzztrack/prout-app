@@ -1,82 +1,74 @@
 // app/NotificationPermissionScreen.tsx
 import * as Notifications from 'expo-notifications';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import Constants from 'expo-constants';
 import { Platform, Alert, Image, StyleSheet, Text, View } from 'react-native';
 import { CustomButton } from '../components/CustomButton';
-import { safePush } from '../lib/navigation';
+import { safeReplace } from '../lib/navigation';
 import { ensureAndroidNotificationChannel } from '../lib/notifications';
 import { getFCMToken } from '../lib/fcmToken';
 import i18n from '../lib/i18n';
 
 export default function NotificationPermissionScreen() {
   const router = useRouter();
+  const { next } = useLocalSearchParams();
 
   const handleNext = async () => {
+    const nextPath = (next as string) || '/ContactPermissionScreen';
+
     // Demander la permission de notifications
     if (Platform.OS === 'web') {
       Alert.alert(i18n.t('info'), i18n.t('web_notifications_unavailable'));
-      safePush(router, '/ContactPermissionScreen', { skipInitialCheck: false });
+      safeReplace(router, nextPath, { skipInitialCheck: false });
       return;
     }
 
     if (Constants.isDevice === false) {
-      Alert.alert(
-        i18n.t('info'),
-        i18n.t('push_requires_device')
-      );
-      safePush(router, '/ContactPermissionScreen', { skipInitialCheck: false });
+      console.log('📱 [NotificationPermission] Simulateur détecté');
+      safeReplace(router, nextPath, { skipInitialCheck: false });
       return;
     }
 
     if (Constants.executionEnvironment === 'storeClient') {
-      Alert.alert(
-        'Development Build requis',
-        'Les notifications push nécessitent un development build. Expo Go ne les supporte pas.'
-      );
-      safePush(router, '/ContactPermissionScreen', { skipInitialCheck: false });
+      console.log('📱 [NotificationPermission] Expo Go détecté');
+      safeReplace(router, nextPath, { skipInitialCheck: false });
       return;
     }
 
     try {
-      console.log('📱 Demande de permission de notifications...');
+      console.log('📱 [NotificationPermission] Vérification permission...');
       const { status: existingStatus } = await Notifications.getPermissionsAsync();
-      console.log('📱 Permission existante:', existingStatus);
       
       let finalStatus = existingStatus;
       
-      // Demander la permission si elle n'est pas déjà accordée
       if (existingStatus !== 'granted') {
-        console.log('📱 Demande de permission de notifications...');
         const { status } = await Notifications.requestPermissionsAsync();
         finalStatus = status;
-        console.log('📱 Permission après demande:', finalStatus);
         
         if (finalStatus === 'denied') {
-          console.warn('⚠️ Permission de notifications refusée');
+          console.warn('⚠️ [NotificationPermission] Refusée');
           Alert.alert(
             i18n.t('permission_denied_title'),
             i18n.t('permission_denied_body')
           );
         } else if (finalStatus === 'granted') {
-          console.log('✅ Permission de notifications accordée');
-          // Essayer d'obtenir le token pour s'assurer que tout fonctionne
+          console.log('✅ [NotificationPermission] Accordée');
           try {
             await ensureAndroidNotificationChannel();
             await getFCMToken();
           } catch (tokenError) {
-            console.warn('⚠️ Erreur lors de l\'obtention du token:', tokenError);
+            console.warn('⚠️ [NotificationPermission] Erreur token:', tokenError);
           }
         }
       } else {
-        console.log('✅ Permission de notifications déjà accordée');
+        console.log('✅ [NotificationPermission] Déjà accordée');
       }
     } catch (error) {
-      console.error('❌ Erreur lors de la demande de permission:', error);
+      console.error('❌ [NotificationPermission] Erreur:', error);
     }
     
-    // Rediriger vers la page de permission contacts, puis vers l'inscription
-    safePush(router, '/ContactPermissionScreen', { skipInitialCheck: false });
+    // Rediriger vers la suite du flux
+    safeReplace(router, nextPath, { skipInitialCheck: false });
   };
 
   return (
@@ -147,4 +139,3 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
 });
-

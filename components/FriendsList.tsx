@@ -5029,6 +5029,7 @@ useEffect(() => {
                spellCheck: false,
                textContentType: 'none',
             } : {})}
+            keyboardAppearance="dark"
             
             onFocus={() => {
               if (Platform.OS === 'android') {

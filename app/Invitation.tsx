@@ -875,6 +875,7 @@ export default function InvitationScreen() {
             keyboardType={inviteMode === 'email' ? 'email-address' : 'default'}
             autoCapitalize="none"
             style={styles.input}
+            keyboardAppearance="light"
           />
 
           <CustomButton
@@ -920,6 +921,7 @@ export default function InvitationScreen() {
                   onChangeText={setSearchQuery}
                   autoCapitalize="none"
                   autoCorrect={false}
+                  keyboardAppearance="light"
                 />
               }
               ListEmptyComponent={

@@ -39,20 +39,19 @@ export async function registerPushTokenForUser(userId: string) {
     // 1. Vérifier si l'utilisateur est passé par l'onboarding
     const onboardingSeen = await AsyncStorage.getItem('hasSeenOnboarding');
     const isPastOnboarding = onboardingSeen === 'true';
+    if (__DEV__) console.log(`🔔 [PushToken] User is past onboarding: ${isPastOnboarding}`);
 
     // 2. Vérifier les permissions actuelles
-    const { status } = await Notifications.getPermissionsAsync();
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
     
-    // Si permission indéterminée ET qu'on n'est pas encore passé par l'onboarding,
-    // on ne fait rien pour éviter de déclencher le popup système trop tôt.
-    // MAIS on laisse passer si c'est un utilisateur déjà "en place" (a déjà un pseudo validé par ex)
-    // pour le rattrapage sur les sessions suivantes.
-    if (status === 'undetermined' && !isPastOnboarding) {
-      if (__DEV__) console.log('🔔 [PushToken] Onboarding non terminé, on attend avant de demander la permission');
-      return;
+    let status = existingStatus;
+    if (status === 'undetermined') {
+      if (__DEV__) console.log('🔔 [PushToken] Status undetermined, requesting permissions...');
+      const { status: requestedStatus } = await Notifications.requestPermissionsAsync();
+      status = requestedStatus;
     }
 
-    if (__DEV__) console.log(`🔔 [PushToken] Status: ${status}, PastOnboarding: ${isPastOnboarding}`);
+    if (__DEV__) console.log(`🔔 [PushToken] Final Status: ${status}`);
 
     // Si permission déjà refusée, on ne peut plus rien faire automatiquement.
     if (status === 'denied') {
@@ -121,7 +120,7 @@ export async function registerPushTokenForUser(userId: string) {
 
     // 6. Mettre à jour le profil de l'utilisateur actuel
     // On essaie d'abord un UPDATE
-    const { error, count } = await supabase
+    const { data, error } = await supabase
       .from('user_profiles')
       .update(updatePayload)
       .eq('id', userId)
@@ -132,9 +131,9 @@ export async function registerPushTokenForUser(userId: string) {
       throw error;
     }
 
-    // Si aucune ligne n'a été modifiée (count === 0 ou select vide), on tente un UPSERT
+    // Si aucune ligne n'a été modifiée (data vide), on tente un UPSERT
     // car le trigger de création de profil a peut-être échoué ou n'est pas encore passé.
-    if (!count || count === 0) {
+    if (!data || data.length === 0) {
       if (__DEV__) console.log('🔔 [PushToken] Aucune ligne trouvée avec update, tentative upsert...');
       
       // Récupérer le pseudo actuel pour ne pas l'écraser si on upsert

@@ -102,6 +102,7 @@ export default function IdentityRevealScreen() {
           value={alias}
           onChangeText={setAlias}
           editable={!loading}
+          keyboardAppearance="light"
         />
 
         <TouchableOpacity

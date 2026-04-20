@@ -637,6 +637,7 @@ export default function EditProfilScreen() {
               onChangeText={setPseudo} 
               style={styles.input}
               placeholderTextColor="#999"
+              keyboardAppearance="light"
             />
           </View>
 
@@ -649,6 +650,7 @@ export default function EditProfilScreen() {
               keyboardType="email-address"
               autoCapitalize="none"
               placeholderTextColor="#999"
+              keyboardAppearance="light"
             />
           </View>
 
@@ -660,6 +662,7 @@ export default function EditProfilScreen() {
               style={styles.input}
               keyboardType="phone-pad"
               placeholderTextColor="#999"
+              keyboardAppearance="light"
             />
           </View>
 

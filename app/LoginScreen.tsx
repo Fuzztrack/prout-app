@@ -200,6 +200,7 @@ export default function LoginScreen() {
           autoCapitalize="none"
           keyboardType="email-address"
           placeholderTextColor="#999"
+          keyboardAppearance="light"
         />
         <View style={styles.passwordContainer}>
           <TextInput
@@ -209,6 +210,7 @@ export default function LoginScreen() {
             secureTextEntry={!showPassword}
             style={styles.passwordInput}
             placeholderTextColor="#999"
+            keyboardAppearance="light"
           />
           <TouchableOpacity
             onPress={() => setShowPassword(!showPassword)}

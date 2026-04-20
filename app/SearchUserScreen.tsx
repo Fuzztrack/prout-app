@@ -163,6 +163,7 @@ export default function SearchUserScreen() {
             returnKeyType="search"
             onSubmitEditing={handleSearch}
             placeholderTextColor="#999"
+            keyboardAppearance="light"
           />
         </View>
 

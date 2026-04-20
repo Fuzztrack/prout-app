@@ -177,6 +177,7 @@ export function SearchUser({ visible, onClose }: { visible: boolean; onClose: ()
                 returnKeyType="search"
                 onSubmitEditing={handleSearch}
                 placeholderTextColor="#999"
+                keyboardAppearance="light"
               />
             </View>
 

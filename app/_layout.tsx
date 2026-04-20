@@ -115,7 +115,7 @@ export default function RootLayout() {
         setSession(session);
         AsyncStorage.setItem('supabase_was_logged_in', 'true');
         saveLocaleToSupabase();
-        registerPushTokenForUser(session.user.id).catch(() => {});
+        setTimeout(() => registerPushTokenForUser(session.user.id).catch(() => {}), 1000);
       } else if (event === 'SIGNED_OUT') {
         setSession(null);
         AsyncStorage.removeItem('supabase_was_logged_in');

@@ -620,6 +620,7 @@ export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void;
                 onChangeText={setPseudo}
                 style={styles.input}
                 placeholderTextColor="#999"
+                keyboardAppearance="light"
               />
             </View>
 
@@ -633,6 +634,7 @@ export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void;
                 keyboardType="email-address"
                 autoCapitalize="none"
                 placeholderTextColor="#999"
+                keyboardAppearance="light"
               />
             </View>
 
@@ -645,6 +647,7 @@ export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void;
                 style={styles.input}
                 keyboardType="phone-pad"
                 placeholderTextColor="#999"
+                keyboardAppearance="light"
               />
             </View>
 

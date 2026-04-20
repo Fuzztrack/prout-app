@@ -80,6 +80,7 @@ export default function SearchScreen() {
             // Props minimalistes pour éviter tout conflit Android
             autoCapitalize="none"
             autoCorrect={false}
+            keyboardAppearance="light"
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')}>

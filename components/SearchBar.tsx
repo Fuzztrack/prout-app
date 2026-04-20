@@ -66,6 +66,7 @@ export const SearchBar = memo(forwardRef<TextInput, SearchBarProps>((props, ref)
         style={styles.searchInput}
         placeholder={i18n.t('search_contact_placeholder')}
         placeholderTextColor="#999"
+        keyboardAppearance="light"
         value={searchQuery}
         onChangeText={(text) => {
           lastChangeTextAtRef.current = Date.now();

@@ -19,7 +19,7 @@ export default function Index() {
     let isMounted = true;
 
     const decideNavigation = async () => {
-
+      console.log('🧭 [Router] decideNavigation démarré');
       try {
         if (shouldSkipInitialNavigation()) {
           console.log('⏭️ Navigation initiale déjà gérée, on ignore cette passe');
@@ -188,15 +188,15 @@ export default function Index() {
                   if (needsCompletion) {
                     if (!hasNavigated.current) {
                       hasNavigated.current = true;
-                      safeReplace(router, '/CompleteProfileScreen', { skipInitialCheck: false });
+                      const { status } = await Notifications.getPermissionsAsync();
+                      if (status === 'undetermined') {
+                        safeReplace(router, '/NotificationPermissionScreen?next=%2FCompleteProfileScreen', { skipInitialCheck: false });
+                      } else {
+                        safeReplace(router, '/CompleteProfileScreen', { skipInitialCheck: false });
+                      }
                     }
-                  } else {
-                    if (!hasNavigated.current) {
-                      hasNavigated.current = true;
-                      safeReplace(router, '/(tabs)', { skipInitialCheck: false });
-                    }
+                    return;
                   }
-                  return;
                 }
               }
             } else {
@@ -219,15 +219,15 @@ export default function Index() {
                 if (needsCompletion) {
                   if (!hasNavigated.current) {
                     hasNavigated.current = true;
-                    safeReplace(router, '/CompleteProfileScreen', { skipInitialCheck: false });
+                    const { status } = await Notifications.getPermissionsAsync();
+                    if (status === 'undetermined') {
+                      safeReplace(router, '/NotificationPermissionScreen?next=%2FCompleteProfileScreen', { skipInitialCheck: false });
+                    } else {
+                      safeReplace(router, '/CompleteProfileScreen', { skipInitialCheck: false });
+                    }
                   }
-                } else {
-                  if (!hasNavigated.current) {
-                    hasNavigated.current = true;
-                    safeReplace(router, '/(tabs)', { skipInitialCheck: false });
-                  }
+                  return;
                 }
-                return;
               }
             }
           }
@@ -248,12 +248,19 @@ export default function Index() {
           const googleName = user.user_metadata?.full_name || user.user_metadata?.name || null;
           const isPseudoFromGoogle = googleName && finalProfile?.pseudo === googleName;
 
-          // Si le pseudo vient d'une source auto (Apple/Google), rediriger vers la complétion
+          // Si le pseudo vient d'une source auto (Apple/Google), rediriger vers la complétion via les permissions
           if (!pseudoValidated && (isPseudoFromApple || isPseudoFromGoogle)) {
-            console.log('➡️ Direction: Complétion (pseudo auto détecté, validation requise)');
+            console.log('➡️ Direction: Permissions -> Complétion (pseudo auto détecté)');
             if (!hasNavigated.current) {
               hasNavigated.current = true;
-              safeReplace(router, '/CompleteProfileScreen', { skipInitialCheck: false });
+              
+              // On vérifie les permissions de notification
+              const { status } = await Notifications.getPermissionsAsync();
+              if (status === 'undetermined') {
+                safeReplace(router, '/NotificationPermissionScreen?next=%2FCompleteProfileScreen', { skipInitialCheck: false });
+              } else {
+                safeReplace(router, '/CompleteProfileScreen', { skipInitialCheck: false });
+              }
             }
             return;
           }
@@ -266,11 +273,17 @@ export default function Index() {
               safeReplace(router, '/(tabs)', { skipInitialCheck: false }); 
             }
           } else {
-            // Dans tous les autres cas (pas validé, ou pas de profil, ou pseudo User_...), direction complétion
-            console.log('➡️ Direction: Complétion (sécurité)');
+            // Dans tous les autres cas (pas validé, ou pas de profil, ou pseudo User_...), direction complétion via les permissions
+            console.log('➡️ Direction: Permissions -> Complétion (sécurité)');
             if (!hasNavigated.current) {
               hasNavigated.current = true;
-              safeReplace(router, '/CompleteProfileScreen', { skipInitialCheck: false });
+
+              const { status } = await Notifications.getPermissionsAsync();
+              if (status === 'undetermined') {
+                safeReplace(router, '/NotificationPermissionScreen?next=%2FCompleteProfileScreen', { skipInitialCheck: false });
+              } else {
+                safeReplace(router, '/CompleteProfileScreen', { skipInitialCheck: false });
+              }
             }
           }
         } else {
@@ -292,7 +305,9 @@ export default function Index() {
     };
 
     // Petit délai pour laisser le temps au Splash Screen natif de partir proprement
-    // et à l'interface de se charger
+    // et à l'interface de se charger.
+    // NOTE: On attend 800ms pour s'assurer que le verrou de navigation (navigationLock) 
+    // éventuellement posé par l'écran précédent (ex: AuthChoiceScreen post-OAuth) soit levé.
     const timer = setTimeout(async () => {
       try {
         await decideNavigation();
@@ -309,7 +324,7 @@ export default function Index() {
           SplashScreen.hideAsync(); // Masquer en cas d'erreur aussi
         }
       }
-    }, 100);
+    }, 800);
 
     return () => {
       isMounted = false;
