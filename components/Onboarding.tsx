@@ -138,9 +138,11 @@ export default function Onboarding({ onFinish }: OnboardingProps) {
   return (
     <View style={styles.overlay}>
       <SafeAreaView style={styles.safeArea}>
-        <TouchableOpacity style={styles.skipButton} onPress={completeOnboarding}>
-          <Text style={styles.skipText}>{i18n.t('onboarding_skip')}</Text>
-        </TouchableOpacity>
+        {currentIndex >= 2 && (
+          <TouchableOpacity style={styles.skipButton} onPress={completeOnboarding}>
+            <Text style={styles.skipText}>{i18n.t('onboarding_skip')}</Text>
+          </TouchableOpacity>
+        )}
 
         <Animated.FlatList
           ref={flatListRef}
