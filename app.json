@@ -2,7 +2,7 @@
   "expo": {
     "name": "Proot !",
     "slug": "prrtapp",
-    "version": "1.1.25",
+    "version": "1.1.26",
     "orientation": "portrait",
     "icon": "./asset/images/Prrt_icon.png",
     "scheme": "prootapp",
@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.prrt.app",
-      "buildNumber": "76",
+      "buildNumber": "78",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "CFBundleDisplayName": "Proot !",
@@ -38,7 +38,7 @@
         "backgroundColor": "#ebb89b"
       },
       "package": "com.fuzztrack.proutapp",
-      "versionCode": 194,
+      "versionCode": 195,
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.MODIFY_AUDIO_SETTINGS",
