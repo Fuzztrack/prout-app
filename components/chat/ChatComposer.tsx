@@ -106,13 +106,8 @@ export const ChatComposer = React.memo(({
       return;
     }
 
-    if (friend.is_zen_mode) {
-      Alert.alert(
-        i18n.t('zen_mode_active_friend_title'),
-        i18n.t('zen_mode_active_friend_body', { pseudo: friend.pseudo })
-      );
-      return;
-    }
+    // Retrait du blocage du mode Zen pour permettre le chat silencieux
+    // if (friend.is_zen_mode) { ... }
 
     setSending(true);
 
@@ -171,6 +166,12 @@ export const ChatComposer = React.memo(({
 
       let randomKey: string;
       let isSilentMessage = false;
+      let isZenMessage = false;
+
+      if (friend.is_zen_mode) {
+        // En mode Zen, on force le silence absolu mais on garde le son du chat dans la DB pour la lecture
+        isZenMessage = true;
+      }
 
       if (isChatMuteEnabled) {
         randomKey = 'mute';
@@ -207,8 +208,15 @@ export const ChatComposer = React.memo(({
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       }
 
-      if (!isSilentMessage && !isSilentMode) {
+      if (!isSilentMessage && !isSilentMode && !isZenMessage) {
         playSound(randomKey);
+      }
+
+      if (isZenMessage) {
+        Alert.alert(
+          i18n.t('zen_mode_active_friend_title'),
+          i18n.t('zen_message_sent_toast')
+        );
       }
 
       await sendProutViaBackend(
@@ -220,6 +228,7 @@ export const ChatComposer = React.memo(({
           customMessage,
           senderId: currentUserId,
           receiverId: friend.id,
+          isSilentMessage: isZenMessage || isSilentMessage // On passe le flag au backend
         }
       );
 

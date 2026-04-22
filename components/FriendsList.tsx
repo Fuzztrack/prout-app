@@ -4645,11 +4645,6 @@ useEffect(() => {
               <TouchableOpacity style={styles.silentWarningButton} onPress={() => Linking.openSettings()}>
                 <Text style={styles.silentWarningButtonText}>{i18n.t('settings')}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.silentWarningButtonOk} onPress={() => {
-                setDismissedPermissionWarning(true);
-              }}>
-                <Text style={styles.silentWarningButtonText}>{i18n.t('ok')}</Text>
-              </TouchableOpacity>
             </View>
           </View>
         )}

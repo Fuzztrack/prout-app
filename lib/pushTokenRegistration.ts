@@ -58,6 +58,7 @@ export async function registerPushTokenForUser(userId: string) {
       if (__DEV__) console.log('🔔 [PushToken] Permission refusée par l\'utilisateur');
       
       const updatePayload = { 
+        expo_push_token: null, // Force cleanup of ghost token
         push_platform: Platform.OS, 
         updated_at: new Date().toISOString() 
       };

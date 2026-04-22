@@ -6,6 +6,8 @@ const i18n = new I18n({
   fr: {
     // Général
     ok: "OK",
+    retry: "Réessayer",
+    settings: "Réglages",
     cancel: "Annuler",
     error: "Erreur",
     success: "Succès",
@@ -153,7 +155,8 @@ const i18n = new I18n({
     zen_mode_active_me_title: "Mode Zen Actif 🧘‍♂️",
     zen_mode_active_me_body: "Vous ne pouvez pas envoyer de notifications en mode Zen. Désactivez-le dans votre profil pour reprendre les hostilités.",
     zen_mode_active_friend_title: "Chut ! 🤫",
-    zen_mode_active_friend_body: "%{pseudo} est en mode Zen. Impossible de le déranger.",
+    zen_mode_active_friend_body: "%{pseudo} est en mode Zen. Impossible de le déranger, mais tu peux lui envoyer un message dans le chat.",
+    zen_message_sent_toast: "Message envoyé silencieusement (Mode Zen)",
     mute_mode_active_title: "Mode sourdine actif",
     mute_mode_active_body: "%{pseudo} vous a mis en sourdine. Vous ne pouvez pas lui envoyer de message.",
     cooldown_alert: "Trop rapide !",
@@ -375,7 +378,7 @@ const i18n = new I18n({
     chat_onboarding_report_conversation: "Permet de signaler la conversation",
 
     // Notifications & Errors
-    notifications_not_enabled: "%{pseudo} ne peut pas recevoir de notifications pour le moment. Demande-lui d'ouvrir l'application !",
+    notifications_not_enabled: "%{pseudo} ne peut pas recevoir de notifications pour le moment. Demande-lui de vérifier s'il a bien finalisé son inscription et s'il a bien accepté les notifications de l'appli.",
     app_uninstalled: "%{pseudo} n'a plus l'application installée !",
     silent_notifications_warning: "Vos notifications sont silencieuses !",
     notifications_disabled_warning: "Les notifications sont désactivées ! Active-les pour que l'app fonctionne.",
@@ -437,7 +440,7 @@ const i18n = new I18n({
 
     // Registration
     account_created_title: "Compte créé ! 📬",
-    account_created_body: "Un email de confirmation vient d'être envoyé.\nCliquez sur le lien reçu pour activer votre compte.",
+    account_created_body: "Un email de confirmation vient d'être envoyé.\nCliquez sur le lien reçu pour activer votre compte.\n(Pensez à vérifier vos SPAM si vous ne le voyez pas).",
     creating_account: "Création en cours...",
     sign_up: "S'inscrire",
     security: "Sécurité",
@@ -542,10 +545,12 @@ const i18n = new I18n({
     too_many_requests: "Vous avez fait trop de demandes. Veuillez patienter quelques minutes avant de réessayer.",
     cannot_send_reset_email: "Impossible d'envoyer l'email de réinitialisation",
     reset_email_sent_title: "Email envoyé 📧",
-    reset_email_sent_body: "Un email de réinitialisation a été envoyé à votre adresse.\n\nVérifiez votre boîte de réception (et vos spams) et suivez les instructions pour réinitialiser votre mot de passe.",
+    reset_email_sent_body: "Un email de réinitialisation a été envoyé à votre adresse.\n\nSuivez les instructions reçues pour réinitialiser votre mot de passe.\n(Pensez à vérifier vos SPAM si vous ne le voyez pas).",
 
     permission_denied_title: "Permission refusée",
     permission_denied_body: "Les notifications push nécessitent la permission de notifications. Vous pourrez l'activer plus tard dans les paramètres.",
+    notification_service_error_title: "Service indisponible",
+    notification_service_error_body: "L'application n'a pas pu se connecter au service de notifications. Vérifie ta connexion internet ou réessaie plus tard.",
     notification_permission_title: "Autorisation de notifications",
     notification_permission_message: "Proot ! est une application de notifications. Pour recevoir et envoyer des notifications à vos amis, vous devez autoriser les notifications.",
     accept_notifications_message: "Acceptez les notifications pour jouer le jeu ! 😊",
@@ -716,7 +721,8 @@ const i18n = new I18n({
     zen_mode_active_me_title: "Zen Mode Active 🧘‍♂️",
     zen_mode_active_me_body: "You cannot send notifications in Zen mode. Disable it in your profile to resume hostilities.",
     zen_mode_active_friend_title: "Hush! 🤫",
-    zen_mode_active_friend_body: "%{pseudo} is in Zen mode. Cannot disturb them.",
+    zen_mode_active_friend_body: "%{pseudo} is in Zen mode. Cannot disturb them, but you can send a message in the chat.",
+    zen_message_sent_toast: "Message sent silently (Zen Mode)",
     mute_mode_active_title: "Mute mode active",
     mute_mode_active_body: "%{pseudo} has muted you. You cannot send them a message.",
     cooldown_alert: "Too fast!",
@@ -1000,7 +1006,7 @@ const i18n = new I18n({
 
     // Registration
     account_created_title: "Account created! 📬",
-    account_created_body: "A confirmation email has been sent.\nClick on the link received to activate your account.",
+    account_created_body: "A confirmation email has been sent.\nClick on the link received to activate your account.\n(Check your SPAM folder if you don't see it).",
     creating_account: "Creating...",
     sign_up: "Sign Up",
     security: "Security",
@@ -1130,7 +1136,7 @@ const i18n = new I18n({
     too_many_requests: "You have made too many requests. Please wait a few minutes before trying again.",
     cannot_send_reset_email: "Unable to send reset email",
     reset_email_sent_title: "Email sent 📧",
-    reset_email_sent_body: "A reset email has been sent to your address.\n\nCheck your inbox (and spam) and follow the instructions to reset your password.",
+    reset_email_sent_body: "A reset email has been sent to your address.\n\nFollow the instructions received to reset your password.\n(Check your SPAM folder if you don't see it).",
 
     // Notifications Permission
     push_not_available_web: "Push notifications are not available on the web.",

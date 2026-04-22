@@ -2,7 +2,7 @@
 import * as Notifications from 'expo-notifications';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Constants from 'expo-constants';
-import { Platform, Alert, Image, StyleSheet, Text, View } from 'react-native';
+import { Platform, Alert, Image, StyleSheet, Text, View, Linking } from 'react-native';
 import { CustomButton } from '../components/CustomButton';
 import { safeReplace } from '../lib/navigation';
 import { ensureAndroidNotificationChannel } from '../lib/notifications';
@@ -49,22 +49,40 @@ export default function NotificationPermissionScreen() {
           console.warn('⚠️ [NotificationPermission] Refusée');
           Alert.alert(
             i18n.t('permission_denied_title'),
-            i18n.t('permission_denied_body')
+            i18n.t('permission_denied_body'),
+            [
+              { text: i18n.t('ok'), onPress: () => safeReplace(router, nextPath, { skipInitialCheck: false }) },
+              { text: i18n.t('settings'), onPress: () => Linking.openSettings() }
+            ]
           );
-        } else if (finalStatus === 'granted') {
-          console.log('✅ [NotificationPermission] Accordée');
-          try {
-            await ensureAndroidNotificationChannel();
-            await getFCMToken();
-          } catch (tokenError) {
-            console.warn('⚠️ [NotificationPermission] Erreur token:', tokenError);
-          }
+          return; // On s'arrête ici pour laisser l'utilisateur choisir
         }
-      } else {
-        console.log('✅ [NotificationPermission] Déjà accordée');
+      }
+
+      if (finalStatus === 'granted') {
+        console.log('✅ [NotificationPermission] Accordée');
+        try {
+          await ensureAndroidNotificationChannel();
+          const token = await getFCMToken();
+          
+          if (!token) {
+            console.warn('⚠️ [NotificationPermission] Token null malgré permission accordée');
+            Alert.alert(
+              i18n.t('notification_service_error_title'),
+              i18n.t('notification_service_error_body'),
+              [
+                { text: i18n.t('retry'), onPress: () => handleNext() },
+                { text: i18n.t('ok'), onPress: () => safeReplace(router, nextPath, { skipInitialCheck: false }) }
+              ]
+            );
+            return;
+          }
+        } catch (tokenError) {
+          console.warn('⚠️ [NotificationPermission] Erreur critique token:', tokenError);
+        }
       }
     } catch (error) {
-      console.error('❌ [NotificationPermission] Erreur:', error);
+      console.error('❌ [NotificationPermission] Erreur globale:', error);
     }
     
     // Rediriger vers la suite du flux
