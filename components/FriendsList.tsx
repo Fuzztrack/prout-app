@@ -10,7 +10,7 @@ import * as Notifications from 'expo-notifications';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { Alert, AppState, DeviceEventEmitter, Dimensions, FlatList, Image, Keyboard, KeyboardAvoidingView, Linking, NativeModules, Platform, Animated as RNAnimated, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, DeviceEventEmitter, Dimensions, FlatList, Image, Keyboard, KeyboardAvoidingView, Linking, NativeModules, Platform, Animated as RNAnimated, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { Gesture, GestureDetector, TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
 // 👇 AJOUT : Hook pour capturer la hauteur réelle du clavier (Texte OU Emoji)
 import { useKeyboardHandler } from 'react-native-keyboard-controller';
@@ -5281,6 +5281,20 @@ useEffect(() => {
     );
   }, [appUsers, searchQuery, isRefreshing]);
 
+  // PRE-CALCULATE UNREAD MESSAGES FOR MASSIVE FPS GAIN (O(N) instead of O(N*M))
+  const unreadMessagesMap = useMemo(() => {
+    const map: Record<string, typeof pendingMessages> = {};
+    pendingMessages.forEach(m => {
+      if (!m.isPendingDelete && !(m.message_content?.startsWith('READ:') ?? false)) {
+        if (!map[m.from_user_id]) {
+          map[m.from_user_id] = [];
+        }
+        map[m.from_user_id].push(m);
+      }
+    });
+    return map;
+  }, [pendingMessages]);
+
   const content = (
     <Container {...containerProps}>
       {/* 
@@ -5323,7 +5337,7 @@ useEffect(() => {
         ref={flatListRef}
         data={filteredUsers}
         extraData={{
-          pendingMessages,
+          unreadMessagesMap,
           unreadCache,
           expandedUnreadId,
         }}
@@ -5437,16 +5451,11 @@ useEffect(() => {
           )
         }
         renderItem={({ item, index }) => {
-          const unreadMessages = pendingMessages.filter(
-            m =>
-              m.from_user_id === item.id &&
-              !m.isPendingDelete &&
-              !(m.message_content?.startsWith('READ:') ?? false)
-          );
+          const unreadMessages = unreadMessagesMap[item.id] || [];
           const hasUnread = unreadMessages.length > 0;
-          const lastUnread = unreadMessages.length > 0 ? unreadMessages[unreadMessages.length - 1] : null;
+          const lastUnread = hasUnread ? unreadMessages[unreadMessages.length - 1] : null;
           const isUnreadExpanded = expandedUnreadId === item.id;
-          const unreadListToShow = unreadMessages.length > 0 ? unreadMessages : (unreadCache[item.id] || []);
+          const unreadListToShow = hasUnread ? unreadMessages : (unreadCache[item.id] || []);
           
           const isActive = expandedFriendId === item.id;
           const baseColor = index % 2 === 0 ? '#d2f1ef' : '#baded7';
