@@ -197,7 +197,7 @@ const CACHE_KEY_PENDING_REQUESTS = 'cached_pending_requests';
 const CACHE_KEY_LAST_SENT_MESSAGES = 'cached_last_sent_messages';
 const CACHE_KEY_DISMISSED_SILENT_WARNING = 'cached_dismissed_silent_warning';
 const CACHE_KEY_BLOCKED_USERS = 'cached_blocked_users_v1';
-const CACHE_MAX_AGE = 24 * 60 * 60 * 1000; // 24 heures
+const CACHE_MAX_AGE = 30 * 24 * 60 * 60 * 1000; // 30 jours
 
 type LastSentMessage = { text: string; ts: string; id?: string; status?: 'read'; readAt?: number; soundKey?: string };
 type LastSentMap = Record<string, LastSentMessage[]>; // Tableau de messages pour accumulation
@@ -5374,7 +5374,11 @@ useEffect(() => {
           </View>
         }
         ListEmptyComponent={
-          loading && !showFriendlistRecoveryCard ? null : (
+          loading && !showFriendlistRecoveryCard ? (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 100 }}>
+              <ActivityIndicator size="large" color="#604a3e" />
+            </View>
+          ) : (
             <View style={styles.emptyCard}>
               {showFriendlistRecoveryCard && !searchQuery.trim() ? (
                 <>

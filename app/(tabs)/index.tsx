@@ -1,7 +1,6 @@
 import { useAppStore } from '@/lib/store';
 import { AppHeader } from '@/components/AppHeader';
 import { BlockedUsersList } from '@/components/BlockedUsersList';
-import { EditProfil } from '@/components/EditProfil';
 import { FriendsList } from '@/components/FriendsList';
 import { IdentityList } from '@/components/IdentityList';
 import { PrivacyPolicyModal } from '@/components/PrivacyPolicyModal';
@@ -24,7 +23,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const appVersion = Constants.expoConfig?.version ?? '1.1.26';
+  const appVersion = Constants.expoConfig?.version ?? '1.1.27';
   
   const isLoadedRef = useRef(false);
   
@@ -305,12 +304,12 @@ export default function HomeScreen() {
 
   useEffect(() => {
     const sub = DeviceEventEmitter.addListener('OPEN_PROFILE_VIEW', () => {
-      setActiveView('profile');
+      router.push('/Profil');
     });
     return () => {
       sub.remove();
     };
-  }, [setActiveView]);
+  }, [router]);
 
   const getZenReasonLabel = useCallback((reason?: string | null) => {
     if (!reason) return null;
@@ -353,7 +352,7 @@ export default function HomeScreen() {
       }}
       onSoundcheckPress={handleSoundcheckPress}
       onProfileMenuPress={toggleProfileMenu}
-      onProfilePress={() => setActiveView('profile')}
+      onProfilePress={() => router.push('/Profil')}
       shakeX={shakeX}
       shakeY={shakeY}
     />
@@ -719,16 +718,6 @@ export default function HomeScreen() {
                {/* Contenu iOS */}
                {activeView === 'tutorial' ? (
                  <TutorialSwiper onClose={() => setActiveView('list')} />
-               ) : activeView === 'profile' ? (
-                 <EditProfil 
-                   onClose={() => setActiveView('list')} 
-                   onProfileUpdated={(newPseudo, newAvatarUrl) => {
-                     // Mettre à jour le store global immédiatement pour changer le greeting et l'avatar
-                     setProfile({ pseudo: newPseudo, avatarUrl: newAvatarUrl });
-                     // Sauvegarder dans le cache pour le prochain démarrage
-                     AsyncStorage.setItem(CACHE_PSEUDO_KEY, newPseudo).catch(() => {});
-                   }}
-                 />
                ) : (
                  <>
                    <FriendsList 
@@ -809,16 +798,6 @@ export default function HomeScreen() {
             {/* Contenu Android - Pas de KeyboardAvoidingView global, pas de re-render sur clavier */}
             {activeView === 'tutorial' ? (
               <TutorialSwiper onClose={() => setActiveView('list')} />
-            ) : activeView === 'profile' ? (
-              <EditProfil 
-                onClose={() => setActiveView('list')} 
-                onProfileUpdated={(newPseudo, newAvatarUrl) => {
-                  // Mettre à jour le store global immédiatement pour changer le greeting et l'avatar
-                  setProfile({ pseudo: newPseudo, avatarUrl: newAvatarUrl });
-                  // Sauvegarder dans le cache pour le prochain démarrage
-                  AsyncStorage.setItem(CACHE_PSEUDO_KEY, newPseudo).catch(() => {});
-                }}
-              />
             ) : (
               <>
                 <FriendsList 
