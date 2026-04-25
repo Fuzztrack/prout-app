@@ -42,6 +42,13 @@ export const getOnboardingSlides = (): OnboardingSlide[] => [
     color: '#9C27B0',
   },
   {
+    key: 'contacts',
+    title: i18n.t('contact_permission_title'),
+    description: i18n.t('contact_permission_message'),
+    icon: 'people-outline',
+    color: '#E91E63',
+  },
+  {
     key: 'sound',
     title: i18n.t('onboarding_sound_title'),
     description: i18n.t('onboarding_sound_desc'),
@@ -138,7 +145,7 @@ export default function Onboarding({ onFinish }: OnboardingProps) {
   return (
     <View style={styles.overlay}>
       <SafeAreaView style={styles.safeArea}>
-        {currentIndex >= 2 && (
+        {currentIndex >= 3 && (
           <TouchableOpacity style={styles.skipButton} onPress={completeOnboarding}>
             <Text style={styles.skipText}>{i18n.t('onboarding_skip')}</Text>
           </TouchableOpacity>

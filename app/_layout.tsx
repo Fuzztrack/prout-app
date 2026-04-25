@@ -156,10 +156,7 @@ export default function RootLayout() {
   const handleOnboardingFinish = async () => {
     try { await AsyncStorage.setItem('hasSeenWelcome', 'true'); } catch (e) {}
 
-    // 1. Contacts
-    try { await ensureContactPermissionWithDisclosure(); } catch (e) {}
-
-    // 2. Notifications
+    // 1. Notifications
     try {
       const { status } = await Notifications.requestPermissionsAsync();
       if (status === 'granted') {
@@ -167,6 +164,9 @@ export default function RootLayout() {
         if (session?.user?.id) registerPushTokenForUser(session.user.id).catch(() => {});
       }
     } catch (e) {}
+
+    // 2. Contacts
+    try { await ensureContactPermissionWithDisclosure(); } catch (e) {}
 
     const eulaAccepted = await hasAcceptedEulaLocally();
     setShowEulaGate(!eulaAccepted);
@@ -205,6 +205,7 @@ export default function RootLayout() {
                     <Stack.Screen name="eula-accept" options={{ gestureEnabled: false, presentation: 'fullScreenModal' }} />
                     <Stack.Screen name="edit-profile" options={{ presentation: 'transparentModal', animation: 'fade', headerShown: false }} />
                     <Stack.Screen name="complicity" />
+                    <Stack.Screen name="Profil" options={{ gestureEnabled: true }} />
                   </Stack>
                   {toastMessage && (
                     <Animated.View style={[styles.toast, { opacity: toastOpacity }]}>

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Prout",
     "slug": "ProutApp",
-    "version": "1.1.20",
+    "version": "1.1.21",
     "orientation": "portrait",
     "icon": "./asset/images/Prrt_icon.png",
     "scheme": "proutapp",
@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.fuzztrack.proutapp",
-      "buildNumber": "9",
+      "buildNumber": "10",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "CFBundleDisplayName": "Prout",
@@ -36,7 +36,7 @@
         "backgroundColor": "#ebb89b"
       },
       "package": "com.fuzztrack.proutapp",
-      "versionCode": 7,
+      "versionCode": 8,
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.MODIFY_AUDIO_SETTINGS",

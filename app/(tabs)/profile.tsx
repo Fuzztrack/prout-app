@@ -142,7 +142,7 @@ export default function ProfileScreen() {
           </Text>
         </View>
 
-        <TouchableOpacity style={styles.editButton} onPress={() => safePush(router, '/edit-profile', { skipInitialCheck: false })}>
+        <TouchableOpacity style={styles.editButton} onPress={() => safePush(router, '/Profil', { skipInitialCheck: false })}>
           <Ionicons name="create-outline" size={24} color="#604a3e" />
           <Text style={styles.editText}>{i18n.t('edit_profile')}</Text>
         </TouchableOpacity>
@@ -160,9 +160,6 @@ export default function ProfileScreen() {
 
         <TouchableOpacity onPress={handleContactSupport} style={styles.supportLink}>
           <Text style={styles.supportLinkText}>{i18n.t('contact_support')}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => safePush(router, '/eula', { skipInitialCheck: false })} style={styles.supportLink}>
-          <Text style={styles.supportLinkText}>{i18n.t('profile_eula')}</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>
