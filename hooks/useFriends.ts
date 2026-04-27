@@ -15,39 +15,115 @@ export const useFriends = (userId: string | null) => {
   return useQuery({
     queryKey: ['friends', userId],
     queryFn: async ({ queryKey }) => {
-      const [_key, uid] = queryKey;
+      const [_key, uid] = queryKey as [string, string];
       if (!uid) return [];
 
-      const { data: friends, error } = await supabase
-        .from('friends')
-        .select(`
-          friend_id,
-          user_profiles!friends_friend_id_fkey (
-            id,
-            pseudo,
-            avatar_url,
-            is_zen_mode,
-            last_interaction_at
-          )
-        `)
-        .eq('user_id', uid)
-        .eq('status', 'accepted');
+      // 1. Récupérer les bloqués (pour les exclure de la liste d'amis)
+      const { data: blockedUsersRows } = await supabase
+        .from('blocked_users')
+        .select('blocked_user_id')
+        .eq('blocker_id', uid);
+      const blockedSet = new Set((blockedUsersRows || []).map((row: any) => row.blocked_user_id).filter(Boolean));
 
-      if (error) throw error;
+      // 2. Charger les relations acceptées dans les deux sens
+      const [addedFriendsResult, friendsWhereIAmFriendResult] = await Promise.all([
+        supabase
+          .from('friends')
+          .select('friend_id')
+          .eq('user_id', uid)
+          .eq('status', 'accepted'),
+        supabase
+          .from('friends')
+          .select('user_id')
+          .eq('friend_id', uid)
+          .eq('status', 'accepted')
+      ]);
+      
+      const addedFriendsIds = addedFriendsResult.data?.map(f => f.friend_id) || [];
+      const friendsWhereIAmFriendIds = friendsWhereIAmFriendResult.data?.map(f => f.user_id) || [];
+      
+      // Combiner tous les IDs d'amis et exclure les bloqués
+      const allFriendIds = [...new Set([...addedFriendsIds, ...friendsWhereIAmFriendIds])]
+        .filter((id) => !blockedSet.has(id));
 
-      const formattedFriends = (friends || []).map((f: any) => ({
-        id: f.user_profiles.id,
-        pseudo: f.user_profiles.pseudo,
-        avatar_url: f.user_profiles.avatar_url,
-        last_interaction_at: f.user_profiles.last_interaction_at,
-        is_zen_mode: f.user_profiles.is_zen_mode,
-        is_muted: false,
-      }));
+      if (allFriendIds.length === 0) return [];
 
+      // 3. Récupérer les profils et les métadonnées en parallèle
+      const [
+        { data: finalFriends },
+        { data: revealsData },
+        { data: mutedFriendsData },
+        { data: mutedByFriendsData },
+        { data: myFriendsRelationsData }
+      ] = await Promise.all([
+        supabase
+          .from('user_profiles')
+          .select('id, pseudo, avatar_url, is_zen_mode')
+          .in('id', allFriendIds),
+        supabase
+          .from('identity_reveals')
+          .select('friend_id, alias, status')
+          .eq('requester_id', uid)
+          .in('friend_id', allFriendIds),
+        supabase
+          .from('friends')
+          .select('friend_id, is_muted')
+          .eq('user_id', uid)
+          .in('friend_id', allFriendIds),
+        supabase
+          .from('friends')
+          .select('user_id, is_muted')
+          .eq('friend_id', uid)
+          .in('user_id', allFriendIds)
+          .eq('is_muted', true),
+        supabase
+          .from('friends')
+          .select('friend_id, last_interaction_at')
+          .eq('user_id', uid)
+          .in('friend_id', allFriendIds)
+      ]);
+
+      const identityAliasMap = (revealsData || []).reduce((acc: any, reveal: any) => {
+        acc[reveal.friend_id] = { alias: reveal.alias, status: reveal.status };
+        return acc;
+      }, {});
+
+      const mutedMap = (mutedFriendsData || []).reduce((acc: any, f: any) => {
+        acc[f.friend_id] = f.is_muted || false;
+        return acc;
+      }, {});
+
+      const mutedByMap = (mutedByFriendsData || []).reduce((acc: any, f: any) => {
+        acc[f.user_id] = true;
+        return acc;
+      }, {});
+
+      const lastInteractionMap = (myFriendsRelationsData || []).reduce((acc: any, rel: any) => {
+        if (rel.last_interaction_at) acc[rel.friend_id] = rel.last_interaction_at;
+        return acc;
+      }, {});
+
+      // 4. Formater les amis
+      const formattedFriends = (finalFriends || []).map(friend => {
+        const isMutedByMe = mutedMap[friend.id] || false;
+        const hasMutedMe = mutedByMap[friend.id] || false;
+        
+        return {
+          ...friend,
+          identityAlias: identityAliasMap[friend.id]?.alias || null,
+          identityStatus: identityAliasMap[friend.id]?.status || null,
+          is_muted: isMutedByMe,
+          isZenMode: friend.is_zen_mode || hasMutedMe,
+          last_interaction_at: lastInteractionMap[friend.id] || null,
+        };
+      });
+
+      // 5. Trier par date d'interaction (le plus récent en premier)
       return formattedFriends.sort((a, b) => {
         const timeA = a.last_interaction_at ? new Date(a.last_interaction_at).getTime() : 0;
         const timeB = b.last_interaction_at ? new Date(b.last_interaction_at).getTime() : 0;
-        return timeB - timeA;
+        if (timeA !== timeB) return timeB - timeA;
+        return (a.pseudo || '').localeCompare(b.pseudo || '');
       });
     },
     enabled: !!userId,
