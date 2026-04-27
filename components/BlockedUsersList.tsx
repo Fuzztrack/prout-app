@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useQueryClient } from '@tanstack/react-query';
 import i18n from '../lib/i18n';
 import { supabase } from '../lib/supabase';
 
@@ -31,6 +32,7 @@ type BlockedUsersListProps = {
 };
 
 export function BlockedUsersList({ visible, onClose, onUnblocked }: BlockedUsersListProps) {
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [items, setItems] = useState<BlockedUser[]>([]);
@@ -126,6 +128,10 @@ export function BlockedUsersList({ visible, onClose, onUnblocked }: BlockedUsers
                   );
 
                 if (restoreFriendshipError) throw restoreFriendshipError;
+
+                // ✅ Rendre la mise à jour instantanée pour tout le monde
+                void queryClient.invalidateQueries({ queryKey: ['blockedUsers'] });
+                void queryClient.invalidateQueries({ queryKey: ['friends'] });
 
                 setItems((prev) => prev.filter((item) => item.id !== user.id));
                 onUnblocked?.();
