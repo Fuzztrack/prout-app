@@ -32,7 +32,8 @@ import Animated, {
 import { SwipeableFriendRow, SwipeableFriendRowHandle } from './FriendsListComponents/SwipeableFriendRow';
 import { AnimatedCategoryHeaderImage } from './FriendsListComponents/AnimatedCategoryHeaderImage';
 import { useAppStore } from '../lib/store';
-import { useFriends, usePendingMessages, usePendingSentMessages } from '../hooks/useFriends';
+import { useFriends, usePendingMessages, usePendingSentMessages, useBlockedUsers } from '../hooks/useFriends';
+import { usePendingRequests, useIdentityRequests } from '../hooks/useRequests';
 import { useSendProut } from '../hooks/useSendProut';
 import { RINGER_MODE, VolumeManager } from 'react-native-volume-manager';
 import { ensureContactPermissionWithDisclosure } from '../lib/contactConsent';
@@ -568,6 +569,30 @@ export function FriendsList({
   
   const { data: pendingMessagesData, refetch: refetchMessages } = usePendingMessages(currentUserId);
   const { data: pendingSentData, refetch: refetchSentMessages } = usePendingSentMessages(currentUserId);
+  const { data: pendingRequestsData, refetch: refetchPendingRequests } = usePendingRequests(currentUserId);
+  const { data: identityRequestsData, refetch: refetchIdentityRequests } = useIdentityRequests(currentUserId);
+  const { data: blockedUsersFromQuery } = useBlockedUsers(currentUserId);
+
+  // Synchronisation TanStack pour les Utilisateurs Bloqués
+  useEffect(() => {
+    if (blockedUsersFromQuery) {
+      setBlockedUserIds(blockedUsersFromQuery);
+      blockedUserIdsRef.current = new Set(blockedUsersFromQuery);
+    }
+  }, [blockedUsersFromQuery]);
+
+  // Synchronisation TanStack pour les Demandes
+  useEffect(() => {
+    if (pendingRequestsData) {
+      setPendingRequests(pendingRequestsData);
+    }
+  }, [pendingRequestsData]);
+
+  useEffect(() => {
+    if (identityRequestsData) {
+      setIdentityRequests(identityRequestsData);
+    }
+  }, [identityRequestsData]);
 
   // Synchronisation des messages envoyés (TanStack -> UI)
   useEffect(() => {
@@ -2361,6 +2386,8 @@ useEffect(() => {
       }
       
       setCurrentUserId(user.id);
+      
+      /* BRANCHEMENT TANSTACK: Chargement bloqués géré par useBlockedUsers
       const { data: blockedUsersRows } = await supabase
         .from('blocked_users')
         .select('blocked_user_id')
@@ -2369,6 +2396,7 @@ useEffect(() => {
       setBlockedUserIds(nextBlockedUserIds);
       blockedUserIdsRef.current = new Set(nextBlockedUserIds);
       await AsyncStorage.setItem(CACHE_KEY_BLOCKED_USERS, JSON.stringify(nextBlockedUserIds));
+      */
 
       const { data: profile } = await supabase.from('user_profiles').select('pseudo').eq('id', user.id).single();
       if (profile) {
@@ -2380,84 +2408,8 @@ useEffect(() => {
   const sentPendingMessagesPromise = fetchSentPendingMessages(user.id);
 
       const requestsAndIdentityPromise = (async () => {
-        // Charger les demandes en attente
-        const { data: rawRequests } = await supabase
-          .from('friends')
-          .select('id, user_id, method')
-          .eq('friend_id', user.id)
-          .eq('status', 'pending');
-        
-        if (rawRequests?.length) {
-          // Filtrer les demandes : si la réciproque est déjà acceptée, ne pas afficher la demande
-          const filteredRequests = [];
-          for (const req of rawRequests) {
-            // Vérifier si la réciproque existe déjà avec status='accepted'
-            const { data: reciprocal } = await supabase
-              .from('friends')
-              .select('id, status')
-              .eq('user_id', user.id)
-              .eq('friend_id', req.user_id)
-              .maybeSingle();
-            
-            // Si la réciproque n'existe pas ou est encore pending, afficher la demande
-            // Si elle est accepted, c'est que le trigger a déjà créé la réciproque, donc on ne montre pas la demande
-            if (!reciprocal || reciprocal.status === 'pending') {
-              filteredRequests.push(req);
-            }
-          }
-          
-          if (filteredRequests.length > 0) {
-            const senderIds = filteredRequests.map(r => r.user_id);
-            const { data: senders } = await supabase
-              .from('user_profiles')
-              .select('id, pseudo')
-              .in('id', senderIds);
-            const cleanRequests = filteredRequests.map(req => ({
-              requestId: req.id,
-              senderId: req.user_id,
-              pseudo: senders?.find(s => s.id === req.user_id)?.pseudo || 'Inconnu',
-              method: req.method
-            }));
-            setPendingRequests(cleanRequests);
-            // Sauvegarder dans le cache (sans bloquer si ça échoue)
-            await saveCacheSafely(CACHE_KEY_PENDING_REQUESTS, cleanRequests);
-          } else {
-            setPendingRequests([]);
-            await saveCacheSafely(CACHE_KEY_PENDING_REQUESTS, []);
-          }
-        } else { 
-          setPendingRequests([]);
-          await saveCacheSafely(CACHE_KEY_PENDING_REQUESTS, []);
-        }
-
-        // Tentative de récupération des pseudos séparément pour contourner le problème de relation
-        const { data: identityRows, error: identityError } = await supabase
-          .from('identity_reveals')
-          .select(`
-            requester_id,
-            status
-          `)
-          .eq('friend_id', user.id)
-          .eq('status', 'pending');
-
-        if (identityError) {
-          console.error('❌ Erreur chargement demandes identité:', identityError);
-        }
-
-        let identityList: any[] = [];
-        if (identityRows && identityRows.length > 0) {
-          const requesterIds = identityRows.map(r => r.requester_id);
-          const { data: requesters } = await supabase
-            .from('user_profiles')
-            .select('id, pseudo')
-            .in('id', requesterIds);
-          
-          identityList = identityRows.map(row => ({
-            requesterId: row.requester_id,
-            requesterPseudo: requesters?.find(u => u.id === row.requester_id)?.pseudo || 'Inconnu',
-          }));
-        }
-        setIdentityRequests(identityList);
+        // BRANCHEMENT TANSTACK: Logique court-circuitée, gérée par usePendingRequests et useIdentityRequests
+        return;
       })();
 
       let phoneFriendsIds: string[] = [];
@@ -3759,7 +3711,8 @@ useEffect(() => {
         }
       }
       
-      loadData();
+      queryClient.invalidateQueries({ queryKey: ['pendingRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['friends'] });
     } catch (e) { 
       console.error("Erreur handleAccept:", e);
       Alert.alert(i18n.t('error'), i18n.t('cannot_accept_request')); 
@@ -3767,7 +3720,10 @@ useEffect(() => {
   };
 
   const handleReject = async (requestId: string) => {
-    try { await supabase.from('friends').delete().eq('id', requestId); loadData(); } catch (e) {}
+    try { 
+      await supabase.from('friends').delete().eq('id', requestId); 
+      queryClient.invalidateQueries({ queryKey: ['pendingRequests'] });
+    } catch (e) {}
   };
 
   const handleMuteFriend = useStableCallback(async (friend: any) => {
@@ -3783,9 +3739,8 @@ useEffect(() => {
         Alert.alert(i18n.t('error'), i18n.t('cannot_activate_mute'));
         return;
       }
-      setAppUsers(prev => prev.map(u => u.id === friend.id ? { ...u, is_muted: true } : u));
-      const updated = appUsers.map(u => u.id === friend.id ? { ...u, is_muted: true } : u);
-      await saveCacheSafely(CACHE_KEY_FRIENDS, updated);
+      // On invalide simplement la query
+      void queryClient.invalidateQueries({ queryKey: ['friends'] });
     } catch (e) {
       console.error('❌ Erreur mise en sourdine:', e);
       Alert.alert(i18n.t('error'), "Impossible d'activer la sourdine.");
@@ -3805,9 +3760,8 @@ useEffect(() => {
         Alert.alert(i18n.t('error'), i18n.t('cannot_disable_mute'));
         return;
       }
-      setAppUsers(prev => prev.map(u => u.id === friend.id ? { ...u, is_muted: false } : u));
-      const updated = appUsers.map(u => u.id === friend.id ? { ...u, is_muted: false } : u);
-      await saveCacheSafely(CACHE_KEY_FRIENDS, updated);
+      // On invalide simplement la query
+      void queryClient.invalidateQueries({ queryKey: ['friends'] });
     } catch (e) {
       console.error('❌ Erreur désactivation sourdine:', e);
       Alert.alert(i18n.t('error'), i18n.t('cannot_disable_mute'));

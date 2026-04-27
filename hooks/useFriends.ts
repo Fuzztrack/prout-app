@@ -95,3 +95,22 @@ export const usePendingSentMessages = (userId: string | null) => {
     refetchInterval: 8000, // On peut rafraîchir un peu moins souvent les messages envoyés
   });
 };
+
+export const useBlockedUsers = (userId: string | null) => {
+  return useQuery({
+    queryKey: ['blockedUsers', userId],
+    queryFn: async () => {
+      if (!userId) return [];
+      const { data: blockedUsersRows, error } = await supabase
+        .from('blocked_users')
+        .select('blocked_user_id')
+        .eq('blocker_id', userId);
+
+      if (error) throw error;
+      
+      return (blockedUsersRows || []).map((row: any) => row.blocked_user_id).filter(Boolean) as string[];
+    },
+    enabled: !!userId,
+    refetchInterval: 60000, // Une fois par minute suffit pour les blocages
+  });
+};
