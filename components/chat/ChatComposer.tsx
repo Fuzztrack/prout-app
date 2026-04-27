@@ -334,8 +334,8 @@ const styles = StyleSheet.create({
   composer: {
     flexDirection: 'column',
     alignItems: 'stretch',
-    paddingLeft: 6,
-    paddingRight: 12,
+    paddingLeft: 8,
+    paddingRight: 8,
     paddingTop: 10,
     backgroundColor: '#ebb89b',
     borderTopWidth: 1,
@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
   composerRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 5,
+    gap: 6,
   },
   editingBanner: {
     flexDirection: 'row',
@@ -411,7 +411,6 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    marginLeft: 8,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#d2f1ef',
