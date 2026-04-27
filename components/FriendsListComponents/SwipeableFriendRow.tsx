@@ -189,7 +189,7 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
         { text: i18n.t('block_user'), style: 'destructive', onPress: () => onDeleteFriend(friend) },
       ]
     );
-  }, [onDeleteFriend]);
+  }, [onDeleteFriend, friend]);
 
   const gesture = Gesture.Pan()
     .activeOffsetX(Platform.OS === 'android' ? [-25, 25] : [-20, 20])
