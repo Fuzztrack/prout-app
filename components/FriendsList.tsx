@@ -641,9 +641,38 @@ export function FriendsList({
 
   // Synchronisation TanStack pour les Amis
   const { data: friendsFromQuery, isLoading: isFriendsLoading } = useFriends(currentUserId);
+  
+  // 1. Chargement instantané du cache local (Mémoire de 30 jours)
+  useEffect(() => {
+    const loadFastCache = async () => {
+      try {
+        const cached = await AsyncStorage.getItem('CACHE_KEY_FRIENDS_V2');
+        if (cached) {
+          const { data, timestamp } = JSON.parse(cached);
+          const age = Date.now() - timestamp;
+          const MAX_AGE = 30 * 24 * 60 * 60 * 1000; // 30 jours
+          if (age < MAX_AGE && Array.isArray(data)) {
+            // On ne l'applique que si la liste actuelle est vide (pour ne pas écraser une réponse serveur rapide)
+            setAppUsers((prev) => prev.length > 0 ? prev : data);
+            setLoading(false); // Cache trouvé, on désactive le spinner
+          }
+        }
+      } catch (e) {
+        // Ignorer silencieusement
+      }
+    };
+    loadFastCache();
+  }, []);
+
+  // 2. Synchronisation et sauvegarde du cache quand TanStack Query répond
   useEffect(() => {
     if (friendsFromQuery !== undefined) {
       setAppUsers(friendsFromQuery);
+      setLoading(false); // Le serveur a répondu, on désactive le spinner
+      AsyncStorage.setItem('CACHE_KEY_FRIENDS_V2', JSON.stringify({
+        data: friendsFromQuery,
+        timestamp: Date.now()
+      })).catch(() => {});
     }
   }, [friendsFromQuery]);
 
@@ -3063,7 +3092,11 @@ useEffect(() => {
               const nextBlocked = [...new Set([...blockedUserIds, friend.id])];
               setBlockedUserIds(nextBlocked);
               blockedUserIdsRef.current = new Set(nextBlocked);
-              await AsyncStorage.setItem(CACHE_KEY_BLOCKED_USERS, JSON.stringify(nextBlocked));
+              await AsyncStorage.setItem('cached_blocked_users_v1', JSON.stringify(nextBlocked));
+              
+              // Invalider les requêtes pour rafraîchir globalement
+              void queryClient.invalidateQueries({ queryKey: ['blockedUsers'] });
+              void queryClient.invalidateQueries({ queryKey: ['friends'] });
 
               setAppUsers(prev => prev.filter(u => u.id !== friend.id));
               setPendingMessages(prev => prev.filter(m => m.from_user_id !== friend.id && m.to_user_id !== friend.id));
