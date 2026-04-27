@@ -373,7 +373,7 @@ const i18n = new I18n({
     chat_onboarding_choose_specific_sound: "Choisissez un son spécifique à envoyer.",
     chat_onboarding_tap_replay: "Un clic sur un message reçu permet de réécouter l'audio associé.",
     chat_onboarding_mute: "Vous permet de discuter en silence",
-    chat_onboarding_retention: "Par défaut, vos messages restent 12h. En mode Instantané ils s'effaceront dès la fermeture du chat.",
+    chat_onboarding_retention: "Par défaut, vos messages restent 24h. En mode Instantané ils s'effaceront dès la fermeture du chat.",
     chat_onboarding_long_press_report: "Un appui long sur un message permet de le signaler à la modération.",
     chat_onboarding_report_conversation: "Permet de signaler la conversation",
 
@@ -939,7 +939,7 @@ const i18n = new I18n({
     chat_onboarding_choose_specific_sound: "Choose a specific sound to send.",
     chat_onboarding_tap_replay: "A tap on a received message lets you replay its audio.",
     chat_onboarding_mute: "Allows you to chat in silence",
-    chat_onboarding_retention: "By default, your messages stay for 12h. In Instant mode, they will be deleted as soon as the chat is closed.",
+    chat_onboarding_retention: "By default, your messages stay for 24h. In Instant mode, they will be deleted as soon as the chat is closed.",
     chat_onboarding_long_press_report: "A long-press on a message lets you report it to moderation.",
     chat_onboarding_report_conversation: "Lets you report the conversation",
 
@@ -1549,7 +1549,7 @@ const i18n = new I18n({
     chat_onboarding_choose_specific_sound: "Elige un sonido específico para enviar.",
     chat_onboarding_tap_replay: "Un toque en un mensaje recibido permite volver a escuchar su audio.",
     chat_onboarding_mute: "Te permite chatear en silencio",
-    chat_onboarding_retention: "Por defecto, tus mensajes permanecen 12h. En modo Instantáneo se borrarán en cuanto se cierre el chat.",
+    chat_onboarding_retention: "Por defecto, tus mensajes permanecen 24h. En modo Instantáneo se borrarán en cuanto se cierre el chat.",
     chat_onboarding_long_press_report: "Un toque largo sobre un mensaje permite reportarlo al equipo de moderación.",
     chat_onboarding_report_conversation: "Permite reportar la conversación",
 
@@ -2132,7 +2132,7 @@ const i18n = new I18n({
     chat_onboarding_choose_specific_sound: "Escolha um som específico para enviar.",
     chat_onboarding_tap_replay: "Um clique em uma mensagem recebida permite ouvir o áudio novamente.",
     chat_onboarding_mute: "Permite conversar em silêncio",
-    chat_onboarding_retention: "Por padrão, suas mensagens permanecem por 12h. No modo Instantâneo elas serão excluídas assim que o chat for fechado.",
+    chat_onboarding_retention: "Por padrão, suas mensagens permanecem por 24h. No modo Instantâneo elas serão excluídas assim que o chat for fechado.",
     chat_onboarding_long_press_report: "Um toque longo em uma mensagem permite denunciá-la à moderação.",
     chat_onboarding_report_conversation: "Permite denunciar a conversa",
 
@@ -2697,7 +2697,7 @@ const i18n = new I18n({
     chat_onboarding_choose_specific_sound: "Spezifischen Sound wählen.",
     chat_onboarding_tap_replay: "Tippe zum Wiederholen des Sounds.",
     chat_onboarding_mute: "Erlaubt stilles Chatten.",
-    chat_onboarding_retention: "Standardmäßig bleiben deine Nachrichten 12 Stunden lang erhalten. Im Instant-Modus werden sie gelöscht, sobald der Chat geschlossen wird.",
+    chat_onboarding_retention: "Standardmäßig bleiben deine Nachrichten 24 Stunden lang erhalten. Im Instant-Modus werden sie gelöscht, sobald der Chat geschlossen wird.",
     chat_onboarding_long_press_report: "Lang drücken zum Melden.",
     chat_onboarding_report_conversation: "Konversation melden.",
 
@@ -3273,7 +3273,7 @@ const i18n = new I18n({
     chat_onboarding_choose_specific_sound: "Scegli un suono specifico da inviare.",
     chat_onboarding_tap_replay: "Un tocco su un messaggio ricevuto permette di riascoltare il suo audio.",
     chat_onboarding_mute: "Ti permette di chattare in silenzio",
-    chat_onboarding_retention: "Per impostazione predefinita, i tuoi messaggi rimangono per 12 ore. In modalità Istantanea verranno eliminati non appena la chat viene chiusa.",
+    chat_onboarding_retention: "Per impostazione predefinita, i tuoi messaggi rimangono per 24 ore. In modalità Istantanea verranno eliminati non appena la chat viene chiusa.",
     chat_onboarding_long_press_report: "Una pressione prolungata su un messaggio ti permette di segnalarlo alla moderazione.",
     chat_onboarding_report_conversation: "Ti permette di segnalare la conversazione",
 

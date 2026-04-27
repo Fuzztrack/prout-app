@@ -43,7 +43,7 @@ interface ChatState {
 }
 
 const MS_PER_HOUR = 3600000;
-const DEFAULT_RETENTION = 12;
+const DEFAULT_RETENTION = 24;
 
 export const useChatStore = create<ChatState>()(
   persist(

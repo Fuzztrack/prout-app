@@ -292,7 +292,7 @@ export default function ChatScreen() {
   useEffect(() => {
     // Si aucune rétention n'est définie pour cet ami, on force 12h par défaut dans le store
     if (friendId && retentionByFriend[friendId] === undefined) {
-      setRetentionHours(friendId, 12);
+      setRetentionHours(friendId, 24);
     }
     cleanupExpired();
   }, [cleanupExpired, friendId, retentionByFriend, setRetentionHours]);
@@ -803,7 +803,7 @@ export default function ChatScreen() {
     return () => {
       // On utilise les refs pour avoir les valeurs à jour au moment du démontage réel
       const finalUserId = currentUserIdRef.current;
-      const hours = useChatStore.getState().retentionByFriend[friendId] ?? 12;
+      const hours = useChatStore.getState().retentionByFriend[friendId] ?? 24;
 
       // Purge automatique en mode instantané uniquement à la fermeture réelle du chat
       if (hours === 0 && finalUserId && friendId) {
@@ -1224,9 +1224,9 @@ export default function ChatScreen() {
 
             <TouchableOpacity
               onPress={() => {
-                const next = retentionHours === 12 ? 0 : 12;
+                const next = retentionHours === 24 ? 0 : 24;
                 setRetentionHours(friendId, next);
-                if (next === 12) {
+                if (next === 24) {
                   // ✅ IMPORTANT : Sauvegarder ce qui est déjà à l'écran dans le store permanent
                   // Cela permet de maintenir les messages reçus/envoyés pendant qu'on était en mode 0h
                   addReceivedMessages(friendId, receivedMessages);
@@ -1238,14 +1238,14 @@ export default function ChatScreen() {
               style={styles.headerIcon}
               activeOpacity={0.85}
             >
-              <View style={[styles.retentionBadge, retentionHours === 12 && styles.retentionBadgeActive]}>
+              <View style={[styles.retentionBadge, retentionHours === 24 && styles.retentionBadgeActive]}>
                 <Ionicons 
-                  name={retentionHours === 12 ? "timer-outline" : "flash"} 
+                  name={retentionHours === 24 ? "timer-outline" : "flash"} 
                   size={12} 
                   color="#604a3e" 
                 />
                 <Text style={styles.retentionBadgeText}>
-                  {retentionHours === 12 ? "12h" : "0"}
+                  {retentionHours === 24 ? "24h" : "0"}
                 </Text>
               </View>
             </TouchableOpacity>
