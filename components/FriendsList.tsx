@@ -563,9 +563,34 @@ export function FriendsList({
   const [appUsers, setAppUsers] = useState<any[]>([]);
   const [pendingMessages, setPendingMessages] = useState<PendingMessage[]>([]);
   const [isGameVisible, setIsGameVisible] = useState(false);
+  const [currentPseudo, setCurrentPseudo] = useState<string>("Un ami");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   
   const { data: pendingMessagesData, refetch: refetchMessages } = usePendingMessages(currentUserId);
   const { data: pendingSentData, refetch: refetchSentMessages } = usePendingSentMessages(currentUserId);
+
+  // Synchronisation des messages envoyés (TanStack -> UI)
+  useEffect(() => {
+    if (pendingSentData) {
+      setLastSentMessages(prev => {
+        const newMap = { ...prev };
+        pendingSentData.forEach((m: any) => {
+          if (m.message_content?.startsWith('READ:')) return;
+          const currentForUser = newMap[m.to_user_id] || [];
+          const exists = currentForUser.some(cm => cm.id === m.id);
+          if (!exists) {
+            newMap[m.to_user_id] = [...currentForUser, { 
+              text: m.message_content, 
+              ts: m.created_at,
+              id: m.id
+            }];
+          }
+        });
+        return newMap;
+      });
+    }
+  }, [pendingSentData]);
+
   const sendProutMutation = useSendProut(currentUserId);
 
   // Synchronisation des messages (qui eux fonctionnent bien via TanStack)
@@ -637,8 +662,15 @@ export function FriendsList({
   const [firstFriendlistOnboardingStep, setFirstFriendlistOnboardingStep] = useState<'footer' | null>(null);
   const [isFirstChatModalVisible, setIsFirstChatModalVisible] = useState(false);
   const isFirstFriendlistOnboardingVisible = firstFriendlistOnboardingStep !== null;
-  const [currentPseudo, setCurrentPseudo] = useState<string>("Un ami");
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // Synchronisation TanStack pour les Amis
+  const { data: friendsFromQuery, isLoading: isFriendsLoading } = useFriends(currentUserId);
+  useEffect(() => {
+    if (friendsFromQuery && friendsFromQuery.length > 0) {
+      setAppUsers(friendsFromQuery);
+    }
+  }, [friendsFromQuery]);
+
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [lastSentMessages, setLastSentMessages] = useState<LastSentMap>({});
   const [showSilentWarning, setShowSilentWarning] = useState(false);

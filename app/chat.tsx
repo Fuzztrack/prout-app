@@ -796,8 +796,12 @@ export default function ChatScreen() {
       .map((m) => m.id)
       .filter(Boolean);
     if (unreadIds.length === 0) return;
-    void markConversationReadViaBackend(friendId, currentUserId);
-  }, [currentUserId, friendId, receivedMessages]);
+    
+    void markConversationReadViaBackend(friendId, currentUserId).then(() => {
+      // ✅ Invalider TanStack Query pour faire disparaître l'aperçu dans FriendsList immédiatement
+      void queryClient.invalidateQueries({ queryKey: ['pendingMessages', currentUserId] });
+    });
+  }, [currentUserId, friendId, receivedMessages, queryClient]);
 
   useEffect(() => {
     return () => {
@@ -805,13 +809,18 @@ export default function ChatScreen() {
       const finalUserId = currentUserIdRef.current;
       const hours = useChatStore.getState().retentionByFriend[friendId] ?? 24;
 
+      // ✅ Force rafraîchissement des messages à la sortie pour nettoyer l'UI de la liste
+      if (finalUserId) {
+        void queryClient.invalidateQueries({ queryKey: ['pendingMessages', finalUserId] });
+      }
+
       // Purge automatique en mode instantané uniquement à la fermeture réelle du chat
       if (hours === 0 && finalUserId && friendId) {
         void purgeChatViaBackend(finalUserId, friendId);
         clearHistory(friendId);
       }
     };
-  }, [friendId, clearHistory]); // On dépend de friendId car c'est lui qui définit la conversation
+  }, [friendId, clearHistory, queryClient]); // On dépend de friendId car c'est lui qui définit la conversation
 
   useKeyboardHandler({
     onMove: (e: { height: number }) => {
