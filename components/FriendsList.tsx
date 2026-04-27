@@ -192,14 +192,6 @@ const DEFAULT_SOUND_OPTION_ROWS = [
 
 // Audio utility functions removed, now using audioService.ts and runtimeSounds.ts
 
-// Clés de cache pour AsyncStorage
-const CACHE_KEY_FRIENDS = 'cached_friends_list';
-const CACHE_KEY_PENDING_REQUESTS = 'cached_pending_requests';
-const CACHE_KEY_LAST_SENT_MESSAGES = 'cached_last_sent_messages';
-const CACHE_KEY_DISMISSED_SILENT_WARNING = 'cached_dismissed_silent_warning';
-const CACHE_KEY_BLOCKED_USERS = 'cached_blocked_users_v1';
-const CACHE_MAX_AGE = 30 * 24 * 60 * 60 * 1000; // 30 jours
-
 type LastSentMessage = { text: string; ts: string; id?: string; status?: 'read'; readAt?: number; soundKey?: string };
 type LastSentMap = Record<string, LastSentMessage[]>; // Tableau de messages pour accumulation
 
@@ -264,35 +256,10 @@ const deletedMessagesCache = new Set<string>();
 // Importance Android : on considère silencieux si LOW (2) ou moindre
 const ANDROID_SOUND_IMPORTANCE_THRESHOLD = 2; // DEFAULT = 3, HIGH = 4, LOW = 2
 
-// Fonction utilitaire pour charger le cache de manière sécurisée
-const loadCacheSafely = async (key: string) => {
-  try {
-    const cached = await AsyncStorage.getItem(key);
-    if (!cached) return null;
-    
-    const parsed = JSON.parse(cached);
-    
-    // Vérifier que c'est un tableau
-    if (!Array.isArray(parsed.data)) {
-      // Cache invalide, ignoré
-      return null;
-    }
-    
-    // Vérifier l'âge du cache (optionnel)
-    if (parsed.timestamp && Date.now() - parsed.timestamp > CACHE_MAX_AGE) {
-      // Cache expiré, ignoré
-      return null;
-    }
-    
-    return parsed.data;
-  } catch (e) {
-    // Erreur lecture cache (non critique)
-    return null; // En cas d'erreur, on ignore le cache et on continue normalement
-  }
-};
+const LAST_SENT_TTL_MS = 24 * 60 * 60 * 1000;
+const CACHE_MAX_AGE = 30 * 24 * 60 * 60 * 1000; // 30 jours
 
 // Cache pour les derniers messages envoyés (map userId -> [{text, ts, id?, status?}])
-const LAST_SENT_TTL_MS = 24 * 60 * 60 * 1000;
 const TEMP_SENT_TTL_MS = 10 * 60 * 1000; // 10 min pour les messages sans ID (stale)
 const READ_ANIMATION_MS = 3000; // 3 secondes pour l'animation de disparition
 const MARK_READ_DELAY_MS = 900; // Délai entre chaque appel markRead pour éviter 429 (rate limit backend)
@@ -365,22 +332,6 @@ const saveLastSentMessagesCache = async (map: LastSentMap) => {
   }
 };
 
-// Fonction utilitaire pour sauvegarder le cache de manière sécurisée
-const saveCacheSafely = async (key: string, data: any[]) => {
-  try {
-    await AsyncStorage.setItem(key, JSON.stringify({
-      data,
-      timestamp: Date.now()
-    }));
-  } catch (e) {
-    // Erreur sauvegarde cache (non critique)
-    // On ignore l'erreur, ce n'est pas critique
-  }
-};
-
-// SwipeableFriendRow removed, now imported from ./FriendsListComponents/SwipeableFriendRow
-
-
 // Composant pour gérer l'animation du message envoyé (PRRT! : opacité réduite quand lu)
 const DIMMED_OPACITY_READ = 0.72; // Grisé léger pour messages envoyés et lus par l'autre (reste lisible)
 
@@ -407,14 +358,14 @@ const SentMessageStatus = ({ message }: {
           }).start();
       }
     }
-  }, [message]);
+  }, [message?.status, message?.id, isRead, displayedMessage, opacity]);
 
   if (!displayedMessage) return null;
 
   return (
-    <RNAnimated.View style={{ alignSelf: 'flex-end', opacity, maxWidth: '100%', alignItems: 'flex-end' }}>
+    <RNAnimated.View style={[styles.bubbleSentWrapper, { opacity }]}>
       <View style={styles.bubbleSent}>
-        <Text style={styles.bubbleTextSent}>{stripReadPrefix(displayedMessage.text)}</Text>
+        <Text style={styles.bubbleTextSent}>{displayedMessage.text}</Text>
       </View>
       {isRead && (
         <Text style={{ fontSize: 12, color: '#604a3e', marginRight: 12, marginBottom: 4, fontStyle: 'italic', opacity: 0.9 }}>
@@ -691,7 +642,7 @@ export function FriendsList({
   // Synchronisation TanStack pour les Amis
   const { data: friendsFromQuery, isLoading: isFriendsLoading } = useFriends(currentUserId);
   useEffect(() => {
-    if (friendsFromQuery && friendsFromQuery.length > 0) {
+    if (friendsFromQuery !== undefined) {
       setAppUsers(friendsFromQuery);
     }
   }, [friendsFromQuery]);
@@ -1023,22 +974,10 @@ export function FriendsList({
   const CHAT_VERBOSE_LOGS = false;
   const CHAT_CONTROL_LOGS = false;
 
-  // Protection anti-spam des refresh globaux
-  const loadDataInFlightRef = useRef(false);
-  const queuedLoadDataArgsRef = useRef<{
-    hasCacheFromInit: boolean;
-    forceLoading: boolean;
-    syncContacts: boolean;
-  } | null>(null);
-  const lastLoadDataAtRef = useRef(0);
-  const LOAD_DATA_MIN_INTERVAL_MS = 1200;
-  const LOAD_DATA_TIMEOUT_MS = 15000;
-  const loadDataRunIdRef = useRef(0);
-  const loadDataWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  
   // Polling simple (sans backoff exponentiel)
   const flatListRef = useRef<FlatList>(null);
+  const loadDataWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const refreshTriggerRef = useRef(refreshTrigger);
   const rowRefs = useRef<Record<string, SwipeableFriendRowHandle | null>>({});
   const textInputRefs = useRef<Record<string, TextInput | null>>({});
   const searchInputRef = useRef<TextInput | null>(null);
@@ -1308,7 +1247,7 @@ export function FriendsList({
       // (supprime les messages qui ont été lus/supprimés sur le serveur mais dont on aurait raté le broadcast)
       // Comme expandedFriendIdRef est maintenant null (ou changé), loadData va nettoyer les messages absents du serveur.
       if (CHAT_CONTROL_LOGS) console.log(`🔄 [CLIENT] Force sync loadData après fermeture du chat`);
-      loadData(false, false, false);
+      loadData();
     }
     prevExpandedRef.current = expandedFriendId;
   }, [expandedFriendId, unreadCache]);
@@ -1321,7 +1260,7 @@ export function FriendsList({
       // Garantit que le statut "Lu" arrive même si le Realtime échoue
       interval = setInterval(() => {
         if (CHAT_VERBOSE_LOGS) console.log(`🔍 [CLIENT] Polling de sécurité (chat ouvert)...`);
-        loadData(false, true, false);
+        loadData();
       }, 5000);
     }
     return () => {
@@ -1600,7 +1539,7 @@ export function FriendsList({
       
       // Recharger les données à chaque fois que l'écran gagne le focus
       // Le tri se fait maintenant uniquement via last_interaction_at depuis Supabase
-      loadData(false, false, false);
+      loadData();
       setTimeout(() => {
         try {
           flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
@@ -1626,66 +1565,20 @@ export function FriendsList({
 
   useEffect(() => {
     const initialize = async () => {
-      // Réinitialiser le flag de synchronisation au démarrage
-      contactsSyncedRef.current = false;
-      
-      // ÉTAPE 1 : Charger le cache IMMÉDIATEMENT (avant tout)
-      let hasCache = false;
-      if (!cacheLoadedRef.current) {
-        cacheLoadedRef.current = true;
-        try {
-          // Charger le cache des amis et des requêtes en parallèle pour aller plus vite
-          const [cachedFriends, cachedRequests, cachedBlockedUsersRaw] = await Promise.all([
-            loadCacheSafely(CACHE_KEY_FRIENDS),
-            loadCacheSafely(CACHE_KEY_PENDING_REQUESTS),
-            AsyncStorage.getItem(CACHE_KEY_BLOCKED_USERS),
-          ]);
-          
-          // Afficher immédiatement le cache s'il existe, même si certains tokens manquent
-          const cacheHasEntries = cachedFriends && cachedFriends.length > 0;
-          
-          if (cacheHasEntries) {
-            // Appliquer le tri sur le cache (basé sur last_interaction_at depuis Supabase)
-            const sortedCache = sortFriends(cachedFriends);
-            setAppUsers(sortedCache);
-            setLoading(false); // Cache trouvé, pas de spinner : AFFICHAGE INSTANTANÉ
-            hasCache = true;
-          }
-          
-          if (cachedRequests) {
-            setPendingRequests(cachedRequests);
-          }
-
-          if (cachedBlockedUsersRaw) {
-            const parsed = JSON.parse(cachedBlockedUsersRaw);
-            if (Array.isArray(parsed)) {
-              setBlockedUserIds(parsed);
-              blockedUserIdsRef.current = new Set(parsed);
-            }
-          }
-        } catch (e) {
-          // Ignorer les erreurs de cache
+      // 1. Récupérer l'utilisateur courant (indispensable pour les hooks TanStack Query)
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+        
+        // Optionnel : récupérer le pseudo si on en a besoin dans l'UI
+        const { data: profile } = await supabase.from('user_profiles').select('pseudo').eq('id', user.id).single();
+        if (profile) {
+          setCurrentPseudo(profile.pseudo);
         }
       }
-      
-      // ÉTAPE 2 : Charger les données réseau (en arrière-plan)
-      // Passer hasCache pour éviter de remettre loading à true si on a du cache
-      // Si pas de cache, on force le loading (premier chargement)
-      // ⚡ On diffère la sync contacts pour éviter de bloquer le premier rendu
-      loadData(hasCache, !hasCache, false);
-      setTimeout(() => {
-        if (!contactsSyncedRef.current) {
-          loadData(true, false, true);
-        }
-      }, 300);
-      
-      // ÉTAPE 3 : Configurer Realtime et polling
+
+      // 2. Configurer uniquement les abonnements Realtime.
       setupRealtimeSubscription();
-      
-      /* Polling manual disabled, handled by TanStack Query hooks */
-      // pollingIntervalRef.current = setInterval(() => {
-      //   loadData(false, false, false); 
-      // }, 10000) as unknown as NodeJS.Timeout;
     };
     
     initialize();
@@ -1703,11 +1596,6 @@ export function FriendsList({
       if (broadcastRetryTimeoutRef.current) {
         clearTimeout(broadcastRetryTimeoutRef.current);
         broadcastRetryTimeoutRef.current = null;
-      }
-      // Nettoyer le polling
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
       }
     };
   }, []);
@@ -2321,745 +2209,16 @@ useEffect(() => {
     }
   };
 
-  const clearLoadDataWatchdog = useCallback(() => {
-    if (loadDataWatchdogRef.current) {
-      clearTimeout(loadDataWatchdogRef.current);
-      loadDataWatchdogRef.current = null;
-    }
-  }, []);
-
-  const startLoadDataWatchdog = useCallback((runId: number) => {
-    clearLoadDataWatchdog();
-    loadDataWatchdogRef.current = setTimeout(() => {
-      if (loadDataRunIdRef.current !== runId) return;
-      console.warn('⚠️ loadData timeout: fallback recovery UI enabled');
-      loadDataInFlightRef.current = false;
-      setLoading(false);
-      setIsRefreshing(false);
-      if ((appUsersRef.current?.length ?? 0) === 0) {
-        setShowFriendlistRecoveryCard(true);
-      }
-      showOfflineToast();
-    }, LOAD_DATA_TIMEOUT_MS);
-  }, [clearLoadDataWatchdog]);
-
-  const loadData = async (hasCacheFromInit: boolean = false, forceLoading: boolean = false, syncContacts: boolean = true) => {
-    // Évite les fetch concurrents + les rafales de triggers Realtime/polling
-    if (loadDataInFlightRef.current) {
-      queuedLoadDataArgsRef.current = { hasCacheFromInit, forceLoading, syncContacts };
-      return;
-    }
-    const now = Date.now();
-    // forceLoading bypass le throttle temporel
-    if (!forceLoading && !syncContacts && now - lastLoadDataAtRef.current < LOAD_DATA_MIN_INTERVAL_MS) {
-      return;
-    }
-    loadDataInFlightRef.current = true;
-    lastLoadDataAtRef.current = now;
-    const runId = ++loadDataRunIdRef.current;
-    startLoadDataWatchdog(runId);
-    setShowFriendlistRecoveryCard(false);
-
-    // Ne plus mettre loading à true ici pour éviter le flash blanc
-    // Seul le chargement initial (si la liste est vide) peut l'activer
-    if (forceLoading && appUsersRef.current.length === 0) {
-      setLoading(true);
-    }
-
-    try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
-      // Gestion explicite de l'erreur réseau pour getUser
-      if (userError) {
-        console.warn('⚠️ Erreur getUser:', userError);
-        // Si c'est une erreur réseau ou si on n'a pas d'utilisateur
-        if (userError.message?.includes('Network') || userError.message?.includes('fetch') || !user) {
-          showOfflineToast();
-          setLoading(false);
-          return;
-        }
-      }
-
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-      
-      setCurrentUserId(user.id);
-      
-      /* BRANCHEMENT TANSTACK: Chargement bloqués géré par useBlockedUsers
-      const { data: blockedUsersRows } = await supabase
-        .from('blocked_users')
-        .select('blocked_user_id')
-        .eq('blocker_id', user.id);
-      const nextBlockedUserIds = (blockedUsersRows || []).map((row: any) => row.blocked_user_id).filter(Boolean);
-      setBlockedUserIds(nextBlockedUserIds);
-      blockedUserIdsRef.current = new Set(nextBlockedUserIds);
-      await AsyncStorage.setItem(CACHE_KEY_BLOCKED_USERS, JSON.stringify(nextBlockedUserIds));
-      */
-
-      const { data: profile } = await supabase.from('user_profiles').select('pseudo').eq('id', user.id).single();
-      if (profile) {
-        setCurrentPseudo(profile.pseudo);
-      }
-
-      // Lancer en parallèle le chargement des messages éphémères et des demandes/identités
-  const pendingMessagesPromise = fetchPendingMessages(user.id);
-  const sentPendingMessagesPromise = fetchSentPendingMessages(user.id);
-
-      const requestsAndIdentityPromise = (async () => {
-        // BRANCHEMENT TANSTACK: Logique court-circuitée, gérée par usePendingRequests et useIdentityRequests
-        return;
-      })();
-
-      let phoneFriendsIds: string[] = [];
-      const status = await ensureContactPermissionWithDisclosure();
-      if (status === 'granted') {
-        const { data } = await Contacts.getContactsAsync({ fields: [Contacts.Fields.PhoneNumbers] });
-        if (data.length > 0) {
-          // Normaliser les numéros de téléphone
-          const phones = data
-            .flatMap(c => c.phoneNumbers || [])
-            .map(p => normalizePhone(p.number || ''))
-            .filter(p => p !== null && p !== '');
-
-          if (phones.length > 0) {
-            // 🪄 Appel à sync_contacts UNIQUEMENT si syncContacts est true ET qu'on n'a pas déjà synchronisé
-            // (pas lors du polling, seulement au chargement initial)
-            if (syncContacts && !contactsSyncedRef.current) {
-              const { data: matchedFriends, error } = await supabase
-                .rpc('sync_contacts', { 
-                  phones: phones 
-                });
-
-              if (error) {
-                console.error('❌ Erreur sync contacts:', {
-                  code: (error as any)?.code,
-                  message: (error as any)?.message,
-                  details: (error as any)?.details,
-                  hint: (error as any)?.hint,
-                });
-                // Fallback: on garde le comportement lecture seule des contacts locaux
-                // pour éviter de bloquer la liste d'amis si la RPC est indisponible.
-                const { data: contactsFound } = await supabase
-                  .from('user_profiles')
-                  .select('id')
-                  .in('phone', phones)
-                  .neq('id', user.id);
-                if (contactsFound) {
-                  phoneFriendsIds = contactsFound.map(u => u.id);
-                }
-              } else if (matchedFriends) {
-                phoneFriendsIds = matchedFriends.map((u: { id: string }) => u.id);
-                contactsSyncedRef.current = true; // Marquer comme synchronisé
-              }
-            } else {
-              // Lors du polling, on récupère juste les IDs depuis la base (sans appeler sync_contacts)
-              const { data: contactsFound } = await supabase
-                .from('user_profiles')
-                .select('id')
-                .in('phone', phones)
-                .neq('id', user.id);
-              
-              if (contactsFound) {
-                phoneFriendsIds = contactsFound.map(u => u.id);
-              }
-            }
-          }
-        }
-      }
-
-      // Charger les amis acceptés en parallèle (réduit le nombre de requêtes)
-      const [addedFriendsResult, friendsWhereIAmFriendResult] = await Promise.all([
-        supabase
-          .from('friends')
-          .select('friend_id')
-          .eq('user_id', user.id)
-          .eq('status', 'accepted'),
-        supabase
-          .from('friends')
-          .select('user_id')
-          .eq('friend_id', user.id)
-          .eq('status', 'accepted')
-      ]);
-      
-      const addedFriendsIds = addedFriendsResult.data?.map(f => f.friend_id) || [];
-      const friendsWhereIAmFriendIds = friendsWhereIAmFriendResult.data?.map(f => f.user_id) || [];
-      
-      // Combiner tous les IDs d'amis (contacts + relations acceptées dans les deux sens)
-      phoneFriendIdsRef.current = phoneFriendsIds;
-      const blockedSet = blockedUserIdsRef.current;
-      const allFriendIds = [...new Set([...phoneFriendsIds, ...addedFriendsIds, ...friendsWhereIAmFriendIds])]
-        .filter((id) => !blockedSet.has(id));
-
-      if (allFriendIds.length > 0) {
-          // Récupérer les amis avec leur token FCM (stocké dans expo_push_token)
-          // IMPORTANT : Vérifier que le token est bien présent
-          const { data: finalFriends, error: profilesError } = await supabase
-            .from('user_profiles')
-            .select('id, pseudo, phone, expo_push_token, push_platform, is_zen_mode, avatar_url')
-            .in('id', allFriendIds);
-          
-          // En cas d'erreur réseau sur user_profiles, ne pas toucher à la liste (garder en mémoire)
-          if (profilesError) {
-            if (__DEV__) console.warn('⚠️ Erreur chargement profils amis (liste conservée):', profilesError.message);
-          } else {
-          let identityAliasMap: Record<string, { alias: string | null, status: string | null }> = {};
-          let mutedMap: Record<string, boolean> = {};
-          let mutedByMap: Record<string, boolean> = {};
-          let lastInteractionMap: Record<string, string> = {};
-          
-          // Charger toutes les données en parallèle pour réduire les requêtes séquentielles
-          const [revealsResult, mutedFriendsResult, mutedByFriendsResult, myFriendsRelationsResult] = await Promise.all([
-            supabase
-              .from('identity_reveals')
-              .select('friend_id, alias, status')
-              .eq('requester_id', user.id)
-              .in('friend_id', allFriendIds),
-            supabase
-              .from('friends')
-              .select('friend_id, is_muted')
-              .eq('user_id', user.id)
-              .in('friend_id', allFriendIds),
-            supabase
-              .from('friends')
-              .select('user_id, is_muted')
-              .eq('friend_id', user.id)
-              .in('user_id', allFriendIds)
-              .eq('is_muted', true),
-            supabase
-              .from('friends')
-              .select('friend_id, last_interaction_at')
-              .eq('user_id', user.id)
-              .in('friend_id', allFriendIds)
-          ]);
-
-          // Traiter les résultats
-          if (revealsResult.data) {
-            identityAliasMap = revealsResult.data.reduce((acc, reveal) => {
-              acc[reveal.friend_id] = {
-                alias: reveal.alias,
-                status: reveal.status,
-              };
-              return acc;
-            }, {} as Record<string, { alias: string | null, status: string | null }>);
-          }
-
-          if (mutedFriendsResult.data) {
-            mutedMap = mutedFriendsResult.data.reduce((acc, f) => {
-              acc[f.friend_id] = f.is_muted || false;
-              return acc;
-            }, {} as Record<string, boolean>);
-          }
-
-          if (mutedByFriendsResult.data) {
-            mutedByFriendsResult.data.forEach(f => {
-              mutedByMap[f.user_id] = true;
-            });
-          }
-
-          // Créer un map de last_interaction_at pour l'associer directement aux friends
-          if (myFriendsRelationsResult.data) {
-            myFriendsRelationsResult.data.forEach(rel => {
-              if (rel.last_interaction_at) {
-                lastInteractionMap[rel.friend_id] = rel.last_interaction_at;
-              }
-            });
-          }
-
-          const currentUsers = appUsersRef.current || [];
-          const currentLastInteractionMap = new Map(
-            currentUsers.map((u: any) => [u.id, u.last_interaction_at])
-          );
-
-          const friendsList = (finalFriends || []).map(friend => {
-            // Si cet ami m'a mis en sourdine, je dois le voir en mode veille
-            const isMutedByMe = mutedMap[friend.id] || false;
-            const hasMutedMe = mutedByMap[friend.id] || false;
-            const serverLastInteraction = lastInteractionMap[friend.id] || null;
-            const localLastInteraction = currentLastInteractionMap.get(friend.id) || null;
-            const lastInteractionAt = pickLatestTimestamp(
-              localLastInteraction,
-              serverLastInteraction
-            );
-            
-            return {
-              ...friend,
-              isPhoneContact: phoneFriendsIds.includes(friend.id),
-              identityAlias: identityAliasMap[friend.id]?.alias || null,
-              identityStatus: identityAliasMap[friend.id]?.status || null,
-              // Si l'ami m'a mis en sourdine, je le vois en mode veille
-              isZenMode: friend.is_zen_mode || hasMutedMe,
-              is_muted: isMutedByMe,
-              // Ajouter last_interaction_at directement sur l'objet friend pour le tri
-              last_interaction_at: lastInteractionAt,
-            };
-          });
-          
-          // Vérifier les tokens (sans logs)
-          friendsList.forEach(friend => {
-            if (!friend.expo_push_token || friend.expo_push_token.trim() === '') {
-              // Token manquant, mais on ne log plus
-            }
-          });
-          
-          // Trier la liste avant de la setter
-          const sortedList = sortFriends(friendsList);
-          // Ne jamais remplacer une liste déjà affichée par une liste vide en cas de réponse vide
-          // (réseau flageolant, timeout, etc.) : on garde la liste en mémoire.
-          // On n'autorise le vidage que si la liste était déjà vide ou si c'est un rafraîchissement manuel (isRefreshing).
-          const hadFriends = (appUsersRef.current?.length ?? 0) > 0;
-          const shouldUpdate = sortedList.length > 0 || !hadFriends || isRefreshing;
-          if (shouldUpdate) {
-            if (sortedList.length === 0 && hadFriends && !isRefreshing) {
-              if (__DEV__) console.log('⚠️ [loadData] sortedList est vide alors qu\'on avait des amis. Remplacement ignoré par sécurité.');
-            } else {
-              setAppUsers(sortedList);
-              await saveCacheSafely(CACHE_KEY_FRIENDS, sortedList);
-              setShowFriendlistRecoveryCard(false);
-            }
-          }
-          }
-      } else {
-          // allFriendIds.length === 0 : soit l'utilisateur n'a vraiment aucun ami, soit erreur réseau.
-          // On ne vide la liste que si les requêtes ont réussi (pas d'erreur). En cas de perte de connexion,
-          // on garde la liste en mémoire affichée ; elle sera mise à jour à la prochaine connexion.
-          const hasNetworkError = addedFriendsResult.error != null || friendsWhereIAmFriendResult.error != null;
-          if (!hasNetworkError) {
-            // SÉCURITÉ : Si on avait des amis en mémoire, on ne vide pas tout au premier "0" reçu
-            // car cela peut être un glitch RLS/Supabase transitoire.
-            // On n'autorise le vidage que si la liste était déjà vide ou si c'est un rafraîchissement manuel (isRefreshing).
-            const hadFriends = (appUsersRef.current?.length ?? 0) > 0;
-            if (!hadFriends || isRefreshing) {
-              setAppUsers([]);
-              await saveCacheSafely(CACHE_KEY_FRIENDS, []);
-            } else {
-              if (__DEV__) console.log('⚠️ [loadData] Supabase a renvoyé 0 amis alors qu\'on en avait en mémoire. Vidage ignoré par sécurité.');
-            }
-            setShowFriendlistRecoveryCard(false);
-          }
-      }
-
-      await Promise.all([pendingMessagesPromise, requestsAndIdentityPromise]);
-      const sentPendingMessagesResult = await sentPendingMessagesPromise;
-      
-          // Si null, c'est une erreur, on ne touche pas au cache local pour éviter les disparitions fantômes
-          if (sentPendingMessagesResult !== null) {
-            if (CHAT_VERBOSE_LOGS) {
-              console.log(`📥 [CLIENT] loadData - Messages envoyés récupérés depuis pending_messages: ${sentPendingMessagesResult.length}`);
-            }
-            setLastSentMessages((prev) => {
-              // 1. Convertir le résultat serveur en map (tableau de messages par utilisateur)
-              // IMPORTANT : On ignore les messages avec "READ:" car ils sont en cours de suppression
-              // et ne doivent pas être affichés (ils sont déjà lus par B)
-              const serverMap: LastSentMap = {};
-              let droppedStaleServer = 0;
-              if (sentPendingMessagesResult.length > 0) {
-                 sentPendingMessagesResult.forEach((m: any) => {
-                    if (m?.id && hiddenSentIdsRef.current.has(m.id)) {
-                      return;
-                    }
-                    const rawContent = m.message_content || '';
-                    const parsed = parseMessageContent(rawContent);
-
-                    // IMPORTANT : Si le message est marqué "READ:" côté serveur, on doit le traiter
-                    // pour mettre à jour le statut "read" côté client, même s'il sera supprimé dans 5s
-                    // Cela garantit que A voit que son message a été lu par B
-                    const message: LastSentMessage = { 
-                      text: parsed.text,
-                      soundKey: parsed.soundKey,
-                      ts: m.created_at, 
-                      id: m.id, 
-                      status: parsed.isRead ? 'read' as const : undefined,
-                      readAt: parsed.isRead ? Date.now() : undefined
-                    };
-                    
-                    if (CHAT_VERBOSE_LOGS) {
-                      console.log(`📥 [CLIENT] Message envoyé récupéré:`, {
-                        id: m.id,
-                        to_user_id: m.to_user_id,
-                        text_preview: text.substring(0, 30),
-                        isRead,
-                        hasId: !!m.id
-                      });
-                    }
-                    
-                    // Purger les vieux messages côté serveur aussi
-                    if (!isFreshSentMessage(message)) {
-                      droppedStaleServer += 1;
-                      return;
-                    }
-                    
-                    // Ajouter le message au tableau pour cet utilisateur
-                    // Même si le message est marqué "READ:", on l'ajoute pour que le statut soit synchronisé
-                    // Il sera filtré plus tard si le chat n'est pas ouvert (voir purge ligne 2275)
-                    if (!serverMap[m.to_user_id]) {
-                      serverMap[m.to_user_id] = [];
-                    }
-                    serverMap[m.to_user_id].push(message);
-                 });
-              }
-              if (__DEV__ && droppedStaleServer > 0) {
-                // Log removed
-              }
-              // Logs uniquement si changement ou cas spécial (évite les logs en boucle)
-              const serverTotal = Object.values(serverMap).reduce(
-                (acc, arr) => acc + (Array.isArray(arr) ? arr.length : 0),
-                0
-              );
-              const prevTotal = Object.values(prev).reduce(
-                (acc, arr) => acc + (Array.isArray(arr) ? arr.length : 0),
-                0
-              );
-              // Ne logger que si changement attendu ou cas spécial
-              const shouldLog = prevTotal !== serverTotal || prevTotal > 0;
-              if (__DEV__ && shouldLog) {
-              }
-
-              // 2. Fusionner avec le cache local pour préserver les messages 'read' (animation)
-              const next: LastSentMap = { ...serverMap };
-              
-              Object.entries(prev).forEach(([uid, prevMessages]) => {
-                if (!Array.isArray(prevMessages)) return; // Skip si format ancien
-                
-                const serverMessages = serverMap[uid] || [];
-                const serverMessageIds = new Set(serverMessages.map(m => m.id).filter(Boolean));
-                
-                // Cas 1: Messages lus localement (pour jouer l'animation sur une fenêtre courte)
-                const now = Date.now();
-                const readMessages = prevMessages.filter(msg => {
-                  if (msg.status !== 'read') return false;
-                  
-                  // Si le chat est ouvert avec cet ami, on garde TOUS les messages lus tant qu'il est ouvert
-                  if (expandedFriendIdRef.current === uid) {
-                    return true;
-                  }
-
-                  if (!msg.readAt) return false;
-                  return now - msg.readAt < READ_ANIMATION_MS;
-                });
-                const readIds = new Set(readMessages.map(m => m.id).filter(Boolean));
-                
-                // Filtrer les messages serveur si on a déjà marqué localement "lu"
-                // MAIS : garder les messages avec "READ:" pour mettre à jour le statut même s'ils sont en cours de suppression
-                const filteredServerMessages = serverMessages.filter(m => {
-                  // 1. Si on a reçu un broadcast "read" pour ce message, on sait qu'il est lu.
-                  // Si le serveur le renvoie sans statut "read" (car pas encore supprimé), on doit l'ignorer ou le forcer à "read".
-                  // Ici on l'ignore car on a déjà la version locale "lue" dans readMessages (via readIds).
-                  // Si on a purgé readMessages (chat fermé), on ne veut PAS le revoir en "non-lu".
-                  if (readSentMessagesRef.current.has(m.id)) {
-                      return false;
-                  }
-
-                  // Si le message est marqué "READ:" côté serveur, on doit le traiter pour mettre à jour le statut
-                  const isReadOnServer = m.text?.startsWith('READ:') || m.message_content?.startsWith('READ:');
-                  if (isReadOnServer) {
-                    // Ne pas filtrer : on veut mettre à jour le statut "read" même si le message sera supprimé
-                    return true;
-                  }
-                  // Sinon, filtrer si déjà marqué localement "lu" (via readIds, qui est temporaire si chat ouvert)
-                  return !readIds.has(m.id);
-                });
-                if (__DEV__ && readIds.size > 0) {
-                  const filteredCount = serverMessages.length - filteredServerMessages.length;
-                  if (filteredCount > 0) {
-                    // Log removed
-                  }
-                }
-                
-                // Cas 2: Messages 'sent' localement mais absents du serveur (temporaires, non lus ou lus récemment)
-                // Si un message a un ID mais n'est plus dans le serveur, il a été lu/supprimé.
-                
-                const unreadMessages = prevMessages.filter(msg => msg.status !== 'read');
-                
-                const droppedWithIdMessages = unreadMessages.filter(
-                  msg => msg.id && !serverMessageIds.has(msg.id)
-                );
-
-                if (droppedWithIdMessages.length > 0 && expandedFriendIdRef.current === uid) {
-                    // console.log('[CHAT_DEBUG] dropped messages from server:', droppedWithIdMessages.map(m => m.id));
-                }
-
-                // Si le chat est ouvert, on considère les messages disparus comme LUS et on les garde
-                if (expandedFriendIdRef.current === uid) {
-                   droppedWithIdMessages.forEach(msg => {
-                     // On le transforme en message lu pour le garder affiché
-                     const readMsg = { ...msg, status: 'read' as const, readAt: Date.now() };
-                     readMessages.push(readMsg);
-                   });
-                } else if (droppedWithIdMessages.length > 0) {
-                    // Chat fermé : on laisse tomber les messages disparus du serveur (purge)
-                }
-                
-                const staleLocal = unreadMessages.filter(
-                  msg => !msg.id && !isFreshSentMessage(msg)
-                ).length;
-                const localOnlyMessages = unreadMessages.filter(
-                  msg => !msg.id && isFreshSentMessage(msg)
-                );
-                if (__DEV__ && staleLocal > 0) {
-                  // Log removed
-                }
-                if (__DEV__ && droppedWithIdMessages.length > 0) {
-                  // Log removed
-                }
-
-                const dedupedLocalOnlyMessages = localOnlyMessages.filter(localMsg => {
-                  const localTime = new Date(localMsg.ts).getTime();
-                  const isDuplicate = filteredServerMessages.some(serverMsg => {
-                    const serverTime = new Date(serverMsg.ts).getTime();
-                    // On vérifie le texte ET le son pour être sûr (le texte peut être identique pour 2 prouts différents)
-                    return (
-                      serverMsg.text === localMsg.text &&
-                      serverMsg.soundKey === localMsg.soundKey &&
-                      Math.abs(serverTime - localTime) < 5000
-                    );
-                  });
-                  if (__DEV__ && isDuplicate) {
-                    // Log removed
-                  }
-                  return !isDuplicate;
-                });
-                
-                // Fusionner : messages du serveur + messages locaux uniquement (temporaires, non lus)
-                // IMPORTANT : Traiter les messages avec "READ:" pour mettre à jour le statut même s'ils sont en cours de suppression
-                const processedServerMessages = filteredServerMessages.map(m => {
-                  // Le texte a déjà été nettoyé ligne 2110, donc on vérifie le statut plutôt que le texte
-                  // Si le message a déjà status: 'read', c'est qu'il était marqué "READ:" côté serveur
-                  if (m.status === 'read') {
-                    // S'assurer que readAt est défini
-                    return { ...m, readAt: m.readAt || Date.now() };
-                  }
-                  // Vérifier aussi dans message_content au cas où (fallback)
-                  const rawText = m.message_content || m.text || '';
-                  const isReadOnServer = rawText.startsWith('READ:');
-                  const isKnownRead = m.id && readSentMessagesRef.current.has(m.id);
-
-                  if (isReadOnServer || isKnownRead) {
-                    // Marquer comme lu si c'est connu comme tel
-                    if (isKnownRead && m.id && !readSentMessagesRef.current.has(m.id)) {
-                        readSentMessagesRef.current.add(m.id);
-                    }
-                    return { 
-                        ...m, 
-                        status: 'read' as const, 
-                        readAt: m.readAt || Date.now(), 
-                        text: isReadOnServer ? rawText.slice('READ:'.length) : rawText 
-                    };
-                  }
-                  return m;
-                });
-                // Fusionner en dédupliquant par ID : privilégier les messages serveur avec status 'read'
-                const mergedById = new Map<string, LastSentMessage>();
-                
-                // 1. Ajouter d'abord les messages serveur (ils ont la source de vérité)
-                processedServerMessages.forEach(msg => {
-                  if (msg.id) {
-                    // Si le message est dans readSentMessagesRef, le marquer comme lu même s'il n'est pas encore marqué READ: côté serveur
-                    if (readSentMessagesRef.current.has(msg.id) && msg.status !== 'read') {
-                      console.log(`✅ [CLIENT] Message ${msg.id} trouvé dans readSentMessagesRef, marquage comme lu`);
-                      mergedById.set(msg.id, { ...msg, status: 'read' as const, readAt: msg.readAt || Date.now() });
-                    } else {
-                      mergedById.set(msg.id, msg);
-                    }
-                  } else {
-                    // Message sans ID : utiliser le texte comme clé temporaire
-                    const key = `temp-${msg.text}-${msg.ts}`;
-                    if (!mergedById.has(key)) {
-                      mergedById.set(key, msg);
-                    }
-                  }
-                });
-                
-                // 2. Ajouter les messages lus localement (pour l'animation) seulement s'ils ne sont pas déjà dans mergedById
-                // IMPORTANT : Les messages serveur avec status 'read' ont toujours priorité sur les messages locaux
-                readMessages.forEach(msg => {
-                  if (msg.id) {
-                    const existing = mergedById.get(msg.id);
-                    // Si le message serveur n'existe pas ou n'est pas encore marqué comme lu, utiliser le message local
-                    if (!existing || existing.status !== 'read') {
-                      mergedById.set(msg.id, msg);
-                    }
-                    // Sinon, garder le message serveur qui a déjà status 'read' (priorité)
-                  } else if (!msg.id) {
-                    // Message sans ID : vérifier s'il existe déjà par texte
-                    const key = `temp-${msg.text}-${msg.ts}`;
-                    if (!mergedById.has(key)) {
-                      mergedById.set(key, msg);
-                    }
-                  }
-                });
-                
-                // 3. Ajouter les messages locaux uniquement (temporaires, non lus)
-                dedupedLocalOnlyMessages.forEach(localMsg => {
-                  const now = Date.now();
-                  const msgTime = new Date(localMsg.ts).getTime();
-                  const age = now - msgTime;
-                  
-                  // CORRECTION: Si le message local n'a pas d'ID mais qu'un ID correspondant existe dans readSentMessagesRef,
-                  // c'est qu'il a été lu par l'autre. On doit le marquer comme lu.
-                  if (!localMsg.id && localMsg.text) {
-                    // Chercher dans readSentMessagesRef si un message avec ce texte a été lu
-                    // (on ne peut pas faire de matching parfait sans ID, mais on peut essayer de matcher par texte + timestamp)
-                    const matchingReadId = Array.from(readSentMessagesRef.current).find(id => {
-                      // On ne peut pas vraiment matcher sans avoir les messages depuis la DB
-                      // Mais on peut au moins vérifier si le message devrait être marqué comme lu
-                      return false; // Pas de matching possible sans ID
-                    });
-                  }
-                  
-                  // LOGIQUE SNAPCHAT : Gestion des messages locaux selon leur statut et présence sur le serveur
-                  if (age < 86400000) { // 24 heures
-                    if (localMsg.id) {
-                         if (!mergedById.has(localMsg.id)) {
-                             // Message local avec ID qui n'est plus sur le serveur
-                             // Cela signifie qu'il a été supprimé du serveur (après 5 secondes)
-                             
-                             const isChatOpen = expandedFriendIdRef.current === uid;
-                             
-                             if (localMsg.status === 'read') {
-                                 // Message lu supprimé du serveur :
-                                 // - Si chat ouvert : on garde (pour l'animation)
-                                 // - Si chat fermé : on supprime (purge Snapchat)
-                                 if (isChatOpen) {
-                                     mergedById.set(localMsg.id, localMsg);
-                                 }
-                                 // Sinon, on ne l'ajoute pas = il sera supprimé
-                             } else {
-                                 // Message NON lu supprimé du serveur : c'est bizarre
-                                 // On le garde par sécurité (persistance Snapchat)
-                                 mergedById.set(localMsg.id, localMsg);
-                             }
-                         } else {
-                 // Le message est sur le serveur.
-                 // Si local est 'read' mais serveur 'sent', on force 'read' (priorité locale broadcast)
-                 const serverMsg = mergedById.get(localMsg.id);
-                 if (serverMsg) {
-                     const isKnownRead = readSentMessagesRef.current.has(localMsg.id);
-                     if (localMsg.status === 'read' || isKnownRead) {
-                        if (serverMsg.status !== 'read') {
-                            mergedById.set(localMsg.id, { 
-                                ...serverMsg, 
-                                status: 'read', 
-                                readAt: localMsg.readAt || Date.now() 
-                            });
-                            // S'assurer qu'il est dans le cache
-                            readSentMessagesRef.current.add(localMsg.id);
-                        }
-                     }
-                 }
-                         }
-                    } else if (!localMsg.id) {
-                      const key = `temp-${localMsg.text}-${localMsg.ts}`;
-                      if (!mergedById.has(key)) {
-                        mergedById.set(key, localMsg);
-                      }
-                    }
-                  }
-                });
-                
-                const merged = Array.from(mergedById.values());
-                
-                // Trier par timestamp de manière stricte et fiable
-                if (merged.length > 0) {
-                  merged.sort((a, b) => {
-                    const timeA = new Date(a.ts || a.created_at || 0).getTime();
-                    const timeB = new Date(b.ts || b.created_at || 0).getTime();
-                    // Si les timestamps sont égaux ou invalides, utiliser l'ordre d'ajout comme fallback
-                    if (timeA === timeB || (!timeA && !timeB)) {
-                      // Garder l'ordre relatif : messages reçus avant messages envoyés si même timestamp
-                      return 0;
-                    }
-                    if (!timeA || isNaN(timeA)) return 1; // Messages sans timestamp à la fin
-                    if (!timeB || isNaN(timeB)) return -1;
-                    return timeA - timeB; // Tri chronologique strict
-                  });
-                  next[uid] = merged;
-                  // Debug logs removed
-                } else if (serverMessages.length === 0 && dedupedLocalOnlyMessages.length === 0) {
-                  // Si aucun message, on supprime la clé
-                  delete next[uid];
-                }
-              });
-
-              // Réconcilier avec les broadcast reçus en avance
-              const { next: reconciled, updated } = reconcilePendingReadIds(next);
-              const finalNext = updated ? reconciled : next;
-              const finalTotal = Object.values(finalNext).reduce(
-                (acc, arr) => acc + (Array.isArray(arr) ? arr.length : 0),
-                0
-              );
-              // Ne logger que si changement ou cas spécial (évite les logs en boucle)
-              if (__DEV__ && (shouldLog || prevTotal !== finalTotal || updated)) {
-              }
-
-              // LOGIQUE SNAPCHAT : Purge des messages selon leur statut et la présence sur le serveur
-              // - Messages non lus : TOUJOURS gardés (persistance même après fermeture)
-              // - Messages lus : gardés seulement s'ils sont encore sur le serveur OU si le chat est ouvert
-              // - Messages lus supprimés du serveur : supprimés seulement si le chat est fermé
-              const activeId = expandedFriendIdRef.current;
-              const pruned: LastSentMap = {};
-              Object.entries(finalNext).forEach(([uid, arr]) => {
-                if (!Array.isArray(arr)) return;
-                const kept = arr.filter((msg) => {
-                  // Toujours garder les messages non-lus (persistance Snapchat)
-                  // Même si le chat est fermé, on VEUT voir les messages envoyés non lus
-                  if (msg.status !== 'read') return true;
-                  
-                  // Messages lus : garder si :
-                  // 1. Le chat est ouvert (pour l'animation de "lu")
-                  // 2. OU le message est encore sur le serveur (pas encore supprimé après 5 secondes)
-                  // Le message sera supprimé seulement s'il n'est plus sur le serveur ET que le chat est fermé
-                  if (activeId === uid) {
-                    // Chat ouvert : garder les messages lus récents (pour l'animation)
-                    return isFreshSentMessage(msg);
-                  }
-                  
-                  // Chat fermé : garder seulement si le message est encore sur le serveur
-                  // (c'est-à-dire qu'il a un ID et qu'il est dans serverMessages)
-                  // Si le message n'est plus sur le serveur, il sera supprimé par loadData
-                  // car il ne sera pas dans serverMessages
-                  return true; // On garde temporairement, loadData filtrera ceux qui ne sont plus sur le serveur
-                });
-                if (kept.length > 0) pruned[uid] = kept;
-              });
-              updateLastSentIndex(pruned);
-              saveLastSentMessagesCache(pruned);
-              return pruned;
-            });
-          }
-          if (__DEV__ && sentPendingMessagesResult === null) {
-          }
-    } catch (e) {
-      // En cas d'erreur réseau, avertir l'utilisateur (avec anti-spam)
-      console.warn('⚠️ Erreur loadData:', e);
-      if ((appUsersRef.current?.length ?? 0) === 0) {
-        setShowFriendlistRecoveryCard(true);
-      }
-      showOfflineToast();
-    } finally { 
-      if (loadDataRunIdRef.current === runId) {
-        clearLoadDataWatchdog();
-      }
-      loadDataInFlightRef.current = false;
-      setLoading(false); 
-      const queued = queuedLoadDataArgsRef.current;
-      if (queued) {
-        queuedLoadDataArgsRef.current = null;
-        setTimeout(() => {
-          loadData(queued.hasCacheFromInit, queued.forceLoading, queued.syncContacts);
-        }, 150);
-      }
-    }
+  const loadData = async () => {
+    setLoading(false);
+    setIsRefreshing(false);
   };
-
-  const refreshTriggerRef = useRef(refreshTrigger);
   useEffect(() => {
     if (refreshTrigger === refreshTriggerRef.current) {
       return;
     }
     refreshTriggerRef.current = refreshTrigger;
-    loadData(false, false, false);
+    loadData();
   }, [refreshTrigger]);
 
   // Configurer la subscription Realtime pour écouter les changements sur friends
@@ -3094,7 +2253,7 @@ useEffect(() => {
               scheduleAlignFriendListTop();
             }
             // Rechargement pour garantir la synchro avec Supabase
-            loadData(false, false, false);
+            loadData();
           }
         )
         .on(
@@ -3106,7 +2265,7 @@ useEffect(() => {
             filter: `user_id=eq.${user.id}`,
           },
           (payload) => {
-            loadData(false, false, false);
+            loadData();
           }
         )
         .on(
@@ -3119,7 +2278,7 @@ useEffect(() => {
           },
           (payload) => {
             // Recharger les données si une relation est supprimée
-            loadData(false, false, false);
+            loadData();
           }
         )
         .on(
@@ -3131,7 +2290,7 @@ useEffect(() => {
           },
           (payload) => {
             // Recharger les données si une demande d'identité change
-            loadData(false, false);
+            loadData();
           }
         )
         .on(
@@ -3223,7 +2382,7 @@ useEffect(() => {
                 typeof text === 'string' &&
                 (text.startsWith('ENCv1:') || text.startsWith('READ:ENCv1:'));
               if (isEncryptedPayload) {
-                loadData(false, false, false);
+                loadData();
                 return;
               }
 
@@ -3264,7 +2423,7 @@ useEffect(() => {
                 typeof text === 'string' &&
                 (text.startsWith('ENCv1:') || text.startsWith('READ:ENCv1:'));
               if (isEncryptedPayload) {
-                loadData(false, false, false);
+                loadData();
                 return;
               }
 
@@ -3544,7 +2703,7 @@ useEffect(() => {
             // Un seul refresh après le batch, MAIS éviter de re-fetcher immédiatement pour ne pas écraser l'état local
             // avec des données serveur potentiellement pas encore à jour (suppression asynchrone).
             // Le broadcast suffit pour l'UI immédiate.
-            // loadData(false, false, false); 
+            // loadData(); 
           })
           .on('broadcast', { event: 'message-received' }, (payload) => {
             console.log('📡 [CLIENT] Broadcast message-received event triggered:', JSON.stringify(payload));
@@ -4052,7 +3211,7 @@ useEffect(() => {
       } else {
         Alert.alert(i18n.t('success'), i18n.t('identity_request_sent') + ' !');
       }
-      loadData(false, false, false);
+      loadData();
     } catch (error) {
       console.error('❌ Impossible de demander l’identité:', error);
       Alert.alert(i18n.t('error'), 'Impossible d’envoyer la demande.');
@@ -4462,7 +3621,7 @@ useEffect(() => {
                 text: i18n.t('retry'), 
                 onPress: () => {
                   if (CHAT_VERBOSE_LOGS) console.log(`🔄 [CLIENT] Retry loadData suite à token manquant`);
-                  loadData(false, true, true);
+                  loadData();
                 } 
               }
             ]
@@ -4588,10 +3747,8 @@ useEffect(() => {
         error?.code === 'target_app_uninstalled'
       ) {
         Alert.alert(i18n.t('error'), i18n.t('app_uninstalled', { pseudo: recipient.pseudo }));
-        // Purger localement l'ami sans token
-        const filtered = appUsers.filter(u => u.id !== recipient.id);
-        setAppUsers(filtered);
-        await saveCacheSafely(CACHE_KEY_FRIENDS, filtered);
+        // Invalider les amis pour rafraîchir la liste
+        void queryClient.invalidateQueries({ queryKey: ['friends'] });
       } else if (
         error?.message?.includes('Network request failed') || 
         error?.message?.includes('fetch') ||
@@ -5219,7 +4376,7 @@ useEffect(() => {
       await Promise.all([
         refetchMessages(),
         refetchSentMessages(),
-        loadData(false, true, true) // bypass throttle et réarme le watchdog
+        loadData() // bypass throttle et réarme le watchdog
       ]);
     } finally {
       setIsRefreshing(false);
@@ -6694,6 +5851,10 @@ const styles = StyleSheet.create({
   bubbleReceivedPlaying: {
     backgroundColor: '#A2E4D4',
     borderColor: '#1a1a1a',
+  },
+  bubbleSentWrapper: {
+    alignSelf: 'flex-end',
+    marginBottom: 4,
   },
   bubbleSent: {
     alignSelf: 'flex-end',
