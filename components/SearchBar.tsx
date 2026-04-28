@@ -137,18 +137,15 @@ export const SearchBar = memo(forwardRef<TextInput, SearchBarProps>((props, ref)
               return;
             }
             
-            // Garde-fou : empêcher la fermeture automatique dans les 1000ms après le focus
-            // Cela évite les fermetures fantômes causées par les re-layouts ou les événements système
-            if (timeSinceFocus < 1000) {
+            // Garde-fou : réduire à 300ms pour plus de réactivité
+            if (timeSinceFocus < 300) {
               return;
             }
 
-            if (searchQuery.trim()) {
-              onSearchQueryChange?.('');
-            } else {
-              onSearchChange?.(false);
-              Keyboard.dismiss();
-            }
+            // Un seul clic ferme toujours la recherche
+            onSearchChange?.(false);
+            onSearchQueryChange?.(''); // On vide pour la prochaine fois
+            Keyboard.dismiss();
           }}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >

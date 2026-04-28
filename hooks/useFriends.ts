@@ -7,8 +7,10 @@ export type Friend = {
   pseudo: string;
   avatar_url: string | null;
   last_interaction_at: string | null;
-  is_zen_mode: boolean;
   is_muted: boolean;
+  isZenMode: boolean;
+  identityAlias?: string | null;
+  identityStatus?: string | null;
 };
 
 export const useFriends = (userId: string | null) => {
@@ -19,26 +21,34 @@ export const useFriends = (userId: string | null) => {
       if (!uid) return [];
 
       // 1. Récupérer les bloqués (pour les exclure de la liste d'amis)
-      const { data: blockedUsersRows } = await supabase
+      const { data: blockedUsersRows, error: blockedError } = await supabase
         .from('blocked_users')
         .select('blocked_user_id')
         .eq('blocker_id', uid);
+      
+      if (blockedError) {
+        console.error('❌ [useFriends] Error fetching blocked users:', blockedError);
+      }
       const blockedSet = new Set((blockedUsersRows || []).map((row: any) => row.blocked_user_id).filter(Boolean));
 
       // 2. Charger les relations acceptées dans les deux sens
+      // On récupère déjà last_interaction_at et is_muted pour gagner du temps
       const [addedFriendsResult, friendsWhereIAmFriendResult] = await Promise.all([
         supabase
           .from('friends')
-          .select('friend_id')
+          .select('friend_id, last_interaction_at, is_muted')
           .eq('user_id', uid)
           .eq('status', 'accepted'),
         supabase
           .from('friends')
-          .select('user_id')
+          .select('user_id, last_interaction_at')
           .eq('friend_id', uid)
           .eq('status', 'accepted')
       ]);
       
+      if (addedFriendsResult.error) console.error('❌ [useFriends] Error addedFriendsResult:', addedFriendsResult.error);
+      if (friendsWhereIAmFriendResult.error) console.error('❌ [useFriends] Error friendsWhereIAmFriendResult:', friendsWhereIAmFriendResult.error);
+
       const addedFriendsIds = addedFriendsResult.data?.map(f => f.friend_id) || [];
       const friendsWhereIAmFriendIds = friendsWhereIAmFriendResult.data?.map(f => f.user_id) || [];
       
@@ -46,15 +56,16 @@ export const useFriends = (userId: string | null) => {
       const allFriendIds = [...new Set([...addedFriendsIds, ...friendsWhereIAmFriendIds])]
         .filter((id) => !blockedSet.has(id));
 
-      if (allFriendIds.length === 0) return [];
+      if (allFriendIds.length === 0) {
+        console.log('ℹ️ [useFriends] No friends found for:', uid);
+        return [];
+      }
 
-      // 3. Récupérer les profils et les métadonnées en parallèle
+      // 3. Récupérer les profils et les métadonnées (Identity Reveals, Mute, etc.)
       const [
-        { data: finalFriends },
-        { data: revealsData },
-        { data: mutedFriendsData },
-        { data: mutedByFriendsData },
-        { data: myFriendsRelationsData }
+        { data: finalFriends, error: profilesError },
+        { data: revealsData, error: revealsError },
+        { data: mutedByFriendsData, error: mutedByError }
       ] = await Promise.all([
         supabase
           .from('user_profiles')
@@ -67,39 +78,49 @@ export const useFriends = (userId: string | null) => {
           .in('friend_id', allFriendIds),
         supabase
           .from('friends')
-          .select('friend_id, is_muted')
-          .eq('user_id', uid)
-          .in('friend_id', allFriendIds),
-        supabase
-          .from('friends')
           .select('user_id, is_muted')
           .eq('friend_id', uid)
           .in('user_id', allFriendIds)
-          .eq('is_muted', true),
-        supabase
-          .from('friends')
-          .select('friend_id, last_interaction_at')
-          .eq('user_id', uid)
-          .in('friend_id', allFriendIds)
+          .eq('is_muted', true)
       ]);
+
+      if (profilesError) console.error('❌ [useFriends] Error profiles:', profilesError);
+      if (revealsError) console.error('❌ [useFriends] Error reveals:', revealsError);
+      if (mutedByError) console.error('❌ [useFriends] Error mutedBy:', mutedByError);
+
+      // Créer des maps pour un accès rapide O(1)
+      const lastInteractionMap: Record<string, string> = {};
+      const mutedMap: Record<string, boolean> = {};
+
+      // Remplir avec les données de la relation "Moi -> Ami" (Direction principale)
+      (addedFriendsResult.data || []).forEach(rel => {
+        if (rel.last_interaction_at) {
+          lastInteractionMap[rel.friend_id] = rel.last_interaction_at;
+        }
+        if (rel.is_muted) {
+          mutedMap[rel.friend_id] = true;
+        }
+      });
+
+      // Compléter avec la relation "Ami -> Moi" (Direction inverse pour last_interaction_at)
+      (friendsWhereIAmFriendResult.data || []).forEach(rel => {
+        const existingTime = lastInteractionMap[rel.user_id];
+        const inverseTime = rel.last_interaction_at;
+        
+        if (inverseTime) {
+          if (!existingTime || new Date(inverseTime) > new Date(existingTime)) {
+            lastInteractionMap[rel.user_id] = inverseTime;
+          }
+        }
+      });
 
       const identityAliasMap = (revealsData || []).reduce((acc: any, reveal: any) => {
         acc[reveal.friend_id] = { alias: reveal.alias, status: reveal.status };
         return acc;
       }, {});
 
-      const mutedMap = (mutedFriendsData || []).reduce((acc: any, f: any) => {
-        acc[f.friend_id] = f.is_muted || false;
-        return acc;
-      }, {});
-
       const mutedByMap = (mutedByFriendsData || []).reduce((acc: any, f: any) => {
         acc[f.user_id] = true;
-        return acc;
-      }, {});
-
-      const lastInteractionMap = (myFriendsRelationsData || []).reduce((acc: any, rel: any) => {
-        if (rel.last_interaction_at) acc[rel.friend_id] = rel.last_interaction_at;
         return acc;
       }, {});
 
@@ -115,7 +136,7 @@ export const useFriends = (userId: string | null) => {
           is_muted: isMutedByMe,
           isZenMode: friend.is_zen_mode || hasMutedMe,
           last_interaction_at: lastInteractionMap[friend.id] || null,
-        };
+        } as Friend;
       });
 
       // 5. Trier par date d'interaction (le plus récent en premier)
@@ -127,7 +148,7 @@ export const useFriends = (userId: string | null) => {
       });
     },
     enabled: !!userId,
-    placeholderData: (previousData) => previousData, // Garder les anciennes données pendant le chargement ou si erreur
+    placeholderData: (previousData) => previousData,
     refetchInterval: 15000,
     refetchOnWindowFocus: true,
     retry: 3,
@@ -145,12 +166,12 @@ export const usePendingMessages = (userId: string | null) => {
         return data || [];
       } catch (e) {
         console.warn('⚠️ [usePendingMessages] Network error, server might be starting up...');
-        return []; // On retourne une liste vide pour ne pas faire planter l'UI
+        return [];
       }
     },
     enabled: !!userId,
     refetchInterval: 5000,
-    retry: 1, // On retente moins souvent pour les messages éphémères
+    retry: 1,
   });
 };
 
@@ -168,7 +189,7 @@ export const usePendingSentMessages = (userId: string | null) => {
       }
     },
     enabled: !!userId,
-    refetchInterval: 8000, // On peut rafraîchir un peu moins souvent les messages envoyés
+    refetchInterval: 8000,
   });
 };
 
@@ -182,11 +203,14 @@ export const useBlockedUsers = (userId: string | null) => {
         .select('blocked_user_id')
         .eq('blocker_id', userId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ [useBlockedUsers] Error:', error);
+        return [];
+      }
       
       return (blockedUsersRows || []).map((row: any) => row.blocked_user_id).filter(Boolean) as string[];
     },
     enabled: !!userId,
-    refetchInterval: 60000, // Une fois par minute suffit pour les blocages
+    refetchInterval: 60000,
   });
 };

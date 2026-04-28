@@ -518,10 +518,11 @@ export function FriendsList({
   const [currentPseudo, setCurrentPseudo] = useState<string>("Un ami");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   
-  const { data: pendingMessagesData, refetch: refetchMessages } = usePendingMessages(currentUserId);
-  const { data: pendingSentData, refetch: refetchSentMessages } = usePendingSentMessages(currentUserId);
-  const { data: pendingRequestsData, refetch: refetchPendingRequests } = usePendingRequests(currentUserId);
-  const { data: identityRequestsData, refetch: refetchIdentityRequests } = useIdentityRequests(currentUserId);
+  const { data: friendsFromQuery, isLoading: isFriendsLoading } = useFriends(currentUserId);
+  const { data: pendingMessagesData } = usePendingMessages(currentUserId);
+  const { data: pendingSentData } = usePendingSentMessages(currentUserId);
+  const { data: pendingRequestsData } = usePendingRequests(currentUserId);
+  const { data: identityRequestsData } = useIdentityRequests(currentUserId);
   const { data: blockedUsersFromQuery } = useBlockedUsers(currentUserId);
 
   // Synchronisation TanStack pour les Utilisateurs Bloqués
@@ -610,7 +611,7 @@ export function FriendsList({
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
   const [identityRequests, setIdentityRequests] = useState<any[]>([]);
 
-  const [loading, setLoading] = useState(true); // Commencer à true, loadData gérera la suite
+  const [loading, setLoading] = useState(true); // Commencer à true, TanStack Query gérera la suite
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showFriendlistRecoveryCard, setShowFriendlistRecoveryCard] = useState(false);
 
@@ -638,9 +639,6 @@ export function FriendsList({
   const [firstFriendlistOnboardingStep, setFirstFriendlistOnboardingStep] = useState<'footer' | null>(null);
   const [isFirstChatModalVisible, setIsFirstChatModalVisible] = useState(false);
   const isFirstFriendlistOnboardingVisible = firstFriendlistOnboardingStep !== null;
-
-  // Synchronisation TanStack pour les Amis
-  const { data: friendsFromQuery, isLoading: isFriendsLoading } = useFriends(currentUserId);
   
   // 1. Chargement instantané du cache local (Mémoire de 30 jours)
   useEffect(() => {
@@ -1005,7 +1003,6 @@ export function FriendsList({
 
   // Polling simple (sans backoff exponentiel)
   const flatListRef = useRef<FlatList>(null);
-  const loadDataWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const refreshTriggerRef = useRef(refreshTrigger);
   const rowRefs = useRef<Record<string, SwipeableFriendRowHandle | null>>({});
   const textInputRefs = useRef<Record<string, TextInput | null>>({});
@@ -1276,7 +1273,7 @@ export function FriendsList({
       // (supprime les messages qui ont été lus/supprimés sur le serveur mais dont on aurait raté le broadcast)
       // Comme expandedFriendIdRef est maintenant null (ou changé), loadData va nettoyer les messages absents du serveur.
       if (CHAT_CONTROL_LOGS) console.log(`🔄 [CLIENT] Force sync loadData après fermeture du chat`);
-      loadData();
+      refreshAllData();
     }
     prevExpandedRef.current = expandedFriendId;
   }, [expandedFriendId, unreadCache]);
@@ -1289,7 +1286,7 @@ export function FriendsList({
       // Garantit que le statut "Lu" arrive même si le Realtime échoue
       interval = setInterval(() => {
         if (CHAT_VERBOSE_LOGS) console.log(`🔍 [CLIENT] Polling de sécurité (chat ouvert)...`);
-        loadData();
+        refreshAllData();
       }, 5000);
     }
     return () => {
@@ -1389,7 +1386,7 @@ export function FriendsList({
     return () => {
       subscription.remove();
     };
-  }, [currentUserId, isSilentMode, queryClient, refetchMessages]);
+  }, [currentUserId, isSilentMode, queryClient, refreshAllData]);
 
   useEffect(() => {
     const subscription = DeviceEventEmitter.addListener('CLEAR_FRIENDLIST_PENDING_SOUND', (data?: any) => {
@@ -1568,7 +1565,7 @@ export function FriendsList({
       
       // Recharger les données à chaque fois que l'écran gagne le focus
       // Le tri se fait maintenant uniquement via last_interaction_at depuis Supabase
-      loadData();
+      refreshAllData();
       setTimeout(() => {
         try {
           flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
@@ -2183,8 +2180,8 @@ useEffect(() => {
     setShowSilentWarning(androidCanShow && !dismissedSilentWarning);
   }, [volume, iosSilentSwitchMuted, notificationVolume, dismissedSilentWarning, ringerMode]);
 
-  // Note: Les notifications sont gérées par setupRealtimeSubscription et loadData
-  // qui rechargent last_interaction_at depuis Supabase pour mettre à jour le tri
+  // Note: Les notifications sont gérées par setupRealtimeSubscription et TanStack Query
+  // qui rechargent les données depuis Supabase pour mettre à jour l'UI et le tri
 
   const router = useRouter();
 
@@ -2208,10 +2205,6 @@ useEffect(() => {
 
   useEffect(() => {
     return () => {
-      if (loadDataWatchdogRef.current) {
-        clearTimeout(loadDataWatchdogRef.current);
-        loadDataWatchdogRef.current = null;
-      }
       if (listTopAlignTimeoutRef.current) {
         clearTimeout(listTopAlignTimeoutRef.current);
         listTopAlignTimeoutRef.current = null;
@@ -2238,147 +2231,87 @@ useEffect(() => {
     }
   };
 
-  const loadData = async () => {
-    setLoading(false);
-    setIsRefreshing(false);
-  };
+  const refreshAllData = useStableCallback(async () => {
+    if (__DEV__) console.log('🔄 [FriendsList] Refreshing all data via TanStack Query...');
+    try {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['friends', currentUserId] }),
+        queryClient.invalidateQueries({ queryKey: ['pendingMessages', currentUserId] }),
+        queryClient.invalidateQueries({ queryKey: ['pendingSentMessages', currentUserId] }),
+        queryClient.invalidateQueries({ queryKey: ['pendingRequests', currentUserId] }),
+        queryClient.invalidateQueries({ queryKey: ['identityRequests', currentUserId] }),
+      ]);
+    } finally {
+      setLoading(false);
+      setIsRefreshing(false);
+    }
+  });
+
   useEffect(() => {
     if (refreshTrigger === refreshTriggerRef.current) {
       return;
     }
     refreshTriggerRef.current = refreshTrigger;
-    loadData();
-  }, [refreshTrigger]);
+    refreshAllData();
+  }, [refreshTrigger, refreshAllData]);
 
   // Configurer la subscription Realtime pour écouter les changements sur friends
   const setupRealtimeSubscription = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      // Créer un canal pour écouter les changements sur la table friends
-      // Filtrer pour écouter seulement les changements sur les relations où user_id = currentUserId
-      // Cela inclut les mises à jour de last_interaction_at qui déclenchent le tri
+
       const channel = supabase
         .channel('friends-changes')
+        // 1. Changements sur les relations d'amitié (JE suis user_id ou friend_id)
         .on(
           'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'friends',
-            filter: `user_id=eq.${user.id}`,
-          },
-          (payload) => {
-            // Mise à jour optimiste locale pour un tri instantané
-            const newValue = (payload.new as any)?.last_interaction_at;
-            const friendId = (payload.new as any)?.friend_id;
-            if (newValue && friendId) {
-              setAppUsers(prev => {
-                const updated = prev.map(f =>
-                  f.id === friendId ? { ...f, last_interaction_at: newValue } : f
-                );
-                return sortFriends(updated);
-              });
-              scheduleAlignFriendListTop();
-            }
-            // Rechargement pour garantir la synchro avec Supabase
-            loadData();
+          { event: '*', schema: 'public', table: 'friends', filter: `user_id=eq.${user.id}` },
+          () => {
+            if (__DEV__) console.log('🔔 [Realtime] Change (I am user_id)');
+            queryClient.invalidateQueries({ queryKey: ['friends', user.id] });
           }
         )
         .on(
           'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'friends',
-            filter: `user_id=eq.${user.id}`,
-          },
-          (payload) => {
-            loadData();
+          { event: '*', schema: 'public', table: 'friends', filter: `friend_id=eq.${user.id}` },
+          () => {
+            if (__DEV__) console.log('🔔 [Realtime] Change (I am friend_id)');
+            queryClient.invalidateQueries({ queryKey: ['friends', user.id] });
           }
         )
+        // 2. Changements sur les demandes d'identité
         .on(
           'postgres_changes',
-          {
-            event: 'DELETE',
-            schema: 'public',
-            table: 'friends',
-            filter: `user_id=eq.${user.id}`,
-          },
-          (payload) => {
-            // Recharger les données si une relation est supprimée
-            loadData();
+          { event: '*', schema: 'public', table: 'identity_reveals' },
+          () => {
+            queryClient.invalidateQueries({ queryKey: ['identityRequests', user.id] });
           }
         )
+        // 3. Messages entrants (optimisation UX + Invalidation)
         .on(
           'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'identity_reveals',
-          },
-          (payload) => {
-            // Recharger les données si une demande d'identité change
-            loadData();
-          }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            table: 'pending_messages',
-          },
+          { event: '*', schema: 'public', table: 'pending_messages', filter: `to_user_id=eq.${user.id}` },
           (payload) => {
             if (payload.eventType === 'INSERT') {
               const newMessage = payload.new as any;
-              
-              // Filtrer manuellement ici pour être sûr à 100%
-              if (newMessage.to_user_id !== user.id) return;
+              if (__DEV__) console.log('🔔 [Realtime] New Message incoming!');
 
-              const optimisticMessage = {
-                ...newMessage,
-                isPendingDelete: false,
-              } as PendingMessage;
+              // Invalidation TanStack
+              queryClient.invalidateQueries({ queryKey: ['pendingMessages', user.id] });
+              queryClient.invalidateQueries({ queryKey: ['friends', user.id] });
 
-              // Invalidation différée de TanStack Query pour éviter l'écrasement immédiat
-              setTimeout(() => {
-                queryClient.invalidateQueries({ queryKey: ['pendingMessages'] });
-                queryClient.invalidateQueries({ queryKey: ['friends'] });
-              }, 1500);
-              
-              // Mise à jour manuelle immédiate du cache pour une réactivité < 50ms
-              queryClient.setQueryData(['pendingMessages', user.id], (old: any[] = []) => {
-                if (old.some(m => m.id === newMessage.id)) return old;
-                return [...old, newMessage];
-              });
-
-              // Mise à jour immédiate de l'état local utilisé par FriendsList pour l'aperçu.
-              setPendingMessages((prev) => {
-                if (prev.some((m) => m.id === optimisticMessage.id)) return prev;
-                return [...prev, optimisticMessage].sort(
-                  (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-                );
-              });
-
-              // Mise à jour optimiste du tri pour remonter immédiatement l'ami concerné.
+              // Mise à jour optimiste du tri
               const now = newMessage.created_at || new Date().toISOString();
               setAppUsers((prev) => {
-                const updated = prev.map((friend) =>
-                  friend.id === newMessage.from_user_id
-                    ? { ...friend, last_interaction_at: now }
-                    : friend
+                const updated = prev.map((f) =>
+                  f.id === newMessage.from_user_id ? { ...f, last_interaction_at: now } : f
                 );
                 return sortFriends(updated);
               });
               scheduleAlignFriendListTop();
-
-              // Le son est géré nativement (FCM), on n'en joue pas ici pour éviter le doublon.
             } else if (payload.eventType === 'DELETE') {
-              // Rechargement TanStack Query instantané
               queryClient.invalidateQueries({ queryKey: ['pendingMessages', user.id] });
-              
-              // Session gelée : Si le message est supprimé (lu), on ne le retire PAS si le chat est ouvert.
-              // On le marque "en sursis" (isPendingDelete) pour l'afficher grisé.
               const deletedId = payload.old.id;
               setPendingMessages((prev) => {
                 const msg = prev.find(m => m.id === deletedId);
@@ -2392,185 +2325,94 @@ useEffect(() => {
             }
           }
         )
-        // Écouter aussi les pending_messages envoyés par moi (pour savoir quand l'autre a lu/supprimé)
+        // 4. Messages sortants (INSERT, UPDATE, DELETE)
         .on(
           'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'pending_messages',
-            filter: `from_user_id=eq.${user.id}`,
-          },
+          { event: '*', schema: 'public', table: 'pending_messages', filter: `from_user_id=eq.${user.id}` },
           (payload) => {
             if (payload.eventType === 'INSERT') {
               const toUserId = (payload.new as any)?.to_user_id;
               const text = (payload.new as any)?.message_content;
               const ts = (payload.new as any)?.created_at || new Date().toISOString();
               const id = (payload.new as any)?.id;
-              const isEncryptedPayload =
-                typeof text === 'string' &&
-                (text.startsWith('ENCv1:') || text.startsWith('READ:ENCv1:'));
-              if (isEncryptedPayload) {
-                loadData();
-                return;
-              }
 
               if (toUserId && text && id) {
                 setLastSentMessages((prev) => {
                   const existingMessages = prev[toUserId] || [];
-                  const exists = existingMessages.some(m => m.id === id);
-                  if (exists) return prev;
-
+                  if (existingMessages.some(m => m.id === id)) return prev;
                   const parsed = parseMessageContent(text);
-                  const rawText = parsed.text;
-                  const replaceIdx = [...existingMessages].reverse().findIndex(
-                    m => !m.id && (m.text === rawText || m.text === text)
-                  );
-                  const idx = replaceIdx === -1 ? -1 : existingMessages.length - 1 - replaceIdx;
-
-                  let nextList: LastSentMessage[];
-                  if (idx >= 0) {
-                    nextList = [...existingMessages];
-                    nextList[idx] = { ...nextList[idx], id, text: rawText, ts, soundKey: parsed.soundKey };
-                  } else {
-                    nextList = [...existingMessages, { text: rawText, ts, id, soundKey: parsed.soundKey }];
-                  }
-
+                  const nextList = [...existingMessages, { text: parsed.text, ts, id, soundKey: parsed.soundKey }];
                   const next = { ...prev, [toUserId]: nextList };
-                  lastSentSetAtRef.current = Date.now();
                   updateLastSentIndex(next);
                   saveLastSentMessagesCache(next);
                   return next;
                 });
               }
             } else if (payload.eventType === 'UPDATE') {
-              // Gestion du Hack "READ:" pour la confirmation de lecture persistante
+              queryClient.invalidateQueries({ queryKey: ['pendingSentMessages', user.id] });
               const toUserId = (payload.new as any)?.to_user_id;
               const text = (payload.new as any)?.message_content;
               const id = (payload.new as any)?.id;
-              const isEncryptedPayload =
-                typeof text === 'string' &&
-                (text.startsWith('ENCv1:') || text.startsWith('READ:ENCv1:'));
-              if (isEncryptedPayload) {
-                loadData();
-                return;
-              }
-
               if (text && toUserId) {
-                 const parsed = parseMessageContent(text);
-                 if (parsed.isRead) {
-                   setLastSentMessages((prev) => {
-                      const messages = prev[toUserId];
-                      if (!Array.isArray(messages)) return prev;
+                const parsed = parseMessageContent(text);
+                if (parsed.isRead) {
+                  setLastSentMessages((prev) => {
+                    const messages = prev[toUserId];
+                    if (!Array.isArray(messages)) return prev;
+                    const matchIndex = messages.findIndex(msg => msg.id === id);
+                    if (matchIndex === -1) return prev;
 
-                      const isChatOpen = expandedFriendIdRef.current === toUserId;
-                      const readAt = Date.now();
-                      const strippedText = parsed.text;
-
-                      // IMPORTANT : Trouver le message par ID uniquement (évite de marquer le mauvais message)
-                      // Ne jamais utiliser "dernier non-lu" car cela peut marquer le mauvais message si l'ordre n'est pas correct
-                      let matchIndex = messages.findIndex(msg => msg.id === id);
-                      // Fallback uniquement si pas d'ID ET texte correspond exactement (plus sûr)
-                      if (matchIndex === -1 && id) {
-                        // Chercher par texte correspondant uniquement si on a un ID mais qu'il ne matche pas
-                        // (cas où le message n'a pas encore d'ID côté client mais en a côté serveur)
-                        const textMatch = messages.findIndex(msg => 
-                          !msg.id && (msg.text === strippedText || msg.text === text)
-                        );
-                        if (textMatch !== -1) matchIndex = textMatch;
-                      }
-                      // Ne PAS utiliser "dernier non-lu" comme fallback : trop risqué pour l'ordre chronologique
-
-                      if (matchIndex === -1) {
-                        // Si l'UPDATE arrive pour un ID qu'on ne connaît pas encore,
-                        // on force un rafraîchissement global.
-                        DeviceEventEmitter.emit('REFRESH_DATA', { source: 'friendslist_update' });
-                        return prev;
-                      }
-
-                      const updatedMsg = {
-                        ...messages[matchIndex],
-                        id: messages[matchIndex].id || id,
-                        status: 'read' as const,
-                        readAt,
-                        soundKey: parsed.soundKey || messages[matchIndex].soundKey,
-                      };
-
-                      // Déclencher aussi un rafraîchissement global pour être sûr
-                      setTimeout(() => DeviceEventEmitter.emit('REFRESH_DATA', { source: 'friendslist_update_timeout' }), 500);
-
-                      if (!isChatOpen) {
-                        const kept = messages.filter((_, i) => i !== matchIndex);
-                        if (kept.length === 0) {
-                          const next = { ...prev };
-                          delete next[toUserId];
-                          updateLastSentIndex(next);
-                          saveLastSentMessagesCache(next);
-                          return next;
-                        }
-                        const next = { ...prev, [toUserId]: kept };
-                        updateLastSentIndex(next);
-                        saveLastSentMessagesCache(next);
-                        return next;
-                      }
-
-                      const nextList = [...messages];
-                      nextList[matchIndex] = updatedMsg;
-                      const next = { ...prev, [toUserId]: nextList };
-                      updateLastSentIndex(next);
-                      saveLastSentMessagesCache(next);
-                      return next;
-                   });
+                    const updatedMsg = {
+                      ...messages[matchIndex],
+                      status: 'read' as const,
+                      readAt: Date.now(),
+                    };
+                    const nextList = [...messages];
+                    nextList[matchIndex] = updatedMsg;
+                    const next = { ...prev, [toUserId]: nextList };
+                    updateLastSentIndex(next);
+                    saveLastSentMessagesCache(next);
+                    return next;
+                  });
                 }
               }
             }
           }
         )
-        // Écouter TOUS les DELETE sur pending_messages
+        // 5. Listener global DELETE pour synchroniser lastSentMessages
         .on(
           'postgres_changes',
-          {
-            event: 'DELETE',
-            schema: 'public',
-            table: 'pending_messages',
-          },
+          { event: 'DELETE', schema: 'public', table: 'pending_messages' },
           (payload) => {
-              const deletedId = (payload.old as any)?.id;
-              if (deletedId) {
-                setLastSentMessages((prev) => {
-                  const copy: LastSentMap = {};
-                  let found = false;
-                  
-                  Object.entries(prev).forEach(([userId, messages]) => {
-                    if (Array.isArray(messages)) {
-                      const messageIndex = messages.findIndex(msg => msg.id === deletedId);
-                      if (messageIndex !== -1) {
-                        found = true;
-                        const isChatOpen = expandedFriendIdRef.current === userId;
-                        
-                        if (!isChatOpen) {
-                            const kept = messages.filter(msg => msg.id !== deletedId);
-                            if (kept.length > 0) copy[userId] = kept;
-                        } else {
-                            copy[userId] = messages.map((msg, idx) => 
-                              idx === messageIndex ? { ...msg, status: 'read' as const, readAt: Date.now() } : msg
-                            );
-                        }
-                        return;
+            const deletedId = (payload.old as any)?.id;
+            if (deletedId) {
+              setLastSentMessages((prev) => {
+                const copy = { ...prev };
+                let found = false;
+                Object.entries(copy).forEach(([userId, messages]) => {
+                  if (Array.isArray(messages)) {
+                    const messageIndex = messages.findIndex(msg => msg.id === deletedId);
+                    if (messageIndex !== -1) {
+                      found = true;
+                      const isChatOpen = expandedFriendIdRef.current === userId;
+                      if (!isChatOpen) {
+                        copy[userId] = messages.filter(msg => msg.id !== deletedId);
+                      } else {
+                        copy[userId] = messages.map((msg, idx) =>
+                          idx === messageIndex ? { ...msg, status: 'read' as const, readAt: Date.now() } : msg
+                        );
                       }
-                      copy[userId] = messages;
                     }
-                  });
-                  
-                  if (found) {
-                    updateLastSentIndex(copy);
-                    saveLastSentMessagesCache(copy);
-                    return copy;
                   }
-                  return prev;
                 });
-                lastSentSetAtRef.current = 0;
-              }
+                if (found) {
+                  updateLastSentIndex(copy);
+                  saveLastSentMessagesCache(copy);
+                  return copy;
+                }
+                return prev;
+              });
+            }
           }
         )
         .subscribe((status) => {
@@ -2732,7 +2574,7 @@ useEffect(() => {
             // Un seul refresh après le batch, MAIS éviter de re-fetcher immédiatement pour ne pas écraser l'état local
             // avec des données serveur potentiellement pas encore à jour (suppression asynchrone).
             // Le broadcast suffit pour l'UI immédiate.
-            // loadData(); 
+            // refreshAllData(); 
           })
           .on('broadcast', { event: 'message-received' }, (payload) => {
             console.log('📡 [CLIENT] Broadcast message-received event triggered:', JSON.stringify(payload));
@@ -3244,7 +3086,7 @@ useEffect(() => {
       } else {
         Alert.alert(i18n.t('success'), i18n.t('identity_request_sent') + ' !');
       }
-      loadData();
+      refreshAllData();
     } catch (error) {
       console.error('❌ Impossible de demander l’identité:', error);
       Alert.alert(i18n.t('error'), 'Impossible d’envoyer la demande.');
@@ -3654,7 +3496,7 @@ useEffect(() => {
                 text: i18n.t('retry'), 
                 onPress: () => {
                   if (CHAT_VERBOSE_LOGS) console.log(`🔄 [CLIENT] Retry loadData suite à token manquant`);
-                  loadData();
+                  refreshAllData();
                 } 
               }
             ]
@@ -4405,15 +4247,7 @@ useEffect(() => {
       setLoading(true);
     }
     if (__DEV__) console.log('🔄 [FriendsList] Refresh manuel...');
-    try {
-      await Promise.all([
-        refetchMessages(),
-        refetchSentMessages(),
-        loadData() // bypass throttle et réarme le watchdog
-      ]);
-    } finally {
-      setIsRefreshing(false);
-    }
+    await refreshAllData();
   };
 
   // ✅ Supprimé : ActivityIndicator masqué lors du chargement initial
