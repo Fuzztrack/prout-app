@@ -47,12 +47,14 @@ import {
 } from '../lib/sendProutBackend';
 // Import supprimé : on utilise maintenant sync_contacts (fonction SQL Supabase)
 import i18n from '../lib/i18n';
-import { getDisplaySoundLabel, playSound, stopCurrentPlayback, getPickupKeys, pickRandom, pickRandomWithoutImmediateRepeat, getDefaultSoundCategoryForFirstLaunch, getSelectedSoundCategory } from '../lib/audioService';
+import { useProotAudio, type ChatMessageSoundChoice } from '../hooks/useProotAudio';
+import { getDisplaySoundLabel, stopCurrentPlayback, getPickupKeys, pickRandom, pickRandomWithoutImmediateRepeat, getDefaultSoundCategoryForFirstLaunch, getSelectedSoundCategory } from '../lib/audioService';
 import {
   DIRECT_SEND_FALLBACK_CATEGORY,
   LOCAL_PLAYBACK_FALLBACK_KEY,
   SOUND_ASSETS,
   SOUND_KEYS_BY_CATEGORY,
+  PICKUP_TOOT_KEYS
 } from '../lib/runtimeSounds';
 import { supabase } from '../lib/supabase';
 import { safePush } from '../lib/navigation';
@@ -408,7 +410,7 @@ const ReceivedMessageFade = ({ message, soundKey, dimmed, shouldFadeOut, onFadeC
 
   const handleReplay = () => {
     if (!soundKey || isReplayActive) return;
-    playSound(soundKey, {
+    playLocalSound(soundKey, {
       onStart: () => setIsReplayActive(true),
       onEnd: () => setIsReplayActive(false),
     });
@@ -615,21 +617,30 @@ export function FriendsList({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showFriendlistRecoveryCard, setShowFriendlistRecoveryCard] = useState(false);
 
-  // Pas de fallback ici : le tuto 1ère installation ne doit pas s'afficher si la friendlist est vide.
-  const [chatMessageSoundChoice, setChatMessageSoundChoice] = useState<ChatMessageSoundChoice>(
-    getDefaultSoundCategoryForFirstLaunch() as ChatMessageSoundChoice
-  );
-  const [isChatMuteEnabled, setIsChatMuteEnabled] = useState(false);
+  const {
+    chatMessageSoundChoice,
+    isChatMuteEnabled,
+    friendSoundCategoryByFriend,
+    friendSoundKeyByFriend,
+    previewingFriendSoundKey,
+    setChatMessageSoundChoice,
+    setIsChatMuteEnabled,
+    toggleChatMute,
+    setFriendSoundCategory,
+    setFriendSpecificSoundKey,
+    setPreviewingFriendSoundKey,
+    playLocalSound,
+    getNextRandomSound,
+    getChatRandomSound
+  } = useProotAudio();
+
   const [isChatSoundPickerVisible, setIsChatSoundPickerVisible] = useState(false);
   const [chatSpecificSoundListCategory, setChatSpecificSoundListCategory] = useState<ChatMessageSoundChoice | null>(null);
   const [pendingChatSpecificSoundListCategory, setPendingChatSpecificSoundListCategory] = useState<ChatMessageSoundChoice | null>(null);
   const [pendingChatSoundKeyByFriend, setPendingChatSoundKeyByFriend] = useState<Record<string, string>>({});
-  const [friendSoundCategoryByFriend, setFriendSoundCategoryByFriend] = useState<Record<string, SoundCategory>>({});
-  const [friendSoundKeyByFriend, setFriendSoundKeyByFriend] = useState<Record<string, string>>({});
   const [friendSoundModalVisible, setFriendSoundModalVisible] = useState(false);
   const [isFriendSoundModalContentVisible, setIsFriendSoundModalContentVisible] = useState(false);
   const [friendSoundModalFriend, setFriendSoundModalFriend] = useState<any>(null);
-  const [previewingFriendSoundKey, setPreviewingFriendSoundKey] = useState<string | null>(null);
   const [reportReasonModalVisible, setReportReasonModalVisible] = useState(false);
   const [reportReasonModalReady, setReportReasonModalReady] = useState(false);
   const [pendingReportTarget, setPendingReportTarget] = useState<ReportableMessage | null>(null);
@@ -683,7 +694,6 @@ export function FriendsList({
   const dismissedSilentWarningRef = useRef(dismissedSilentWarningSession);
   const [expandedFriendId, setExpandedFriendId] = useState<string | null>(null);
   const expandedFriendIdRef = useRef<string | null>(null);
-  const lastRandomSoundByFriendRef = useRef<Record<string, string>>({});
   const friendSoundPickCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isClosingFriendSoundModalRef = useRef<boolean>(false);
   
@@ -1393,11 +1403,7 @@ export function FriendsList({
       const friendId = typeof data?.friendId === 'string' ? data.friendId : null;
       if (!friendId) return;
 
-      setFriendSoundKeyByFriend((prev) => {
-        if (!prev[friendId]) return prev;
-        const { [friendId]: _removed, ...rest } = prev;
-        return rest;
-      });
+      setFriendSpecificSoundKey(friendId, null);
     });
 
     return () => {
@@ -1685,17 +1691,9 @@ useEffect(() => {
 }, []);
 
 useEffect(() => {
-  const loadChatSoundChoice = async () => {
+  const loadChatMute = async () => {
     try {
-      const [, savedMute] = await Promise.all([
-        AsyncStorage.getItem(CHAT_MESSAGE_SOUND_CHOICE_KEY),
-        AsyncStorage.getItem(CHAT_MESSAGE_MUTE_KEY),
-      ]);
-      // Plus de sélection catégorie au tap : défaut toujours proot (toot) pour la randomisation.
-      const nextDefault = getDefaultSoundCategoryForFirstLaunch() as ChatMessageSoundChoice;
-      setChatMessageSoundChoice(nextDefault);
-      // Aligner le stockage (migration depuis d’anciennes préférences par catégorie).
-      AsyncStorage.setItem(CHAT_MESSAGE_SOUND_CHOICE_KEY, nextDefault).catch(() => {});
+      const savedMute = await AsyncStorage.getItem(CHAT_MESSAGE_MUTE_KEY);
       if (savedMute === '1') {
         setIsChatMuteEnabled(true);
       }
@@ -1703,8 +1701,8 @@ useEffect(() => {
       // noop
     }
   };
-  loadChatSoundChoice();
-}, []);
+  loadChatMute();
+}, [setIsChatMuteEnabled]);
 
 const closeChatSpecificSoundList = useCallback(() => {
   if (!isChatSoundPickerVisible && !chatSpecificSoundListCategory && !pendingChatSpecificSoundListCategory) return;
@@ -1774,56 +1772,12 @@ const handleSelectChatSpecificSound = useCallback((soundKey: string) => {
   // Après choix : pas d’icône catégorie active ; défaut proot pour les prochains envois sans son listé.
   const ambientDefault = getDefaultSoundCategoryForFirstLaunch() as ChatMessageSoundChoice;
   setChatMessageSoundChoice(ambientDefault);
-  AsyncStorage.setItem(CHAT_MESSAGE_SOUND_CHOICE_KEY, ambientDefault).catch(() => {});
 
   // Rouvrir le clavier et refocus l'input après la sélection
   setTimeout(() => {
     textInputRefs.current[expandedFriendId]?.focus?.();
   }, 50);
-}, [expandedFriendId]);
-
-const toggleChatMute = useCallback(() => {
-  setPendingChatSpecificSoundListCategory(null);
-  setChatSpecificSoundListCategory(null);
-  setIsChatMuteEnabled((prev) => {
-    const next = !prev;
-    AsyncStorage.setItem(CHAT_MESSAGE_MUTE_KEY, next ? '1' : '0').catch(() => {});
-    return next;
-  });
-}, []);
-
-useEffect(() => {
-  const loadFriendSoundCategoryMap = async () => {
-    try {
-      const raw = await AsyncStorage.getItem(FRIEND_SOUND_CATEGORY_MAP_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (!parsed || typeof parsed !== 'object') return;
-      const sanitized: Record<string, SoundCategory> = {};
-      Object.entries(parsed).forEach(([friendId, category]) => {
-        if (category === 'trll' || category === 'bzzz') {
-          sanitized[friendId] = category;
-        }
-      });
-      setFriendSoundCategoryByFriend(sanitized);
-    } catch {
-      // noop
-    }
-  };
-  loadFriendSoundCategoryMap();
-}, []);
-
-useEffect(() => {
-  if (!SHOW_DEFAULT_SOUND_CATEGORY_CURSOR) return;
-  let mounted = true;
-  AsyncStorage.getItem(SOUND_CATEGORY_KEY)
-    .then((saved) => {
-      if (!mounted || !saved) return;
-      if (saved === 'trll' || saved === 'bzzz' || saved === 'pop' || saved === 'mood' || saved === 'toot') setGlobalDefaultCategory(saved as SoundCategory);
-    })
-    .catch(() => {});
-  return () => { mounted = false; };
-}, []);
+}, [expandedFriendId, setChatMessageSoundChoice]);
 
 const handleSelectGlobalDefaultCategory = useCallback(async (category: SoundCategory) => {
   setGlobalDefaultCategory(category);
@@ -1851,9 +1805,8 @@ const handleSelectFriendSpecificSoundKey = useCallback((soundKey: string) => {
 
   stopCurrentPlayback().catch(() => {});
   setPreviewingFriendSoundKey(null);
-  setFriendSoundKeyByFriend((prev) => {
-    return { ...prev, [friendId]: soundKey };
-  });
+  setFriendSpecificSoundKey(friendId, soundKey);
+  
   if (friendSoundPickCloseTimeoutRef.current) {
     clearTimeout(friendSoundPickCloseTimeoutRef.current);
     friendSoundPickCloseTimeoutRef.current = null;
@@ -1861,25 +1814,21 @@ const handleSelectFriendSpecificSoundKey = useCallback((soundKey: string) => {
   setIsFriendSoundModalContentVisible(false);
   markModalTransition(0); // Libère immédiatement le verrou
   setFriendSoundModalVisible(false);
-}, [friendSoundModalFriend?.id, markModalTransition]);
+}, [friendSoundModalFriend?.id, markModalTransition, setFriendSpecificSoundKey, setPreviewingFriendSoundKey]);
 
 const handlePreviewFriendSpecificSoundKey = useCallback((soundKey: string) => {
   if (!SOUND_ASSETS[soundKey]) return;
-  playSound(soundKey, {
+  playLocalSound(soundKey, {
     onStart: () => setPreviewingFriendSoundKey(soundKey),
     onEnd: () => {
       setPreviewingFriendSoundKey((prev) => (prev === soundKey ? null : prev));
     },
   });
-}, []);
+}, [playLocalSound, setPreviewingFriendSoundKey]);
 
 const handleClearSelectedSound = useCallback((friend: any) => {
-  setFriendSoundKeyByFriend((prev) => {
-    if (!prev[friend.id]) return prev;
-    const { [friend.id]: _removed, ...rest } = prev;
-    return rest;
-  });
-}, []);
+  setFriendSpecificSoundKey(friend.id, null);
+}, [setFriendSpecificSoundKey]);
 
 const closeFriendSoundModal = useCallback(() => {
   if (isClosingFriendSoundModalRef.current) return;
@@ -3229,7 +3178,6 @@ useEffect(() => {
       // A l'ouverture du chat : pas d’icône catégorie active ; défaut proot pour les envois sans son listé.
       const ambient = getDefaultSoundCategoryForFirstLaunch() as ChatMessageSoundChoice;
       setChatMessageSoundChoice(ambient);
-      AsyncStorage.setItem(CHAT_MESSAGE_SOUND_CHOICE_KEY, ambient).catch(() => {});
     } else {
       lastStickyOpenAtRef.current = null;
       setIsChatSoundPickerVisible(false);
@@ -3373,30 +3321,16 @@ useEffect(() => {
           // Son spécifique sélectionné en appui long (one-shot).
           randomKey = pendingChatSoundKey;
         } else {
-          const candidates = SOUND_KEYS_BY_CATEGORY[chatMessageSoundChoice] || SOUND_KEYS_BY_CATEGORY.trll;
-          const noRepeat = pickRandomWithoutImmediateRepeat(candidates, lastRandomSoundByFriendRef.current[recipient.id]);
-          randomKey = noRepeat || pickRandom(candidates);
-          lastRandomSoundByFriendRef.current[recipient.id] = randomKey;
+          randomKey = getChatRandomSound(recipient.id);
         }
       } else {
         const forcedFriendSoundKey = friendSoundKeyByFriend[recipient.id];
         if (forcedFriendSoundKey && SOUND_ASSETS[forcedFriendSoundKey]) {
           randomKey = forcedFriendSoundKey;
           // Son spécifique = one-shot : on le consomme pour cet envoi uniquement.
-          setFriendSoundKeyByFriend((prev) => {
-            if (!prev[recipient.id]) return prev;
-            const { [recipient.id]: _removed, ...rest } = prev;
-            return rest;
-          });
+          setFriendSpecificSoundKey(recipient.id, null);
         } else {
-        const friendCategory = friendSoundCategoryByFriend[recipient.id];
-        const selectedCategory = friendCategory || await getSelectedSoundCategory();
-        const categoryKeys = SOUND_KEYS_BY_CATEGORY[selectedCategory];
-        const fallbackKeys = SOUND_KEYS_BY_CATEGORY[DIRECT_SEND_FALLBACK_CATEGORY] || SOUND_KEYS_BY_CATEGORY.trll;
-        const candidates = categoryKeys || fallbackKeys;
-        const noRepeat = pickRandomWithoutImmediateRepeat(candidates, lastRandomSoundByFriendRef.current[recipient.id]);
-        randomKey = noRepeat || pickRandom(candidates);
-        lastRandomSoundByFriendRef.current[recipient.id] = randomKey;
+          randomKey = await getNextRandomSound(recipient.id);
         }
       }
 
@@ -3409,8 +3343,8 @@ useEffect(() => {
       triggerOutgoingMessageHaptic();
 
       // Jouer localement (si pas silencieux)
-      if (!isSilentMessage && !isSilentMode) {
-        playSound(randomKey);
+      if (!isSilentMessage) {
+        playLocalSound(randomKey);
       }
 
       // TOUJOURS recharger le pseudo depuis la base pour être sûr d'avoir la valeur à jour
@@ -3601,7 +3535,6 @@ useEffect(() => {
       // Revenir au défaut proot : aucune catégorie « sélectionnée » visuellement pour le prochain message.
       const ambientAfterSend = getDefaultSoundCategoryForFirstLaunch() as ChatMessageSoundChoice;
       setChatMessageSoundChoice(ambientAfterSend);
-      AsyncStorage.setItem(CHAT_MESSAGE_SOUND_CHOICE_KEY, ambientAfterSend).catch(() => {});
       // Si A répond, PRRT! Protocol v2 : NE PAS FAIRE DISPARAÎTRE les messages de B tant que le chat est ouvert.
       // Le code précédent qui faisait un fade-out + clear cache est SUPPRIMÉ.
       // Les messages resteront visibles (soit via pendingMessages soit via keptReadMessagesRef)
@@ -3997,7 +3930,6 @@ useEffect(() => {
               });
               const ambient = getDefaultSoundCategoryForFirstLaunch() as ChatMessageSoundChoice;
               setChatMessageSoundChoice(ambient);
-              AsyncStorage.setItem(CHAT_MESSAGE_SOUND_CHOICE_KEY, ambient).catch(() => {});
             }}
             activeOpacity={0.7}
           >
