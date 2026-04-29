@@ -54,13 +54,19 @@ import {
   LOCAL_PLAYBACK_FALLBACK_KEY,
   SOUND_ASSETS,
   SOUND_KEYS_BY_CATEGORY,
-  PICKUP_TOOT_KEYS
 } from '../lib/runtimeSounds';
 import { supabase } from '../lib/supabase';
 import { safePush } from '../lib/navigation';
 import { SearchBar } from './SearchBar';
 import { SOUND_CATEGORY_KEY, type SoundCategory } from './SoundcheckSelector';
 import ProotSilenceChallenge from './ProotSilenceChallenge';
+import {
+  SentMessageStatus,
+  ReceivedMessageFade,
+  parseMessageContent,
+  stripReadPrefix,
+  type ReportableMessage,
+} from './FriendsListComponents/ChatMessages';
 
 const FIRST_FRIENDLIST_FOOTER_MODAL_KEY = 'first_friendlist_footer_modal_seen_v1';
 const FIRST_CHAT_MODAL_KEY = 'first_chat_modal_seen_v2';
@@ -78,7 +84,6 @@ const CHAT_MODAL_TOP_SAFE_MARGIN = Platform.OS === 'ios' ? 96 : 84;
 const SWIPE_THRESHOLD = 150; // Seuil pour déclencher l'action
 const TAP_THRESHOLD = 12; // Distance max pour considérer un tap
 
-type ChatMessageSoundChoice = 'trll' | 'bzzz' | 'pop' | 'mood' | 'toot';
 const PICKUP_TRLL_KEYS = getPickupKeys('trll');
 const PICKUP_BZZZ_KEYS = getPickupKeys('bzzz');
 const PICKUP_POP_KEYS = getPickupKeys('pop');
@@ -197,35 +202,6 @@ const DEFAULT_SOUND_OPTION_ROWS = [
 type LastSentMessage = { text: string; ts: string; id?: string; status?: 'read'; readAt?: number; soundKey?: string };
 type LastSentMap = Record<string, LastSentMessage[]>; // Tableau de messages pour accumulation
 
-type ParsedMessage = {
-  text: string;
-  isRead: boolean;
-  soundKey?: string;
-};
-
-const parseMessageContent = (raw?: string | null): ParsedMessage => {
-  if (!raw) return { text: '', isRead: false };
-  let isRead = false;
-  let text = raw;
-  if (text.startsWith('READ:')) {
-    isRead = true;
-    text = text.slice(5);
-  }
-  let soundKey: string | undefined;
-  if (text.startsWith('[')) {
-    const endBracket = text.indexOf(']');
-    if (endBracket !== -1) {
-      soundKey = text.slice(1, endBracket);
-      text = text.slice(endBracket + 1);
-    }
-  }
-  return { text, isRead, soundKey };
-};
-
-const stripReadPrefix = (text?: string | null) => {
-  return parseMessageContent(text).text;
-};
-
 type PendingMessage = {
   id: string;
   from_user_id: string;
@@ -238,11 +214,6 @@ type PendingMessage = {
 };
 
 type ReportReason = 'spam' | 'harassment' | 'hate_speech' | 'explicit_content' | 'other';
-type ReportableMessage = {
-  senderId: string;
-  sourceMessageId?: string | null;
-  createdAt?: string;
-};
 
 const truncateContactPreview = (text?: string | null, maxLength: number = 15) => {
   const cleanText = stripReadPrefix(text).trim();
@@ -334,109 +305,6 @@ const saveLastSentMessagesCache = async (map: LastSentMap) => {
   }
 };
 
-// Composant pour gérer l'animation du message envoyé (PRRT! : opacité réduite quand lu)
-const DIMMED_OPACITY_READ = 0.72; // Grisé léger pour messages envoyés et lus par l'autre (reste lisible)
-
-const SentMessageStatus = ({ message }: { 
-  message: { text: string; status?: 'read'; id?: string } | undefined;
-}) => {
-  const [displayedMessage, setDisplayedMessage] = useState(message);
-  const opacity = useRef(new RNAnimated.Value(message?.status === 'read' ? DIMMED_OPACITY_READ : 1)).current;
-  const [isRead, setIsRead] = useState(message?.status === 'read');
-
-  useEffect(() => {
-    if (message && message.status !== 'read') {
-      setDisplayedMessage(message);
-      setIsRead(false);
-      opacity.setValue(1);
-    } else if (displayedMessage && (message?.status === 'read' || !message)) {
-      if (!isRead) {
-          setIsRead(true);
-          // PRRT! : grisé léger quand lu (reste lisible)
-          RNAnimated.timing(opacity, {
-            toValue: DIMMED_OPACITY_READ,
-            duration: 300,
-            useNativeDriver: true,
-          }).start();
-      }
-    }
-  }, [message?.status, message?.id, isRead, displayedMessage, opacity]);
-
-  if (!displayedMessage) return null;
-
-  return (
-    <RNAnimated.View style={[styles.bubbleSentWrapper, { opacity }]}>
-      <View style={styles.bubbleSent}>
-        <Text style={styles.bubbleTextSent}>{displayedMessage.text}</Text>
-      </View>
-      {isRead && (
-        <Text style={{ fontSize: 12, color: '#604a3e', marginRight: 12, marginBottom: 4, fontStyle: 'italic', opacity: 0.9 }}>
-          {i18n.t('message_read')}
-        </Text>
-      )}
-    </RNAnimated.View>
-  );
-};
-
-// Composant pour gérer l'animation de disparition des messages reçus (quand A envoie un message)
-const ReceivedMessageFade = ({ message, soundKey, dimmed, shouldFadeOut, onFadeComplete, onLongPressReport }: {
-  message: { id: string; text: string; senderId?: string; sourceMessageId?: string | null; createdAt?: string };
-  soundKey?: string;
-  dimmed?: boolean;
-  shouldFadeOut: boolean;
-  onFadeComplete: () => void;
-  onLongPressReport?: (message: ReportableMessage) => void;
-}) => {
-  const opacity = useRef(new RNAnimated.Value(dimmed ? 0.3 : 1)).current;
-  const [isReplayActive, setIsReplayActive] = useState(false);
-
-  useEffect(() => {
-    if (shouldFadeOut) {
-      RNAnimated.sequence([
-        RNAnimated.delay(500),
-        RNAnimated.timing(opacity, {
-          // Session gelée: ne jamais disparaître complètement
-          toValue: 0.3,
-          duration: 500,
-          useNativeDriver: true,
-        })
-      ]).start(() => {
-        onFadeComplete();
-      });
-    } else {
-      opacity.setValue(dimmed ? 0.3 : 1);
-    }
-  }, [shouldFadeOut, dimmed]);
-
-  const handleReplay = () => {
-    if (!soundKey || isReplayActive) return;
-    playLocalSound(soundKey, {
-      onStart: () => setIsReplayActive(true),
-      onEnd: () => setIsReplayActive(false),
-    });
-  };
-
-  return (
-    <RNAnimated.View style={[styles.bubbleReceivedWrapper, { opacity }]}>
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={handleReplay}
-        onLongPress={() => {
-          if (!onLongPressReport || !message.senderId) return;
-          onLongPressReport({
-            senderId: message.senderId,
-            sourceMessageId: message.sourceMessageId ?? null,
-            createdAt: message.createdAt,
-          });
-        }}
-      >
-        <View style={[styles.bubbleReceived, isReplayActive && styles.bubbleReceivedPlaying]}>
-          <Text style={styles.bubbleTextReceived}>{stripReadPrefix(message.text)}</Text>
-        </View>
-      </TouchableOpacity>
-    </RNAnimated.View>
-  );
-};
 const isHuaweiDevice =
   Platform.OS === 'android' &&
   /huawei/i.test(
@@ -3883,6 +3751,7 @@ useEffect(() => {
                   dimmed={(msg as any).dimmed}
                   shouldFadeOut={fadingOutReceivedMessages.has(msg.id)}
                   onLongPressReport={openReportReasonSheet}
+                  playLocalSound={playLocalSound}
                   onFadeComplete={() => {
                     // L'animation est terminée, le message sera supprimé par le setTimeout dans handleSendProut
                   }}
@@ -3911,6 +3780,7 @@ useEffect(() => {
                   dimmed={(msg as any).dimmed}
                   shouldFadeOut={fadingOutReceivedMessages.has(msg.id)}
                   onLongPressReport={openReportReasonSheet}
+                  playLocalSound={playLocalSound}
                   onFadeComplete={() => {
                     // L'animation est terminée, le message sera supprimé par le setTimeout dans handleSendProut
                   }}
@@ -5624,60 +5494,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     paddingHorizontal: 8,
     width: '100%',
-  },
-  bubbleReceivedWrapper: {
-    alignSelf: 'flex-start',
-    width: '100%',
-    maxWidth: '100%',
-  },
-  bubbleReceived: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: 'transparent',
-    borderRadius: 16,
-    borderTopLeftRadius: 4,
-    padding: 8,
-    paddingHorizontal: 12,
-    marginBottom: 6,
-    maxWidth: '90%',
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-    position: 'relative',
-  },
-  bubbleReceivedPlaying: {
-    backgroundColor: '#A2E4D4',
-    borderColor: '#1a1a1a',
-  },
-  bubbleSentWrapper: {
-    alignSelf: 'flex-end',
-    marginBottom: 4,
-  },
-  bubbleSent: {
-    alignSelf: 'flex-end',
-    backgroundColor: '#e3f2fd', // Bleu très clair
-    borderRadius: 16,
-    borderTopRightRadius: 4,
-    padding: 8,
-    paddingHorizontal: 12,
-    marginBottom: 6,
-    maxWidth: '80%',
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-    position: 'relative',
-  },
-  bubbleTextReceived: {
-    color: '#333',
-    fontSize: 18,
-    flexShrink: 1,
-  },
-  bubbleTextSent: {
-    color: '#333',
-    fontSize: 18,
   },
   identityModal: {
     justifyContent: 'center',
