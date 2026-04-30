@@ -279,20 +279,18 @@ const loadLastSentMessagesCache = async (): Promise<LastSentMap> => {
 
 const saveLastSentMessagesCache = async (map: LastSentMap) => {
   try {
-    // Ne jamais sauvegarder les messages lus dans le cache
+    // On garde les messages (lus ou non) tant qu'ils sont "frais" (TTL 24h)
+    // Cela évite qu'ils ne disparaissent brutalement au redémarrage
     const cleaned: LastSentMap = {};
     Object.entries(map).forEach(([userId, messages]) => {
       if (Array.isArray(messages)) {
-        const unreadMessages = messages.filter(
-          msg => msg.status !== 'read' && isFreshSentMessage(msg)
-        );
-        if (unreadMessages.length > 0) {
-          cleaned[userId] = unreadMessages;
+        const freshMessages = messages.filter(msg => isFreshSentMessage(msg));
+        if (freshMessages.length > 0) {
+          cleaned[userId] = freshMessages;
         }
       } else if (
         messages &&
         typeof messages === 'object' &&
-        (messages as any).status !== 'read' &&
         isFreshSentMessage(messages as LastSentMessage)
       ) {
         // Format ancien (un seul message) - migration
@@ -421,58 +419,160 @@ export function FriendsList({
     if (pendingSentData) {
       setLastSentMessages(prev => {
         const newMap = { ...prev };
-        pendingSentData.forEach((m: any) => {
-          if (m.message_content?.startsWith('READ:')) return;
-          const currentForUser = newMap[m.to_user_id] || [];
-          const exists = currentForUser.some(cm => cm.id === m.id);
-          if (!exists) {
-            newMap[m.to_user_id] = [...currentForUser, { 
-              text: m.message_content, 
-              ts: m.created_at,
-              id: m.id
-            }];
+        let changed = false;
+        const now = Date.now();
+
+        // 1. Marquer comme "lu" les messages qui ne sont plus sur le serveur
+        // (Sauf s'ils sont très récents pour éviter les faux-positifs pendant l'envoi)
+        Object.entries(newMap).forEach(([userId, messages]) => {
+          if (!Array.isArray(messages)) return;
+          
+          const updatedMessages = messages.map(msg => {
+            // Si le message a un ID et n'est pas déjà marqué lu
+            if (msg.id && msg.status !== 'read') {
+              const stillOnServer = pendingSentData.some(m => m.id === msg.id);
+              // Sécurité : on attend 15s après l'envoi avant de conclure qu'un message disparu de la DB est "lu"
+              // (évite les problèmes de réplication ou de délais serveur)
+              const isOldEnough = (now - new Date(msg.ts).getTime()) > 15000;
+              
+              if (!stillOnServer && isOldEnough) {
+                changed = true;
+                if (CHAT_VERBOSE_LOGS) console.log(`✅ [SYNC] Message ${msg.id} marqué comme lu (absent du serveur)`);
+                return { ...msg, status: 'read' as const, readAt: now };
+              }
+            }
+            return msg;
+          });
+
+          if (changed) {
+            newMap[userId] = updatedMessages;
           }
         });
-        return newMap;
+
+        // 2. Ajouter les nouveaux messages du serveur ou mettre à jour les optimistes
+        pendingSentData.forEach((m: any) => {
+          if (m.message_content?.startsWith('READ:')) return;
+          const targetUserId = m.to_user_id;
+          const currentForUser = newMap[targetUserId] || [];
+          
+          // Vérifier si le message existe déjà par ID
+          const existsById = currentForUser.some(msg => msg.id === m.id);
+          if (existsById) return;
+
+          // Sinon, essayer de trouver un message optimiste correspondant (même texte, même son, timestamp proche)
+          const parsed = parseMessageContent(m.message_content);
+          const optimisticIndex = currentForUser.findIndex(msg => 
+            !msg.id && 
+            msg.text === parsed.text && 
+            msg.soundKey === parsed.soundKey &&
+            Math.abs(new Date(msg.ts).getTime() - new Date(m.created_at).getTime()) < 30000
+          );
+
+          if (optimisticIndex !== -1) {
+            // Mettre à jour l'optimiste avec l'ID du serveur
+            const updatedList = [...currentForUser];
+            updatedList[optimisticIndex] = { 
+              ...updatedList[optimisticIndex], 
+              id: m.id, 
+              ts: m.created_at 
+            };
+            newMap[targetUserId] = updatedList;
+            changed = true;
+            if (CHAT_VERBOSE_LOGS) console.log(`✅ [SYNC] Message optimiste rapproché avec ID ${m.id}`);
+          } else {
+            // C'est un nouveau message pas encore connu localement (ex: envoyé depuis un autre device)
+            newMap[targetUserId] = [...currentForUser, { 
+              text: parsed.text, 
+              ts: m.created_at,
+              id: m.id,
+              soundKey: parsed.soundKey
+            }];
+            changed = true;
+            if (CHAT_VERBOSE_LOGS) console.log(`✅ [SYNC] Nouveau message serveur ajouté: ${m.id}`);
+          }
+        });
+
+        if (changed) {
+          updateLastSentIndex(newMap);
+          saveLastSentMessagesCache(newMap);
+          return newMap;
+        }
+        return prev;
       });
     }
   }, [pendingSentData]);
 
   const sendProutMutation = useSendProut(currentUserId);
 
-  // Synchronisation des messages (qui eux fonctionnent bien via TanStack)
+  // Synchronisation des messages reçus (TanStack -> UI)
   useEffect(() => {
     if (pendingMessagesData) {
       setPendingMessages(prev => {
-        // Conserver TOUS les messages récents (< 5s) qui ne sont pas encore dans les données du serveur
-        // (qu'ils viennent d'un optimistic update FCM/Broadcast ou d'un événement Realtime INSERT)
-        // car le refetch immédiat peut parfois taper sur un replica de DB pas encore à jour.
-        const now = Date.now();
-        const recentLocalMessages = prev.filter(m => 
-          (now - new Date(m.created_at).getTime()) < 5000
-        );
+        // 1. Filtrer les messages du serveur (exclure bloqués et supprimés localement)
+        const blockedSet = blockedUserIdsRef.current || new Set();
+        const serverMessages = pendingMessagesData
+          .filter(m => !blockedSet.has(m.from_user_id))
+          .filter(m => !deletedMessagesCache.has(m.id))
+          .map(m => ({ ...m, isPendingDelete: false }));
 
-        const survivingRecent = recentLocalMessages.filter(localMsg => {
-          // Vérifier si le serveur a déjà ce message (par ID strict, ou par contenu/date pour les optimistes)
-          const hasMatch = pendingMessagesData.some(serverMsg => {
-            if (serverMsg.id === localMsg.id && !localMsg.id.startsWith('notif-') && !localMsg.id.startsWith('broadcast-')) {
+        // 2. Identifier les messages locaux récents à conserver (optimistes)
+        const now = Date.now();
+        const survivingRecent = prev.filter(localMsg => {
+          // Garder messages < 10s (FCM/Broadcast/INSERT récents) s'ils ne sont pas encore sur le serveur
+          const isRecent = (now - new Date(localMsg.created_at).getTime()) < 10000;
+          if (!isRecent) return false;
+
+          const alreadyOnServer = serverMessages.some(serverMsg => {
+            if (serverMsg.id === localMsg.id && !serverMsg.id.startsWith('notif-') && !serverMsg.id.startsWith('broadcast-')) {
               return true;
             }
             return serverMsg.from_user_id === localMsg.from_user_id &&
                    (serverMsg.message_content || '') === localMsg.message_content &&
                    Math.abs(new Date(serverMsg.created_at).getTime() - new Date(localMsg.created_at).getTime()) < 15000;
           });
-          return !hasMatch;
+          return !alreadyOnServer;
         });
 
-        if (survivingRecent.length === 0) {
-          return pendingMessagesData;
+        // 3. Fusionner avec keptReadMessagesRef (Session Gelée)
+        // Les messages lus sont gardés en mémoire tant que le chat est ouvert
+        const mergedById = new Map<string, PendingMessage>();
+        
+        // D'abord les messages du serveur
+        serverMessages.forEach(m => mergedById.set(m.id, m as PendingMessage));
+        
+        // Ensuite les messages optimistes récents
+        survivingRecent.forEach(m => mergedById.set(m.id, m));
+
+        // Enfin, réinjecter les messages gardés en mémoire (Session Gelée)
+        const activeId = expandedFriendIdRef.current;
+        if (activeId) {
+          const kept = keptReadMessagesRef.current.get(activeId) || [];
+          kept.forEach(m => {
+            if (!mergedById.has(m.id)) mergedById.set(m.id, m);
+          });
+
+          // Conserver aussi les messages locaux qui sont marqués "READ:" ou "isPendingDelete"
+          prev.forEach(m => {
+            if (m.from_user_id === activeId && (m.isPendingDelete || m.message_content?.startsWith('READ:'))) {
+              if (!mergedById.has(m.id)) mergedById.set(m.id, m);
+            }
+          });
         }
 
-        // Combiner et trier
-        return [...pendingMessagesData, ...survivingRecent].sort(
-          (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-        );
+        const next = Array.from(mergedById.values());
+        next.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        
+        // 4. Haptic pour nouveaux messages
+        if (hasHydratedIncomingMessagesRef.current) {
+          const newMessages = serverMessages.filter(m => !knownIncomingMessageIdsRef.current.has(m.id));
+          if (newMessages.length > 0) {
+            triggerIncomingMessageHaptic();
+          }
+        }
+        knownIncomingMessageIdsRef.current = new Set(serverMessages.map(m => m.id));
+        hasHydratedIncomingMessagesRef.current = true;
+
+        return next;
       });
     }
   }, [pendingMessagesData]);
@@ -2211,14 +2311,11 @@ useEffect(() => {
                     const messageIndex = messages.findIndex(msg => msg.id === deletedId);
                     if (messageIndex !== -1) {
                       found = true;
-                      const isChatOpen = expandedFriendIdRef.current === userId;
-                      if (!isChatOpen) {
-                        copy[userId] = messages.filter(msg => msg.id !== deletedId);
-                      } else {
-                        copy[userId] = messages.map((msg, idx) =>
-                          idx === messageIndex ? { ...msg, status: 'read' as const, readAt: Date.now() } : msg
-                        );
-                      }
+                      // PRRT! Protocol v3 : On marque comme lu, on ne supprime pas localement
+                      // même si le chat est fermé (pour que l'utilisateur voie le statut 'lu')
+                      copy[userId] = messages.map((msg, idx) =>
+                        idx === messageIndex ? { ...msg, status: 'read' as const, readAt: Date.now() } : msg
+                      );
                     }
                   }
                 });
@@ -2331,27 +2428,11 @@ useEffect(() => {
 
               let changed = false;
 
-              if (!isChatOpen) {
-                if (CHAT_VERBOSE_LOGS) console.log(`📨 [CLIENT] Chat fermé - Suppression des messages lus de lastSentMessages`);
-                const kept = msgs.filter((m) => !m.id || !idsSet.has(m.id));
-                if (kept.length !== msgs.length) changed = true;
-                if (!changed) {
-                  if (CHAT_VERBOSE_LOGS) console.log(`ℹ️ [CLIENT] Aucun changement nécessaire (messages déjà supprimés)`);
-                  return prev;
-                }
-
-                if (CHAT_VERBOSE_LOGS) {
-                  console.log(`✅ [CLIENT] Messages supprimés: ${msgs.length - kept.length} sur ${msgs.length}`);
-                }
-                const next: LastSentMap = { ...prev };
-                if (kept.length > 0) next[targetUserId] = kept;
-                else delete next[targetUserId];
-                updateLastSentIndex(next);
-                saveLastSentMessagesCache(next);
-                return next;
-              }
-
-              if (CHAT_VERBOSE_LOGS) console.log(`📨 [CLIENT] Chat ouvert - Marquage des messages comme lus`);
+              // PRRT! Protocol v3 : On ne supprime JAMAIS un message dès qu'il est lu.
+              // On le marque comme 'read' pour qu'il soit grisé. 
+              // Il disparaîtra seulement après expiration du TTL (24h) ou purge manuelle.
+              if (CHAT_VERBOSE_LOGS) console.log(`📨 [CLIENT] Marquage des messages comme lus (chat ouvert: ${isChatOpen})`);
+              
               const readAt = Date.now();
               const updated = msgs.map((m) => {
                 // Matching par ID ou par Texte/Son (fallback si l'ID n'est pas encore arrivé)
@@ -2369,7 +2450,8 @@ useEffect(() => {
                 if (CHAT_VERBOSE_LOGS) {
                   console.log(`ℹ️ [CLIENT] Aucun changement nécessaire (messages déjà marqués comme lus ou pas encore dans lastSentMessages)`);
                 }
-                // Déclencher un rafraîchissement global pour synchroniser
+                // Si on a reçu un broadcast mais qu'on ne trouve pas le message localement, 
+                // on déclenche un refresh pour être sûr de synchroniser.
                 DeviceEventEmitter.emit('REFRESH_DATA', { source: 'friendslist_update' });
                 return prev;
               }
@@ -2381,7 +2463,6 @@ useEffect(() => {
               if (CHAT_VERBOSE_LOGS) {
                 console.log(`✅ [CLIENT] Broadcast READ appliqué pour ${targetUserId}, ${readCount} messages marqués comme lus`);
               }
-              if (CHAT_VERBOSE_LOGS && __DEV__) console.log('[CHAT_DEBUG] Broadcast READ applied for', targetUserId, 'updated:', readCount);
               const next: LastSentMap = { ...prev, [targetUserId]: updated };
               updateLastSentIndex(next);
               saveLastSentMessagesCache(next);
