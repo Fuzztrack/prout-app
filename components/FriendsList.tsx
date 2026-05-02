@@ -3526,16 +3526,6 @@ useEffect(() => {
     ? '#8fb3a5' 
     : '#d4a88a';
 
-  useEffect(() => {
-    if (!expandedFriendId) {
-      setIsModalContentVisible(false);
-      return;
-    }
-    // Toujours afficher le contenu dès qu'un chat est actif.
-    // Évite un état "modale visible mais contenu masqué" qui bloque la liste.
-    setIsModalContentVisible(true);
-  }, [expandedFriendId]);
-
   const displayFriend = useMemo(() => {
     const activeFriend = expandedFriendId ? appUsers.find(u => u.id === expandedFriendId) : null;
     const lastActiveFriendRef = { current: null as any };
