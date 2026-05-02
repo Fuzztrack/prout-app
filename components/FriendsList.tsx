@@ -10,10 +10,8 @@ import * as Notifications from 'expo-notifications';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, DeviceEventEmitter, Dimensions, FlatList, Image, Keyboard, KeyboardAvoidingView, Linking, NativeModules, Platform, Animated as RNAnimated, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, DeviceEventEmitter, Dimensions, FlatList, Image, Keyboard, Linking, NativeModules, Platform, Animated as RNAnimated, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { Gesture, GestureDetector, TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
-// 👇 AJOUT : Hook pour capturer la hauteur réelle du clavier (Texte OU Emoji)
-import { useKeyboardHandler } from 'react-native-keyboard-controller';
 import Modal from 'react-native-modal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -67,6 +65,7 @@ import {
   stripReadPrefix,
   type ReportableMessage,
 } from './FriendsListComponents/ChatMessages';
+import { ChatModal } from './FriendsListComponents/ChatModal';
 
 const FIRST_FRIENDLIST_FOOTER_MODAL_KEY = 'first_friendlist_footer_modal_seen_v1';
 const FIRST_CHAT_MODAL_KEY = 'first_chat_modal_seen_v2';
@@ -759,12 +758,6 @@ export function FriendsList({
       };
     }, [appUsers.length])
   );
-  const [keyboardVisible, setKeyboardVisible] = useState(false); // État local pour le clavier
-  // const [keyboardHeight, setKeyboardHeight] = useState(0); // ❌ Supprimé : géré par Reanimated
-  const [isModalContentVisible, setIsModalContentVisible] = useState(false);
-  const [modalContentHeight, setModalContentHeight] = useState(0);
-  const [inputLayout, setInputLayout] = useState<{ y: number; height: number } | null>(null);
-  const [headerHeight, setHeaderHeight] = useState(0); // Hauteur du header pour ajuster la liste
   const keyboardVisibleRef = useRef(false);
   const lastFocusAttemptRef = useRef<{ friendId: string | null; at: number }>({ friendId: null, at: 0 });
   const lastStickyOpenAtRef = useRef<number | null>(null);
@@ -773,64 +766,10 @@ export function FriendsList({
   const lastSearchOpenAtRef = useRef<number | null>(null);
   const refocusSearchOnBlurAttemptedRef = useRef(false);
   const isClosingModalRef = useRef(false);
-  
-  // 👇 AJOUT : Gestion Reanimated du clavier pour Android via react-native-keyboard-controller
-  const keyboardHeightSV = useSharedValue(0);
-  const keyboardBottomOffsetSV = useSharedValue(0);
-  const keyboardVisibleSV = useSharedValue(false);
 
-  // Utiliser une fonction stable pour éviter les erreurs Reanimated Worklets sur les refs (key 'current')
-  const setKeyboardVisibleStable = useStableCallback((visible: boolean) => {
-    setKeyboardVisible(visible);
-  });
-
-  useKeyboardHandler({
-    onMove: (e: { height: number }) => {
-      'worklet';
-      keyboardHeightSV.value = e.height;
-      keyboardBottomOffsetSV.value = Math.max(0, e.height);
-      keyboardVisibleSV.value = e.height > 0;
-      runOnJS(setKeyboardVisibleStable)(e.height > 0);
-    },
-    onInteractive: (e: { height: number }) => {
-      'worklet';
-      keyboardHeightSV.value = e.height;
-      keyboardBottomOffsetSV.value = Math.max(0, e.height);
-      keyboardVisibleSV.value = e.height > 0;
-      runOnJS(setKeyboardVisibleStable)(e.height > 0);
-    },
-    onEnd: (e: { height: number }) => {
-      'worklet';
-      keyboardHeightSV.value = e.height; // Peut être 0 si fermé, ou la hauteur finale
-      keyboardBottomOffsetSV.value = Math.max(0, e.height);
-      keyboardVisibleSV.value = e.height > 0;
-      runOnJS(setKeyboardVisibleStable)(e.height > 0); // Synchroniser l'état local
-    },
-  });
-
-  // Style animé unifié iOS + Android pour coller la modale au clavier.
-  const chatModalKeyboardStyle = useAnimatedStyle(() => {
-    const rawKeyboardOffset = keyboardVisibleSV.value
-      ? Math.max(0, keyboardBottomOffsetSV.value)
-      : 0;
-    const closedBottomGap = Platform.OS === 'android' ? Math.max(insets.bottom, 12) : 0;
-    const openKeyboardGap =
-      Platform.OS === 'android'
-        ? Math.max(0, rawKeyboardOffset - Math.max(insets.bottom, 10))
-        : rawKeyboardOffset;
-    const isKeyboardOpen = rawKeyboardOffset > 0;
-    const marginBottom = isKeyboardOpen ? openKeyboardGap : 0;
-    const internalBottomPadding = isKeyboardOpen ? 0 : closedBottomGap;
-    const chatHeight = Math.max(320, SCREEN_HEIGHT - CHAT_MODAL_TOP_SAFE_MARGIN - marginBottom);
-    return {
-      // Clavier ouvert: modale collée au haut du clavier.
-      // Clavier fermé: modale collée en bas, avec padding interne au-dessus de la barre système.
-      marginBottom,
-      paddingBottom: internalBottomPadding,
-      // Hauteur explicite pour éviter la disparition de la modale avec le layout flex interne.
-      height: chatHeight,
-    };
-  });
+  const handleDraftChange = useCallback((friendId: string, text: string) => {
+    setMessageDrafts(prev => ({ ...prev, [friendId]: text }));
+  }, []);
 
   const closingCooldownUntilRef = useRef<number | null>(null);
   const openedFromSearchRef = useRef(false); // Track si le chat a été ouvert depuis la recherche
@@ -854,8 +793,6 @@ export function FriendsList({
   const readSentMessagesRef = useRef<Set<string>>(new Set()); // Messages envoyés lus par l'autre (pour ne pas les réafficher en non-lu)
   const pendingReadRemovalTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const prevExpandedRef = useRef<string | null>(null);
-  const stickyScrollViewRef = useRef<ScrollView>(null);
-  const stickyScrollViewAnimatedRef = useRef<Animated.ScrollView>(null);
   const listTopAlignTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const markModalTransition = useCallback((durationMs: number = 420) => {
@@ -983,7 +920,6 @@ export function FriendsList({
   const flatListRef = useRef<FlatList>(null);
   const refreshTriggerRef = useRef(refreshTrigger);
   const rowRefs = useRef<Record<string, SwipeableFriendRowHandle | null>>({});
-  const textInputRefs = useRef<Record<string, TextInput | null>>({});
   const searchInputRef = useRef<TextInput | null>(null);
 
   useEffect(() => {
@@ -995,18 +931,6 @@ export function FriendsList({
       setShowFriendlistRecoveryCard(false);
     }
   }, [appUsers.length]);
-
-  // Focus automatique du TextInput quand le champ de message s'ouvre (iOS uniquement)
-  useEffect(() => {
-    if (Platform.OS !== 'ios') return;
-    if (expandedFriendId && textInputRefs.current[expandedFriendId]) {
-      // Petit délai pour laisser le layout se stabiliser avant de focus
-      const timer = setTimeout(() => {
-        textInputRefs.current[expandedFriendId]?.focus();
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [expandedFriendId]);
 
   // PRRT! Protocol : à l'entrée du chat, marquer comme lu tous les messages reçus non-lus de cet ami
   // MAIS : Ne pas les supprimer de l'affichage tant que le chat est ouvert
@@ -3033,7 +2957,7 @@ useEffect(() => {
     // On centre uniquement quand ça provient d'une sélection utilisateur (évite l'effet "ça cherche")
     if (pendingCenterScrollFriendIdRef.current !== expandedFriendId) return;
     // Si le clavier est déjà visible (ex: on change de contact avec clavier ouvert), on peut centrer tout de suite.
-    if (keyboardVisible) {
+    if (keyboardVisibleRef.current) {
       scrollToActiveFriend(expandedFriendId);
       pendingCenterScrollFriendIdRef.current = null;
       return;
@@ -3042,29 +2966,19 @@ useEffect(() => {
     const t = setTimeout(() => {
       if (
         pendingCenterScrollFriendIdRef.current === expandedFriendId &&
-        !keyboardVisible
+        !keyboardVisibleRef.current
       ) {
         scrollToActiveFriend(expandedFriendId);
         pendingCenterScrollFriendIdRef.current = null;
       }
     }, 350);
     return () => clearTimeout(t);
-  }, [expandedFriendId, keyboardVisible, appUsers, searchQuery]);
+  }, [expandedFriendId, appUsers, searchQuery]);
 
   useEffect(() => {
     const onShow = (event?: { endCoordinates?: { height?: number } }) => {
-      setKeyboardVisible(true);
       keyboardVisibleRef.current = true;
-      keyboardVisibleSV.value = true;
-      // Fallback léger: seulement si la valeur worklet n'est pas encore montée.
-      const eventHeight = Math.max(0, Number(event?.endCoordinates?.height || 0));
-      if (eventHeight > 0 && keyboardBottomOffsetSV.value <= 0) {
-        keyboardHeightSV.value = eventHeight;
-        keyboardBottomOffsetSV.value = eventHeight;
-      }
-      if (Platform.OS === 'android') {
-        setIsModalContentVisible(true);
-      }
+      
       // Si on vient juste d'ouvrir un contact, on centre après apparition clavier (viewport stabilisé)
       if (
         expandedFriendId &&
@@ -3076,11 +2990,7 @@ useEffect(() => {
     };
 
     const onHide = () => {
-      setKeyboardVisible(false);
       keyboardVisibleRef.current = false;
-      keyboardVisibleSV.value = false;
-      keyboardHeightSV.value = 0;
-      keyboardBottomOffsetSV.value = 0;
       // Ne pas cacher la modale ici : Samsung peut fermer le clavier brièvement
     };
 
@@ -3626,502 +3536,23 @@ useEffect(() => {
     setIsModalContentVisible(true);
   }, [expandedFriendId]);
 
-  // Ghost input : conserver le dernier ami pour garder l'input monté
-  const lastActiveFriendRef = useRef<any>(null);
-  if (activeFriend) {
-    lastActiveFriendRef.current = activeFriend;
-  }
-  const displayFriend = activeFriend || lastActiveFriendRef.current;
-  const displayFriendId = displayFriend?.id ?? null;
-  const displayFriendIndex = displayFriend ? appUsers.findIndex(u => u.id === displayFriend.id) : -1;
-  const displayBackgroundColor = displayFriendIndex !== -1 
-    ? '#8fb3a5' 
-    : '#d4a88a';
-  const displayDraft = displayFriend ? (messageDrafts[displayFriend.id] || '') : '';
+  const displayFriend = useMemo(() => {
+    const activeFriend = expandedFriendId ? appUsers.find(u => u.id === expandedFriendId) : null;
+    const lastActiveFriendRef = { current: null as any };
+    if (activeFriend) {
+      lastActiveFriendRef.current = activeFriend;
+    }
+    return activeFriend || lastActiveFriendRef.current;
+  }, [expandedFriendId, appUsers]);
 
-  const handlePressHeader = () => {
+  const handlePressHeader = useCallback(() => {
     Keyboard.dismiss();
     setExpandedFriendId(null);
     if (searchQuery.trim()) {
       onSearchQueryChange?.('');
       onSearchChange?.(false);
     }
-  };
-
-  // Ref Proxy pour Samsung (Solution 1)
-  const handlePressHeaderRef = useRef(handlePressHeader);
-  useEffect(() => {
-    handlePressHeaderRef.current = handlePressHeader;
-  }); // Update à chaque render pour avoir la dernière closure
-
-  // 👇 AJOUT : Style animé basé sur la hauteur du clavier réelle (SharedValue)
-  // Cela permet de redimensionner le ScrollView même pour les Emojis
-  const stickyMessagesAnimatedStyle = useAnimatedStyle(() => {
-    if (Platform.OS !== 'android') return {};
-    const keyboardOffset = keyboardVisibleSV.value ? Math.max(0, keyboardHeightSV.value) : 0;
-    const availableHeight = SCREEN_HEIGHT - CHAT_MODAL_TOP_SAFE_MARGIN - keyboardOffset - 140;
-
-    return {
-      maxHeight: Math.max(220, availableHeight),
-    };
-  });
-
-  // Optimisation Samsung : mémoriser le contenu interne pour éviter de recréer le TextInput
-  // quand le clavier s'ouvre (changement de keyboardVisible dans le parent).
-  const stickyInnerContent = useMemo(() => {
-    if (!displayFriend) return null;
-
-    // Calcul des messages
-    const activeUnreadMessages = pendingMessages.filter(m => m.from_user_id === displayFriend.id);
-    const cachedForFriend = unreadCache[displayFriend.id] || [];
-    const mergedMap = new Map<string, any>();
-    cachedForFriend.forEach(m => mergedMap.set(m.id, m));
-    activeUnreadMessages.forEach(m => mergedMap.set(m.id, m));
-    const activeMessagesToShow = Array.from(mergedMap.values()) as PendingMessage[];
-    
-    const mySentMessages = (lastSentMessages[displayFriend.id] || []);
-
-        // Fusion et tri
-    if (__DEV__ && displayFriend) {
-        // console.log('[CHAT_DEBUG] Rendering sticky content for', displayFriend.pseudo, 'sent:', mySentMessages.length, 'received:', activeMessagesToShow.length);
-    }
-    const allMessages = [
-        ...activeMessagesToShow.map((m, idx) => {
-            const parsed = parseMessageContent(m.message_content);
-            return {
-                id: m.id || `received-${idx}-${m.created_at}`,
-                sourceMessageId: m.id || null,
-                text: parsed.text,
-                soundKey: parsed.soundKey,
-                ts: m.created_at,
-                isMe: false,
-                senderId: displayFriend.id,
-                createdAt: m.created_at,
-                // CORRECTION: Les reçus ne doivent JAMAIS être grisés (même si "READ:" est présent).
-                // Le "READ:" sur un reçu signifie juste que JE l'ai lu, ça ne doit pas affecter l'affichage.
-                // On grise uniquement si pending delete (en train de disparaître).
-                dimmed: !!m.isPendingDelete, 
-                original: undefined
-            };
-        }),
-        ...(Array.isArray(mySentMessages) ? mySentMessages.map((msg, idx) => ({
-            id: msg.id || `temp-sent-${displayFriend.id}-${idx}-${msg.ts || Date.now()}`,
-            text: msg.text,
-            soundKey: msg.soundKey,
-            ts: msg.ts,
-            isMe: true,
-            original: msg
-        })) : [])
-    ].sort((a, b) => {
-        const getTs = (d: string) => {
-            if (!d) return 0;
-            const t = new Date(d).getTime();
-            return isNaN(t) ? 0 : t;
-        };
-        const timeA = getTs(a.ts);
-        const timeB = getTs(b.ts);
-        // Tri chronologique strict : utiliser le timestamp uniquement
-        // Si timestamps égaux : garder l'ordre d'ajout (pas de réorganisation arbitraire)
-        if (timeA === timeB && timeA > 0) return 0;
-        // Si timestamp manquant : placer à la fin (mais garder l'ordre relatif entre eux)
-        if (timeA === 0 && timeB === 0) return 0;
-        if (timeA === 0) return 1;
-        if (timeB === 0) return -1;
-        // Tri chronologique strict : plus ancien = avant, plus récent = après
-        return timeA - timeB;
-    });
-
-    // Liste de sons ouverte (ou en attente Android) : la catégorie affichée = long press initial ou changée au tap.
-    const chatListCategoryActive =
-      chatSpecificSoundListCategory ?? pendingChatSpecificSoundListCategory ?? null;
-    const shouldShowChatSoundPicker =
-      isChatSoundPickerVisible || chatListCategoryActive != null;
-    const chatSoundListOpen = chatListCategoryActive != null;
-    const chatCategoryIconInactive = (cat: ChatMessageSoundChoice) =>
-      !chatSoundListOpen || chatListCategoryActive !== cat;
-
-    return (
-      <View style={styles.stickyContentLayout}>
-        <TouchableOpacity 
-          style={styles.stickyHeader} 
-          onPress={() => handlePressHeaderRef.current()}
-          activeOpacity={0.9}
-        >
-           <Text style={styles.stickyPseudo}>
-             {i18n.t('sticky_chat_with', { pseudo: displayFriend.pseudo })}
-           </Text>
-           <View style={styles.stickyHeaderActions}>
-             <TouchableOpacity onPress={toggleChatMute} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}} style={{ marginRight: 12 }}>
-               <Ionicons
-                 name={isChatMuteEnabled ? 'volume-mute' : 'volume-medium'}
-                 size={28}
-                 color="#604a3e"
-                 style={!isChatMuteEnabled ? { opacity: 0.4 } : undefined}
-               />
-             </TouchableOpacity>
-             <TouchableOpacity onPress={() => handlePressHeaderRef.current()} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
-               <Ionicons name="close-circle" size={24} color="#604a3e" />
-             </TouchableOpacity>
-           </View>
-        </TouchableOpacity>
-
-        {isFirstChatModalVisible && (
-          <View style={[styles.firstFooterModalCard, styles.chatOnboardingInlineCard]}>
-            <ScrollView
-              style={styles.chatOnboardingScroll}
-              contentContainerStyle={styles.chatOnboardingScrollContent}
-              showsVerticalScrollIndicator
-              keyboardShouldPersistTaps="handled"
-            >
-              <View style={styles.firstFooterModalTitleRow}>
-                <Text style={styles.firstFooterModalTitleText}>{i18n.t('tuto_chat_title')}</Text>
-              </View>
-              <View style={styles.firstFooterModalFeatureRow}>
-                <View style={styles.chatOnboardingIconSlot}>
-                  <Image
-                    source={CHAT_PROOTHAIL_THUMB}
-                    style={styles.chatOnboardingProothailImage}
-                    resizeMode="contain"
-                  />
-                </View>
-                <Text style={styles.firstFooterModalFeatureText}>
-                  {i18n.t('chat_onboarding_choose_specific_sound')}
-                </Text>
-              </View>
-              <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
-                <Ionicons name="volume-mute" size={22} color="#604a3e" />
-                <Text style={styles.firstFooterModalFeatureText}>
-                  {i18n.t('chat_onboarding_mute')}
-                </Text>
-              </View>
-              <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
-                <Ionicons name="flag-outline" size={22} color="#604a3e" />
-                <Text style={styles.firstFooterModalFeatureText}>
-                  {i18n.t('chat_onboarding_report_conversation')}
-                </Text>
-              </View>
-              <TouchableOpacity
-                style={[styles.firstFooterModalOkButton, { marginTop: 20 }]}
-                onPress={closeFirstChatModal}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.firstFooterModalOkText}>{i18n.t('ok')}</Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-        )}
-
-        {Platform.OS === 'android' ? (
-          <Animated.ScrollView
-            ref={stickyScrollViewAnimatedRef}
-            style={[styles.stickyMessages, stickyMessagesAnimatedStyle]}
-            contentContainerStyle={styles.stickyMessagesContent}
-            onContentSizeChange={() => stickyScrollViewAnimatedRef.current?.scrollToEnd({ animated: true })}
-            showsVerticalScrollIndicator={true}
-            keyboardShouldPersistTaps="always"
-            onTouchStart={closeChatSpecificSoundList}
-          >
-            {allMessages.map((msg) => (
-              msg.isMe ? (
-                <SentMessageStatus key={msg.id} message={msg.original!} />
-              ) : (
-                <ReceivedMessageFade
-                  key={msg.id}
-                  message={{ id: msg.id, text: msg.text, senderId: (msg as any).senderId, sourceMessageId: (msg as any).sourceMessageId, createdAt: (msg as any).createdAt }}
-                  soundKey={msg.soundKey}
-                  dimmed={(msg as any).dimmed}
-                  shouldFadeOut={fadingOutReceivedMessages.has(msg.id)}
-                  onLongPressReport={openReportReasonSheet}
-                  playLocalSound={playLocalSound}
-                  onFadeComplete={() => {
-                    // L'animation est terminée, le message sera supprimé par le setTimeout dans handleSendProut
-                  }}
-                />
-              )
-            ))}
-          </Animated.ScrollView>
-        ) : (
-          <ScrollView
-            ref={stickyScrollViewRef}
-            style={styles.stickyMessages}
-            contentContainerStyle={styles.stickyMessagesContent}
-            onContentSizeChange={() => stickyScrollViewRef.current?.scrollToEnd({ animated: true })}
-            showsVerticalScrollIndicator={true}
-            keyboardShouldPersistTaps="always"
-            onTouchStart={closeChatSpecificSoundList}
-          >
-            {allMessages.map((msg) => (
-              msg.isMe ? (
-                <SentMessageStatus key={msg.id} message={msg.original!} />
-              ) : (
-                <ReceivedMessageFade
-                  key={msg.id}
-                  message={{ id: msg.id, text: msg.text, senderId: (msg as any).senderId, sourceMessageId: (msg as any).sourceMessageId, createdAt: (msg as any).createdAt }}
-                  soundKey={msg.soundKey}
-                  dimmed={(msg as any).dimmed}
-                  shouldFadeOut={fadingOutReceivedMessages.has(msg.id)}
-                  onLongPressReport={openReportReasonSheet}
-                  playLocalSound={playLocalSound}
-                  onFadeComplete={() => {
-                    // L'animation est terminée, le message sera supprimé par le setTimeout dans handleSendProut
-                  }}
-                />
-              )
-            ))}
-          </ScrollView>
-        )}
-
-        {!!pendingChatSoundKeyByFriend[displayFriend.id] && (
-          <TouchableOpacity
-            style={styles.chatPendingSoundTag}
-            onPress={() => {
-              setPendingChatSoundKeyByFriend((prev) => {
-                const { [displayFriend.id]: _removed, ...rest } = prev;
-                return rest;
-              });
-              const ambient = getDefaultSoundCategoryForFirstLaunch() as ChatMessageSoundChoice;
-              setChatMessageSoundChoice(ambient);
-            }}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.chatPendingSoundTagText}>
-              {getDisplaySoundLabel(pendingChatSoundKeyByFriend[displayFriend.id])}
-            </Text>
-            <Ionicons name="close-circle" size={14} color="#604a3e" style={{ marginLeft: 4 }} />
-          </TouchableOpacity>
-        )}
-        <View style={[styles.messageInputRow, { alignItems: 'flex-end', marginBottom: 5 }]}>
-          <View style={styles.chatMessageInputLeftChunk}>
-            <TouchableOpacity
-              style={[styles.chatSoundPickerEntryThumbTouchable, styles.chatSoundPickerEntryThumbFlushLeft]}
-              onPress={openChatSoundPicker}
-              activeOpacity={0.85}
-              accessibilityRole="button"
-              accessibilityLabel={i18n.t('chat_sound_picker_inline_button')}
-              hitSlop={{ top: 8, bottom: 8, left: 0, right: 0 }}
-            >
-              <Image
-                source={CHAT_PROOTHAIL_THUMB}
-                style={styles.chatSoundPickerThumbImage}
-                resizeMode="contain"
-              />
-            </TouchableOpacity>
-            <TextInput
-            ref={(ref) => { textInputRefs.current[displayFriend.id] = ref; }}
-            style={styles.messageInput}
-            placeholder={i18n.t('add_message_placeholder')}
-            placeholderTextColor="#777"
-            value={displayDraft}
-            onChangeText={(text) => setMessageDrafts(prev => ({ ...prev, [displayFriend.id]: text }))}
-            maxLength={140}
-            multiline
-            
-            // --- CORRECTION CRITIQUE HUAWEI / SAMSUNG ---
-            keyboardType="default"
-            {...((isSamsungDevice || isHuaweiDevice || isOldAndroid) ? {
-               autoCorrect: false,
-               autoComplete: 'off',
-               importantForAutofill: 'no', 
-               spellCheck: false,
-               textContentType: 'none',
-            } : {})}
-            keyboardAppearance="dark"
-            
-            onFocus={() => {
-              if (Platform.OS === 'android') {
-                refocusOnBlurAttemptedRef.current = false;
-              }
-              setIsChatSoundPickerVisible(false);
-              if (pendingChatSpecificSoundListCategory) {
-                setPendingChatSpecificSoundListCategory(null);
-              }
-              if (chatSpecificSoundListCategory) {
-                setChatSpecificSoundListCategory(null);
-              }
-            }}
-            // Plus de onBlur agressif qui ferme le clavier sur Samsung
-            onLayout={() => {}}
-            {...oldAndroidInputProps}
-          />
-          </View>
-          <TouchableOpacity
-            onPress={() => displayDraft.trim() && handleSendProut(displayFriend)}
-            style={[
-              styles.messageSendButton,
-              { backgroundColor: sendingFriendId === displayFriend.id ? '#a8d5ba' : displayBackgroundColor },
-              !displayDraft.trim() && styles.messageSendButtonDisabled,
-            ]}
-            accessibilityLabel="Envoyer"
-            activeOpacity={displayDraft.trim() ? 0.8 : 1}
-            disabled={!displayDraft.trim()}
-          >
-            <Ionicons name="send" size={18} color="#604a3e" />
-          </TouchableOpacity>
-        </View>
-        {shouldShowChatSoundPicker && (
-        <View
-          style={[
-            styles.chatSoundZone,
-            !chatSoundListOpen && {
-              borderBottomWidth: 0,
-            },
-          ]}
-        >
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.chatSoundChoiceScroller}
-          contentContainerStyle={styles.chatSoundChoiceRow}
-          keyboardShouldPersistTaps="always"
-        >
-          {Platform.OS === 'android' && (
-            <Pressable
-              style={styles.chatSoundChoiceButton}
-              onPress={() => switchChatSoundListCategoryIfOpen('toot')}
-            >
-              <Image
-                source={TOOT_LOGO_IMAGE}
-                style={[
-                  styles.chatSoundChoiceImage,
-                  TOOT_CHAT_ICON_SIZE,
-                  chatCategoryIconInactive('toot') && styles.chatSoundChoiceImageInactive,
-                ]}
-                resizeMode="contain"
-              />
-            </Pressable>
-          )}
-          <Pressable
-            style={styles.chatSoundChoiceButton}
-            onPress={() => switchChatSoundListCategoryIfOpen('mood')}
-          >
-            <Image
-              source={require('../assets/images/mood.png')}
-              style={[
-                styles.chatSoundChoiceImage,
-                chatCategoryIconInactive('mood') && styles.chatSoundChoiceImageInactive,
-              ]}
-              resizeMode="contain"
-            />
-          </Pressable>
-          <Pressable
-            style={styles.chatSoundChoiceButton}
-            onPress={() => switchChatSoundListCategoryIfOpen('pop')}
-          >
-            <Image
-              source={require('../assets/images/pop.png')}
-              style={[
-                styles.chatSoundChoiceImage,
-                { width: 62, height: 42 },
-                chatCategoryIconInactive('pop') && styles.chatSoundChoiceImageInactive,
-              ]}
-              resizeMode="contain"
-            />
-          </Pressable>
-          {Platform.OS !== 'android' && (
-            <Pressable
-              style={styles.chatSoundChoiceButton}
-              onPress={() => switchChatSoundListCategoryIfOpen('toot')}
-            >
-              <Image
-                source={TOOT_LOGO_IMAGE}
-                style={[
-                  styles.chatSoundChoiceImage,
-                  TOOT_CHAT_ICON_SIZE,
-                  chatCategoryIconInactive('toot') && styles.chatSoundChoiceImageInactive,
-                ]}
-                resizeMode="contain"
-              />
-            </Pressable>
-          )}
-          <Pressable
-            style={styles.chatSoundChoiceButton}
-            onPress={() => switchChatSoundListCategoryIfOpen('trll')}
-          >
-            <Image
-              source={require('../assets/images/tweet.png')}
-              style={[
-                styles.chatSoundChoiceImage,
-                chatCategoryIconInactive('trll') && styles.chatSoundChoiceImageInactive,
-              ]}
-              resizeMode="contain"
-            />
-          </Pressable>
-          <Pressable
-            style={styles.chatSoundChoiceButton}
-            onPress={() => switchChatSoundListCategoryIfOpen('bzzz')}
-          >
-            <Image
-              source={require('../assets/images/buzz.png')}
-              style={[
-                styles.chatSoundChoiceImage,
-                chatCategoryIconInactive('bzzz') && styles.chatSoundChoiceImageInactive,
-              ]}
-              resizeMode="contain"
-            />
-          </Pressable>
-        </ScrollView>
-        {!!chatSpecificSoundListCategory && (
-          <View>
-          <View style={styles.chatSoundZoneSeparator} />
-          <ScrollView
-            style={[styles.chatSpecificSoundList, { height: CHAT_SPECIFIC_MIN_HEIGHT }]}
-            contentContainerStyle={styles.chatSpecificSoundListContent}
-            showsVerticalScrollIndicator
-          >
-            {(chatSpecificSoundListCategory === 'trll'
-              ? PICKUP_TRLL_KEYS
-              : chatSpecificSoundListCategory === 'toot'
-              ? PICKUP_TOOT_KEYS
-              : chatSpecificSoundListCategory === 'bzzz'
-              ? PICKUP_BZZZ_KEYS
-              : chatSpecificSoundListCategory === 'pop'
-              ? PICKUP_POP_KEYS
-              : PICKUP_MOOD_KEYS).map((soundKey) => (
-              <TouchableOpacity
-                key={soundKey}
-                style={[
-                  styles.chatSpecificSoundButton,
-                  pendingChatSoundKeyByFriend[displayFriend.id] === soundKey && styles.chatSpecificSoundButtonActive,
-                ]}
-                onPress={() => handleSelectChatSpecificSound(soundKey)}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.chatSpecificSoundButtonText}>{getDisplaySoundLabel(soundKey)}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-          </View>
-        )}
-        </View>
-        )}
-      </View>
-    );
-  }, [
-    displayFriendId,
-    pendingMessages,
-    unreadCache,
-    lastSentMessages,
-    displayDraft,
-    isChatMuteEnabled,
-    isChatSoundPickerVisible,
-    chatSpecificSoundListCategory,
-    pendingChatSpecificSoundListCategory,
-    pendingChatSoundKeyByFriend,
-    sendingFriendId,
-    displayBackgroundColor,
-    fadingOutReceivedMessages,
-    openChatSpecificSoundList,
-    openChatSoundPicker,
-    switchChatSoundListCategoryIfOpen,
-    closeChatSpecificSoundList,
-    handleSelectChatSpecificSound,
-    toggleChatMute,
-    openReportReasonSheet,
-    isFirstChatModalVisible,
-    closeFirstChatModal,
-    // PAS de keyboardVisible ici !
-    // PAS de handlePressHeader ici ! (on utilise la Ref)
-  ]);
+  }, [searchQuery, onSearchQueryChange, onSearchChange]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -4136,21 +3567,6 @@ useEffect(() => {
   // ✅ Supprimé : ActivityIndicator masqué lors du chargement initial
   // On affiche toujours le contenu, même en chargement
   // if (loading && appUsers.length === 0 && pendingRequests.length === 0) return <ActivityIndicator color="#007AFF" style={{margin: 20}} />;
-
-  // Rendu différencié pour le conteneur principal
-  // iOS garde KeyboardAvoidingView, Android reste en View pour éviter les blur forcés
-  // (on est en mode "pan", donc pas de resize natif, mais KAV Android peut déclencher un blur)
-  const Container = Platform.OS === 'ios' ? KeyboardAvoidingView : View;
-  const containerProps = Platform.OS === 'ios'
-    ? {
-        style: styles.container,
-        behavior: 'padding' as const,
-        keyboardVerticalOffset: 0,
-      }
-    : {
-        style: styles.container,
-      };
-
 
   const lastValidUsersRef = useRef<any[]>([]);
   
@@ -4174,7 +3590,6 @@ useEffect(() => {
     );
   }, [appUsers, searchQuery, isRefreshing]);
 
-  // PRE-CALCULATE UNREAD MESSAGES FOR MASSIVE FPS GAIN (O(N) instead of O(N*M))
   const unreadMessagesMap = useMemo(() => {
     const map: Record<string, typeof pendingMessages> = {};
     pendingMessages.forEach(m => {
@@ -4189,7 +3604,7 @@ useEffect(() => {
   }, [pendingMessages]);
 
   const content = (
-    <Container {...containerProps}>
+    <View style={styles.container}>
       {/* 
         HEADER FIXE / SEARCHBAR FIXE
         Pour stabiliser le clavier sur Android, on sort la SearchBar de la FlatList.
@@ -4480,84 +3895,55 @@ useEffect(() => {
         </View>
       </Modal>
 
-      <Modal
-        isVisible={!!expandedFriendId}
-        onBackdropPress={() => {
-          markModalTransition();
-          // 1. Cacher visuellement tout de suite
-          setIsModalContentVisible(false);
-          // 2. Fermer le clavier
-          Keyboard.dismiss();
-          // 3. Fermer aussi la recherche si elle est active
-          if (isSearchVisible) {
-            onSearchChange?.(false);
-            onSearchQueryChange?.('');
-          }
-          // 4. Fermeture immédiate sans animation de disparition visible
-          setExpandedFriendId(null);
-        }}
-        onBackButtonPress={() => {
-          markModalTransition();
-          setIsModalContentVisible(false);
-          Keyboard.dismiss();
-          // Fermer aussi la recherche si elle est active
-          if (isSearchVisible) {
-            onSearchChange?.(false);
-            onSearchQueryChange?.('');
-          }
-          setExpandedFriendId(null);
-        }}
-        onModalShow={() => {
-          setIsModalContentVisible(true);
-          const input = displayFriendId ? textInputRefs.current[displayFriendId] : null;
-          if (input) {
-            setTimeout(() => {
-              input.focus();
-            }, Platform.OS === 'android' ? 100 : 0);
-          }
-        }}
-        onModalHide={() => {
-          // keyboardHeight géré par react-native-keyboard-controller (keyboardHeightSV)
-          setIsModalContentVisible(false);
-          isClosingModalRef.current = false;
-          closingCooldownUntilRef.current = null;
-          openedFromSearchRef.current = false; // Reset le flag
-          // Fermer aussi la recherche si elle est active (au cas où elle n'a pas été fermée avant)
-          if (isSearchVisible) {
-            onSearchChange?.(false);
-            onSearchQueryChange?.('');
-          }
-        }}
-        style={{ margin: 0, justifyContent: 'flex-end' }}
-        backdropOpacity={CHAT_MODAL_BACKDROP_OPACITY}
-        useNativeDriver={USE_NATIVE_MODAL_DRIVER}
-        useNativeDriverForBackdrop={USE_NATIVE_MODAL_DRIVER}
-        hideModalContentWhileAnimating
-        animationIn="fadeIn"
-        animationOut="fadeOut"
-        animationInTiming={150}
-        animationOutTiming={1} // Instantané à la fermeture
-        backdropTransitionOutTiming={1}
-        avoidKeyboard={false} // Ancrage clavier géré de façon unifiée via keyboardHeightSV
-      >
-        <Animated.View
-          style={[
-            {
-              width: '100%',
-              backgroundColor: '#ebb89b',
-              borderTopLeftRadius: 15,
-              borderTopRightRadius: 15,
-              padding: 10,
-              paddingBottom: 0,
-              opacity: isModalContentVisible ? 1 : 0,
-              overflow: 'hidden',
-            },
-            chatModalKeyboardStyle,
-          ]}
-        >
-          {expandedFriendId && !isClosingModalRef.current && stickyInnerContent}
-        </Animated.View>
-      </Modal>
+      <ChatModal
+        expandedFriendId={expandedFriendId}
+        onClose={handlePressHeader}
+        displayFriend={displayFriend}
+        appUsers={appUsers}
+        pendingMessages={pendingMessages}
+        unreadCache={unreadCache}
+        lastSentMessages={lastSentMessages}
+        messageDrafts={messageDrafts}
+        onDraftChange={handleDraftChange}
+        onSendMessage={handleSendProut}
+        sendingFriendId={sendingFriendId}
+        isChatMuteEnabled={isChatMuteEnabled}
+        toggleChatMute={toggleChatMute}
+        isChatSoundPickerVisible={isChatSoundPickerVisible}
+        chatSpecificSoundListCategory={chatSpecificSoundListCategory}
+        pendingChatSpecificSoundListCategory={pendingChatSpecificSoundListCategory}
+        pendingChatSoundKeyByFriend={pendingChatSoundKeyByFriend}
+        openChatSoundPicker={openChatSoundPicker}
+        switchChatSoundListCategoryIfOpen={switchChatSoundListCategoryIfOpen}
+        closeChatSpecificSoundList={closeChatSpecificSoundList}
+        handleSelectChatSpecificSound={handleSelectChatSpecificSound}
+        openReportReasonSheet={openReportReasonSheet}
+        isFirstChatModalVisible={isFirstChatModalVisible}
+        closeFirstChatModal={closeFirstChatModal}
+        playLocalSound={playLocalSound}
+        fadingOutReceivedMessages={fadingOutReceivedMessages}
+        insets={insets}
+        getDisplaySoundLabel={getDisplaySoundLabel}
+        setPendingChatSoundKeyByFriend={setPendingChatSoundKeyByFriend}
+        setChatMessageSoundChoice={setChatMessageSoundChoice}
+        getDefaultSoundCategoryForFirstLaunch={getDefaultSoundCategoryForFirstLaunch}
+        isSamsungDevice={isSamsungDevice}
+        isHuaweiDevice={isHuaweiDevice}
+        isOldAndroid={isOldAndroid}
+        oldAndroidInputProps={oldAndroidInputProps}
+        CHAT_PROOTHAIL_THUMB={CHAT_PROOTHAIL_THUMB}
+        TOOT_LOGO_IMAGE={TOOT_LOGO_IMAGE}
+        TOOT_CHAT_ICON_SIZE={TOOT_CHAT_ICON_SIZE}
+        CHAT_SPECIFIC_MIN_HEIGHT={CHAT_SPECIFIC_MIN_HEIGHT}
+        PICKUP_TRLL_KEYS={PICKUP_TRLL_KEYS}
+        PICKUP_TOOT_KEYS={PICKUP_TOOT_KEYS}
+        PICKUP_BZZZ_KEYS={PICKUP_BZZZ_KEYS}
+        PICKUP_POP_KEYS={PICKUP_POP_KEYS}
+        PICKUP_MOOD_KEYS={PICKUP_MOOD_KEYS}
+        isSearchVisible={isSearchVisible}
+        onSearchChange={onSearchChange || (() => {})}
+        onSearchQueryChange={onSearchQueryChange || (() => {})}
+      />
 
       {toastMessage && (
         <RNAnimated.View style={[styles.toast, { opacity: toastOpacity }]}>
@@ -4938,7 +4324,7 @@ useEffect(() => {
           )}
         </View>
       </Modal>
-    </Container>
+    </View>
   );
 
   return content;
@@ -5422,529 +4808,9 @@ const styles = StyleSheet.create({
     opacity: 0.88,
     lineHeight: 19,
   },
-  /** Légèrement plus grand que les Ionicons 22 pour la queue */
-  chatOnboardingIconSlot: {
-    width: 30,
-    height: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexShrink: 0,
-    marginLeft: -4,
-  },
-  chatOnboardingProothailImage: {
-    width: 30,
-    height: 30,
-  },
-  firstFooterModalFeatureText: {
-    flex: 1,
-    marginLeft: 12,
-    color: '#604a3e',
-    fontSize: 14,
-    textAlign: 'left',
-    fontStyle: 'italic',
-    opacity: 0.88,
-    lineHeight: 19,
-  },
-  chatOnboardingInlineCard: {
-    marginBottom: 0,
-  },
-  chatOnboardingScroll: {
-    flexGrow: 0,
-  },
-  chatOnboardingScrollContent: {
-    paddingBottom: 8,
-  },
-  chatOnboardingHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-evenly',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  chatOnboardingHeaderImage: {
-    width: 62,
-    height: 62,
-  },
-  
-  // Styles pour la recherche
-  searchContainerModal: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    marginHorizontal: 15,
-    marginTop: 5,
-    marginBottom: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: 'rgba(96, 74, 62, 0.2)',
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    marginHorizontal: 15,
-    marginTop: 5,
-    marginBottom: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: 'rgba(96, 74, 62, 0.2)',
-  },
-  // Version ABSOLUE : Complètement isolée du flux, ne bouge JAMAIS
-  searchContainerAbsolute: {
-    position: 'absolute',
-    top: 100, // Ajuste selon la hauteur réelle de ton header (logo + padding)
-    left: 0,
-    right: 0,
-    zIndex: 1000,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    marginHorizontal: 15,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: 'rgba(96, 74, 62, 0.2)',
-    elevation: 10, // Android shadow
-    shadowColor: '#000', // iOS shadow
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-  },
-  searchIcon: {
-    marginRight: 8,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    color: '#333',
-    padding: 0,
-  },
-  
-  stickyInputContainer: {
-    backgroundColor: '#ebb89b',
-    paddingHorizontal: 10,
-    paddingTop: 6,
-    paddingBottom: Platform.OS === 'ios' ? 10 : 6, // Padding safe area basique réduite
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    borderWidth: 2,
-    borderColor: 'rgba(96, 74, 62, 0.3)',
-    borderRadius: 12,
-  },
-  stickyHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-    borderBottomWidth: 1, 
-    borderBottomColor: 'rgba(96, 74, 62, 0.1)',
-    paddingBottom: 4,
-    backgroundColor: 'rgba(96, 74, 62, 0.08)',
-    paddingHorizontal: 12,
-    paddingTop: 8,
-    borderRadius: 8,
-  },
-  stickyHeaderActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  stickyPseudo: {
-    fontWeight: 'bold',
-    color: '#604a3e',
-    fontSize: 16,
-  },
-  stickyContentLayout: {
-    flex: 1,
-    minHeight: 0,
-  },
-  stickyMessages: {
-    marginBottom: 8,
-    minHeight: 0,
-    flex: 1,
-  },
-  stickyMessagesContent: {
-    flexGrow: 1,
-    justifyContent: 'flex-end',
-    paddingHorizontal: 8,
-    width: '100%',
-  },
   identityModal: {
     justifyContent: 'center',
     alignItems: 'center',
     margin: 0,
-  },
-  friendSoundModal: {
-    justifyContent: 'center',
-    margin: 0,
-    paddingTop: Platform.OS === 'android' ? 20 : 0,
-  },
-  identityModalContent: {
-    backgroundColor: '#ebb89b',
-    borderRadius: 20,
-    padding: 30,
-    alignItems: 'center',
-    width: '85%',
-    maxWidth: 400,
-  },
-  friendSoundModalCard: {
-    backgroundColor: '#ebb89b',
-    borderRadius: 0,
-    width: '100%',
-    alignSelf: 'center',
-    paddingHorizontal: 18,
-    paddingTop: Platform.OS === 'ios' ? 54 : 26,
-    paddingBottom: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(96, 74, 62, 0.12)',
-    maxHeight: Platform.OS === 'android' ? SCREEN_HEIGHT - 20 : SCREEN_HEIGHT,
-  },
-  friendSoundModalCardExpanded: {
-    minHeight: Platform.OS === 'android' ? SCREEN_HEIGHT - 20 : SCREEN_HEIGHT,
-  },
-  friendSoundPickModalCard: {
-    backgroundColor: '#ebb89b',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(96, 74, 62, 0.12)',
-    maxHeight: '80%',
-  },
-  friendSoundPickModalTitle: {
-    color: '#604a3e',
-    fontSize: 16,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  friendSoundPickHeaderCell: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  friendSoundPickHeaderSubtitle: {
-    color: '#604a3e',
-    fontSize: 11,
-    fontStyle: 'italic',
-    textAlign: 'center',
-    marginTop: 1,
-    marginBottom: 0,
-  },
-  friendSoundPickHeaderImage: {
-    width: 92,
-    height: 40,
-  },
-  friendSoundPickScroll: {
-    flex: 1,
-    marginBottom: 10,
-  },
-  friendSoundPickScrollContent: {
-    paddingBottom: 2,
-  },
-  friendSoundPickTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  friendSoundPickTitleContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingLeft: 28,
-  },
-  friendSoundPickTitleTail: {
-    width: 54,
-    height: 34,
-    marginRight: -2,
-  },
-  friendSoundPickTitleText: {
-    color: '#604a3e',
-    fontSize: 16,
-    fontWeight: '700',
-    fontStyle: 'italic',
-    letterSpacing: 0.3,
-  },
-  friendSoundPickCloseButton: {
-    width: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 8,
-  },
-  friendSoundPickSoundcheckLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-    backgroundColor: 'rgba(96, 74, 62, 0.08)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  friendSoundPickSoundcheckText: {
-    color: '#604a3e',
-    fontSize: 13,
-    fontStyle: 'italic',
-    textAlign: 'center',
-    marginRight: 6,
-  },
-  friendSoundPickSoundcheckImage: {
-    width: 120,
-    height: 24,
-  },
-  friendSoundPickColumns: {
-    flexDirection: 'row',
-    gap: 12,
-    width: '100%',
-  },
-  friendSoundPickColumn: {
-    flex: 1,
-  },
-  friendSoundPickItemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  friendSoundPickPlayButton: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.4)',
-  },
-  friendSoundPickPlayButtonActive: {
-    backgroundColor: 'rgba(162, 228, 212, 0.9)',
-  },
-  friendSoundPickPlayIcon: {
-    marginLeft: 1,
-  },
-  friendSoundPickItemButton: {
-    flex: 1,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    backgroundColor: 'rgba(255,255,255,0.55)',
-  },
-  reportReasonModal: {
-    justifyContent: 'center',
-    margin: 0,
-    paddingHorizontal: 20,
-  },
-  reportReasonCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 18,
-  },
-  reportReasonTitle: {
-    color: '#604a3e',
-    fontSize: 18,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  reportReasonSubtitle: {
-    color: '#604a3e',
-    fontSize: 14,
-    textAlign: 'center',
-    opacity: 0.8,
-    marginTop: 6,
-    marginBottom: 14,
-  },
-  reportReasonOption: {
-    backgroundColor: '#d2f1ef',
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    marginBottom: 8,
-  },
-  reportReasonOptionDisabled: {
-    opacity: 0.55,
-  },
-  reportReasonOptionText: {
-    color: '#604a3e',
-    fontSize: 15,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  reportReasonCancel: {
-    marginTop: 6,
-    alignSelf: 'center',
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-  },
-  reportReasonCancelText: {
-    color: '#604a3e',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  friendSoundPickItemButtonActive: {
-    backgroundColor: 'rgba(162, 228, 212, 0.72)',
-    borderColor: 'rgba(96, 74, 62, 0.45)',
-  },
-  friendSoundPickItemText: {
-    color: '#604a3e',
-    fontSize: 13,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  pickDefaultCategorySection: {
-    paddingHorizontal: 4,
-    paddingTop: 6,
-    paddingBottom: 6,
-  },
-  pickDefaultCategoryTitle: {
-    color: '#604a3e',
-    fontSize: 13,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: 6,
-  },
-  pickDefaultCategoryGrid: {
-    width: '100%',
-    borderWidth: 1,
-    borderColor: 'rgba(96, 74, 62, 0.18)',
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.32)',
-    overflow: 'hidden',
-  },
-  pickDefaultCategoryTrack: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    minHeight: 54,
-  },
-  pickDefaultCategoryTrackSecondRow: {
-    justifyContent: 'center',
-  },
-  pickDefaultCategoryStep: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    borderRadius: 10,
-  },
-  pickDefaultCategoryStepActive: {
-    backgroundColor: 'rgba(162, 228, 212, 0.72)',
-    borderColor: 'rgba(96, 74, 62, 0.45)',
-  },
-  pickDefaultCategoryIconWrap: {
-    width: 90,
-    height: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pickDefaultCategoryStepSecondRow: {
-    flex: 0,
-    marginHorizontal: 12,
-  },
-  pickDefaultCategoryIcon: {
-    width: 80,
-    height: 30,
-  },
-  identityAvatarContainer: {
-    marginBottom: 20,
-  },
-  identityAvatar: {
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    backgroundColor: '#d9d9d9',
-  },
-  identityAvatarPlaceholder: {
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    backgroundColor: '#604a3e',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  identityAvatarPlaceholderText: {
-    fontSize: 60,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  identityNameContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  identityNameValue: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#604a3e',
-    textAlign: 'center',
-  },
-  identityRequestContainer: {
-    alignItems: 'center',
-    width: '100%',
-  },
-  identityRequestTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#604a3e',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  identityRequestBody: {
-    fontSize: 16,
-    color: '#604a3e',
-    textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 22,
-  },
-  identityRequestButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    width: '100%',
-  },
-  identityRequestButton: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  identityRequestButtonCancel: {
-    backgroundColor: 'rgba(96, 74, 62, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(96, 74, 62, 0.3)',
-  },
-  identityRequestButtonAsk: {
-    backgroundColor: '#604a3e',
-  },
-  identityRequestButtonTextCancel: {
-    color: '#604a3e',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  identityRequestButtonTextAsk: {
-    color: '#ebb89b',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  identityCloseButton: {
-    backgroundColor: '#604a3e',
-    paddingVertical: 12,
-    paddingHorizontal: 30,
-    borderRadius: 12,
-    marginTop: 10,
-  },
-  identityCloseButtonText: {
-    color: '#ebb89b',
-    fontWeight: 'bold',
-    fontSize: 16,
   },
 });
