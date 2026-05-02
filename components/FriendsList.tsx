@@ -3013,7 +3013,7 @@ useEffect(() => {
 
   useEffect(() => {
     if (Platform.OS !== 'android') return;
-    if (keyboardVisible) return;
+    if (keyboardVisibleRef.current) return;
     if (!pendingChatSpecificSoundListCategory) return;
     if (!expandedFriendId) {
       setPendingChatSpecificSoundListCategory(null);
@@ -3026,7 +3026,7 @@ useEffect(() => {
     }, 40);
 
     return () => clearTimeout(t);
-  }, [expandedFriendId, keyboardVisible, pendingChatSpecificSoundListCategory]);
+  }, [expandedFriendId, pendingChatSpecificSoundListCategory]);
 
   useEffect(() => {
     if (expandedFriendId) {
