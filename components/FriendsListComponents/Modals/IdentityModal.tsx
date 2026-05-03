@@ -179,6 +179,54 @@ const styles = StyleSheet.create({
     color: '#604a3e',
     textAlign: 'center',
   },
+  identityRequestContainer: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  identityRequestTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#604a3e',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  identityRequestBody: {
+    fontSize: 16,
+    color: '#604a3e',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  identityRequestButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  identityRequestButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  identityRequestButtonCancel: {
+    backgroundColor: 'rgba(96, 74, 62, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(96, 74, 62, 0.3)',
+  },
+  identityRequestButtonAsk: {
+    backgroundColor: '#604a3e',
+  },
+  identityRequestButtonTextCancel: {
+    color: '#604a3e',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  identityRequestButtonTextAsk: {
+    color: '#ebb89b',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
   identityCloseButton: {
     backgroundColor: '#604a3e',
     paddingVertical: 12,
