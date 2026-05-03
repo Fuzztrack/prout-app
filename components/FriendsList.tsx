@@ -597,6 +597,7 @@ export function FriendsList({
   const [friendSoundModalFriend, setFriendSoundModalFriend] = useState<any>(null);
   const [reportReasonModalVisible, setReportReasonModalVisible] = useState(false);
   const [reportReasonModalReady, setReportReasonModalReady] = useState(false);
+  const [pendingReportTarget, setPendingReportTarget] = useState<ReportableMessage | null>(null);
   const [globalDefaultCategory, setGlobalDefaultCategory] = useState<SoundCategory>(
     getDefaultSoundCategoryForFirstLaunch()
   );
