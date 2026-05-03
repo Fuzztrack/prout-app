@@ -3997,6 +3997,7 @@ useEffect(() => {
         friendName={identityModalName}
         onModalShow={() => {}}
         onModalHide={() => {}}
+        onRequestIdentityReveal={requestIdentityReveal}
       />
     </View>
   );

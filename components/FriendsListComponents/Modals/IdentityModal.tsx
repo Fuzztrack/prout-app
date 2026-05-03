@@ -19,6 +19,7 @@ export type IdentityModalProps = {
   friendName: string | null;
   onModalShow: () => void;
   onModalHide: () => void;
+  onRequestIdentityReveal: (friend: any, options?: { force?: boolean }) => void;
 };
 
 export const IdentityModal = ({
@@ -28,6 +29,7 @@ export const IdentityModal = ({
   friendName,
   onModalShow,
   onModalHide,
+  onRequestIdentityReveal,
 }: IdentityModalProps) => {
   return (
     <Modal
@@ -44,33 +46,85 @@ export const IdentityModal = ({
       useNativeDriverForBackdrop={USE_NATIVE_MODAL_DRIVER}
     >
       <View style={styles.identityModalContent}>
-        {friend?.avatar_url ? (
-          <View style={styles.identityAvatarContainer}>
-            <Image
-              source={{ uri: friend.avatar_url }}
-              style={styles.identityAvatar}
-            />
-          </View>
-        ) : (
-          <View style={[styles.identityAvatarContainer, styles.identityAvatarPlaceholder]}>
-            <Text style={styles.identityAvatarPlaceholderText}>
-              {(friendName || friend?.pseudo || '?').charAt(0).toUpperCase()}
-            </Text>
-          </View>
+        {friend && (
+          <>
+            {/* Avatar en grand */}
+            <View style={styles.identityAvatarContainer}>
+              {friend.avatar_url ? (
+                <Image
+                  source={{ uri: friend.avatar_url }}
+                  style={styles.identityAvatar}
+                />
+              ) : (
+                <View style={[styles.identityAvatarContainer, styles.identityAvatarPlaceholder]}>
+                  <Text style={styles.identityAvatarPlaceholderText}>
+                    {(friend.pseudo || '?').charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Vrai nom connu */}
+            {friendName && (
+              <View style={styles.identityNameContainer}>
+                <Text style={styles.identityNameValue}>✨ {friendName}</Text>
+              </View>
+            )}
+
+            {/* Demande d'identité si le nom n'est pas connu */}
+            {!friendName && (
+              <View style={styles.identityRequestContainer}>
+                <Text style={styles.identityRequestTitle}>
+                  {friend.isPending
+                    ? i18n.t('already_asked_identity_title')
+                    : i18n.t('ask_identity_title')}
+                </Text>
+                <Text style={styles.identityRequestBody}>
+                  {friend.isPending
+                    ? i18n.t('already_asked_identity_body', { pseudo: friend.pseudo })
+                    : i18n.t('ask_identity_body', { pseudo: friend.pseudo })}
+                </Text>
+                <View style={styles.identityRequestButtons}>
+                  <TouchableOpacity
+                    style={[styles.identityRequestButton, styles.identityRequestButtonCancel]}
+                    onPress={onClose}
+                  >
+                    <Text style={styles.identityRequestButtonTextCancel}>
+                      {i18n.t('cancel')}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.identityRequestButton, styles.identityRequestButtonAsk]}
+                    onPress={() => {
+                      onClose();
+                      if (friend.isPending) {
+                        onRequestIdentityReveal(friend, { force: true });
+                      } else {
+                        onRequestIdentityReveal(friend);
+                      }
+                    }}
+                  >
+                    <Text style={styles.identityRequestButtonTextAsk}>
+                      {friend.isPending
+                        ? i18n.t('relaunch_btn')
+                        : i18n.t('ask_btn')}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {/* Bouton fermer si le nom est connu */}
+            {friendName && (
+              <TouchableOpacity
+                style={styles.identityCloseButton}
+                onPress={onClose}
+              >
+                <Text style={styles.identityCloseButtonText}>{i18n.t('ok') || 'OK'}</Text>
+              </TouchableOpacity>
+            )}
+          </>
         )}
-
-        <View style={styles.identityNameContainer}>
-          <Text style={styles.identityNameValue}>
-            {friendName || friend?.pseudo || i18n.t('unknown_user')}
-          </Text>
-        </View>
-
-        <TouchableOpacity
-          style={styles.identityCloseButton}
-          onPress={onClose}
-        >
-          <Text style={styles.identityCloseButtonText}>{i18n.t('ok') || 'OK'}</Text>
-        </TouchableOpacity>
       </View>
     </Modal>
   );
