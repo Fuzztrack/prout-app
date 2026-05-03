@@ -49,7 +49,6 @@ import { FriendSoundPickModal } from './FriendsListComponents/Modals/FriendSound
 import { ReportReasonModal } from './FriendsListComponents/Modals/ReportReasonModal';
 import { IdentityModal } from './FriendsListComponents/Modals/IdentityModal';
 
-const FIRST_FRIENDLIST_FOOTER_MODAL_KEY = 'first_friendlist_footer_modal_seen_v1';
 const FIRST_CHAT_MODAL_KEY = 'first_chat_modal_seen_v2';
 const CHAT_MESSAGE_SOUND_CHOICE_KEY = 'chat_message_sound_choice_v1';
 const CHAT_MESSAGE_MUTE_KEY = 'chat_message_mute_v2';
@@ -683,27 +682,6 @@ export function FriendsList({
     };
   }, []);
 
-  // Pop-up unique à la première arrivée sur la friendlist
-  useFocusEffect(
-    useCallback(() => {
-      if (appUsers.length < 1) return;
-      let cancelled = false;
-      (async () => {
-        try {
-          const seenFooter = await AsyncStorage.getItem(FIRST_FRIENDLIST_FOOTER_MODAL_KEY);
-          if (cancelled) return;
-          if (!seenFooter) {
-            setFirstFriendlistOnboardingStep('footer');
-          }
-        } catch {
-          // Si AsyncStorage échoue, on évite de spammer une modale
-        }
-      })();
-      return () => {
-        cancelled = true;
-      };
-    }, [appUsers.length])
-  );
   const keyboardVisibleRef = useRef(false);
   const lastFocusAttemptRef = useRef<{ friendId: string | null; at: number }>({ friendId: null, at: 0 });
   const lastStickyOpenAtRef = useRef<number | null>(null);
@@ -740,6 +718,15 @@ export function FriendsList({
   const pendingReadRemovalTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const prevExpandedRef = useRef<string | null>(null);
   const listTopAlignTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const closeFirstChatModal = useCallback(async () => {
+    setIsFirstChatModalVisible(false);
+    try {
+      await AsyncStorage.setItem(FIRST_CHAT_MODAL_KEY, '1');
+    } catch {
+      // non bloquant
+    }
+  }, []);
 
   const markModalTransition = useCallback((durationMs: number = 420) => {
     modalTransitionUntilRef.current = Date.now() + durationMs;
