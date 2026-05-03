@@ -597,13 +597,10 @@ export function FriendsList({
   const [friendSoundModalFriend, setFriendSoundModalFriend] = useState<any>(null);
   const [reportReasonModalVisible, setReportReasonModalVisible] = useState(false);
   const [reportReasonModalReady, setReportReasonModalReady] = useState(false);
-  const [pendingReportTarget, setPendingReportTarget] = useState<ReportableMessage | null>(null);
   const [globalDefaultCategory, setGlobalDefaultCategory] = useState<SoundCategory>(
     getDefaultSoundCategoryForFirstLaunch()
   );
-  const [firstFriendlistOnboardingStep, setFirstFriendlistOnboardingStep] = useState<'footer' | null>(null);
   const [isFirstChatModalVisible, setIsFirstChatModalVisible] = useState(false);
-  const isFirstFriendlistOnboardingVisible = firstFriendlistOnboardingStep !== null;
   
   // 1. Chargement instantané du cache local (Mémoire de 30 jours)
   useEffect(() => {
@@ -684,45 +681,6 @@ export function FriendsList({
       }
     };
   }, []);
-
-  const markFirstFriendlistFooterSeen = useCallback(async () => {
-    try {
-      await AsyncStorage.setItem(FIRST_FRIENDLIST_FOOTER_MODAL_KEY, '1');
-    } catch {
-      // non bloquant
-    }
-  }, []);
-
-  const closeFirstFriendlistOnboarding = useCallback(async () => {
-    setFirstFriendlistOnboardingStep(null);
-    await markFirstFriendlistFooterSeen();
-  }, [markFirstFriendlistFooterSeen]);
-
-  const closeFirstChatModal = useCallback(async () => {
-    setIsFirstChatModalVisible(false);
-    try {
-      await AsyncStorage.setItem(FIRST_CHAT_MODAL_KEY, '1');
-    } catch {
-      // non bloquant
-    }
-  }, []);
-
-  const handleInviteFriendsPress = useCallback(async () => {
-    try {
-      const shareText = i18n.t('share_message', { pseudo: currentPseudo || storePseudo || 'Un ami' }) || '';
-      await Share.share({
-        message: shareText,
-      });
-    } catch {
-      // non bloquant
-    }
-  }, [currentPseudo, storePseudo]);
-
-  const handleFirstFriendlistOnboardingOk = useCallback(async () => {
-    if (firstFriendlistOnboardingStep !== 'footer') return;
-    await markFirstFriendlistFooterSeen();
-    setFirstFriendlistOnboardingStep(null);
-  }, [firstFriendlistOnboardingStep, markFirstFriendlistFooterSeen]);
 
   // Pop-up unique à la première arrivée sur la friendlist
   useFocusEffect(
@@ -3775,102 +3733,9 @@ useEffect(() => {
         refreshing={isRefreshing}
         onRefresh={handleRefresh}
         showsVerticalScrollIndicator={false}
-        ListFooterComponent={
-          appUsers.length > 0 ? (
-            <View style={styles.footerHelp}>
-              <View style={styles.footerHelpLines}>
-                <View style={styles.footerHelpLine}>
-                  <View style={styles.footerHelpLineContent}>
-                    <Image
-                      source={require('../assets/images/tip.png')}
-                      style={styles.footerHelpTip}
-                      resizeMode="contain"
-                    />
-                    <Text style={styles.footerHelpText}>{i18n.t('friendlist_onboarding_swipe')}</Text>
-                  </View>
-                </View>
-                <View style={styles.footerHelpLine}>
-                  <View style={styles.footerHelpLineContent}>
-                    <Image
-                      source={require('../assets/images/tip.png')}
-                      style={styles.footerHelpTip}
-                      resizeMode="contain"
-                    />
-                    <Text style={styles.footerHelpText}>{i18n.t('friendlist_onboarding_long_press')}</Text>
-                  </View>
-                </View>
-                <View style={styles.footerHelpLine}>
-                  <View style={styles.footerHelpLineContent}>
-                    <Image
-                      source={require('../assets/images/tip.png')}
-                      style={styles.footerHelpTip}
-                      resizeMode="contain"
-                    />
-                    <Text style={styles.footerHelpText}>{i18n.t('friendlist_onboarding_tap')}</Text>
-                  </View>
-                </View>
-              </View>
-            </View>
-          ) : null
-        }
       />
 
       <ProotSilenceChallenge isVisible={isGameVisible} onClose={() => setIsGameVisible(false)} />
-
-      <Modal
-        isVisible={isFirstFriendlistOnboardingVisible}
-        onBackButtonPress={closeFirstFriendlistOnboarding}
-        backdropOpacity={0.55}
-        animationIn="fadeIn"
-        animationOut="fadeOut"
-        useNativeDriver
-      >
-        <View style={styles.firstFooterModalCard}>
-          {firstFriendlistOnboardingStep === 'footer' ? (
-            <>
-              <View style={styles.firstFooterModalTitleRow}>
-                <Text style={styles.firstFooterModalTitleText}>{i18n.t('tuto_list_title')}</Text>
-              </View>
-              <View style={styles.firstFooterModalFeatureRow}>
-                <Ionicons name="arrow-forward" size={22} color="#604a3e" />
-                <Text style={styles.firstFooterModalFeatureText}>
-                  {i18n.t('friendlist_onboarding_swipe')}
-                </Text>
-              </View>
-              <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
-                <Ionicons name="finger-print" size={22} color="#604a3e" />
-                <Text style={styles.firstFooterModalFeatureText}>
-                  {i18n.t('friendlist_onboarding_long_press')}
-                </Text>
-              </View>
-              <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
-                <Image
-                  source={require('../assets/images/tap-gesture.png')}
-                  style={styles.firstFooterTapImage}
-                  resizeMode="contain"
-                />
-                <Text style={styles.firstFooterModalFeatureText}>
-                  {i18n.t('friendlist_onboarding_tap')}
-                </Text>
-              </View>
-              <View style={[styles.firstFooterModalFeatureRow, { marginTop: 12 }]}>
-                <Ionicons name="arrow-back" size={22} color="#604a3e" />
-                <Text style={styles.firstFooterModalFeatureText}>
-                  {i18n.t('friendlist_onboarding_swipe_left_block')}
-                </Text>
-              </View>
-            </>
-          ) : null}
-
-          <TouchableOpacity
-            style={styles.firstFooterModalOkButton}
-            onPress={handleFirstFriendlistOnboardingOk}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.firstFooterModalOkText}>OK</Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
 
       <ChatModal
         expandedFriendId={expandedFriendId}
@@ -4333,139 +4198,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
-  },
-  footerHelp: {
-    padding: 20,
-    paddingTop: 30,
-    paddingBottom: 40,
-    alignItems: 'center',
-    width: '100%',
-  },
-  footerHelpLines: {
-    width: '100%',
-    maxWidth: 360,
-    alignSelf: 'center',
-    alignItems: 'center',
-  },
-  footerHelpLine: {
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-    paddingHorizontal: 8,
-  },
-  footerHelpLineContent: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-    alignSelf: 'center',
-    maxWidth: 320,
-  },
-  footerHelpTip: {
-    width: 15,
-    height: 15,
-    marginTop: 1,
-    marginRight: 1,
-  },
-  footerHelpText: {
-    color: '#604a3e',
-    fontSize: 14,
-    textAlign: 'center',
-    fontStyle: 'italic',
-    opacity: 0.7,
-    flexShrink: 1,
-    maxWidth: 290,
-  },
-  footerHelpTextSecondary: {
-    marginTop: 10,
-    fontSize: 13,
-    opacity: 0.75,
-  },
-
-  firstFooterModalCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    paddingHorizontal: 18,
-    paddingTop: 18,
-    paddingBottom: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(96, 74, 62, 0.12)',
-  },
-  firstFooterModalText: {
-    color: '#604a3e',
-    fontSize: 14,
-    textAlign: 'center',
-    fontStyle: 'italic',
-    opacity: 0.85,
-  },
-  firstFooterModalTextSecondary: {
-    marginTop: 10,
-    fontSize: 13,
-    opacity: 0.8,
-  },
-  firstFooterModalOkButton: {
-    marginTop: 16,
-    alignSelf: 'center',
-    backgroundColor: '#604a3e',
-    paddingVertical: 10,
-    paddingHorizontal: 24,
-    borderRadius: 999,
-  },
-  firstFooterModalOkText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  firstFooterModalTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
-  },
-  firstFooterModalTitleText: {
-    color: '#604a3e',
-    fontSize: 18,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  firstFooterModalTitleIcon: {
-    width: 24,
-    height: 24,
-    marginLeft: 8,
-  },
-  firstFooterModalFeatureRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  firstFooterTapImage: {
-    width: 22,
-    height: 22,
-    marginTop: 1,
-  },
-  firstFooterInlineImage: {
-    width: 104,
-    height: 104,
-    marginTop: -24,
-    flexShrink: 0,
-  },
-  firstFooterInlineImageRow: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-  },
-  firstFooterCenteredTextRow: {
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  firstFooterCenteredText: {
-    color: '#604a3e',
-    fontSize: 14,
-    textAlign: 'center',
-    fontStyle: 'italic',
-    opacity: 0.88,
-    lineHeight: 19,
   },
   identityModal: {
     justifyContent: 'center',
