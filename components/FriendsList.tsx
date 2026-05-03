@@ -28,7 +28,7 @@ import {
 // Import supprimé : on utilise maintenant sync_contacts (fonction SQL Supabase)
 import i18n from '../lib/i18n';
 import { useProotAudio, type ChatMessageSoundChoice } from '../hooks/useProotAudio';
-import { getPickupKeys, getDisplaySoundLabel, getDefaultSoundCategoryForFirstLaunch } from '../lib/audioService';
+import { getPickupKeys, getDisplaySoundLabel, getDefaultSoundCategoryForFirstLaunch, stopCurrentPlayback } from '../lib/audioService';
 import {
   DIRECT_SEND_FALLBACK_CATEGORY,
   LOCAL_PLAYBACK_FALLBACK_KEY,
