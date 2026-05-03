@@ -5,6 +5,7 @@ import { FlashList } from '@shopify/flash-list';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import * as Haptics from 'expo-haptics';
+import { Audio } from 'expo-av';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, AppState, DeviceEventEmitter, Dimensions, FlatList, Keyboard, Linking, NativeModules, Platform, Animated as RNAnimated, ScrollView, Share, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
