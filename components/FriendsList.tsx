@@ -65,11 +65,16 @@ const CHAT_MODAL_TOP_SAFE_MARGIN = Platform.OS === 'ios' ? 96 : 84;
 const SWIPE_THRESHOLD = 150; // Seuil pour déclencher l'action
 const TAP_THRESHOLD = 12; // Distance max pour considérer un tap
 
-const PICKUP_TRLL_KEYS = getPickupKeys('trll');
-const PICKUP_BZZZ_KEYS = getPickupKeys('bzzz');
-const PICKUP_POP_KEYS = getPickupKeys('pop');
-const PICKUP_MOOD_KEYS = getPickupKeys('mood');
-const PICKUP_TOOT_KEYS = getPickupKeys('toot');
+/** Helper local pour initialiser les listes de sons par catégorie */
+const getPickupKeysLocal = (category: string) => {
+  return (SOUND_KEYS_BY_CATEGORY[category] || []).filter((key) => !!SOUND_ASSETS[key]);
+};
+
+const PICKUP_TRLL_KEYS = getPickupKeysLocal('trll');
+const PICKUP_BZZZ_KEYS = getPickupKeysLocal('bzzz');
+const PICKUP_POP_KEYS = getPickupKeysLocal('pop');
+const PICKUP_MOOD_KEYS = getPickupKeysLocal('mood');
+const PICKUP_TOOT_KEYS = getPickupKeysLocal('toot');
 const MAX_PICKUP_ROWS = Math.ceil(Math.max(PICKUP_TRLL_KEYS.length, PICKUP_BZZZ_KEYS.length, PICKUP_POP_KEYS.length, PICKUP_MOOD_KEYS.length, PICKUP_TOOT_KEYS.length) / 2);
 const CHAT_SPECIFIC_ROW_HEIGHT = 34;
 const CHAT_SPECIFIC_BOTTOM_GAP = 30;
