@@ -1625,13 +1625,13 @@ const handleSelectGlobalDefaultCategory = useCallback(async (category: SoundCate
 
 const handleLongPressSoundCategory = useCallback((friend: any) => {
   if (isModalTransitionActive()) return;
-  if (identityModalVisible || isFirstFriendlistOnboardingVisible || isFirstChatModalVisible) return;
+  if (identityModalVisible || isFirstChatModalVisible) return;
   markModalTransition();
   isClosingFriendSoundModalRef.current = false;
   setIsFriendSoundModalContentVisible(true);
   setFriendSoundModalFriend(friend);
   setFriendSoundModalVisible(true);
-}, [identityModalVisible, isFirstFriendlistOnboardingVisible, isModalTransitionActive, markModalTransition]);
+}, [identityModalVisible, isFirstChatModalVisible, isModalTransitionActive, markModalTransition]);
 
 const handleSelectFriendSpecificSoundKey = useCallback((soundKey: string) => {
   if (isClosingFriendSoundModalRef.current) return;
@@ -2757,7 +2757,7 @@ useEffect(() => {
 
   const handleLongPressName = useStableCallback(async (friend: any) => {
     if (isModalTransitionActive()) return;
-    if (friendSoundModalVisible || isFirstFriendlistOnboardingVisible) return;
+    if (friendSoundModalVisible) return;
     markModalTransition();
     let revealedName: string | null = null;
 
@@ -3026,7 +3026,7 @@ useEffect(() => {
 
   const handlePressFriend = useStableCallback((friend: any) => {
     if (isModalTransitionActive()) return;
-    if (identityModalVisible || isFirstFriendlistOnboardingVisible || isFirstChatModalVisible) return;
+    if (identityModalVisible || isFirstChatModalVisible) return;
 
     const now = Date.now();
     if (now - lastPressTime.current < 500) return;
