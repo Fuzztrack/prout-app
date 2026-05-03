@@ -66,6 +66,9 @@ import {
   type ReportableMessage,
 } from './FriendsListComponents/ChatMessages';
 import { ChatModal } from './FriendsListComponents/ChatModal';
+import { FriendSoundPickModal } from './FriendsListComponents/Modals/FriendSoundPickModal';
+import { ReportReasonModal } from './FriendsListComponents/Modals/ReportReasonModal';
+import { IdentityModal } from './FriendsListComponents/Modals/IdentityModal';
 
 const FIRST_FRIENDLIST_FOOTER_MODAL_KEY = 'first_friendlist_footer_modal_seen_v1';
 const FIRST_CHAT_MODAL_KEY = 'first_chat_modal_seen_v2';
@@ -3941,234 +3944,39 @@ useEffect(() => {
         </RNAnimated.View>
       )}
 
-      {/* Modal d'identité avec avatar en grand */}
-      <Modal
+      <FriendSoundPickModal
         isVisible={friendSoundModalVisible}
-        onBackdropPress={closeFriendSoundModal}
-        onBackButtonPress={closeFriendSoundModal}
-          onModalShow={() => {
-            setIsFriendSoundModalContentVisible(true);
-          }}
-        onModalHide={() => {
-          setIsFriendSoundModalContentVisible(false);
-        }}
-        style={styles.friendSoundModal}
-        backdropOpacity={FRIEND_SOUND_MODAL_BACKDROP_OPACITY}
-        animationIn="fadeIn"
-        animationOut="fadeOut"
-        animationOutTiming={ANDROID_MODAL_CLOSE_TIMING}
-        useNativeDriver={USE_NATIVE_MODAL_DRIVER}
-        useNativeDriverForBackdrop={USE_NATIVE_MODAL_DRIVER}
-        hideModalContentWhileAnimating
-        backdropTransitionOutTiming={1}
-      >
-        <View
-          style={[
-            styles.friendSoundModalCard,
-            styles.friendSoundModalCardExpanded,
-            { opacity: isFriendSoundModalContentVisible ? 1 : 0 },
-          ]}
-        >
-          <View style={styles.friendSoundPickTitleRow}>
-            <View style={styles.friendSoundPickTitleContent}>
-              <Image
-                source={CHAT_PROOTHAIL_THUMB}
-                style={styles.friendSoundPickTitleTail}
-                resizeMode="contain"
-              />
-              <Text style={styles.friendSoundPickTitleText}>{i18n.t('friend_sound_modal_pick_title')}</Text>
-            </View>
-            <TouchableOpacity
-              onPress={closeFriendSoundPickModal}
-              style={styles.friendSoundPickCloseButton}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Ionicons name="close" size={26} color="#604a3e" />
-            </TouchableOpacity>
-          </View>
-          <ScrollView
-                style={styles.friendSoundPickScroll}
-                contentContainerStyle={styles.friendSoundPickScrollContent}
-                showsVerticalScrollIndicator
-              >
-                <View style={styles.friendSoundPickColumns}>
-                  <View style={styles.friendSoundPickColumn}>
-                    {Platform.OS === 'android' && (
-                      <>
-                        <View style={styles.friendSoundPickHeaderCell}>
-                          <AnimatedCategoryHeaderImage
-                            source={TOOT_LOGO_IMAGE}
-                            style={[styles.friendSoundPickHeaderImage, TOOT_PICK_HEADER_SIZE]}
-                            isActive={previewingFriendSoundCategory === 'toot'}
-                          />
-                          <Text style={styles.friendSoundPickHeaderSubtitle}>
-                            {i18n.t(getChooseSoundCategorySubtitleKey('toot'))}
-                          </Text>
-                        </View>
-                        {PICKUP_TOOT_KEYS.map(renderFriendSoundPickItem)}
-                        <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
-                          <AnimatedCategoryHeaderImage
-                            source={require('../assets/images/buzz.png')}
-                            style={styles.friendSoundPickHeaderImage}
-                            isActive={previewingFriendSoundCategory === 'bzzz'}
-                          />
-                          <Text style={styles.friendSoundPickHeaderSubtitle}>
-                            {i18n.t(getChooseSoundCategorySubtitleKey('bzzz'))}
-                          </Text>
-                        </View>
-                        {PICKUP_BZZZ_KEYS.map(renderFriendSoundPickItem)}
-                      </>
-                    )}
-                    {Platform.OS !== 'android' && (
-                      <>
-                        <View style={styles.friendSoundPickHeaderCell}>
-                          <AnimatedCategoryHeaderImage
-                            source={require('../assets/images/mood.png')}
-                            style={[styles.friendSoundPickHeaderImage, MOOD_PICK_HEADER_SIZE]}
-                            isActive={previewingFriendSoundCategory === 'mood'}
-                          />
-                          <Text style={styles.friendSoundPickHeaderSubtitle}>
-                            {i18n.t(getChooseSoundCategorySubtitleKey('mood'))}
-                          </Text>
-                        </View>
-                        {PICKUP_MOOD_KEYS.map(renderFriendSoundPickItem)}
-                      </>
-                    )}
-                    {/* iOS : Tweet + Buzz sous Mood, en colonne 1 */}
-                    {Platform.OS === 'ios' && (
-                      <>
-                        <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
-                          <AnimatedCategoryHeaderImage
-                            source={require('../assets/images/tweet.png')}
-                            style={styles.friendSoundPickHeaderImage}
-                            isActive={previewingFriendSoundCategory === 'trll'}
-                          />
-                          <Text style={styles.friendSoundPickHeaderSubtitle}>
-                            {i18n.t(getChooseSoundCategorySubtitleKey('trll'))}
-                          </Text>
-                        </View>
-                        {PICKUP_TRLL_KEYS.map(renderFriendSoundPickItem)}
-                        <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
-                          <AnimatedCategoryHeaderImage
-                            source={require('../assets/images/buzz.png')}
-                            style={styles.friendSoundPickHeaderImage}
-                            isActive={previewingFriendSoundCategory === 'bzzz'}
-                          />
-                          <Text style={styles.friendSoundPickHeaderSubtitle}>
-                            {i18n.t(getChooseSoundCategorySubtitleKey('bzzz'))}
-                          </Text>
-                        </View>
-                        {PICKUP_BZZZ_KEYS.map(renderFriendSoundPickItem)}
-                      </>
-                    )}
-                  </View>
-                  <View style={styles.friendSoundPickColumn}>
-                    <View style={styles.friendSoundPickHeaderCell}>
-                      <AnimatedCategoryHeaderImage
-                        source={require('../assets/images/pop.png')}
-                        style={[styles.friendSoundPickHeaderImage, { width: 68, height: 29 }]}
-                        isActive={previewingFriendSoundCategory === 'pop'}
-                      />
-                      <Text style={styles.friendSoundPickHeaderSubtitle}>
-                        {i18n.t(getChooseSoundCategorySubtitleKey('pop'))}
-                      </Text>
-                    </View>
-                    {PICKUP_POP_KEYS.map(renderFriendSoundPickItem)}
-                    {Platform.OS === 'android' && (
-                      <>
-                        <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
-                          <AnimatedCategoryHeaderImage
-                            source={require('../assets/images/mood.png')}
-                            style={[styles.friendSoundPickHeaderImage, MOOD_PICK_HEADER_SIZE]}
-                            isActive={previewingFriendSoundCategory === 'mood'}
-                          />
-                          <Text style={styles.friendSoundPickHeaderSubtitle}>
-                            {i18n.t(getChooseSoundCategorySubtitleKey('mood'))}
-                          </Text>
-                        </View>
-                        {PICKUP_MOOD_KEYS.map(renderFriendSoundPickItem)}
-                    <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
-                      <AnimatedCategoryHeaderImage
-                        source={require('../assets/images/tweet.png')}
-                        style={styles.friendSoundPickHeaderImage}
-                        isActive={previewingFriendSoundCategory === 'trll'}
-                      />
-                      <Text style={styles.friendSoundPickHeaderSubtitle}>
-                        {i18n.t(getChooseSoundCategorySubtitleKey('trll'))}
-                      </Text>
-                    </View>
-                    {PICKUP_TRLL_KEYS.map(renderFriendSoundPickItem)}
-                      </>
-                    )}
-                    {Platform.OS !== 'android' && (
-                      <>
-                        <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
-                          <AnimatedCategoryHeaderImage
-                            source={TOOT_LOGO_IMAGE}
-                            style={[styles.friendSoundPickHeaderImage, TOOT_PICK_HEADER_SIZE]}
-                            isActive={previewingFriendSoundCategory === 'toot'}
-                          />
-                          <Text style={styles.friendSoundPickHeaderSubtitle}>
-                            {i18n.t(getChooseSoundCategorySubtitleKey('toot'))}
-                          </Text>
-                        </View>
-                        {PICKUP_TOOT_KEYS.map(renderFriendSoundPickItem)}
-                      </>
-                    )}
-                  </View>
-                </View>
-              </ScrollView>
-              {SHOW_DEFAULT_SOUND_CATEGORY_CURSOR && (
-              <View style={styles.pickDefaultCategorySection}>
-                <Text style={styles.pickDefaultCategoryTitle}>{i18n.t('default_sound_category_title')}</Text>
-                <View style={styles.pickDefaultCategoryGrid}>
-                  {DEFAULT_SOUND_OPTION_ROWS.map((row, rowIndex) => (
-                    <View
-                      key={`default-row-${rowIndex}`}
-                      style={[
-                        styles.pickDefaultCategoryTrack,
-                        rowIndex > 0 && styles.pickDefaultCategoryTrackSecondRow,
-                      ]}
-                    >
-                      {row.map((option) => (
-                        <TouchableOpacity
-                          key={option.category}
-                          style={[
-                            styles.pickDefaultCategoryStep,
-                            rowIndex > 0 && styles.pickDefaultCategoryStepSecondRow,
-                            option.category === globalDefaultCategory && styles.pickDefaultCategoryStepActive,
-                          ]}
-                          onPress={() => handleSelectGlobalDefaultCategory(option.category)}
-                          activeOpacity={0.85}
-                        >
-                          {/* Zone fixe : évite que le cadre actif / la taille proot redimensionne la cellule */}
-                          <View style={styles.pickDefaultCategoryIconWrap}>
-                            <Image
-                              source={option.image}
-                              style={[
-                                styles.pickDefaultCategoryIcon,
-                                option.category === 'mood' && MOOD_DEFAULT_CATEGORY_CURSOR_SIZE,
-                                option.category === 'pop' && { width: 62, height: 24 },
-                                option.category === 'trll' && { width: 90, height: 34 },
-                                option.category === 'toot' && TOOT_CURSOR_ICON_SIZE,
-                              ]}
-                              resizeMode="contain"
-                            />
-                          </View>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  ))}
-                </View>
-              </View>
-              )}
-        </View>
-      </Modal>
+        onClose={closeFriendSoundPickModal}
+        onModalShow={() => setIsFriendSoundModalContentVisible(true)}
+        onModalHide={() => setIsFriendSoundModalContentVisible(false)}
+        isContentVisible={isFriendSoundModalContentVisible}
+        friend={friendSoundModalFriend}
+        friendSoundKeyByFriend={friendSoundKeyByFriend}
+        previewingFriendSoundKey={previewingFriendSoundKey}
+        onPreviewSound={handlePreviewFriendSpecificSoundKey}
+        onSelectSound={handleSelectFriendSpecificSoundKey}
+        getDisplaySoundLabel={getDisplaySoundLabel}
+        getChooseSoundCategorySubtitleKey={getChooseSoundCategorySubtitleKey}
+        globalDefaultCategory={globalDefaultCategory}
+        onSelectGlobalDefaultCategory={handleSelectGlobalDefaultCategory}
+        CHAT_PROOTHAIL_THUMB={CHAT_PROOTHAIL_THUMB}
+        TOOT_LOGO_IMAGE={TOOT_LOGO_IMAGE}
+        TOOT_PICK_HEADER_SIZE={TOOT_PICK_HEADER_SIZE}
+        MOOD_PICK_HEADER_SIZE={MOOD_PICK_HEADER_SIZE}
+        SHOW_DEFAULT_SOUND_CATEGORY_CURSOR={SHOW_DEFAULT_SOUND_CATEGORY_CURSOR}
+        DEFAULT_SOUND_OPTION_ROWS={DEFAULT_SOUND_OPTION_ROWS}
+        MOOD_DEFAULT_CATEGORY_CURSOR_SIZE={MOOD_DEFAULT_CATEGORY_CURSOR_SIZE}
+        TOOT_CURSOR_ICON_SIZE={TOOT_CURSOR_ICON_SIZE}
+        PICKUP_TOOT_KEYS={PICKUP_TOOT_KEYS}
+        PICKUP_MOOD_KEYS={PICKUP_MOOD_KEYS}
+        PICKUP_POP_KEYS={PICKUP_POP_KEYS}
+        PICKUP_TRLL_KEYS={PICKUP_TRLL_KEYS}
+        PICKUP_BZZZ_KEYS={PICKUP_BZZZ_KEYS}
+      />
 
-      <Modal
+      <ReportReasonModal
         isVisible={reportReasonModalVisible}
-        onBackdropPress={closeReportReasonModal}
-        onBackButtonPress={closeReportReasonModal}
+        onClose={closeReportReasonModal}
         onModalShow={() => {
           if (reportReasonModalEnableTimeoutRef.current) {
             clearTimeout(reportReasonModalEnableTimeoutRef.current);
@@ -4178,142 +3986,18 @@ useEffect(() => {
             reportReasonModalEnableTimeoutRef.current = null;
           }, 350);
         }}
-        style={styles.reportReasonModal}
-        backdropOpacity={0.4}
-        animationIn="fadeIn"
-        animationOut="fadeOut"
-        useNativeDriver={USE_NATIVE_MODAL_DRIVER}
-        useNativeDriverForBackdrop={USE_NATIVE_MODAL_DRIVER}
-      >
-        <View style={styles.reportReasonCard}>
-          <Text style={styles.reportReasonTitle}>{i18n.t('report_message_title')}</Text>
-          <Text style={styles.reportReasonSubtitle}>{i18n.t('report_message_reason_prompt')}</Text>
-          {([
-            ['spam', i18n.t('report_reason_spam')],
-            ['harassment', i18n.t('report_reason_harassment')],
-            ['hate_speech', i18n.t('report_reason_hate_speech')],
-            ['explicit_content', i18n.t('report_reason_explicit_content')],
-            ['other', i18n.t('report_reason_other')],
-          ] as Array<[ReportReason, string]>).map(([reason, label]) => (
-            <TouchableOpacity
-              key={reason}
-              style={[
-                styles.reportReasonOption,
-                !reportReasonModalReady && styles.reportReasonOptionDisabled,
-              ]}
-              onPress={() => handleAndroidReportReason(reason)}
-              disabled={!reportReasonModalReady}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.reportReasonOptionText}>{label}</Text>
-            </TouchableOpacity>
-          ))}
-          <TouchableOpacity
-            style={styles.reportReasonCancel}
-            onPress={closeReportReasonModal}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.reportReasonCancelText}>{i18n.t('cancel')}</Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
+        isReady={reportReasonModalReady}
+        onSelectReason={handleAndroidReportReason}
+      />
 
-      <Modal
+      <IdentityModal
         isVisible={identityModalVisible}
-        onBackdropPress={closeIdentityModal}
-        onBackButtonPress={closeIdentityModal}
-        style={styles.identityModal}
-        backdropOpacity={0.5}
-        animationIn="fadeIn"
-        animationOut="fadeOut"
-        animationOutTiming={ANDROID_MODAL_CLOSE_TIMING}
-        useNativeDriver={USE_NATIVE_MODAL_DRIVER}
-        useNativeDriverForBackdrop={USE_NATIVE_MODAL_DRIVER}
-        hideModalContentWhileAnimating
-        backdropTransitionOutTiming={1}
-      >
-        <View style={styles.identityModalContent}>
-          {identityModalFriend && (
-            <>
-              {/* Avatar en grand */}
-              <View style={styles.identityAvatarContainer}>
-                {identityModalFriend.avatar_url ? (
-                  <Image 
-                    source={{ uri: identityModalFriend.avatar_url }} 
-                    style={styles.identityAvatar} 
-                  />
-                ) : (
-                  <View style={styles.identityAvatarPlaceholder}>
-                    <Text style={styles.identityAvatarPlaceholderText}>
-                      {identityModalFriend.pseudo ? identityModalFriend.pseudo.charAt(0).toUpperCase() : '?'}
-                    </Text>
-                  </View>
-                )}
-              </View>
-
-              {/* Vrai nom connu */}
-              {identityModalName && (
-                <View style={styles.identityNameContainer}>
-                  <Text style={styles.identityNameValue}>✨ {identityModalName}</Text>
-                </View>
-              )}
-
-              {/* Demande d'identité si le nom n'est pas connu */}
-              {!identityModalName && (
-                <View style={styles.identityRequestContainer}>
-                  <Text style={styles.identityRequestTitle}>
-                    {identityModalFriend.isPending 
-                      ? i18n.t('already_asked_identity_title')
-                      : i18n.t('ask_identity_title')}
-                  </Text>
-                  <Text style={styles.identityRequestBody}>
-                    {identityModalFriend.isPending
-                      ? i18n.t('already_asked_identity_body', { pseudo: identityModalFriend.pseudo })
-                      : i18n.t('ask_identity_body', { pseudo: identityModalFriend.pseudo })}
-                  </Text>
-                  <View style={styles.identityRequestButtons}>
-                    <TouchableOpacity
-                      style={[styles.identityRequestButton, styles.identityRequestButtonCancel]}
-                      onPress={closeIdentityModal}
-                    >
-                      <Text style={styles.identityRequestButtonTextCancel}>
-                        {i18n.t('cancel')}
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.identityRequestButton, styles.identityRequestButtonAsk]}
-                      onPress={() => {
-                        closeIdentityModal();
-                        if (identityModalFriend.isPending) {
-                          requestIdentityReveal(identityModalFriend, { force: true });
-                        } else {
-                          requestIdentityReveal(identityModalFriend);
-                        }
-                      }}
-                    >
-                      <Text style={styles.identityRequestButtonTextAsk}>
-                        {identityModalFriend.isPending 
-                          ? i18n.t('relaunch_btn')
-                          : i18n.t('ask_btn')}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
-
-              {/* Bouton fermer si le nom est connu */}
-              {identityModalName && (
-                <TouchableOpacity
-                  style={styles.identityCloseButton}
-                  onPress={closeIdentityModal}
-                >
-                  <Text style={styles.identityCloseButtonText}>{i18n.t('ok') || 'OK'}</Text>
-                </TouchableOpacity>
-              )}
-            </>
-          )}
-        </View>
-      </Modal>
+        onClose={closeIdentityModal}
+        friend={identityModalFriend}
+        friendName={identityModalName}
+        onModalShow={() => {}}
+        onModalHide={() => {}}
+      />
     </View>
   );
 
@@ -4802,279 +4486,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     margin: 0,
-  },
-  friendSoundModal: {
-    justifyContent: 'center',
-    margin: 0,
-    paddingTop: Platform.OS === 'android' ? 20 : 0,
-  },
-  identityModalContent: {
-    backgroundColor: '#ebb89b',
-    borderRadius: 20,
-    padding: 30,
-    alignItems: 'center',
-    width: '85%',
-    maxWidth: 400,
-  },
-  friendSoundModalCard: {
-    backgroundColor: '#ebb89b',
-    borderRadius: 0,
-    width: '100%',
-    alignSelf: 'center',
-    paddingHorizontal: 18,
-    paddingTop: Platform.OS === 'ios' ? 54 : 26,
-    paddingBottom: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(96, 74, 62, 0.12)',
-    maxHeight: Platform.OS === 'android' ? SCREEN_HEIGHT - 20 : SCREEN_HEIGHT,
-  },
-  friendSoundModalCardExpanded: {
-    minHeight: Platform.OS === 'android' ? SCREEN_HEIGHT - 20 : SCREEN_HEIGHT,
-  },
-  friendSoundPickModalCard: {
-    backgroundColor: '#ebb89b',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(96, 74, 62, 0.12)',
-    maxHeight: '80%',
-  },
-  friendSoundPickModalTitle: {
-    color: '#604a3e',
-    fontSize: 16,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  friendSoundPickHeaderCell: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  friendSoundPickHeaderSubtitle: {
-    color: '#604a3e',
-    fontSize: 11,
-    fontStyle: 'italic',
-    textAlign: 'center',
-    marginTop: 1,
-    marginBottom: 0,
-  },
-  friendSoundPickHeaderImage: {
-    width: 92,
-    height: 40,
-  },
-  friendSoundPickScroll: {
-    flex: 1,
-    marginBottom: 10,
-  },
-  friendSoundPickScrollContent: {
-    paddingBottom: 2,
-  },
-  friendSoundPickTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  friendSoundPickTitleContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingLeft: 28,
-  },
-  friendSoundPickTitleTail: {
-    width: 54,
-    height: 34,
-    marginRight: -2,
-  },
-  friendSoundPickTitleText: {
-    color: '#604a3e',
-    fontSize: 16,
-    fontWeight: '700',
-    fontStyle: 'italic',
-    letterSpacing: 0.3,
-  },
-  friendSoundPickCloseButton: {
-    width: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 8,
-  },
-  friendSoundPickSoundcheckLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-    backgroundColor: 'rgba(96, 74, 62, 0.08)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  friendSoundPickSoundcheckText: {
-    color: '#604a3e',
-    fontSize: 13,
-    fontStyle: 'italic',
-    textAlign: 'center',
-    marginRight: 6,
-  },
-  friendSoundPickSoundcheckImage: {
-    width: 120,
-    height: 24,
-  },
-  friendSoundPickColumns: {
-    flexDirection: 'row',
-    gap: 12,
-    width: '100%',
-  },
-  friendSoundPickColumn: {
-    flex: 1,
-  },
-  friendSoundPickItemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  friendSoundPickPlayButton: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.4)',
-  },
-  friendSoundPickPlayButtonActive: {
-    backgroundColor: 'rgba(162, 228, 212, 0.9)',
-  },
-  friendSoundPickPlayIcon: {
-    marginLeft: 1,
-  },
-  friendSoundPickItemButton: {
-    flex: 1,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    backgroundColor: 'rgba(255,255,255,0.55)',
-  },
-  friendSoundPickItemButtonActive: {
-    backgroundColor: 'rgba(162, 228, 212, 0.72)',
-    borderColor: 'rgba(96, 74, 62, 0.45)',
-  },
-  friendSoundPickItemText: {
-    color: '#604a3e',
-    fontSize: 13,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  pickDefaultCategorySection: {
-    paddingHorizontal: 4,
-    paddingTop: 6,
-    paddingBottom: 6,
-  },
-  pickDefaultCategoryTitle: {
-    color: '#604a3e',
-    fontSize: 13,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: 6,
-  },
-  pickDefaultCategoryGrid: {
-    width: '100%',
-    borderWidth: 1,
-    borderColor: 'rgba(96, 74, 62, 0.18)',
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.32)',
-    overflow: 'hidden',
-  },
-  pickDefaultCategoryTrack: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    minHeight: 54,
-  },
-  pickDefaultCategoryTrackSecondRow: {
-    justifyContent: 'center',
-  },
-  pickDefaultCategoryStep: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    borderRadius: 10,
-  },
-  pickDefaultCategoryStepActive: {
-    backgroundColor: 'rgba(162, 228, 212, 0.72)',
-    borderColor: 'rgba(96, 74, 62, 0.45)',
-  },
-  pickDefaultCategoryIconWrap: {
-    width: 90,
-    height: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pickDefaultCategoryStepSecondRow: {
-    flex: 0,
-    marginHorizontal: 12,
-  },
-  pickDefaultCategoryIcon: {
-    width: 80,
-    height: 30,
-  },
-  reportReasonModal: {
-    justifyContent: 'center',
-    margin: 0,
-    paddingHorizontal: 20,
-  },
-  reportReasonCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 18,
-  },
-  reportReasonTitle: {
-    color: '#604a3e',
-    fontSize: 18,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  reportReasonSubtitle: {
-    color: '#604a3e',
-    fontSize: 14,
-    textAlign: 'center',
-    opacity: 0.8,
-    marginTop: 6,
-    marginBottom: 14,
-  },
-  reportReasonOption: {
-    backgroundColor: '#d2f1ef',
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    marginBottom: 8,
-  },
-  reportReasonOptionDisabled: {
-    opacity: 0.55,
-  },
-  reportReasonOptionText: {
-    color: '#604a3e',
-    fontSize: 15,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  reportReasonCancel: {
-    marginTop: 6,
-    alignSelf: 'center',
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-  },
-  reportReasonCancelText: {
-    color: '#604a3e',
-    fontSize: 15,
-    fontWeight: '700',
   },
 });
