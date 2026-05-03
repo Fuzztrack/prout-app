@@ -602,6 +602,28 @@ export function FriendsList({
     getDefaultSoundCategoryForFirstLaunch()
   );
   const [isFirstChatModalVisible, setIsFirstChatModalVisible] = useState(false);
+  const [firstFriendlistOnboardingStep, setFirstFriendlistOnboardingStep] = useState<'footer' | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (appUsers.length < 1) return;
+      let cancelled = false;
+      (async () => {
+        try {
+          const seenFooter = await AsyncStorage.getItem('first_friendlist_footer_modal_seen_v1');
+          if (cancelled) return;
+          if (!seenFooter) {
+            setFirstFriendlistOnboardingStep('footer');
+          }
+        } catch {
+          // Si AsyncStorage échoue, on évite de spammer une modale
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [appUsers.length])
+  );
   
   // 1. Chargement instantané du cache local (Mémoire de 30 jours)
   useEffect(() => {
