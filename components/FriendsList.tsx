@@ -1759,14 +1759,14 @@ const renderFriendSoundPickItem = useCallback((soundKey: string) => {
   const isPreviewing = previewingFriendSoundKey === soundKey;
   return (
     <View key={soundKey} style={styles.friendSoundPickItemRow}>
-      <TouchableOpacity
-        style={[
+      <Pressable
+        style={({ pressed }) => [
           styles.friendSoundPickPlayButton,
           isPreviewing && styles.friendSoundPickPlayButtonActive,
+          pressed && { opacity: 0.7 }
         ]}
         onPress={() => handlePreviewFriendSpecificSoundKey(soundKey)}
-        activeOpacity={0.85}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
       >
         <Ionicons
           name="play"
@@ -1774,7 +1774,7 @@ const renderFriendSoundPickItem = useCallback((soundKey: string) => {
           color={isPreviewing ? '#1a1a1a' : '#604a3e'}
           style={styles.friendSoundPickPlayIcon}
         />
-      </TouchableOpacity>
+      </Pressable>
       <Pressable
         style={({ pressed }) => [
           styles.friendSoundPickItemButton,
@@ -4802,5 +4802,279 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     margin: 0,
+  },
+  friendSoundModal: {
+    justifyContent: 'center',
+    margin: 0,
+    paddingTop: Platform.OS === 'android' ? 20 : 0,
+  },
+  identityModalContent: {
+    backgroundColor: '#ebb89b',
+    borderRadius: 20,
+    padding: 30,
+    alignItems: 'center',
+    width: '85%',
+    maxWidth: 400,
+  },
+  friendSoundModalCard: {
+    backgroundColor: '#ebb89b',
+    borderRadius: 0,
+    width: '100%',
+    alignSelf: 'center',
+    paddingHorizontal: 18,
+    paddingTop: Platform.OS === 'ios' ? 54 : 26,
+    paddingBottom: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(96, 74, 62, 0.12)',
+    maxHeight: Platform.OS === 'android' ? SCREEN_HEIGHT - 20 : SCREEN_HEIGHT,
+  },
+  friendSoundModalCardExpanded: {
+    minHeight: Platform.OS === 'android' ? SCREEN_HEIGHT - 20 : SCREEN_HEIGHT,
+  },
+  friendSoundPickModalCard: {
+    backgroundColor: '#ebb89b',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(96, 74, 62, 0.12)',
+    maxHeight: '80%',
+  },
+  friendSoundPickModalTitle: {
+    color: '#604a3e',
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  friendSoundPickHeaderCell: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  friendSoundPickHeaderSubtitle: {
+    color: '#604a3e',
+    fontSize: 11,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginTop: 1,
+    marginBottom: 0,
+  },
+  friendSoundPickHeaderImage: {
+    width: 92,
+    height: 40,
+  },
+  friendSoundPickScroll: {
+    flex: 1,
+    marginBottom: 10,
+  },
+  friendSoundPickScrollContent: {
+    paddingBottom: 2,
+  },
+  friendSoundPickTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  friendSoundPickTitleContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+    paddingLeft: 28,
+  },
+  friendSoundPickTitleTail: {
+    width: 54,
+    height: 34,
+    marginRight: -2,
+  },
+  friendSoundPickTitleText: {
+    color: '#604a3e',
+    fontSize: 16,
+    fontWeight: '700',
+    fontStyle: 'italic',
+    letterSpacing: 0.3,
+  },
+  friendSoundPickCloseButton: {
+    width: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  friendSoundPickSoundcheckLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    backgroundColor: 'rgba(96, 74, 62, 0.08)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  friendSoundPickSoundcheckText: {
+    color: '#604a3e',
+    fontSize: 13,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginRight: 6,
+  },
+  friendSoundPickSoundcheckImage: {
+    width: 120,
+    height: 24,
+  },
+  friendSoundPickColumns: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  friendSoundPickColumn: {
+    flex: 1,
+  },
+  friendSoundPickItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  friendSoundPickPlayButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.4)',
+  },
+  friendSoundPickPlayButtonActive: {
+    backgroundColor: 'rgba(162, 228, 212, 0.9)',
+  },
+  friendSoundPickPlayIcon: {
+    marginLeft: 1,
+  },
+  friendSoundPickItemButton: {
+    flex: 1,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    backgroundColor: 'rgba(255,255,255,0.55)',
+  },
+  friendSoundPickItemButtonActive: {
+    backgroundColor: 'rgba(162, 228, 212, 0.72)',
+    borderColor: 'rgba(96, 74, 62, 0.45)',
+  },
+  friendSoundPickItemText: {
+    color: '#604a3e',
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  pickDefaultCategorySection: {
+    paddingHorizontal: 4,
+    paddingTop: 6,
+    paddingBottom: 6,
+  },
+  pickDefaultCategoryTitle: {
+    color: '#604a3e',
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  pickDefaultCategoryGrid: {
+    width: '100%',
+    borderWidth: 1,
+    borderColor: 'rgba(96, 74, 62, 0.18)',
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.32)',
+    overflow: 'hidden',
+  },
+  pickDefaultCategoryTrack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 54,
+  },
+  pickDefaultCategoryTrackSecondRow: {
+    justifyContent: 'center',
+  },
+  pickDefaultCategoryStep: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    borderRadius: 10,
+  },
+  pickDefaultCategoryStepActive: {
+    backgroundColor: 'rgba(162, 228, 212, 0.72)',
+    borderColor: 'rgba(96, 74, 62, 0.45)',
+  },
+  pickDefaultCategoryIconWrap: {
+    width: 90,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pickDefaultCategoryStepSecondRow: {
+    flex: 0,
+    marginHorizontal: 12,
+  },
+  pickDefaultCategoryIcon: {
+    width: 80,
+    height: 30,
+  },
+  reportReasonModal: {
+    justifyContent: 'center',
+    margin: 0,
+    paddingHorizontal: 20,
+  },
+  reportReasonCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 18,
+  },
+  reportReasonTitle: {
+    color: '#604a3e',
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  reportReasonSubtitle: {
+    color: '#604a3e',
+    fontSize: 14,
+    textAlign: 'center',
+    opacity: 0.8,
+    marginTop: 6,
+    marginBottom: 14,
+  },
+  reportReasonOption: {
+    backgroundColor: '#d2f1ef',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 8,
+  },
+  reportReasonOptionDisabled: {
+    opacity: 0.55,
+  },
+  reportReasonOptionText: {
+    color: '#604a3e',
+    fontSize: 15,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  reportReasonCancel: {
+    marginTop: 6,
+    alignSelf: 'center',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+  },
+  reportReasonCancelText: {
+    color: '#604a3e',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });
