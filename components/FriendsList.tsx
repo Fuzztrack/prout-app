@@ -1,34 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { FlashList } from '@shopify/flash-list';
 // Force git update 2
 import AsyncStorage from '@react-native-async-storage/async-storage';
-// import { useAudioPlayer } from 'expo-audio'; // Supprimé
-import { Audio } from 'expo-av';
-import * as Contacts from 'expo-contacts';
 import * as Notifications from 'expo-notifications';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, DeviceEventEmitter, Dimensions, FlatList, Image, Keyboard, Linking, NativeModules, Platform, Animated as RNAnimated, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
-import { Gesture, GestureDetector, TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
-import Modal from 'react-native-modal';
+import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, AppState, DeviceEventEmitter, Dimensions, FlatList, Keyboard, Linking, NativeModules, Platform, Animated as RNAnimated, ScrollView, Share, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, {
-  cancelAnimation,
-  Extrapolation,
-  interpolate,
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withDelay,
-  withRepeat,
-  withSequence,
-  withSpring,
-  withTiming
-} from 'react-native-reanimated';
 import { SwipeableFriendRow, SwipeableFriendRowHandle } from './FriendsListComponents/SwipeableFriendRow';
-import { AnimatedCategoryHeaderImage } from './FriendsListComponents/AnimatedCategoryHeaderImage';
 import { useAppStore } from '../lib/store';
 import { useFriends, usePendingMessages, usePendingSentMessages, useBlockedUsers } from '../hooks/useFriends';
 import { usePendingRequests, useIdentityRequests } from '../hooks/useRequests';
@@ -46,7 +27,7 @@ import {
 // Import supprimé : on utilise maintenant sync_contacts (fonction SQL Supabase)
 import i18n from '../lib/i18n';
 import { useProotAudio, type ChatMessageSoundChoice } from '../hooks/useProotAudio';
-import { getDisplaySoundLabel, stopCurrentPlayback, getPickupKeys, pickRandom, pickRandomWithoutImmediateRepeat, getDefaultSoundCategoryForFirstLaunch, getSelectedSoundCategory } from '../lib/audioService';
+import { getPickupKeys, getDisplaySoundLabel, getDefaultSoundCategoryForFirstLaunch } from '../lib/audioService';
 import {
   DIRECT_SEND_FALLBACK_CATEGORY,
   LOCAL_PLAYBACK_FALLBACK_KEY,
@@ -58,12 +39,10 @@ import { safePush } from '../lib/navigation';
 import { SearchBar } from './SearchBar';
 import { SOUND_CATEGORY_KEY, type SoundCategory } from './SoundcheckSelector';
 import ProotSilenceChallenge from './ProotSilenceChallenge';
-import {
-  SentMessageStatus,
-  ReceivedMessageFade,
-  parseMessageContent,
-  stripReadPrefix,
-  type ReportableMessage,
+import { 
+  parseMessageContent, 
+  stripReadPrefix, 
+  type ReportableMessage 
 } from './FriendsListComponents/ChatMessages';
 import { ChatModal } from './FriendsListComponents/ChatModal';
 import { FriendSoundPickModal } from './FriendsListComponents/Modals/FriendSoundPickModal';
