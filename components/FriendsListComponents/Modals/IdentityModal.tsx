@@ -39,11 +39,14 @@ export const IdentityModal = ({
       onModalShow={onModalShow}
       onModalHide={onModalHide}
       style={styles.identityModal}
-      backdropOpacity={0.85}
-      animationIn="zoomIn"
-      animationOut="zoomOut"
+      backdropOpacity={0.5}
+      animationIn="fadeIn"
+      animationOut="fadeOut"
+      animationOutTiming={250}
       useNativeDriver={USE_NATIVE_MODAL_DRIVER}
       useNativeDriverForBackdrop={USE_NATIVE_MODAL_DRIVER}
+      hideModalContentWhileAnimating
+      backdropTransitionOutTiming={1}
     >
       <View style={styles.identityModalContent}>
         {friend && (
@@ -56,9 +59,9 @@ export const IdentityModal = ({
                   style={styles.identityAvatar}
                 />
               ) : (
-                <View style={[styles.identityAvatarContainer, styles.identityAvatarPlaceholder]}>
+                <View style={styles.identityAvatarPlaceholder}>
                   <Text style={styles.identityAvatarPlaceholderText}>
-                    {(friend.pseudo || '?').charAt(0).toUpperCase()}
+                    {friend.pseudo ? friend.pseudo.charAt(0).toUpperCase() : '?'}
                   </Text>
                 </View>
               )}
