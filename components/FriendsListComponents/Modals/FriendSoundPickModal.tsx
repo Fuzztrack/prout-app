@@ -183,76 +183,34 @@ export const FriendSoundPickModal = ({
         >
           <View style={styles.friendSoundPickColumns}>
             <View style={styles.friendSoundPickColumn}>
-              {Platform.OS === 'android' && (
-                <>
-                  <View style={styles.friendSoundPickHeaderCell}>
-                    <AnimatedCategoryHeaderImage
-                      source={TOOT_LOGO_IMAGE}
-                      style={[styles.friendSoundPickHeaderImage, TOOT_PICK_HEADER_SIZE]}
-                      isActive={previewingFriendSoundCategory === 'toot'}
-                    />
-                    <Text style={styles.friendSoundPickHeaderSubtitle}>
-                      {i18n.t(getChooseSoundCategorySubtitleKey('toot'))}
-                    </Text>
-                  </View>
-                  {PICKUP_TOOT_KEYS.map(renderFriendSoundPickItem)}
-                  <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
-                    <AnimatedCategoryHeaderImage
-                      source={require('@/assets/images/buzz.png')}
-                      style={styles.friendSoundPickHeaderImage}
-                      isActive={previewingFriendSoundCategory === 'bzzz'}
-                    />
-                    <Text style={styles.friendSoundPickHeaderSubtitle}>
-                      {i18n.t(getChooseSoundCategorySubtitleKey('bzzz'))}
-                    </Text>
-                  </View>
-                  {PICKUP_BZZZ_KEYS.map(renderFriendSoundPickItem)}
-                </>
-              )}
-              {Platform.OS !== 'android' && (
-                <>
-                  <View style={styles.friendSoundPickHeaderCell}>
-                    <AnimatedCategoryHeaderImage
-                      source={require('@/assets/images/mood.png')}
-                      style={[styles.friendSoundPickHeaderImage, MOOD_PICK_HEADER_SIZE]}
-                      isActive={previewingFriendSoundCategory === 'mood'}
-                    />
-                    <Text style={styles.friendSoundPickHeaderSubtitle}>
-                      {i18n.t(getChooseSoundCategorySubtitleKey('mood'))}
-                    </Text>
-                  </View>
-                  {PICKUP_MOOD_KEYS.map(renderFriendSoundPickItem)}
-                </>
-              )}
-              {/* iOS : Tweet + Buzz sous Mood, en colonne 1 */}
-              {Platform.OS === 'ios' && (
-                <>
-                  <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
-                    <AnimatedCategoryHeaderImage
-                      source={require('@/assets/images/tweet.png')}
-                      style={styles.friendSoundPickHeaderImage}
-                      isActive={previewingFriendSoundCategory === 'trll'}
-                    />
-                    <Text style={styles.friendSoundPickHeaderSubtitle}>
-                      {i18n.t(getChooseSoundCategorySubtitleKey('trll'))}
-                    </Text>
-                  </View>
-                  {PICKUP_TRLL_KEYS.map(renderFriendSoundPickItem)}
-                  <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
-                    <AnimatedCategoryHeaderImage
-                      source={require('@/assets/images/buzz.png')}
-                      style={styles.friendSoundPickHeaderImage}
-                      isActive={previewingFriendSoundCategory === 'bzzz'}
-                    />
-                    <Text style={styles.friendSoundPickHeaderSubtitle}>
-                      {i18n.t(getChooseSoundCategorySubtitleKey('bzzz'))}
-                    </Text>
-                  </View>
-                  {PICKUP_BZZZ_KEYS.map(renderFriendSoundPickItem)}
-                </>
-              )}
+              {/* Colonne 1 : Toot, Buzz */}
+              <View style={styles.friendSoundPickHeaderCell}>
+                <AnimatedCategoryHeaderImage
+                  source={TOOT_LOGO_IMAGE}
+                  style={[styles.friendSoundPickHeaderImage, TOOT_PICK_HEADER_SIZE]}
+                  isActive={previewingFriendSoundCategory === 'toot'}
+                />
+                <Text style={styles.friendSoundPickHeaderSubtitle}>
+                  {i18n.t(getChooseSoundCategorySubtitleKey('toot'))}
+                </Text>
+              </View>
+              {PICKUP_TOOT_KEYS.map(renderFriendSoundPickItem)}
+
+              <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
+                <AnimatedCategoryHeaderImage
+                  source={require('@/assets/images/buzz.png')}
+                  style={styles.friendSoundPickHeaderImage}
+                  isActive={previewingFriendSoundCategory === 'bzzz'}
+                />
+                <Text style={styles.friendSoundPickHeaderSubtitle}>
+                  {i18n.t(getChooseSoundCategorySubtitleKey('bzzz'))}
+                </Text>
+              </View>
+              {PICKUP_BZZZ_KEYS.map(renderFriendSoundPickItem)}
             </View>
+
             <View style={styles.friendSoundPickColumn}>
+              {/* Colonne 2 : Pop, Mood, Trll */}
               <View style={styles.friendSoundPickHeaderCell}>
                 <AnimatedCategoryHeaderImage
                   source={require('@/assets/images/pop.png')}
@@ -264,47 +222,30 @@ export const FriendSoundPickModal = ({
                 </Text>
               </View>
               {PICKUP_POP_KEYS.map(renderFriendSoundPickItem)}
-              {Platform.OS === 'android' && (
-                <>
-                  <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
-                    <AnimatedCategoryHeaderImage
-                      source={require('@/assets/images/mood.png')}
-                      style={[styles.friendSoundPickHeaderImage, MOOD_PICK_HEADER_SIZE]}
-                      isActive={previewingFriendSoundCategory === 'mood'}
-                    />
-                    <Text style={styles.friendSoundPickHeaderSubtitle}>
-                      {i18n.t(getChooseSoundCategorySubtitleKey('mood'))}
-                    </Text>
-                  </View>
-                  {PICKUP_MOOD_KEYS.map(renderFriendSoundPickItem)}
-                  <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
-                    <AnimatedCategoryHeaderImage
-                      source={require('@/assets/images/tweet.png')}
-                      style={styles.friendSoundPickHeaderImage}
-                      isActive={previewingFriendSoundCategory === 'trll'}
-                    />
-                    <Text style={styles.friendSoundPickHeaderSubtitle}>
-                      {i18n.t(getChooseSoundCategorySubtitleKey('trll'))}
-                    </Text>
-                  </View>
-                  {PICKUP_TRLL_KEYS.map(renderFriendSoundPickItem)}
-                </>
-              )}
-              {Platform.OS !== 'android' && (
-                <>
-                  <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
-                    <AnimatedCategoryHeaderImage
-                      source={TOOT_LOGO_IMAGE}
-                      style={[styles.friendSoundPickHeaderImage, TOOT_PICK_HEADER_SIZE]}
-                      isActive={previewingFriendSoundCategory === 'toot'}
-                    />
-                    <Text style={styles.friendSoundPickHeaderSubtitle}>
-                      {i18n.t(getChooseSoundCategorySubtitleKey('toot'))}
-                    </Text>
-                  </View>
-                  {PICKUP_TOOT_KEYS.map(renderFriendSoundPickItem)}
-                </>
-              )}
+
+              <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
+                <AnimatedCategoryHeaderImage
+                  source={require('@/assets/images/mood.png')}
+                  style={[styles.friendSoundPickHeaderImage, MOOD_PICK_HEADER_SIZE]}
+                  isActive={previewingFriendSoundCategory === 'mood'}
+                />
+                <Text style={styles.friendSoundPickHeaderSubtitle}>
+                  {i18n.t(getChooseSoundCategorySubtitleKey('mood'))}
+                </Text>
+              </View>
+              {PICKUP_MOOD_KEYS.map(renderFriendSoundPickItem)}
+
+              <View style={[styles.friendSoundPickHeaderCell, { marginTop: 12 }]}>
+                <AnimatedCategoryHeaderImage
+                  source={require('@/assets/images/tweet.png')}
+                  style={styles.friendSoundPickHeaderImage}
+                  isActive={previewingFriendSoundCategory === 'trll'}
+                />
+                <Text style={styles.friendSoundPickHeaderSubtitle}>
+                  {i18n.t(getChooseSoundCategorySubtitleKey('trll'))}
+                </Text>
+              </View>
+              {PICKUP_TRLL_KEYS.map(renderFriendSoundPickItem)}
             </View>
           </View>
         </ScrollView>
