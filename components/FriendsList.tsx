@@ -3569,11 +3569,13 @@ useEffect(() => {
             </View>
           </TouchableWithoutFeedback>
         </View>
-      </View>
+        </View>
 
-      <FlashList
+        {/* @ts-expect-error - FlashList types might be incomplete but estimatedItemSize is required for performance */}
+        <FlashList
         ref={flatListRef}
         data={filteredUsers}
+        estimatedItemSize={70}
         extraData={{
           unreadMessagesMap,
           unreadCache,
@@ -3581,8 +3583,7 @@ useEffect(() => {
         }}
         keyExtractor={(item) => item.id}
 
-        style={styles.list}
-        // Android a besoin de 'always' pour bien gérer les clics quand le clavier est là
+        style={styles.list}        // Android a besoin de 'always' pour bien gérer les clics quand le clavier est là
         keyboardShouldPersistTaps={Platform.OS === 'android' ? "always" : "handled"}
         keyboardDismissMode={
           Platform.OS === 'ios'
