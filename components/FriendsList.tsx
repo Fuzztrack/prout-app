@@ -1,14 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { FlashList } from '@shopify/flash-list';
+import { FlashList, FlashListRef } from '@shopify/flash-list';
 // Force git update 2
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import * as Haptics from 'expo-haptics';
+import * as Contacts from 'expo-contacts';
 import { Audio } from 'expo-av';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, DeviceEventEmitter, Dimensions, FlatList, Keyboard, Linking, NativeModules, Platform, Animated as RNAnimated, ScrollView, Share, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, DeviceEventEmitter, Dimensions, FlatList, Image, Keyboard, Linking, NativeModules, Platform, Animated as RNAnimated, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SwipeableFriendRow, SwipeableFriendRowHandle } from './FriendsListComponents/SwipeableFriendRow';
 import { useAppStore } from '../lib/store';
@@ -54,6 +55,7 @@ const FIRST_CHAT_MODAL_KEY = 'first_chat_modal_seen_v2';
 const CHAT_MESSAGE_SOUND_CHOICE_KEY = 'chat_message_sound_choice_v1';
 const CHAT_MESSAGE_MUTE_KEY = 'chat_message_mute_v2';
 const FRIEND_SOUND_CATEGORY_MAP_KEY = 'friend_sound_category_map_v1';
+const CACHE_KEY_LAST_SENT_MESSAGES = 'cached_last_sent_messages_v1';
 const IOS_SOUNDWAVE_IMAGE = require('../assets/images/proothail.png');
 const ANDROID_ADAPTIVE_SOUNDWAVE_IMAGE = require('../assets/images/proothail2.png');
 const IOS_SENT_IMAGE = require('../assets/images/animprout4.png');
@@ -359,6 +361,22 @@ export function FriendsList({
     return useCallback((...args: Parameters<T>) => ref.current(...args), []) as T;
   };
 
+  const refreshAllData = useStableCallback(async () => {
+    if (__DEV__) console.log('🔄 [FriendsList] Refreshing all data via TanStack Query...');
+    try {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['friends', currentUserId] }),
+        queryClient.invalidateQueries({ queryKey: ['pendingMessages', currentUserId] }),
+        queryClient.invalidateQueries({ queryKey: ['pendingSentMessages', currentUserId] }),
+        queryClient.invalidateQueries({ queryKey: ['pendingRequests', currentUserId] }),
+        queryClient.invalidateQueries({ queryKey: ['identityRequests', currentUserId] }),
+      ]);
+    } finally {
+      setLoading(false);
+      setIsRefreshing(false);
+    }
+  });
+
   const insets = useSafeAreaInsets();
   const isZenMode = useAppStore(state => state.isZenMode);
   const isSilentMode = useAppStore(state => state.isSilentMode);
@@ -469,7 +487,7 @@ export function FriendsList({
             // C'est un nouveau message pas encore connu localement (ex: envoyé depuis un autre device)
             newMap[targetUserId] = [...currentForUser, { 
               text: parsed.text, 
-              ts: m.created_at,
+              ts: m.created_at, 
               id: m.id,
               soundKey: parsed.soundKey
             }];
@@ -818,7 +836,7 @@ export function FriendsList({
           console.warn('⚠️ [SoundSettings] Module ou méthode non disponible, utilisation du fallback');
         }
       } catch (e) {
-        console.error('❌ [SoundSettings] Erreur lors de l\'accès au module:', e);
+        console.error("❌ [SoundSettings] Erreur lors de l'accès au module:", e);
       }
       
       // Fallback : ouvrir les paramètres système généraux (ouvre les paramètres de l'app)
@@ -873,7 +891,7 @@ export function FriendsList({
   const CHAT_CONTROL_LOGS = false;
 
   // Polling simple (sans backoff exponentiel)
-  const flatListRef = useRef<FlatList>(null);
+  const flatListRef = useRef<FlashListRef<any> | null>(null);
   const refreshTriggerRef = useRef(refreshTrigger);
   const rowRefs = useRef<Record<string, SwipeableFriendRowHandle | null>>({});
   const searchInputRef = useRef<TextInput | null>(null);
@@ -905,7 +923,9 @@ export function FriendsList({
     }
 
     // 2) Mettre à jour le cache local des non-lus (badge)
-    const unreadOnly = fromFriend.filter((m) => !(m.message_content?.startsWith('READ:') ?? false));
+    const unreadOnly = fromFriend
+      .filter((m) => !(m.message_content?.startsWith('READ:') ?? false))
+      .map(m => ({ ...m, message_content: parseMessageContent(m.message_content).text || '' }));
     if (unreadOnly.length > 0) {
       setUnreadCache((prev) => {
         const currentCache = prev[expandedFriendId] || [];
@@ -1038,7 +1058,13 @@ export function FriendsList({
       if (unreadForActive.length > 0) {
         setUnreadCache(prev => {
           const currentCache = prev[expandedFriendId] || [];
-          const newMsgs = unreadForActive.filter(u => !currentCache.some(c => c.id === u.id));
+          const newMsgs = unreadForActive
+            .filter(u => !currentCache.some(c => c.id === u.id))
+            .map(m => ({
+              id: m.id,
+              message_content: parseMessageContent(m.message_content).text || '',
+              created_at: m.created_at
+            }));
           if (newMsgs.length === 0) return prev;
           return { ...prev, [expandedFriendId]: [...currentCache, ...newMsgs] };
         });
@@ -1425,7 +1451,7 @@ export function FriendsList({
           flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
         } catch {}
       }, 120);
-    }, [])
+    }, [refreshAllData])
   );
 
   useEffect(() => {
@@ -1499,14 +1525,10 @@ useEffect(() => {
     const cached = await loadLastSentMessagesCache();
     // Filtrer les messages lus lors du chargement du cache
     const filtered: LastSentMap = {};
-    let removedCount = 0;
-    let totalCount = 0;
     Object.entries(cached).forEach(([userId, messages]) => {
       if (Array.isArray(messages)) {
-        totalCount += messages.length;
         const unreadMessages = messages.filter(msg => {
           const keep = msg.status !== 'read' && isFreshSentMessage(msg);
-          if (!keep) removedCount += 1;
           return keep;
         });
         if (unreadMessages.length > 0) {
@@ -1515,14 +1537,10 @@ useEffect(() => {
       } else if (
         messages &&
         typeof messages === 'object' &&
-        (messages as any).status !== 'read' &&
         isFreshSentMessage(messages as LastSentMessage)
       ) {
         // Format ancien (un seul message) - migration
         filtered[userId] = [messages as LastSentMessage];
-      } else if (messages) {
-        totalCount += 1;
-        removedCount += 1;
       }
     });
     updateLastSentIndex(filtered);
@@ -1530,9 +1548,6 @@ useEffect(() => {
     // Sauvegarder le cache nettoyé
     if (JSON.stringify(filtered) !== JSON.stringify(cached)) {
       saveLastSentMessagesCache(filtered);
-    }
-    if (__DEV__) {
-      // Log removed
     }
   };
   loadCache();
@@ -1559,7 +1574,7 @@ const closeChatSpecificSoundList = useCallback(() => {
   setChatSpecificSoundListCategory(null);
   if (expandedFriendId) {
     setTimeout(() => {
-      textInputRefs.current[expandedFriendId]?.focus?.();
+      // ChatModal gère déjà le focus
     }, 50);
   }
 }, [isChatSoundPickerVisible, chatSpecificSoundListCategory, pendingChatSpecificSoundListCategory, expandedFriendId]);
@@ -1623,7 +1638,7 @@ const handleSelectChatSpecificSound = useCallback((soundKey: string) => {
 
   // Rouvrir le clavier et refocus l'input après la sélection
   setTimeout(() => {
-    textInputRefs.current[expandedFriendId]?.focus?.();
+    // Le ChatModal gère déjà le focus
   }, 50);
 }, [expandedFriendId, setChatMessageSoundChoice]);
 
@@ -1977,9 +1992,6 @@ useEffect(() => {
     setShowSilentWarning(androidCanShow && !dismissedSilentWarning);
   }, [volume, iosSilentSwitchMuted, notificationVolume, dismissedSilentWarning, ringerMode]);
 
-  // Note: Les notifications sont gérées par setupRealtimeSubscription et TanStack Query
-  // qui rechargent les données depuis Supabase pour mettre à jour l'UI et le tri
-
   const router = useRouter();
 
   // Mémoire pour le dernier toast hors connexion (anti-spam)
@@ -2027,22 +2039,6 @@ useEffect(() => {
       lastOfflineToastTimeRef.current = now;
     }
   };
-
-  const refreshAllData = useStableCallback(async () => {
-    if (__DEV__) console.log('🔄 [FriendsList] Refreshing all data via TanStack Query...');
-    try {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['friends', currentUserId] }),
-        queryClient.invalidateQueries({ queryKey: ['pendingMessages', currentUserId] }),
-        queryClient.invalidateQueries({ queryKey: ['pendingSentMessages', currentUserId] }),
-        queryClient.invalidateQueries({ queryKey: ['pendingRequests', currentUserId] }),
-        queryClient.invalidateQueries({ queryKey: ['identityRequests', currentUserId] }),
-      ]);
-    } finally {
-      setLoading(false);
-      setIsRefreshing(false);
-    }
-  });
 
   useEffect(() => {
     if (refreshTrigger === refreshTriggerRef.current) {
@@ -2801,9 +2797,9 @@ useEffect(() => {
           if (contacts && contacts.length > 0) {
             const normalizedFriendPhone = normalizePhone(friend.phone);
 
-            const matchingContact = contacts.find(contact => {
+            const matchingContact = contacts.find((contact: any) => {
               if (!contact.phoneNumbers || contact.phoneNumbers.length === 0) return false;
-              return contact.phoneNumbers.some(phoneNumber => {
+              return contact.phoneNumbers.some((phoneNumber: any) => {
                 const normalizedContactPhone = normalizePhone(phoneNumber.number || '');
                 return normalizedContactPhone === normalizedFriendPhone;
               });
@@ -3322,7 +3318,7 @@ useEffect(() => {
           };
           lastSentSetAtRef.current = Date.now();
           saveLastSentMessagesCache(next);
-          if (CHAT_VERBOSE_LOGS) console.log(`📤 [CLIENT] Message envoyé ajouté (total: ${next[recipient.id]?.length || 0} messages pour ${recipient.id})`);
+          if (CHAT_VERBOSE_LOGS) console.log(`📤 [CLIENT] Message envoyé ajouté (total: ${(next as LastSentMap)[recipient.id]?.length || 0} messages pour ${recipient.id})`);
           return next;
         });
       }
@@ -3337,9 +3333,7 @@ useEffect(() => {
       }, 500);
 
       // Nettoyer le brouillon sans fermer le sticky
-      if (!forcedCustomMessage) {
-        setMessageDrafts(prev => ({ ...prev, [recipient.id]: '' }));
-      }
+      setMessageDrafts(prev => ({ ...prev, [recipient.id]: '' }));
       // Le son spécifique de chat est consommé pour un seul envoi.
       setPendingChatSoundKeyByFriend((prev) => {
         if (!prev[recipient.id]) return prev;
@@ -3476,12 +3470,6 @@ useEffect(() => {
     );
   };
 
-  const activeFriend = expandedFriendId ? appUsers.find(u => u.id === expandedFriendId) : null;
-  const activeFriendIndex = expandedFriendId ? appUsers.findIndex(u => u.id === expandedFriendId) : -1;
-  const activeBackgroundColor = activeFriendIndex !== -1 
-    ? '#8fb3a5' 
-    : '#d4a88a';
-
   const displayFriend = useMemo(() => {
     const activeFriend = expandedFriendId ? appUsers.find(u => u.id === expandedFriendId) : null;
     const lastActiveFriendRef = { current: null as any };
@@ -3509,10 +3497,6 @@ useEffect(() => {
     if (__DEV__) console.log('🔄 [FriendsList] Refresh manuel...');
     await refreshAllData();
   };
-
-  // ✅ Supprimé : ActivityIndicator masqué lors du chargement initial
-  // On affiche toujours le contenu, même en chargement
-  // if (loading && appUsers.length === 0 && pendingRequests.length === 0) return <ActivityIndicator color="#007AFF" style={{margin: 20}} />;
 
   const lastValidUsersRef = useRef<any[]>([]);
   
@@ -3595,7 +3579,6 @@ useEffect(() => {
           unreadCache,
           expandedUnreadId,
         }}
-        estimatedItemSize={65} // Hauteur 60 + Marge 5
         keyExtractor={(item) => item.id}
 
         style={styles.list}
@@ -3610,27 +3593,12 @@ useEffect(() => {
         }
         // ⏸️ TEST : Réactivation du scroll pour Samsung avec react-native-keyboard-controller
         scrollEnabled={
-          !(isSamsungDevice && activeFriend)
-          // !(isProblemAndroidDevice && isSearchVisible) // ⏸️ PAUSÉ pour test
+          !(isSamsungDevice && expandedFriendId)
         }
         contentContainerStyle={[
           styles.listContent,
           { paddingBottom: 300 },
         ]}
-        onScrollToIndexFailed={(info) => {
-          // Fallback : si l'index n'est pas mesurable immédiatement (virtualisation)
-          const approxOffset = Math.max(info.averageItemLength * info.index - info.averageItemLength * 2, 0);
-          flatListRef.current?.scrollToOffset({ offset: approxOffset, animated: true });
-          setTimeout(() => {
-            try {
-              flatListRef.current?.scrollToIndex({
-                index: info.index,
-                viewPosition: 0.5,
-                animated: true,
-              });
-            } catch {}
-          }, 80);
-        }}
         ListHeaderComponent={
           <View>
             {/* SearchBar retirée d'ici pour être stable en haut */}
@@ -3681,15 +3649,6 @@ useEffect(() => {
 
                   <TouchableOpacity
                     activeOpacity={0.85}
-                    onPress={() => void handleInviteFriendsPress()}
-                    style={[styles.emptyActionRow, { marginTop: 10 }]}
-                  >
-                    <Ionicons name="share-social-outline" size={18} color="#604a3e" style={styles.emptyActionIcon} />
-                    <Text style={styles.emptyActionText}>{i18n.t('empty_friendlist_invite_friends')}</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    activeOpacity={0.85}
                     onPress={() => {
                       // Ouvrir la même page profil que le header (vue interne dans index.tsx)
                       DeviceEventEmitter.emit('OPEN_PROFILE_VIEW');
@@ -3707,9 +3666,6 @@ useEffect(() => {
         renderItem={({ item, index }) => {
           const unreadMessages = unreadMessagesMap[item.id] || [];
           const hasUnread = unreadMessages.length > 0;
-          const lastUnread = hasUnread ? unreadMessages[unreadMessages.length - 1] : null;
-          const isUnreadExpanded = expandedUnreadId === item.id;
-          const unreadListToShow = hasUnread ? unreadMessages : (unreadCache[item.id] || []);
           
           const isActive = expandedFriendId === item.id;
           const baseColor = index % 2 === 0 ? '#d2f1ef' : '#baded7';
@@ -3729,7 +3685,7 @@ useEffect(() => {
               onLongPressRow={handleLongPressSoundCategory}
               onPressName={handlePressFriend}
               hasUnread={hasUnread}
-              unreadMessage={truncateContactPreview(lastUnread?.message_content) || (hasUnread && unreadMessages.length > 1 ? `${unreadMessages.length} messages` : null)}
+              unreadMessage={truncateContactPreview(unreadMessages[unreadMessages.length - 1]?.message_content) || (hasUnread && unreadMessages.length > 1 ? `${unreadMessages.length} messages` : null)}
               onDeleteFriend={handleDeleteFriend}
               onMuteFriend={handleMuteFriend}
               onUnmuteFriend={handleUnmuteFriend}
@@ -3861,6 +3817,14 @@ useEffect(() => {
       />
     </View>
   );
+
+  if (isFriendsLoading && appUsers.length === 0) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#ebb89b' }}>
+        <ActivityIndicator size="large" color="#604a3e" />
+      </View>
+    );
+  }
 
   return content;
 }
@@ -4209,6 +4173,105 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  friendSoundPickItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  friendSoundPickPlayButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.4)',
+  },
+  friendSoundPickPlayButtonActive: {
+    backgroundColor: 'rgba(162, 228, 212, 0.9)',
+  },
+  friendSoundPickPlayIcon: {
+    marginLeft: 1,
+  },
+  friendSoundPickItemButton: {
+    flex: 1,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    backgroundColor: 'rgba(255,255,255,0.55)',
+  },
+  friendSoundPickItemButtonActive: {
+    backgroundColor: 'rgba(162, 228, 212, 0.72)',
+    borderColor: 'rgba(96, 74, 62, 0.45)',
+  },
+  friendSoundPickItemText: {
+    color: '#604a3e',
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  identityRequestContainer: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  identityRequestTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#604a3e',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  identityRequestBody: {
+    fontSize: 16,
+    color: '#604a3e',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  identityRequestButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  identityRequestButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  identityRequestButtonCancel: {
+    backgroundColor: 'rgba(96, 74, 62, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(96, 74, 62, 0.3)',
+  },
+  identityRequestButtonAsk: {
+    backgroundColor: '#604a3e',
+  },
+  identityRequestButtonTextCancel: {
+    color: '#604a3e',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  identityRequestButtonTextAsk: {
+    color: '#ebb89b',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  identityCloseButton: {
+    backgroundColor: '#604a3e',
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 12,
+    marginTop: 10,
+  },
+  identityCloseButtonText: {
+    color: '#ebb89b',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
   identityModal: {
     justifyContent: 'center',

@@ -26,6 +26,7 @@ export default function HomeScreen() {
   const appVersion = Constants.expoConfig?.version ?? '1.1.31';
   
   const isLoadedRef = useRef(false);
+  const [isInitializing, setIsInitializing] = useState(true);
   
   const userId = useAppStore(state => state.userId);
   const currentPseudo = useAppStore(state => state.pseudo);
@@ -169,6 +170,8 @@ export default function HomeScreen() {
       isLoadedRef.current = true;
     } catch (e) {
       console.log("Erreur Home:", e);
+    } finally {
+      setIsInitializing(false);
     }
   };
 
@@ -330,33 +333,6 @@ export default function HomeScreen() {
   const zenModeEnabled = isZenMode || hasScheduledZenMode || !!zenModeReason;
 
   // Mémoïser le header pour éviter qu'il ne re-render pendant qu'on tape dans la recherche
-  const headerComponent = useMemo(() => (
-    <AppHeader
-      currentPseudo={currentPseudo}
-      profileAvatarUrl={currentAvatarUrl}
-      isProfileMenuOpen={activeView === 'profileMenu'}
-      isProfileOpen={activeView === 'profile'}
-      isZenMode={isZenMode}
-      isSilentMode={isSilentMode}
-      isSearchVisible={isSearchVisible}
-      onSearchToggle={toggleSearchVisibility}
-      onAddFriendPress={() => {
-        setActiveView('list');
-        setShowSearch(true);
-      }}
-      onZenModePress={() => {
-        void applyZenMode(false);
-      }}
-      onSilentModePress={() => {
-        if (isSilentMode) setSilentMode(false);
-      }}
-      onSoundcheckPress={handleSoundcheckPress}
-      onProfileMenuPress={toggleProfileMenu}
-      onProfilePress={() => router.push('/Profil')}
-      shakeX={shakeX}
-      shakeY={shakeY}
-    />
-  ), [currentPseudo, currentAvatarUrl, activeView, isZenMode, isSilentMode, isSearchVisible, toggleSearchVisibility, setActiveView, applyZenMode, setSilentMode, handleSoundcheckPress, toggleProfileMenu, shakeX, shakeY]);
 
   // --- MODE ZEN ---
   const clearZenAutoOff = useCallback(async () => {
@@ -704,6 +680,35 @@ export default function HomeScreen() {
     }
   };
 
+  // Mémoïser le header pour éviter qu'il ne re-render pendant qu'on tape dans la recherche
+  const headerComponent = useMemo(() => (
+    <AppHeader
+      currentPseudo={currentPseudo}
+      profileAvatarUrl={currentAvatarUrl}
+      isProfileMenuOpen={activeView === 'profileMenu'}
+      isProfileOpen={activeView === 'profile'}
+      isZenMode={isZenMode}
+      isSilentMode={isSilentMode}
+      isSearchVisible={isSearchVisible}
+      onSearchToggle={toggleSearchVisibility}
+      onAddFriendPress={() => {
+        setActiveView('list');
+        setShowSearch(true);
+      }}
+      onZenModePress={() => {
+        void applyZenMode(false);
+      }}
+      onSilentModePress={() => {
+        if (isSilentMode) setSilentMode(false);
+      }}
+      onSoundcheckPress={handleSoundcheckPress}
+      onProfileMenuPress={toggleProfileMenu}
+      onProfilePress={() => router.push('/Profil')}
+      shakeX={shakeX}
+      shakeY={shakeY}
+    />
+  ), [currentPseudo, currentAvatarUrl, activeView, isZenMode, isSilentMode, isSearchVisible, toggleSearchVisibility, setActiveView, applyZenMode, setSilentMode, handleSoundcheckPress, toggleProfileMenu, shakeX, shakeY]);
+
   return (
     <>
       <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -728,7 +733,6 @@ export default function HomeScreen() {
                      onSearchQueryChange={setSearchQuery}
                      listIntroTrigger={listIntroTrigger}
                      refreshTrigger={friendsRefreshTrigger}
-                    onSoundcheckPress={handleSoundcheckPress}
                      headerComponent={headerComponent}
                    />
        
@@ -808,7 +812,6 @@ export default function HomeScreen() {
                   onSearchQueryChange={setSearchQuery}
                   listIntroTrigger={listIntroTrigger}
                   refreshTrigger={friendsRefreshTrigger}
-                  onSoundcheckPress={handleSoundcheckPress}
                   headerComponent={headerComponent}
                 />
     
