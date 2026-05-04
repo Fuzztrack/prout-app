@@ -256,7 +256,7 @@ const loadLastSentMessagesCache = async (): Promise<LastSentMap> => {
           // Ancien format : convertir en tableau
           migrated[userId] = [value];
         }
-    
+      });
       return migrated;
     }
     return {};
@@ -284,7 +284,7 @@ const saveLastSentMessagesCache = async (map: LastSentMap) => {
         // Format ancien (un seul message) - migration
         cleaned[userId] = [messages as LastSentMessage];
       }
-  
+    });
     await AsyncStorage.setItem(CACHE_KEY_LAST_SENT_MESSAGES, JSON.stringify(cleaned));
   } catch {
     // ignorer
@@ -357,7 +357,7 @@ export function FriendsList({
     const ref = useRef(callback);
     useEffect(() => {
       ref.current = callback;
-  
+    });
     return useCallback((...args: Parameters<T>) => ref.current(...args), []) as T;
   };
 
@@ -375,7 +375,7 @@ export function FriendsList({
       setLoading(false);
       setIsRefreshing(false);
     }
-
+  });
 
   const insets = useSafeAreaInsets();
   const isZenMode = useAppStore(state => state.isZenMode);
@@ -446,12 +446,12 @@ export function FriendsList({
               }
             }
             return msg;
-        
+          });
 
           if (changed) {
             newMap[userId] = updatedMessages;
           }
-      
+        });
 
         // 2. Ajouter les nouveaux messages du serveur ou mettre à jour les optimistes
         pendingSentData.forEach((m: any) => {
@@ -494,7 +494,7 @@ export function FriendsList({
             changed = true;
             if (CHAT_VERBOSE_LOGS) console.log(`✅ [SYNC] Nouveau message serveur ajouté: ${m.id}`);
           }
-      
+        });
 
         if (changed) {
           updateLastSentIndex(newMap);
@@ -502,7 +502,7 @@ export function FriendsList({
           return newMap;
         }
         return prev;
-    
+      });
     }
   }, [pendingSentData]);
 
@@ -533,9 +533,9 @@ export function FriendsList({
             return serverMsg.from_user_id === localMsg.from_user_id &&
                    (serverMsg.message_content || '') === localMsg.message_content &&
                    Math.abs(new Date(serverMsg.created_at).getTime() - new Date(localMsg.created_at).getTime()) < 15000;
-        
+          });
           return !alreadyOnServer;
-      
+        });
 
         // 3. Fusionner avec keptReadMessagesRef (Session Gelée)
         // Les messages lus sont gardés en mémoire tant que le chat est ouvert
@@ -553,14 +553,14 @@ export function FriendsList({
           const kept = keptReadMessagesRef.current.get(activeId) || [];
           kept.forEach(m => {
             if (!mergedById.has(m.id)) mergedById.set(m.id, m);
-        
+          });
 
           // Conserver aussi les messages locaux qui sont marqués "READ:" ou "isPendingDelete"
           prev.forEach(m => {
             if (m.from_user_id === activeId && (m.isPendingDelete || m.message_content?.startsWith('READ:'))) {
               if (!mergedById.has(m.id)) mergedById.set(m.id, m);
             }
-        
+          });
         }
 
         const next = Array.from(mergedById.values());
@@ -577,7 +577,7 @@ export function FriendsList({
         hasHydratedIncomingMessagesRef.current = true;
 
         return next;
-    
+      });
     }
   }, [pendingMessagesData]);
 
@@ -785,9 +785,9 @@ export function FriendsList({
           if (msg?.id) {
             index[msg.id] = userId;
           }
-      
+        });
       }
-  
+    });
     lastSentByIdRef.current = index;
   };
 
@@ -808,8 +808,8 @@ export function FriendsList({
             updated = true;
           }
         }
-    
-  
+      });
+    });
     return { next, updated };
   };
 
@@ -932,7 +932,7 @@ export function FriendsList({
         const newMsgs = unreadOnly.filter((u) => !currentCache.some((c) => c.id === u.id));
         if (newMsgs.length === 0) return prev;
         return { ...prev, [expandedFriendId]: [...currentCache, ...newMsgs] };
-    
+      });
     }
 
     // 3) Read conversation (fiable) : 1 appel backend qui supprime tous les messages A->B
@@ -983,10 +983,10 @@ export function FriendsList({
               type: 'broadcast',
               event: 'message-read',
               payload: { ids, senderId: friendId, receiverId: currentUserId },
-          
+            });
             setTimeout(() => supabase.removeChannel(channel), 5000);
           }
-      
+        });
 
         // 2) Delete batch en DB (souvent autorisé côté receiver via RLS)
         // On scinde en paquets pour éviter les limites de payload.
@@ -1011,7 +1011,7 @@ export function FriendsList({
             ok: res.ok,
             status: res.status,
             idsCount: ids.length
-        
+          });
         }
         
         if (res.ok) {
@@ -1067,7 +1067,7 @@ export function FriendsList({
             }));
           if (newMsgs.length === 0) return prev;
           return { ...prev, [expandedFriendId]: [...currentCache, ...newMsgs] };
-      
+        });
         timer = setTimeout(() => {
           // On laisse l'effet "à l'entrée" faire le readConversation (dedup/throttle).
           // Évite de spammer le backend pendant que le chat est ouvert.
@@ -1109,12 +1109,12 @@ export function FriendsList({
           }
           // Message non lu : toujours garder (persistance Snapchat)
           return true;
-      
+        });
         const afterCount = filtered.length;
         const dropped = beforeCount - afterCount;
         if (CHAT_CONTROL_LOGS) console.log(`📨 [CLIENT] Messages reçus conservés (logique Snapchat): ${afterCount} sur ${beforeCount} (friendId: ${prevId})`);
         return filtered;
-    
+      });
 
       const cachedForPrev = unreadCache[prevId] || [];
       if (CHAT_CONTROL_LOGS) console.log(`🗑️ [CLIENT] Cache unread nettoyé: ${cachedForPrev.length} messages pour ${prevId}`);
@@ -1124,7 +1124,7 @@ export function FriendsList({
           const newSet = new Set(prev);
           cachedForPrev.forEach(msg => newSet.delete(msg.id));
           return newSet;
-      
+        });
       }
       // Ne pas faire de purge globale READ: ici (session gelée).
 
@@ -1145,13 +1145,13 @@ export function FriendsList({
           totalMessages: msgs.length,
           readMessages: msgs.filter(m => m.status === 'read').length,
           unreadMessages: msgs.filter(m => m.status !== 'read').length
-      
+        });
 
         // LOGIQUE SNAPCHAT : On garde TOUS les messages à la fermeture
         // Ils seront purgés seulement s'ils sont supprimés du serveur (après 5 secondes)
         // et que le chat reste fermé lors du prochain loadData
         return prev;
-    
+      });
       
       // PRRT! Protocol : Force sync à la fermeture pour être sûr que l'état local correspond au serveur
       // (supprime les messages qui ont été lus/supprimés sur le serveur mais dont on aurait raté le broadcast)
@@ -1189,7 +1189,7 @@ export function FriendsList({
         return next;
       }
       return prev;
-  
+    });
   }, [lastSentMessages]);
 
   // Écouter l'événement global de rafraîchissement (déclenché par la réception d'une notif push)
@@ -1233,7 +1233,7 @@ export function FriendsList({
             if (msg.from_user_id !== senderId) return false;
             if ((msg.message_content || '') !== optimisticMessage.message_content) return false;
             return Math.abs(new Date(msg.created_at).getTime() - new Date(nowIso).getTime()) < 5000;
-        
+          });
           if (hasEquivalent) {
             console.log('🔔 [REFRESH_DATA] Equivalent optimistic message already exists.');
             return prev;
@@ -1242,7 +1242,7 @@ export function FriendsList({
           return [...prev, optimisticMessage].sort(
             (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
           );
-      
+        });
 
         setAppUsers((prev) => {
           const updated = prev.map((friend) =>
@@ -1252,8 +1252,8 @@ export function FriendsList({
             const timeA = a.last_interaction_at ? new Date(a.last_interaction_at).getTime() : 0;
             const timeB = b.last_interaction_at ? new Date(b.last_interaction_at).getTime() : 0;
             return timeB - timeA;
-        
-      
+          });
+        });
       } else {
         console.log('🔔 [REFRESH_DATA] Missing senderId or customMessage, skipping optimistic injection.');
       }
@@ -1266,7 +1266,7 @@ export function FriendsList({
         queryClient.invalidateQueries({ queryKey: ['pendingMessages'] });
         queryClient.invalidateQueries({ queryKey: ['friends'] });
       }, 1500);
-  
+    });
     return () => {
       subscription.remove();
     };
@@ -1278,7 +1278,7 @@ export function FriendsList({
       if (!friendId) return;
 
       setFriendSpecificSoundKey(friendId, null);
-  
+    });
 
     return () => {
       subscription.remove();
@@ -1306,7 +1306,7 @@ export function FriendsList({
       } else {
         validMessages.push(m);
       }
-  
+    });
 
     // Filtrer les messages qui sont dans la liste noire locale (supprimés mais pas encore sync)
     // NOTE: On NE filtre PAS "READ:" (session gelée). Ils seront affichés en opacité réduite.
@@ -1336,7 +1336,7 @@ export function FriendsList({
       serverMessages.forEach((m) => {
         const prevMsg = prevById.get(m.id);
         mergedById.set(m.id, { ...m, isPendingDelete: prevMsg?.isPendingDelete ?? false });
-    
+      });
 
       // Compat: conserver les messages déjà gardés (ancienne logique)
       const activeId = expandedFriendIdRef.current;
@@ -1344,7 +1344,7 @@ export function FriendsList({
         const kept = keptReadMessagesRef.current.get(activeId) || [];
         kept.forEach((m) => {
           if (!mergedById.has(m.id)) mergedById.set(m.id, m);
-      
+        });
 
         prev.forEach((m) => {
           const isActiveConversation = m.from_user_id === activeId;
@@ -1353,13 +1353,13 @@ export function FriendsList({
           if (isActiveConversation && isReadOrPending && !mergedById.has(m.id)) {
             mergedById.set(m.id, m);
           }
-      
+        });
       }
 
       const next = Array.from(mergedById.values());
       next.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
       return next;
-  
+    });
 
     // Mise à jour optimiste locale pour remonter les expéditeurs (messages reçus)
     if (serverMessages.length > 0) {
@@ -1372,7 +1372,7 @@ export function FriendsList({
             : friend
         );
         return sortFriends(updated);
-    
+      });
       scheduleAlignFriendListTop();
     }
     // Le backend met à jour last_interaction_at, mais cette mise à jour optimiste rend l'affichage instantané
@@ -1398,7 +1398,7 @@ export function FriendsList({
       } else {
         validMessages.push(m);
       }
-  
+    });
 
     if (CHAT_VERBOSE_LOGS && expiredIds.length > 0) {
       console.log(`📊 [fetchSentPendingMessages] Messages valides: ${validMessages.length}, Expirés: ${expiredIds.length}`);
@@ -1429,7 +1429,7 @@ export function FriendsList({
       if (timeA !== timeB) return timeB - timeA;
       // Fallback: ordre alphabétique
       return (a.pseudo || '').localeCompare(b.pseudo || '');
-  
+    });
   };
   
   // Cooldown par utilisateur pour éviter le spam (Map<userId, timestamp>)
@@ -1466,7 +1466,7 @@ export function FriendsList({
 
     Audio.setAudioModeAsync(mode).catch(() => {
       // Ignorer les erreurs de configuration audio silencieusement
-  
+    });
   }, []);
 
   useEffect(() => {
@@ -1530,7 +1530,7 @@ useEffect(() => {
         const unreadMessages = messages.filter(msg => {
           const keep = msg.status !== 'read' && isFreshSentMessage(msg);
           return keep;
-      
+        });
         if (unreadMessages.length > 0) {
           filtered[userId] = unreadMessages;
         }
@@ -1542,7 +1542,7 @@ useEffect(() => {
         // Format ancien (un seul message) - migration
         filtered[userId] = [messages as LastSentMessage];
       }
-  
+    });
     updateLastSentIndex(filtered);
     setLastSentMessages(filtered);
     // Sauvegarder le cache nettoyé
@@ -1686,7 +1686,7 @@ const handlePreviewFriendSpecificSoundKey = useCallback((soundKey: string) => {
     onEnd: () => {
       setPreviewingFriendSoundKey((prev) => (prev === soundKey ? null : prev));
     },
-
+  });
 }, [playLocalSound, setPreviewingFriendSoundKey]);
 
 const handleClearSelectedSound = useCallback((friend: any) => {
@@ -1800,7 +1800,7 @@ useEffect(() => {
     if (nextAppState === 'active') {
       checkPermissions();
     }
-
+  });
 
   return () => {
     mounted = false;
@@ -1833,7 +1833,7 @@ useEffect(() => {
             if (status?.isMuted && !dismissedSilentWarningRef.current) {
               setShowSilentWarning(true);
             }
-        
+          });
           silentListenerRef.current = silentListener;
 
           // iOS : écouter aussi les changements de volume
@@ -1846,7 +1846,7 @@ useEffect(() => {
                 setShowSilentWarning(false);
               }
             }
-        
+          });
           volumeListenerRef.current = volListener;
         } else {
           // Android : vérifier uniquement le volume des notifications (pas le mode sonnerie)
@@ -1893,12 +1893,12 @@ useEffect(() => {
                 // (musique, alarme, etc.) au cas où cela impacterait indirectement les notifications.
                 readNotificationVolume().then((v) => {
                   if (mounted && v !== undefined) setNotificationVolume(v);
-              
+                });
               } else if (!isSamsungDevice && (!type || ['notification', 'ring', 'system'].includes(type))) {
                 // Pour les autres (Pixel...), on conserve le comportement de lien par défaut
                 setNotificationVolume(vol);
               }
-          
+            });
             volumeListenerRef.current = volListener;
 
             // Écouter les changements de ringer mode
@@ -1918,8 +1918,8 @@ useEffect(() => {
                 if (mounted && notifVol !== undefined) {
                   setNotificationVolume(notifVol);
                 }
-            
-          
+              });
+            });
             ringerListenerRef.current = ringListener;
           } catch (e) {
             if (mounted) {
@@ -2101,7 +2101,7 @@ useEffect(() => {
                   f.id === newMessage.from_user_id ? { ...f, last_interaction_at: now } : f
                 );
                 return sortFriends(updated);
-            
+              });
               scheduleAlignFriendListTop();
             } else if (payload.eventType === 'DELETE') {
               queryClient.invalidateQueries({ queryKey: ['pendingMessages', user.id] });
@@ -2114,7 +2114,7 @@ useEffect(() => {
                   return prev.map(m => (m.id === deletedId ? { ...m, isPendingDelete: true } : m));
                 }
                 return prev.filter(m => m.id !== deletedId);
-            
+              });
             }
           }
         )
@@ -2139,7 +2139,7 @@ useEffect(() => {
                   updateLastSentIndex(next);
                   saveLastSentMessagesCache(next);
                   return next;
-              
+                });
               }
             } else if (payload.eventType === 'UPDATE') {
               queryClient.invalidateQueries({ queryKey: ['pendingSentMessages', user.id] });
@@ -2166,7 +2166,7 @@ useEffect(() => {
                     updateLastSentIndex(next);
                     saveLastSentMessagesCache(next);
                     return next;
-                
+                  });
                 }
               }
             }
@@ -2194,14 +2194,14 @@ useEffect(() => {
                       );
                     }
                   }
-              
+                });
                 if (found) {
                   updateLastSentIndex(copy);
                   saveLastSentMessagesCache(copy);
                   return copy;
                 }
                 return prev;
-            
+              });
             }
           }
         )
@@ -2209,7 +2209,7 @@ useEffect(() => {
           if (status === 'CHANNEL_ERROR') {
             console.error('❌ [REALTIME] Erreur de connexion au canal Supabase');
           }
-      
+        });
 
       subscriptionRef.current = channel;
 
@@ -2240,7 +2240,7 @@ useEffect(() => {
               console.log(`📨 [CLIENT] Broadcast message-read reçu:`, {
                 payload: payload.payload,
                 timestamp: new Date().toISOString()
-            
+              });
             }
             
             const receiverId = payload.payload?.receiverId;
@@ -2255,7 +2255,7 @@ useEffect(() => {
                 ids: ids.slice(0, 5),
                 receiverId,
                 senderId: payload.payload?.senderId
-            
+              });
             }
             
             if (ids.length === 0) {
@@ -2268,7 +2268,7 @@ useEffect(() => {
             ids.forEach((id) => {
               pendingReadIdsRef.current.add(id);
               readSentMessagesRef.current.add(id); // Mémoriser qu'ils sont lus pour filtrage futur
-          
+            });
 
             if (CHAT_VERBOSE_LOGS) {
               console.log(`📨 [CLIENT] IDs ajoutés à pendingReadIdsRef: ${pendingReadIdsRef.current.size}`);
@@ -2292,7 +2292,7 @@ useEffect(() => {
               ids.forEach((id) => {
                 readSentMessagesRef.current.add(id);
                 if (CHAT_VERBOSE_LOGS) console.log(`✅ [CLIENT] ID ${id} ajouté à readSentMessagesRef`);
-            
+              });
 
               if (!Array.isArray(msgs) || msgs.length === 0) {
                 if (CHAT_VERBOSE_LOGS) {
@@ -2320,7 +2320,7 @@ useEffect(() => {
                   return { ...m, status: 'read' as const, readAt };
                 }
                 return m;
-            
+              });
 
               if (!changed) {
                 if (CHAT_VERBOSE_LOGS) {
@@ -2343,7 +2343,7 @@ useEffect(() => {
               updateLastSentIndex(next);
               saveLastSentMessagesCache(next);
               return next;
-          
+            });
 
             // Un seul refresh après le batch, MAIS éviter de re-fetcher immédiatement pour ne pas écraser l'état local
             // avec des données serveur potentiellement pas encore à jour (suppression asynchrone).
@@ -2380,7 +2380,7 @@ useEffect(() => {
                     if (msg.from_user_id !== senderId) return false;
                     if ((msg.message_content || '') !== optimisticMessage.message_content) return false;
                     return Math.abs(new Date(msg.created_at).getTime() - new Date(now).getTime()) < 5000;
-                
+                  });
                   if (hasEquivalent) {
                     console.log('📡 [CLIENT] Equivalent optimistic message from broadcast already exists.');
                     return prev;
@@ -2389,7 +2389,7 @@ useEffect(() => {
                   return [...prev, optimisticMessage].sort(
                     (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
                   );
-              
+                });
               } else {
                  console.log('📡 [CLIENT] Broadcast missing customMessage, skipping optimistic injection.');
               }
@@ -2399,7 +2399,7 @@ useEffect(() => {
                   friend.id === senderId ? { ...friend, last_interaction_at: now } : friend
                 );
                 return sortFriends(updated);
-            
+              });
             } else {
                console.log('📡 [CLIENT] Broadcast missing senderId.');
             }
@@ -2441,7 +2441,7 @@ useEffect(() => {
                 subscribeBroadcastChannel();
               }, retryDelayMs) as unknown as NodeJS.Timeout;
             }
-        
+          });
         broadcastSubscriptionRef.current = broadcastChannel;
       };
       subscribeBroadcastChannel();
@@ -2505,7 +2505,7 @@ useEffect(() => {
               friend_id: req.senderId, 
               status: 'accepted', 
               method: 'search' 
-          
+            });
         } else if (reciprocal.status === 'pending') {
           // Si elle existe mais est pending, la mettre à jour
           await supabase
@@ -2549,7 +2549,7 @@ useEffect(() => {
       console.error('❌ Erreur mise en sourdine:', e);
       Alert.alert(i18n.t('error'), "Impossible d'activer la sourdine.");
     }
-
+  });
 
   const handleUnmuteFriend = useStableCallback(async (friend: any) => {
     if (!currentUserId) return;
@@ -2570,7 +2570,7 @@ useEffect(() => {
       console.error('❌ Erreur désactivation sourdine:', e);
       Alert.alert(i18n.t('error'), i18n.t('cannot_disable_mute'));
     }
-
+  });
 
   const isUuid = (value?: string | null) =>
     !!value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
@@ -2585,7 +2585,7 @@ useEffect(() => {
           message_id: isUuid(reportTarget.sourceMessageId || undefined) ? reportTarget.sourceMessageId : null,
           message_created_at: reportTarget.createdAt ?? null,
           reason,
-      
+        });
 
         if (error) {
           console.error('❌ Erreur signalement:', error);
@@ -2720,12 +2720,12 @@ useEffect(() => {
                 const copy = { ...prev };
                 delete copy[friend.id];
                 return copy;
-            
+              });
               setLastSentMessages(prev => {
                 const copy = { ...prev };
                 delete copy[friend.id];
                 return copy;
-            
+              });
 
               if (expandedFriendIdRef.current === friend.id) {
                 setExpandedFriendId(null);
@@ -2740,7 +2740,7 @@ useEffect(() => {
         },
       ]
     );
-
+  });
 
   const showToast = (message: string) => {
     setToastMessage(message);
@@ -2759,7 +2759,7 @@ useEffect(() => {
       }),
     ]).start(() => {
       setToastMessage(null);
-  
+    });
   };
 
   const handleLongPressName = useStableCallback(async (friend: any) => {
@@ -2792,7 +2792,7 @@ useEffect(() => {
         if (status === 'granted') {
           const { data: contacts } = await Contacts.getContactsAsync({
             fields: [Contacts.Fields.PhoneNumbers, Contacts.Fields.Name],
-        
+          });
 
           if (contacts && contacts.length > 0) {
             const normalizedFriendPhone = normalizePhone(friend.phone);
@@ -2802,8 +2802,8 @@ useEffect(() => {
               return contact.phoneNumbers.some((phoneNumber: any) => {
                 const normalizedContactPhone = normalizePhone(phoneNumber.number || '');
                 return normalizedContactPhone === normalizedFriendPhone;
-            
-          
+              });
+            });
 
             if (matchingContact) {
               revealedName = matchingContact.name || matchingContact.firstName || matchingContact.lastName || friend.pseudo;
@@ -2823,7 +2823,7 @@ useEffect(() => {
     setIdentityModalFriend(friend);
     setIdentityModalName(null);
     setIdentityModalVisible(true);
-
+  });
 
   const requestIdentityReveal = async (friend: any, options: { force?: boolean } = {}) => {
     if (!currentUserId) return;
@@ -2838,7 +2838,7 @@ useEffect(() => {
           updated_at: new Date().toISOString(),
         }, {
           onConflict: 'requester_id,friend_id',
-      
+        });
 
       if (friend.expo_push_token) {
         await sendProutViaBackend(
@@ -2890,7 +2890,7 @@ useEffect(() => {
           index,
           viewPosition: 0.3, // Position plus haute (30% de l'écran) pour meilleure visibilité
           animated: false, // Désactiver l'animation pour éviter l'effet "ça cherche"
-      
+        });
       } catch (e) {
         // Ignorer les erreurs de layout (si l'item n'est pas encore mesuré)
       }
@@ -3056,7 +3056,7 @@ useEffect(() => {
       },
       { skipInitialCheck: true, immediate: true }
     );
-
+  });
 
   const handleSendProut = useStableCallback(async (
     recipient: any,
@@ -3270,7 +3270,7 @@ useEffect(() => {
           senderId: user.id,
           receiverId: recipient.id,
         },
-    
+      });
 
       if (CHAT_VERBOSE_LOGS) console.log(`✅ [CLIENT] Message envoyé via backend, attente de la création dans pending_messages...`);
       
@@ -3289,7 +3289,7 @@ useEffect(() => {
         scheduleAlignFriendListTop(100);
         
         return sorted;
-    
+      });
       if (customMessage) {
         if (CHAT_VERBOSE_LOGS) console.log(`📤 [CLIENT] Ajout message envoyé à lastSentMessages (sans ID pour l'instant) pour ${recipient.id}`);
         setLastSentMessages(prev => {
@@ -3301,7 +3301,7 @@ useEffect(() => {
           const isDuplicate = existingMessages.some(m => {
              const mTime = new Date(m.ts).getTime();
              return m.text === customMessage && m.soundKey === randomKey && Math.abs(nowTime - mTime) < 5000;
-        
+          });
           
           if (isDuplicate) {
             if (CHAT_VERBOSE_LOGS) console.log(`📤 [CLIENT] Message déjà présent (doublon ignoré) pour ${recipient.id}`);
@@ -3320,7 +3320,7 @@ useEffect(() => {
           saveLastSentMessagesCache(next);
           if (CHAT_VERBOSE_LOGS) console.log(`📤 [CLIENT] Message envoyé ajouté (total: ${(next as LastSentMap)[recipient.id]?.length || 0} messages pour ${recipient.id})`);
           return next;
-      
+        });
       }
       
       // Le backend met à jour last_interaction_at pour les deux relations (A→B et B→A)
@@ -3340,7 +3340,7 @@ useEffect(() => {
         const next = { ...prev };
         delete next[recipient.id];
         return next;
-    
+      });
       // Revenir au défaut proot : aucune catégorie « sélectionnée » visuellement pour le prochain message.
       const ambientAfterSend = getDefaultSoundCategoryForFirstLaunch() as ChatMessageSoundChoice;
       setChatMessageSoundChoice(ambientAfterSend);
@@ -3386,7 +3386,7 @@ useEffect(() => {
       // En cas d'erreur, on retire le cooldown pour permettre une nouvelle tentative
       cooldownMapRef.current.delete(recipient.id);
     }
-
+  });
 
 
   const renderRequestsHeader = () => {
@@ -3529,7 +3529,7 @@ useEffect(() => {
         }
         map[m.from_user_id].push(m);
       }
-  
+    });
     return map;
   }, [pendingMessages]);
 
@@ -3569,10 +3569,10 @@ useEffect(() => {
             </View>
           </TouchableWithoutFeedback>
         </View>
-        </View>
+      </View>
 
-        {/* @ts-expect-error - FlashList types might be incomplete but estimatedItemSize is required for performance */}
-        <FlashList
+      {/* @ts-ignore - FlashList types might be incomplete but estimatedItemSize is required for performance */}
+      <FlashList
         ref={flatListRef}
         data={filteredUsers}
         estimatedItemSize={70}
@@ -3583,7 +3583,8 @@ useEffect(() => {
         }}
         keyExtractor={(item) => item.id}
 
-        style={styles.list}        // Android a besoin de 'always' pour bien gérer les clics quand le clavier est là
+        style={styles.list}
+        // Android a besoin de 'always' pour bien gérer les clics quand le clavier est là
         keyboardShouldPersistTaps={Platform.OS === 'android' ? "always" : "handled"}
         keyboardDismissMode={
           Platform.OS === 'ios'
@@ -4306,6 +4307,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     borderRadius: 12,
     marginTop: 10,
+  },
   identityCloseButtonText: {
     color: '#ebb89b',
     fontWeight: 'bold',
@@ -4353,7 +4355,6 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     maxWidth: 290,
   },
-
   identityModal: {
     justifyContent: 'center',
     alignItems: 'center',
