@@ -3643,7 +3643,7 @@ useEffect(() => {
                     onPress={onInviteFriend}
                     style={styles.emptyActionRow}
                   >
-                    <Ionicons name="person-add-outline" size={18} color="#604a3e" style={styles.emptyActionIcon} />
+                    <Ionicons name="share-social-outline" size={18} color="#604a3e" style={styles.emptyActionIcon} />
                     <Text style={styles.emptyActionText}>{i18n.t('empty_friendlist_invite_friends')}</Text>
                   </TouchableOpacity>
 
