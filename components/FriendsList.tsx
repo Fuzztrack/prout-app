@@ -332,8 +332,8 @@ const oldAndroidInputProps = {
   importantForAutofill: 'no' as const,
 };
 
-export function FriendsList({ 
-  onProutSent, 
+export function FriendsList({
+  onProutSent,
   headerComponent,
   isSearchVisible = false,
   onSearchChange,
@@ -341,10 +341,11 @@ export function FriendsList({
   onSearchQueryChange,
   listIntroTrigger = 0,
   refreshTrigger = 0,
-}: { 
-  onProutSent?: () => void; 
-  isZenMode?: boolean; 
-  isSilentMode?: boolean; 
+  onInviteFriend,
+}: {
+  onProutSent?: () => void;
+  isZenMode?: boolean;
+  isSilentMode?: boolean;
   headerComponent?: React.ReactElement;
   isSearchVisible?: boolean;
   onSearchChange?: (visible: boolean) => void;
@@ -352,8 +353,8 @@ export function FriendsList({
   onSearchQueryChange?: (query: string) => void;
   listIntroTrigger?: number;
   refreshTrigger?: number;
-} = {}) {
-  const useStableCallback = <T extends (...args: any[]) => any>(callback: T) => {
+  onInviteFriend?: () => void;
+} = {}) {  const useStableCallback = <T extends (...args: any[]) => any>(callback: T) => {
     const ref = useRef(callback);
     useEffect(() => {
       ref.current = callback;
@@ -3639,11 +3640,20 @@ useEffect(() => {
                   <Text style={styles.emptyText}>{i18n.t('no_friends')}</Text>
                   <TouchableOpacity
                     activeOpacity={0.85}
+                    onPress={onInviteFriend}
+                    style={styles.emptyActionRow}
+                  >
+                    <Ionicons name="person-add-outline" size={18} color="#604a3e" style={styles.emptyActionIcon} />
+                    <Text style={styles.emptyActionText}>{i18n.t('empty_friendlist_invite_friends')}</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={0.85}
                     onPress={() => {
                       // Ouvrir la même modale de recherche que depuis le menu liste
                       DeviceEventEmitter.emit('OPEN_SEARCH_MODAL');
                     }}
-                    style={styles.emptyActionRow}
+                    style={[styles.emptyActionRow, { marginTop: 10 }]}
                   >
                     <Ionicons name="search" size={18} color="#604a3e" style={styles.emptyActionIcon} />
                     <Text style={styles.emptyActionText}>{i18n.t('empty_friendlist_search_pseudo')}</Text>

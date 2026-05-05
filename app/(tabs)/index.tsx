@@ -725,8 +725,8 @@ export default function HomeScreen() {
                  <TutorialSwiper onClose={() => setActiveView('list')} />
                ) : (
                  <>
-                   <FriendsList 
-                     onProutSent={shakeHeader} 
+                   <FriendsList
+                     onProutSent={shakeHeader}
                      isSearchVisible={isSearchVisible}
                      onSearchChange={setIsSearchVisible}
                      searchQuery={searchQuery}
@@ -734,8 +734,8 @@ export default function HomeScreen() {
                      listIntroTrigger={listIntroTrigger}
                      refreshTrigger={friendsRefreshTrigger}
                      headerComponent={headerComponent}
-                   />
-       
+                     onInviteFriend={handleShare}
+                   />       
                    {activeView === 'profileMenu' && (
                      <View style={styles.menuOverlay}>
                        <ScrollView 
@@ -804,8 +804,8 @@ export default function HomeScreen() {
               <TutorialSwiper onClose={() => setActiveView('list')} />
             ) : (
               <>
-                <FriendsList 
-                  onProutSent={shakeHeader} 
+                <FriendsList
+                  onProutSent={shakeHeader}
                   isSearchVisible={isSearchVisible}
                   onSearchChange={setIsSearchVisible}
                   searchQuery={searchQuery}
@@ -813,8 +813,8 @@ export default function HomeScreen() {
                   listIntroTrigger={listIntroTrigger}
                   refreshTrigger={friendsRefreshTrigger}
                   headerComponent={headerComponent}
-                />
-    
+                  onInviteFriend={handleShare}
+                />    
                 {activeView === 'profileMenu' && (
                   <View style={styles.menuOverlay}>
                     <ScrollView 
