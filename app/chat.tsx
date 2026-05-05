@@ -2,11 +2,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   DeviceEventEmitter,
+  FlatList,
   Image,
   InteractionManager,
   Keyboard,
@@ -24,6 +25,8 @@ import {
 import Modal from 'react-native-modal';
 import { useKeyboardHandler } from 'react-native-keyboard-controller';
 import Animated, {
+  FadeInUp,
+  LinearTransition,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
@@ -168,6 +171,24 @@ function isUuid(value?: string | null) {
   return !!value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
+const AnimatedMessageRow = React.memo(({ isMe, messageId, children }: { isMe: boolean, messageId: string, children: React.ReactNode }) => {
+  const [hasEntered, setHasEntered] = useState(false);
+  
+  useEffect(() => {
+    setHasEntered(true);
+  }, [messageId]);
+
+  return (
+    <Animated.View 
+      entering={hasEntered ? undefined : FadeInUp.duration(300)}
+      layout={LinearTransition.springify().damping(15)}
+      style={isMe ? bubbleStyles.sentRow : bubbleStyles.receivedRow}
+    >
+      {children}
+    </Animated.View>
+  );
+});
+
 export default function ChatScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -258,33 +279,10 @@ export default function ChatScreen() {
   // On remplit le Set des IDs connus avec ceux déjà présents en cache
   const knownIncomingMessageIdsRef = useRef<Set<string>>(new Set(receivedMessages.map(m => m.id)));
   const hasHydratedIncomingMessagesRef = useRef(false);
-  const scrollViewRef = useRef<ScrollView | null>(null);
   const inputRef = useRef<TextInput | null>(null);
   const reopenKeyboardAfterSoundPickRef = useRef(false);
   const keyboardHeightSV = useSharedValue(0);
-
-  /** iOS : un seul scrollToEnd(animated) au premier layout d’un long fil reste souvent en haut ; on force le bas sans animation puis rAF. */
-  const flushScrollToBottom = useCallback(() => {
-    const sv = scrollViewRef.current;
-    if (!sv) return;
-    try {
-      sv.scrollToEnd({ animated: false });
-    } catch {
-      /* ignore */
-    }
-    requestAnimationFrame(() => {
-      scrollViewRef.current?.scrollToEnd({ animated: false });
-    });
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        scrollViewRef.current?.scrollToEnd({ animated: false });
-      });
-    });
-  }, []);
-
-  const handleMessagesContentSizeChange = useCallback(() => {
-    flushScrollToBottom();
-  }, [flushScrollToBottom]);
+  const messageKeyMapRef = useRef(new Map<string, string>());
 
   const pulseScale = useSharedValue(1);
 
@@ -492,12 +490,19 @@ export default function ChatScreen() {
           ts: m.created_at,
           status: parsed.isRead ? ('read' as const) : undefined,
           readAt: parsed.isRead ? Date.now() : undefined,
+          local_ts: 0,
         } satisfies VisibleSentMessage;
       })
       .sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
 
     // Sauvegarde dans le store persistant
-    addSentMessages(friendId, serverSent);
+    // ✅ On passe isFullSync: true car fetchPendingSentViaBackend nous donne TOUS les messages en attente
+    // MAIS seulement si on a bien reçu une réponse du serveur (pas null)
+    if (outgoing !== null) {
+      addSentMessages(friendId, serverSent, true);
+    } else {
+      addSentMessages(friendId, serverSent, false);
+    }
     if (retentionHours === 0) {
       setSentMessages(prev => {
         const next = [...prev];
@@ -527,19 +532,6 @@ export default function ChatScreen() {
     useCallback(() => {
       void refreshMessages();
     }, [refreshMessages])
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      flushScrollToBottom();
-      const afterInteractions = InteractionManager.runAfterInteractions(() => flushScrollToBottom());
-      const timeouts = [16, 64, 160, 320].map((ms) => setTimeout(flushScrollToBottom, ms));
-      return () => {
-        timeouts.forEach(clearTimeout);
-        const cancel = (afterInteractions as { cancel?: () => void } | undefined)?.cancel;
-        cancel?.();
-      };
-    }, [flushScrollToBottom])
   );
 
   useFocusEffect(
@@ -583,12 +575,22 @@ export default function ChatScreen() {
       // 2. Gestion des messages déjà à l'écran (optimistes ou mode 0h)
       prev.forEach(existing => {
         // Est-ce que ce message est déjà représenté dans le store ?
-        const isRepresented = fromStore.some(m => 
-          m.id === existing.id || 
-          (m.text === existing.text && 
-           m.soundKey === existing.soundKey && 
-           Math.abs(new Date(m.ts).getTime() - new Date(existing.ts).getTime()) < 30000)
-        );
+        let matchingStoreMsg: VisibleSentMessage | undefined = undefined;
+        const isRepresented = fromStore.some(m => {
+          const sameId = m.id === existing.id;
+          const sameContent = m.text === existing.text && m.soundKey === existing.soundKey;
+          
+          if (sameId || sameContent) {
+            matchingStoreMsg = m;
+            return true;
+          }
+          return false;
+        });
+
+        if (isRepresented && matchingStoreMsg && existing.id.startsWith('local-')) {
+          // On lie l'ID réel à l'ID local pour la stabilité des clés
+          messageKeyMapRef.current.set(matchingStoreMsg.id, existing.id);
+        }
 
         if (!isRepresented) {
           // Si on est en mode 0h, on garde tout ce qui n'est pas dans le store
@@ -791,11 +793,15 @@ export default function ChatScreen() {
 
   useEffect(() => {
     if (!currentUserId || !friendId) return;
-    const unreadIds = receivedMessages
-      .filter((m) => m.from_user_id === friendId)
-      .map((m) => m.id)
-      .filter(Boolean);
-    if (unreadIds.length === 0) return;
+    
+    // On ne marque comme lu que s'il y a des messages reçus qui ne sont pas encore marqués READ:
+    const hasUnread = receivedMessages.some((m) => {
+      if (m.from_user_id !== friendId) return false;
+      const parsed = parseMessageContent(m.message_content);
+      return !parsed.isRead;
+    });
+
+    if (!hasUnread) return;
     
     void markConversationReadViaBackend(friendId, currentUserId).then(() => {
       // ✅ Invalider TanStack Query pour faire disparaître l'aperçu dans FriendsList immédiatement
@@ -868,40 +874,47 @@ export default function ChatScreen() {
     const confirmedSent = sentMessages.filter(m => !m.id.startsWith('local-'));
     const optimisticSent = sentMessages.filter(m => m.id.startsWith('local-'));
 
-    // 2. Ne garder que les optimistes qui ne sont pas encore représentés dans les confirmés
+    // 2. Associer les ID optimistes aux ID confirmés
+    // On parcourt les optimistes et on cherche le premier confirmé qui a le même contenu.
     const filteredOptimistic = optimisticSent.filter(opt => {
-      return !confirmedSent.some(conf => 
-        conf.text === opt.text && 
-        conf.soundKey === opt.soundKey &&
-        Math.abs(new Date(conf.ts).getTime() - new Date(opt.ts).getTime()) < 30000
-      );
+      // On cherche un message confirmé qui correspond
+      const matchingConf = confirmedSent.find(conf => {
+         const sameText = (conf.text || '') === (opt.text || '');
+         const sameSound = (conf.soundKey || '') === (opt.soundKey || '');
+         return sameText && sameSound;
+      });
+
+      if (matchingConf) {
+        // Le miracle opère ici : on dit explicitement que le vrai message serveur (UUID)
+        // DOIT utiliser l'identifiant local comme clé React, pour ne pas détruire le composant.
+        messageKeyMapRef.current.set(matchingConf.id, opt.id);
+        return false; // On cache le message optimiste puisqu'on a le vrai
+      }
+      return true; // Pas encore confirmé, on le garde visible
     });
 
-    const outgoing = [...confirmedSent, ...filteredOptimistic].map((m) => ({
-      id: `sent-${m.id}`,
-      ts: m.ts,
-      isMe: true,
-      text: m.text,
-      soundKey: m.soundKey,
-      status: m.status,
-      readAt: m.readAt,
-      sourceMessageId: m.id,
-    }));
+    const outgoing = [...confirmedSent, ...filteredOptimistic].map((m) => {
+      // Si le message est confirmé, on force l'utilisation de son ancienne clé 'local-'
+      // s'il en a une. Sinon, on utilise son ID normal.
+      const stableId = messageKeyMapRef.current.get(m.id) || m.id;
+
+      return {
+        id: `sent-${stableId}`,
+        ts: m.ts,
+        isMe: true,
+        text: m.text,
+        soundKey: m.soundKey,
+        status: m.status,
+        readAt: m.readAt,
+        sourceMessageId: m.id, 
+        optimistic: m.optimistic,
+      };
+    });
 
     return [...incoming, ...outgoing].sort(
-      (a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime()
+      (a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime()
     );
   }, [receivedMessages, sentMessages]);
-
-  // Long fil : le contenu arrive souvent en plusieurs passes (réseau + layout) — recaler le bas après stabilisation.
-  useEffect(() => {
-    if (timeline.length === 0) return;
-    const t = setTimeout(() => {
-      flushScrollToBottom();
-      InteractionManager.runAfterInteractions(() => flushScrollToBottom());
-    }, 72);
-    return () => clearTimeout(t);
-  }, [friendId, timeline.length, flushScrollToBottom]);
 
   const currentSoundChoices = useMemo(() => {
     switch (chatSoundCategory) {
@@ -1216,7 +1229,13 @@ export default function ChatScreen() {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : undefined}
       >
         <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.headerIcon}>
+          <TouchableOpacity 
+            onPress={() => {
+              Keyboard.dismiss();
+              router.back();
+            }} 
+            style={styles.headerIcon}
+          >
             <Ionicons name="chevron-back" size={26} color="#604a3e" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{i18n.t('sticky_chat_with', { pseudo: friend.pseudo })}</Text>
@@ -1281,33 +1300,34 @@ export default function ChatScreen() {
             <Image source={CHAT_PROOTHAIL_THUMB} style={styles.chatBackgroundHero} resizeMode="cover" />
           </View>
 
-          <ScrollView
-            ref={scrollViewRef}
+          <FlatList
+            inverted
+            data={timeline}
+            keyExtractor={(item) => item.id}
             style={styles.messages}
             contentContainerStyle={styles.messagesContent}
             keyboardShouldPersistTaps="handled"
-            onContentSizeChange={handleMessagesContentSizeChange}
-          >
-            {timeline.map((message) =>
+            renderItem={({ item: message }) =>
               message.isMe ? (
-                <View key={message.id} style={bubbleStyles.sentRow}>
+                <AnimatedMessageRow isMe={true} messageId={message.id}>
                   <SentBubble
                     message={{
                       id: message.sourceMessageId || message.id,
                       text: message.text,
                       ts: message.ts,
                       soundKey: message.soundKey,
-                      status: message.status,
-                      readAt: message.readAt,
-                      local_ts: 0 // Non utilisé dans le rendu mais requis par le type
+                      status: (message as any).status,
+                      readAt: (message as any).readAt,
+                      optimistic: (message as any).optimistic,
+                      local_ts: 0 
                     } as any}
                     reaction={getReactionBadgeText(message.sourceMessageId || message.id)}
                     onLongPressReact={() => openReactionPicker(message.sourceMessageId || message.id, true)}
                     onLongPressEdit={(msg) => setEditingMessage(msg)}
                   />
-                </View>
+                </AnimatedMessageRow>
               ) : (
-                <View key={message.id} style={bubbleStyles.receivedRow}>
+                <AnimatedMessageRow isMe={false} messageId={message.id}>
                   <ReceivedBubble
                     message={{
                       id: message.sourceMessageId || message.id,
@@ -1320,10 +1340,10 @@ export default function ChatScreen() {
                     onReplay={() => {}}
                     onLongPressReact={() => openReactionPicker(message.sourceMessageId || message.id, false)}
                   />
-                </View>
+                </AnimatedMessageRow>
               )
-            )}
-          </ScrollView>
+            }
+          />
         </View>
 
         <Animated.View style={composerKeyboardStyle}>
@@ -1684,7 +1704,6 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 12,
     flexGrow: 1,
-    justifyContent: 'flex-end',
   },
   soundPickerModal: {
     justifyContent: 'flex-end',
