@@ -2364,10 +2364,19 @@ useEffect(() => {
           .on('broadcast', { event: 'message-received' }, (payload) => {
             console.log('📡 [CLIENT] Broadcast message-received event triggered. Payload keys:', Object.keys(payload.payload || {}));
             const senderId = payload.payload?.from;
-            const messageData = payload.payload?.messageData;
+            let messageData = payload.payload?.messageData;
             
             if (senderId) {
               const now = new Date().toISOString();
+              
+              // S'assurer que messageData est un objet s'il arrive sous forme de chaîne
+              if (typeof messageData === 'string') {
+                try {
+                  messageData = JSON.parse(messageData);
+                } catch (e) {
+                  console.error('❌ [CLIENT] Erreur parsing messageData broadcast:', e);
+                }
+              }
               
               if (messageData && messageData.id) {
                 console.log('📡 [CLIENT] Injecting full message from broadcast messageData...');
