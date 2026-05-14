@@ -48,6 +48,7 @@ import {
 } from './FriendsListComponents/ChatMessages';
 import { ChatModal } from './FriendsListComponents/ChatModal';
 import { FriendSoundPickModal } from './FriendsListComponents/Modals/FriendSoundPickModal';
+import { useChatStore } from '@/lib/chatStore';
 import { ReportReasonModal } from './FriendsListComponents/Modals/ReportReasonModal';
 import { IdentityModal } from './FriendsListComponents/Modals/IdentityModal';
 
@@ -2352,49 +2353,67 @@ useEffect(() => {
             // refreshAllData(); 
           })
           .on('broadcast', { event: 'message-received' }, (payload) => {
-            console.log('📡 [CLIENT] Broadcast message-received event triggered:', JSON.stringify(payload));
+            console.log('📡 [CLIENT] Broadcast message-received event triggered. Payload keys:', Object.keys(payload.payload || {}));
             const senderId = payload.payload?.from;
+            const messageData = payload.payload?.messageData;
+            
             if (senderId) {
               const now = new Date().toISOString();
-              const customMessage =
-                typeof payload.payload?.customMessage === 'string'
-                  ? payload.payload.customMessage.trim()
-                  : '';
-              const proutKey =
-                typeof payload.payload?.proutKey === 'string'
-                  ? payload.payload.proutKey
-                  : null;
-
-              if (customMessage) {
-                console.log('📡 [CLIENT] Injecting optimistic message from broadcast...');
-                const optimisticMessage: PendingMessage = {
-                  id: `broadcast-${senderId}-${Date.now()}`,
-                  from_user_id: senderId,
-                  to_user_id: user.id,
-                  message_content: `${proutKey ? `[${proutKey}]` : ''}${customMessage}`,
-                  created_at: now,
-                  isPendingDelete: false,
-                };
-
-                setPendingMessages((prev) => {
-                  const hasEquivalent = prev.some((msg) => {
-                    if (msg.from_user_id !== senderId) return false;
-                    if ((msg.message_content || '') !== optimisticMessage.message_content) return false;
-                    return Math.abs(new Date(msg.created_at).getTime() - new Date(now).getTime()) < 5000;
-                  });
-                  if (hasEquivalent) {
-                    console.log('📡 [CLIENT] Equivalent optimistic message from broadcast already exists.');
-                    return prev;
-                  }
-                  console.log('📡 [CLIENT] Added optimistic message from broadcast to state.');
-                  return [...prev, optimisticMessage].sort(
-                    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-                  );
-                });
+              
+              if (messageData && messageData.id) {
+                console.log('📡 [CLIENT] Injecting full message from broadcast messageData...');
+                // Si on a l'objet complet (grâce à notre modif backend), on l'injecte dans le store Zustand !
+                useChatStore.getState().addReceivedMessages(senderId, [{
+                  id: messageData.id,
+                  from_user_id: messageData.from_user_id,
+                  to_user_id: messageData.to_user_id,
+                  message_content: messageData.message_content,
+                  created_at: messageData.created_at,
+                  local_ts: Date.now(),
+                }]);
               } else {
-                 console.log('📡 [CLIENT] Broadcast missing customMessage, skipping optimistic injection.');
+                // Fallback de secours (au cas où le backend n'a pas été redéployé ou s'il y a un souci)
+                const customMessage =
+                  typeof payload.payload?.customMessage === 'string'
+                    ? payload.payload.customMessage.trim()
+                    : '';
+                const proutKey =
+                  typeof payload.payload?.proutKey === 'string'
+                    ? payload.payload.proutKey
+                    : null;
+
+                if (customMessage) {
+                  console.log('📡 [CLIENT] Injecting optimistic message from broadcast (fallback)...');
+                  const optimisticMessage: PendingMessage = {
+                    id: `broadcast-${senderId}-${Date.now()}`,
+                    from_user_id: senderId,
+                    to_user_id: user.id,
+                    message_content: `${proutKey ? `[${proutKey}]` : ''}${customMessage}`,
+                    created_at: now,
+                    isPendingDelete: false,
+                  };
+
+                  setPendingMessages((prev) => {
+                    const hasEquivalent = prev.some((msg) => {
+                      if (msg.from_user_id !== senderId) return false;
+                      if ((msg.message_content || '') !== optimisticMessage.message_content) return false;
+                      return Math.abs(new Date(msg.created_at).getTime() - new Date(now).getTime()) < 5000;
+                    });
+                    if (hasEquivalent) {
+                      console.log('📡 [CLIENT] Equivalent optimistic message from broadcast already exists.');
+                      return prev;
+                    }
+                    console.log('📡 [CLIENT] Added optimistic message from broadcast to state.');
+                    return [...prev, optimisticMessage].sort(
+                      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                    );
+                  });
+                } else {
+                   console.log('📡 [CLIENT] Broadcast missing customMessage, skipping optimistic injection.');
+                }
               }
 
+              // Remonter l'ami dans la liste (last_interaction_at)
               setAppUsers((prev) => {
                 const updated = prev.map((friend) =>
                   friend.id === senderId ? { ...friend, last_interaction_at: now } : friend
