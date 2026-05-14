@@ -1210,54 +1210,63 @@ export function FriendsList({
         return;
       }
 
-      const senderId = typeof data?.senderId === 'string' ? data.senderId : null;
-      const customMessage = typeof data?.customMessage === 'string' ? data.customMessage.trim() : '';
-      const proutKey = typeof data?.proutKey === 'string' ? data.proutKey : null;
-
-      console.log('🔔 [REFRESH_DATA] Parsed data:', { senderId, customMessage, proutKey });
-
-      // Injection optimiste immédiate pour l'aperçu en FriendList quand la notif
-      // arrive avant que le refresh backend/Supabase n'ait eu le temps d'aboutir.
-      if (senderId && customMessage) {
-        console.log('🔔 [REFRESH_DATA] Injecting optimistic message...');
-        const nowIso = new Date().toISOString();
-        const optimisticMessage: PendingMessage = {
-          id: `notif-${senderId}-${Date.now()}`,
-          from_user_id: senderId,
-          to_user_id: currentUserId || undefined,
-          message_content: `${proutKey ? `[${proutKey}]` : ''}${customMessage}`,
-          created_at: nowIso,
-          isPendingDelete: false,
-        };
-
-        setPendingMessages((prev) => {
-          const hasEquivalent = prev.some((msg) => {
-            if (msg.from_user_id !== senderId) return false;
-            if ((msg.message_content || '') !== optimisticMessage.message_content) return false;
-            return Math.abs(new Date(msg.created_at).getTime() - new Date(nowIso).getTime()) < 5000;
-          });
-          if (hasEquivalent) {
-            console.log('🔔 [REFRESH_DATA] Equivalent optimistic message already exists.');
-            return prev;
-          }
-          console.log('🔔 [REFRESH_DATA] Added optimistic message to state.');
-          return [...prev, optimisticMessage].sort(
-            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-          );
-        });
-
-        setAppUsers((prev) => {
-          const updated = prev.map((friend) =>
-            friend.id === senderId ? { ...friend, last_interaction_at: nowIso } : friend
-          );
-          return [...updated].sort((a, b) => {
-            const timeA = a.last_interaction_at ? new Date(a.last_interaction_at).getTime() : 0;
-            const timeB = b.last_interaction_at ? new Date(b.last_interaction_at).getTime() : 0;
-            return timeB - timeA;
-          });
-        });
+      // Si on a l'objet complet `messageData` (via la notif), l'injection directe a DÉJÀ
+      // été faite dans `NotificationService.ts` via `useChatStore`.
+      // On a juste à dire à React Query de se rafraîchir en douceur pour synchroniser
+      // le reste de l'UI (comme la liste d'amis).
+      if (data?.messageData) {
+        console.log('🔔 [REFRESH_DATA] Full messageData detected (already injected by NotificationService). Refreshing UI...');
       } else {
-        console.log('🔔 [REFRESH_DATA] Missing senderId or customMessage, skipping optimistic injection.');
+        // Fallback: ancienne méthode si pas de messageData
+        const senderId = typeof data?.senderId === 'string' ? data.senderId : null;
+        const customMessage = typeof data?.customMessage === 'string' ? data.customMessage.trim() : '';
+        const proutKey = typeof data?.proutKey === 'string' ? data.proutKey : null;
+
+        console.log('🔔 [REFRESH_DATA] Parsed fallback data:', { senderId, customMessage, proutKey });
+
+        // Injection optimiste immédiate pour l'aperçu en FriendList quand la notif
+        // arrive avant que le refresh backend/Supabase n'ait eu le temps d'aboutir.
+        if (senderId && customMessage) {
+          console.log('🔔 [REFRESH_DATA] Injecting optimistic message...');
+          const nowIso = new Date().toISOString();
+          const optimisticMessage: PendingMessage = {
+            id: `notif-${senderId}-${Date.now()}`,
+            from_user_id: senderId,
+            to_user_id: currentUserId || undefined,
+            message_content: `${proutKey ? `[${proutKey}]` : ''}${customMessage}`,
+            created_at: nowIso,
+            isPendingDelete: false,
+          };
+
+          setPendingMessages((prev) => {
+            const hasEquivalent = prev.some((msg) => {
+              if (msg.from_user_id !== senderId) return false;
+              if ((msg.message_content || '') !== optimisticMessage.message_content) return false;
+              return Math.abs(new Date(msg.created_at).getTime() - new Date(nowIso).getTime()) < 5000;
+            });
+            if (hasEquivalent) {
+              console.log('🔔 [REFRESH_DATA] Equivalent optimistic message already exists.');
+              return prev;
+            }
+            console.log('🔔 [REFRESH_DATA] Added optimistic message to state.');
+            return [...prev, optimisticMessage].sort(
+              (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+            );
+          });
+
+          setAppUsers((prev) => {
+            const updated = prev.map((friend) =>
+              friend.id === senderId ? { ...friend, last_interaction_at: nowIso } : friend
+            );
+            return [...updated].sort((a, b) => {
+              const timeA = a.last_interaction_at ? new Date(a.last_interaction_at).getTime() : 0;
+              const timeB = b.last_interaction_at ? new Date(b.last_interaction_at).getTime() : 0;
+              return timeB - timeA;
+            });
+          });
+        } else {
+          console.log('🔔 [REFRESH_DATA] Missing senderId or customMessage, skipping optimistic injection.');
+        }
       }
 
       // 2. Invalider TanStack Query et re-fetch avec un petit délai 
