@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import i18n from '@/lib/i18n';
 import { safePush, safeReplace } from '@/lib/navigation';
+import { useChatStore } from '@/lib/chatStore';
 
 const ACTIVE_CHAT_FRIEND_ID_KEY = 'active_chat_friend_id_v1';
 
@@ -38,6 +39,30 @@ export const setupNotificationListeners = (
   const notificationListener = Notifications.addNotificationReceivedListener(async (notification) => {
     const { title, body, data } = notification.request.content;
     if (__DEV__) console.log('🔔 [NotificationService] Notification reçue:', JSON.stringify(data));
+
+    // Si on a les données complètes du message, on les injecte direct dans le store
+    // pour éviter d'attendre le rafraîchissement réseau
+    if (data?.messageData) {
+      try {
+        const msg = typeof data.messageData === 'string' ? JSON.parse(data.messageData) : data.messageData;
+        const senderId = data.senderId || msg.from_user_id;
+
+        if (senderId && msg.id) {
+          if (__DEV__) console.log(`🚀 [NotificationService] Injection directe message ${msg.id} pour ${senderId}`);
+          
+          useChatStore.getState().addReceivedMessages(senderId, [{
+            id: msg.id,
+            from_user_id: msg.from_user_id,
+            to_user_id: msg.to_user_id,
+            message_content: msg.message_content,
+            created_at: msg.created_at,
+            local_ts: Date.now(),
+          }]);
+        }
+      } catch (e) {
+        console.error('❌ [NotificationService] Erreur injection messageData:', e);
+      }
+    }
 
     // Émettre un événement global avec les données pour jouer le son et rafraîchir
     if (data && Object.keys(data).length > 0) {
