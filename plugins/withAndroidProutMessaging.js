@@ -44,7 +44,7 @@ class ProutMessagingService : FirebaseMessagingService() {
     companion object {
         private const val TAG = "ProutMessagingService"
         private const val CHANNEL_PREFIX = "prout-"
-        private const val CHANNEL_VERSION = "v6"
+        private const val CHANNEL_VERSION = "v7"
         private const val DEFAULT_CHANNEL_ID = "prout-default"
     }
 
@@ -331,7 +331,7 @@ object NotificationChannelHelper {
     )
 
     private const val CHANNEL_PREFIX = "prout-"
-    private const val CHANNEL_VERSION = "v6"
+    private const val CHANNEL_VERSION = "v7"
 
     fun createChannels(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
@@ -502,7 +502,7 @@ const withAndroidProutMessaging = (config) => {
       }],
     });
 
-    // Définir le canal par défaut FCM sur le v5
+    // Définir le canal par défaut FCM sur le v7
     if (!mainApplication['meta-data']) {
       mainApplication['meta-data'] = [];
     }
@@ -512,7 +512,7 @@ const withAndroidProutMessaging = (config) => {
     mainApplication['meta-data'].push({
       $: {
         'android:name': 'com.google.firebase.messaging.default_notification_channel_id',
-        'android:value': 'prout-trrl1-v6',
+        'android:value': 'prout-trrl1-v7',
         'tools:replace': 'android:value',
       },
     });
