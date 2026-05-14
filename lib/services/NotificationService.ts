@@ -38,12 +38,18 @@ export const setupNotificationListeners = (
 ) => {
   const notificationListener = Notifications.addNotificationReceivedListener(async (notification) => {
     const { title, body, data } = notification.request.content;
-    if (__DEV__) console.log('🔔 [NotificationService] Notification reçue:', JSON.stringify(data));
+    if (__DEV__) {
+      console.log('🔔 [NotificationService] Notification reçue !');
+      console.log('📝 Title:', title);
+      console.log('📄 Body:', body);
+      console.log('📦 Data (full):', JSON.stringify(data, null, 2));
+    }
 
     // Si on a les données complètes du message, on les injecte direct dans le store
     // pour éviter d'attendre le rafraîchissement réseau
     if (data?.messageData) {
       try {
+        if (__DEV__) console.log('🚀 [NotificationService] messageData détecté !');
         const msg = typeof data.messageData === 'string' ? JSON.parse(data.messageData) : data.messageData;
         const senderId = data.senderId || msg.from_user_id;
 
