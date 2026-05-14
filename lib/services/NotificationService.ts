@@ -38,23 +38,23 @@ export const setupNotificationListeners = (
 ) => {
   const notificationListener = Notifications.addNotificationReceivedListener(async (notification) => {
     const { title, body, data } = notification.request.content;
-    if (__DEV__) {
-      console.log('🔔 [NotificationService] Notification reçue !');
-      console.log('📝 Title:', title);
-      console.log('📄 Body:', body);
-      console.log('📦 Data (full):', JSON.stringify(data, null, 2));
-    }
+    
+    // LOGS FORCÉS POUR DEBUG SYNCHRO
+    console.log('🔔 [NotificationService] Notification reçue !');
+    console.log('📦 Data (full):', JSON.stringify(data, null, 2));
 
     // Si on a les données complètes du message, on les injecte direct dans le store
     // pour éviter d'attendre le rafraîchissement réseau
-    if (data?.messageData) {
+    const messageDataRaw = data?.m_d || data?.messageData;
+    
+    if (messageDataRaw) {
       try {
-        if (__DEV__) console.log('🚀 [NotificationService] messageData détecté !');
-        const msg = typeof data.messageData === 'string' ? JSON.parse(data.messageData) : data.messageData;
+        console.log('🚀 [NotificationService] messageData (m_d) détecté !');
+        const msg = typeof messageDataRaw === 'string' ? JSON.parse(messageDataRaw) : messageDataRaw;
         const senderId = data.senderId || msg.from_user_id;
 
         if (senderId && msg.id) {
-          if (__DEV__) console.log(`🚀 [NotificationService] Injection directe message ${msg.id} pour ${senderId}`);
+          console.log(`🚀 [NotificationService] Injection directe message ${msg.id} pour ${senderId}`);
           
           useChatStore.getState().addReceivedMessages(senderId, [{
             id: msg.id,

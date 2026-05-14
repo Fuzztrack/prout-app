@@ -889,7 +889,7 @@ export function FriendsList({
   const hasHydratedIncomingMessagesRef = useRef(false);
   const CONVERSATION_READ_DEDUP_MS = 3_000;
   const CONVERSATION_READ_MIN_INTERVAL_MS = 2_500;
-  const CHAT_VERBOSE_LOGS = false;
+  const CHAT_VERBOSE_LOGS = true;
   const CHAT_CONTROL_LOGS = false;
 
   // Polling simple (sans backoff exponentiel)
@@ -2364,7 +2364,7 @@ useEffect(() => {
           .on('broadcast', { event: 'message-received' }, (payload) => {
             console.log('📡 [CLIENT] Broadcast message-received event triggered. Payload keys:', Object.keys(payload.payload || {}));
             const senderId = payload.payload?.from;
-            let messageData = payload.payload?.messageData;
+            let messageData = payload.payload?.m_d || payload.payload?.messageData;
             
             if (senderId) {
               const now = new Date().toISOString();
