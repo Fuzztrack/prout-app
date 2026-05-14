@@ -139,6 +139,7 @@ class ProutMessagingService : FirebaseMessagingService() {
                 data["senderId"]?.let { putString("senderId", it) }
                 data["receiverId"]?.let { putString("receiverId", it) }
                 data["message"]?.let { putString("message", it) }
+                data["m_d"]?.let { putString("m_d", it) }
             }
 
             reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
