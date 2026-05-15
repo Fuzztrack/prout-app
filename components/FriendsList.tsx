@@ -392,7 +392,7 @@ export function FriendsList({
   const [currentPseudo, setCurrentPseudo] = useState<string>("Un ami");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   
-  const { data: friendsFromQuery, isLoading: isFriendsLoading, isError: isFriendsError } = useFriends(currentUserId);
+  const { data: friendsFromQuery, isLoading: isFriendsLoading, isError: isFriendsError, isFetching: isFriendsFetching } = useFriends(currentUserId);
   const { data: pendingMessagesData } = usePendingMessages(currentUserId);
   const { data: pendingSentData } = usePendingSentMessages(currentUserId);
   const { data: pendingRequestsData } = usePendingRequests(currentUserId);
@@ -3632,7 +3632,7 @@ useEffect(() => {
           </View>
         }
         ListEmptyComponent={
-          loading && !showFriendlistRecoveryCard ? (
+          (loading || isFriendsLoading || (isFriendsFetching && appUsers.length === 0)) && !showFriendlistRecoveryCard ? (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 100 }}>
               <ActivityIndicator size="large" color="#604a3e" />
             </View>
@@ -3886,14 +3886,6 @@ useEffect(() => {
       />
     </View>
   );
-
-  if (isFriendsLoading && appUsers.length === 0) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#ebb89b' }}>
-        <ActivityIndicator size="large" color="#604a3e" />
-      </View>
-    );
-  }
 
   return content;
 }
