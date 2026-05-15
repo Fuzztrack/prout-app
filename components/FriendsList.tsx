@@ -398,6 +398,9 @@ export function FriendsList({
   const { data: identityRequestsData } = useIdentityRequests(currentUserId);
   const { data: blockedUsersFromQuery } = useBlockedUsers(currentUserId);
 
+  // Mémoriser la dernière liste valide pour éviter le flash blanc et la déclarer tôt
+  const displayUsers = appUsers.length > 0 ? appUsers : (friendsFromQuery || []);
+
   // Synchronisation TanStack pour les Utilisateurs Bloqués
   useEffect(() => {
     if (blockedUsersFromQuery) {
@@ -3512,9 +3515,6 @@ useEffect(() => {
   };
 
   const lastValidUsersRef = useRef<any[]>([]);
-  
-  // Mémoriser la dernière liste valide pour éviter le flash blanc
-  const displayUsers = appUsers.length > 0 ? appUsers : (friendsFromQuery || []);
 
   useEffect(() => {
     if (displayUsers && displayUsers.length > 0) {
