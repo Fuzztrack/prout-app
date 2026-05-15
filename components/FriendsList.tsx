@@ -49,6 +49,7 @@ import {
 import { ChatModal } from './FriendsListComponents/ChatModal';
 import { FriendSoundPickModal } from './FriendsListComponents/Modals/FriendSoundPickModal';
 import { useChatStore } from '@/lib/chatStore';
+import { useFriendsStore } from '@/lib/friendsStore';
 import { ReportReasonModal } from './FriendsListComponents/Modals/ReportReasonModal';
 import { IdentityModal } from './FriendsListComponents/Modals/IdentityModal';
 
@@ -390,6 +391,9 @@ export function FriendsList({
   const [isGameVisible, setIsGameVisible] = useState(false);
   const [currentPseudo, setCurrentPseudo] = useState<string>("Un ami");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  const storedFriends = useFriendsStore((state) => state.friends);
+  const setStoredFriends = useFriendsStore((state) => state.setFriends);
   
   const { data: friendsFromQuery, isPending: isFriendsPending, isError: isFriendsError, isFetching: isFriendsFetching } = useFriends(currentUserId);
   const { data: pendingMessagesData } = usePendingMessages(currentUserId);
@@ -399,7 +403,17 @@ export function FriendsList({
   const { data: blockedUsersFromQuery } = useBlockedUsers(currentUserId);
 
   // Mémoriser la dernière liste valide pour éviter le flash blanc et la déclarer tôt
-  const displayUsers = appUsers.length > 0 ? appUsers : (friendsFromQuery || []);
+  // 1. On priorise l'état local (tri optimiste)
+  // 2. Sinon, on prend la requête TanStack si elle a abouti
+  // 3. Sinon, on prend le store synchrone (Zustand) pour l'affichage instantané
+  const displayUsers = appUsers.length > 0 ? appUsers : (friendsFromQuery || storedFriends || []);
+
+  // Mettre à jour le store persistant quand on reçoit de nouvelles données
+  useEffect(() => {
+    if (friendsFromQuery) {
+      setStoredFriends(friendsFromQuery);
+    }
+  }, [friendsFromQuery, setStoredFriends]);
 
   // Synchronisation TanStack pour les Utilisateurs Bloqués
   useEffect(() => {
@@ -3627,7 +3641,7 @@ useEffect(() => {
           </View>
         }
         ListEmptyComponent={
-          (!currentUserId || isFriendsPending || (isFriendsFetching && displayUsers.length === 0)) && !showFriendlistRecoveryCard ? (
+          (!currentUserId || ((isFriendsPending || isFriendsFetching) && displayUsers.length === 0)) && !showFriendlistRecoveryCard ? (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 100 }}>
               <ActivityIndicator size="large" color="#604a3e" />
             </View>
