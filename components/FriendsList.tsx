@@ -674,7 +674,7 @@ export function FriendsList({
         return next;
       });
     }
-  }, [pendingMessagesData]);
+  }, [pendingMessagesData, receivedByFriend]);
 
   const appUsersRef = useRef<any[]>([]);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
@@ -1550,6 +1550,9 @@ export function FriendsList({
 
       // 2. Configurer uniquement les abonnements Realtime.
       setupRealtimeSubscription();
+
+      // 3. Charger les données immédiatement
+      refreshAllData();
     };
     
     initialize();
@@ -2158,6 +2161,16 @@ useEffect(() => {
               // Invalidation TanStack
               queryClient.invalidateQueries({ queryKey: ['pendingMessages', user.id] });
               queryClient.invalidateQueries({ queryKey: ['friends', user.id] });
+
+              // Injection optimiste immédiate pour l'aperçu
+              setPendingMessages((prev) => {
+                const existingIds = new Set(prev.map(m => m.id));
+                if (existingIds.has(newMessage.id)) return prev;
+                const next = [...prev, newMessage as PendingMessage];
+                return next.sort((a, b) => 
+                  new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                );
+              });
 
               // Mise à jour optimiste du tri
               const now = newMessage.created_at || new Date().toISOString();
