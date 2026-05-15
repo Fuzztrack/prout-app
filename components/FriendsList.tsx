@@ -374,7 +374,6 @@ export function FriendsList({
         queryClient.invalidateQueries({ queryKey: ['identityRequests', currentUserId] }),
       ]);
     } finally {
-      setLoading(false);
       setIsRefreshing(false);
     }
   });
@@ -392,7 +391,7 @@ export function FriendsList({
   const [currentPseudo, setCurrentPseudo] = useState<string>("Un ami");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   
-  const { data: friendsFromQuery, isLoading: isFriendsLoading, isError: isFriendsError, isFetching: isFriendsFetching } = useFriends(currentUserId);
+  const { data: friendsFromQuery, isPending: isFriendsPending, isError: isFriendsError, isFetching: isFriendsFetching } = useFriends(currentUserId);
   const { data: pendingMessagesData } = usePendingMessages(currentUserId);
   const { data: pendingSentData } = usePendingSentMessages(currentUserId);
   const { data: pendingRequestsData } = usePendingRequests(currentUserId);
@@ -411,7 +410,6 @@ export function FriendsList({
   useEffect(() => {
     if (isFriendsError && appUsers.length === 0) {
       setShowFriendlistRecoveryCard(true);
-      setLoading(false);
     }
   }, [isFriendsError, appUsers.length]);
 
@@ -595,7 +593,6 @@ export function FriendsList({
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
   const [identityRequests, setIdentityRequests] = useState<any[]>([]);
 
-  const [loading, setLoading] = useState(true); // Commencer à true, TanStack Query gérera la suite
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showFriendlistRecoveryCard, setShowFriendlistRecoveryCard] = useState(false);
 
@@ -657,7 +654,6 @@ export function FriendsList({
   useEffect(() => {
     if (friendsFromQuery !== undefined) {
       setAppUsers(friendsFromQuery);
-      setLoading(false);
     }
   }, [friendsFromQuery]);
 
@@ -3511,9 +3507,6 @@ useEffect(() => {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     setShowFriendlistRecoveryCard(false);
-    if ((appUsersRef.current?.length ?? 0) === 0) {
-      setLoading(true);
-    }
     if (__DEV__) console.log('🔄 [FriendsList] Refresh manuel...');
     await refreshAllData();
   };
@@ -3632,7 +3625,7 @@ useEffect(() => {
           </View>
         }
         ListEmptyComponent={
-          (loading || isFriendsLoading || (isFriendsFetching && appUsers.length === 0)) && !showFriendlistRecoveryCard ? (
+          (!currentUserId || isFriendsPending || (isFriendsFetching && appUsers.length === 0)) && !showFriendlistRecoveryCard ? (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 100 }}>
               <ActivityIndicator size="large" color="#604a3e" />
             </View>
