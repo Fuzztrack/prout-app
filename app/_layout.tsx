@@ -9,6 +9,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { persistQueryClient } from '@tanstack/react-query-persist-client';
+import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 
 import Onboarding from '../components/Onboarding';
 import EulaAcceptScreen from './eula-accept';
@@ -30,11 +32,24 @@ import { useDeepLinking } from '@/hooks/useDeepLinking';
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60,
-      gcTime: 1000 * 60 * 60 * 24,
+      // 10 minutes : les données sont considérées comme fraîches assez longtemps
+      staleTime: 1000 * 60 * 10,
+      // 30 jours : garde les données en cache (AsyncStorage)
+      gcTime: 1000 * 60 * 60 * 24 * 30,
       retry: 2,
     },
   },
+});
+
+const asyncStoragePersister = createAsyncStoragePersister({
+  storage: AsyncStorage,
+  key: 'PROUT_QUERY_CACHE',
+});
+
+persistQueryClient({
+  queryClient,
+  persister: asyncStoragePersister,
+  maxAge: 1000 * 60 * 60 * 24 * 30, // 30 jours
 });
 
 SplashScreen.preventAutoHideAsync().catch(() => {});

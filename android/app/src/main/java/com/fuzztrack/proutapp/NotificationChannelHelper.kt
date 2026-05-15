@@ -17,7 +17,7 @@ object NotificationChannelHelper {
     )
 
     private const val CHANNEL_PREFIX = "prout-"
-    private const val CHANNEL_VERSION = "v6"
+    private const val CHANNEL_VERSION = "v7"
 
     fun createChannels(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {

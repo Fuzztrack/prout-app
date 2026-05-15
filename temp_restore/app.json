@@ -1,0 +1,163 @@
+{
+  "expo": {
+    "name": "Proot !",
+    "slug": "prrtapp",
+    "version": "1.1.31",
+    "orientation": "portrait",
+    "icon": "./asset/images/Prrt_icon.png",
+    "scheme": "prootapp",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#ebb89b",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/proot.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ebb89b"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.prrt.app",
+      "buildNumber": "86",
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "infoPlist": {
+        "CFBundleDisplayName": "Proot !",
+        "UIBackgroundModes": [
+          "remote-notification"
+        ],
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSContactsUsageDescription": "This app uploads phone numbers from your contacts to the secure servers of Proot ! to automatically find your friends. This data is not shared with third parties.",
+        "NSPhotoLibraryUsageDescription": "This app needs access to your photos so you can choose a profile picture.",
+        "NSPhotoLibraryAddUsageDescription": "This app needs access to your photos so you can choose a profile picture.",
+        "NSCameraUsageDescription": "This app needs access to your camera so you can take a profile picture."
+      }
+    },
+    "android": {
+      "softwareKeyboardLayoutMode": "resize",
+      "adaptiveIcon": {
+        "foregroundImage": "./asset/images/Prrt_icon.png",
+        "backgroundColor": "#ebb89b"
+      },
+      "package": "com.fuzztrack.proutapp",
+      "versionCode": 200,
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.CAMERA",
+        "android.permission.READ_CONTACTS",
+        "android.permission.WRITE_CONTACTS"
+      ],
+      "newArchEnabled": true
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "./plugins/withIOSPrrtSounds",
+      "./plugins/withAndroidNotificationMetadata",
+      "./plugins/withAndroidProutMessaging",
+      "./plugins/withAndroidAppName",
+      "./plugins/withIOSAppName",
+      "./plugins/withIOSContactsLocalization",
+      "./plugins/withVolumeManager",
+      "./plugins/withSoundSettings",
+      "expo-router",
+      "expo-secure-store",
+      "expo-apple-authentication",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/proot.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#ebb89b"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./asset/images/Prrt_icon.png",
+          "color": "#ffffff",
+          "sounds": [
+            "./assets/sounds/bzzz1.wav",
+            "./assets/sounds/bzzz2.wav",
+            "./assets/sounds/bzzz3.wav",
+            "./assets/sounds/bzzz4.wav",
+            "./assets/sounds/bzzz5.wav",
+            "./assets/sounds/trrl1.wav",
+            "./assets/sounds/trrl2.wav",
+            "./assets/sounds/trrl3.wav",
+            "./assets/sounds/trrl4.wav",
+            "./assets/sounds/trrl5.wav",
+            "./assets/sounds/pop1.wav",
+            "./assets/sounds/pop2.wav",
+            "./assets/sounds/pop3.wav",
+            "./assets/sounds/pop4.wav",
+            "./assets/sounds/pop5.wav",
+            "./assets/sounds/mood1.wav",
+            "./assets/sounds/mood2.wav",
+            "./assets/sounds/mood3.wav",
+            "./assets/sounds/mood4.wav",
+            "./assets/sounds/mood5.wav",
+            "./assets/sounds/toot1.wav",
+            "./assets/sounds/toot3.wav",
+            "./assets/sounds/toot4.wav",
+            "./assets/sounds/toot6.wav",
+            "./assets/sounds/toot8.wav",
+            "./assets/sounds/toot9.wav",
+            "./assets/sounds/toot10.wav",
+            "./assets/sounds/toot11.wav",
+            "./assets/sounds/toot12.wav",
+            "./assets/sounds/toot13.wav",
+            "./assets/sounds/toot14.wav",
+            "./assets/sounds/toot16.wav",
+            "./assets/sounds/toot17.wav",
+            "./assets/sounds/toot18.wav",
+            "./assets/sounds/toot19.wav",
+            "./assets/sounds/toot20.wav"
+          ]
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          }
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "This app uploads phone numbers from your contacts to the secure servers of Proot ! to automatically find your friends. This data is not shared with third parties."
+        }
+      ],
+      "expo-localization",
+      "expo-asset",
+      "./plugins/withRemoveLocationPermission",
+      "expo-font"
+    ],
+    "assetBundlePatterns": [
+      "assets/**/*"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "jsEngine": "hermes",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "bdb304d6-9f2e-4af9-82ea-4532522a031f"
+      }
+    },
+    "owner": "fuzztrack"
+  }
+}

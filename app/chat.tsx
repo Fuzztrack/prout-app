@@ -6,6 +6,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import {
   ActivityIndicator,
   Alert,
+  Animated as RNAnimated,
   DeviceEventEmitter,
   FlatList,
   Image,
@@ -171,7 +172,7 @@ function isUuid(value?: string | null) {
   return !!value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
-const AnimatedMessageRow = React.memo(({ isMe, messageId, children }: { isMe: boolean, messageId: string, children: React.ReactNode }) => {
+const AnimatedMessageRow = React.memo(({ isMe, messageId, isNew, children }: { isMe: boolean, messageId: string, isNew?: boolean, children: React.ReactNode }) => {
   const [hasEntered, setHasEntered] = useState(false);
   
   useEffect(() => {
@@ -180,7 +181,7 @@ const AnimatedMessageRow = React.memo(({ isMe, messageId, children }: { isMe: bo
 
   return (
     <Animated.View 
-      entering={hasEntered ? undefined : FadeInUp.duration(300)}
+      entering={(!hasEntered && isNew) ? FadeInUp.duration(300) : undefined}
       layout={LinearTransition.springify().damping(15)}
       style={isMe ? bubbleStyles.sentRow : bubbleStyles.receivedRow}
     >
@@ -268,6 +269,18 @@ export default function ChatScreen() {
   const [receivedMessages, setReceivedMessages] = useState<PendingMessage[]>(receivedByFriend[friendId] || []);
   const [sentMessages, setSentMessages] = useState<VisibleSentMessage[]>(sentByFriend[friendId] || []);
   
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastOpacity] = useState(new RNAnimated.Value(0));
+
+  const showToast = useCallback((message: string) => {
+    setToastMessage(message);
+    RNAnimated.sequence([
+      RNAnimated.timing(toastOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+      RNAnimated.delay(2500),
+      RNAnimated.timing(toastOpacity, { toValue: 0, duration: 500, useNativeDriver: true }),
+    ]).start(() => setToastMessage(null));
+  }, [toastOpacity]);
+
   const [reportReasonModalVisible, setReportReasonModalVisible] = useState(false);
   const [pendingReportTarget, setPendingReportTarget] = useState<ReportTarget | null>(null);
   const [messageReactions, setMessageReactions] = useState<Record<string, MessageReaction[]>>(messageReactionsByFriend[friendId] || {});
@@ -358,14 +371,23 @@ export default function ChatScreen() {
 
       setCurrentUserId(user.id);
 
-      const [{ data: me }, { data: friendProfile }] = await Promise.all([
-        supabase.from('user_profiles').select('pseudo').eq('id', user.id).single(),
-        supabase
-          .from('user_profiles')
-          .select('id, pseudo, avatar_url, expo_push_token, push_platform, is_zen_mode')
-          .eq('id', friendId)
-          .single(),
-      ]);
+      let me = null;
+      let friendProfile = null;
+      
+      try {
+        const [meRes, friendRes] = await Promise.all([
+          supabase.from('user_profiles').select('pseudo').eq('id', user.id).single(),
+          supabase
+            .from('user_profiles')
+            .select('id, pseudo, avatar_url, expo_push_token, push_platform, is_zen_mode')
+            .eq('id', friendId)
+            .single(),
+        ]);
+        me = meRes.data;
+        friendProfile = friendRes.data;
+      } catch (e) {
+        console.warn('⚠️ [Chat] Erreur réseau lors du chargement des profils:', e);
+      }
 
       if (me?.pseudo) {
         setCurrentPseudo(me.pseudo);
@@ -374,6 +396,12 @@ export default function ChatScreen() {
       }
 
       if (!friendProfile) {
+        if (pseudoParam) {
+          showToast("Impossible de se connecter...");
+          setServerFriend(null);
+          return;
+        }
+
         Alert.alert(i18n.t('error'), 'Ami introuvable.');
         safePush(router, '/(tabs)', { skipInitialCheck: false });
         setServerFriend(null);
@@ -390,9 +418,9 @@ export default function ChatScreen() {
       });
     } catch (error) {
       console.error('❌ Erreur chargement chat:', error);
-      Alert.alert(i18n.t('error'), 'Impossible de charger ce chat.');
+      showToast("Impossible de charger ce chat.");
     }
-  }, [friendId, pseudoParam, router, storePseudo]);
+  }, [friendId, pseudoParam, router, storePseudo, showToast]);
 
   useEffect(() => {
     void loadChatContext();
@@ -849,6 +877,9 @@ export default function ChatScreen() {
     },
   });
 
+  // Ref pour traquer l'heure d'ouverture du chat
+  const chatOpenedAtRef = useRef<number>(Date.now());
+
   const composerKeyboardStyle = useAnimatedStyle(() => {
     if (Platform.OS !== 'android') return {};
     const keyboardOffset = Math.max(0, keyboardHeightSV.value);
@@ -860,6 +891,7 @@ export default function ChatScreen() {
   const timeline = useMemo(() => {
     const incoming = receivedMessages.map((m) => {
       const parsed = parseMessageContent(m.message_content);
+      const isNew = new Date(m.created_at).getTime() > chatOpenedAtRef.current;
       return {
         id: `received-${m.id}`,
         ts: m.created_at,
@@ -867,6 +899,7 @@ export default function ChatScreen() {
         text: parsed.text,
         soundKey: parsed.soundKey,
         sourceMessageId: m.id,
+        isNew,
       };
     });
 
@@ -897,6 +930,7 @@ export default function ChatScreen() {
       // Si le message est confirmé, on force l'utilisation de son ancienne clé 'local-'
       // s'il en a une. Sinon, on utilise son ID normal.
       const stableId = messageKeyMapRef.current.get(m.id) || m.id;
+      const isNew = new Date(m.ts).getTime() > chatOpenedAtRef.current;
 
       return {
         id: `sent-${stableId}`,
@@ -908,6 +942,7 @@ export default function ChatScreen() {
         readAt: m.readAt,
         sourceMessageId: m.id, 
         optimistic: m.optimistic,
+        isNew,
       };
     });
 
@@ -1309,7 +1344,7 @@ export default function ChatScreen() {
             keyboardShouldPersistTaps="handled"
             renderItem={({ item: message }) =>
               message.isMe ? (
-                <AnimatedMessageRow isMe={true} messageId={message.id}>
+                <AnimatedMessageRow isMe={true} messageId={message.id} isNew={(message as any).isNew}>
                   <SentBubble
                     message={{
                       id: message.sourceMessageId || message.id,
@@ -1327,7 +1362,7 @@ export default function ChatScreen() {
                   />
                 </AnimatedMessageRow>
               ) : (
-                <AnimatedMessageRow isMe={false} messageId={message.id}>
+                <AnimatedMessageRow isMe={false} messageId={message.id} isNew={(message as any).isNew}>
                   <ReceivedBubble
                     message={{
                       id: message.sourceMessageId || message.id,
@@ -1369,6 +1404,12 @@ export default function ChatScreen() {
           />
         </Animated.View>
       </KeyboardAvoidingView>
+
+      {toastMessage && (
+        <RNAnimated.View style={[styles.toast, { opacity: toastOpacity }]}>
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </RNAnimated.View>
+      )}
 
       <Modal
         isVisible={chatSoundPickerVisible}
@@ -1704,6 +1745,28 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 12,
     flexGrow: 1,
+  },
+  toast: {
+    position: 'absolute',
+    top: 100,
+    left: 20,
+    right: 20,
+    backgroundColor: '#604a3e',
+    borderRadius: 12,
+    padding: 16,
+    zIndex: 9999,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    alignItems: 'center',
+  },
+  toastText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
   soundPickerModal: {
     justifyContent: 'flex-end',

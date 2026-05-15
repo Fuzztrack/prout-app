@@ -392,7 +392,7 @@ export function FriendsList({
   const [currentPseudo, setCurrentPseudo] = useState<string>("Un ami");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   
-  const { data: friendsFromQuery, isLoading: isFriendsLoading } = useFriends(currentUserId);
+  const { data: friendsFromQuery, isLoading: isFriendsLoading, isError: isFriendsError } = useFriends(currentUserId);
   const { data: pendingMessagesData } = usePendingMessages(currentUserId);
   const { data: pendingSentData } = usePendingSentMessages(currentUserId);
   const { data: pendingRequestsData } = usePendingRequests(currentUserId);
@@ -406,6 +406,14 @@ export function FriendsList({
       blockedUserIdsRef.current = new Set(blockedUsersFromQuery);
     }
   }, [blockedUsersFromQuery]);
+
+  // Gestion des erreurs de chargement (Mode Offline)
+  useEffect(() => {
+    if (isFriendsError && appUsers.length === 0) {
+      setShowFriendlistRecoveryCard(true);
+      setLoading(false);
+    }
+  }, [isFriendsError, appUsers.length]);
 
   // Synchronisation TanStack pour les Demandes
   useEffect(() => {
@@ -645,37 +653,11 @@ export function FriendsList({
     }, [appUsers.length])
   );
   
-  // 1. Chargement instantané du cache local (Mémoire de 30 jours)
-  useEffect(() => {
-    const loadFastCache = async () => {
-      try {
-        const cached = await AsyncStorage.getItem('CACHE_KEY_FRIENDS_V2');
-        if (cached) {
-          const { data, timestamp } = JSON.parse(cached);
-          const age = Date.now() - timestamp;
-          const MAX_AGE = 30 * 24 * 60 * 60 * 1000; // 30 jours
-          if (age < MAX_AGE && Array.isArray(data)) {
-            // On ne l'applique que si la liste actuelle est vide (pour ne pas écraser une réponse serveur rapide)
-            setAppUsers((prev) => prev.length > 0 ? prev : data);
-            setLoading(false); // Cache trouvé, on désactive le spinner
-          }
-        }
-      } catch (e) {
-        // Ignorer silencieusement
-      }
-    };
-    loadFastCache();
-  }, []);
-
-  // 2. Synchronisation et sauvegarde du cache quand TanStack Query répond
+  // Synchronisation avec TanStack Query pour la liste d'amis
   useEffect(() => {
     if (friendsFromQuery !== undefined) {
       setAppUsers(friendsFromQuery);
-      setLoading(false); // Le serveur a répondu, on désactive le spinner
-      AsyncStorage.setItem('CACHE_KEY_FRIENDS_V2', JSON.stringify({
-        data: friendsFromQuery,
-        timestamp: Date.now()
-      })).catch(() => {});
+      setLoading(false);
     }
   }, [friendsFromQuery]);
 

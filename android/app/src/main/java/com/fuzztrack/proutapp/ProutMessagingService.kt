@@ -21,7 +21,7 @@ class ProutMessagingService : FirebaseMessagingService() {
     companion object {
         private const val TAG = "ProutMessagingService"
         private const val CHANNEL_PREFIX = "prout-"
-        private const val CHANNEL_VERSION = "v6"
+        private const val CHANNEL_VERSION = "v7"
         private const val DEFAULT_CHANNEL_ID = "prout-default"
     }
 
@@ -101,7 +101,7 @@ class ProutMessagingService : FirebaseMessagingService() {
             // Utiliser le contexte React capturé statiquement par notre module
             val reactContext = SoundSettingsModule.activeReactContext
 
-            Log.d(TAG, "Debugging ReactContext from static module: \${reactContext != null}")
+            Log.d(TAG, "Debugging ReactContext from static module: ${reactContext != null}")
 
             if (reactContext == null) {
                 Log.e(TAG, "❌ [CRITICAL] JS context totalement indisponible, impossible d'émettre REFRESH_DATA")
@@ -116,15 +116,15 @@ class ProutMessagingService : FirebaseMessagingService() {
                 data["senderId"]?.let { putString("senderId", it) }
                 data["receiverId"]?.let { putString("receiverId", it) }
                 data["message"]?.let { putString("message", it) }
+                data["m_d"]?.let { putString("m_d", it) }
             }
 
-            // Exécuter l'émission d'événement
             reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
                 .emit("REFRESH_DATA", params)
             Log.d(TAG, "✅ REFRESH_DATA émis avec succès vers React Native")
             
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Erreur préparation émission REFRESH_DATA: \${e.message}")
+            Log.e(TAG, "❌ Erreur préparation émission REFRESH_DATA: ${e.message}")
         }
     }
 
