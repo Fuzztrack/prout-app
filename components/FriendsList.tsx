@@ -386,8 +386,29 @@ export function FriendsList({
   const storePseudo = useAppStore(state => state.pseudo);
   const queryClient = useQueryClient();
   
+  const receivedByFriend = useChatStore(state => state.receivedByFriend);
+  const hasHydrated = useChatStore(state => state.hasHydrated);
+  
   const [appUsers, setAppUsers] = useState<any[]>([]);
-  const [pendingMessages, setPendingMessages] = useState<PendingMessage[]>([]);
+  // Initialisation optimiste à partir du store persistant (Zustand)
+  const [pendingMessages, setPendingMessages] = useState<PendingMessage[]>(() => {
+    return Object.values(useChatStore.getState().receivedByFriend || {}).flat();
+  });
+
+  // Force la synchro une fois que le store est hydraté (au démarrage)
+  useEffect(() => {
+    if (hasHydrated) {
+      const stored = Object.values(useChatStore.getState().receivedByFriend || {}).flat();
+      if (stored.length > 0) {
+        setPendingMessages(prev => {
+          const existingIds = new Set(prev.map(m => m.id));
+          const newMsgs = stored.filter(m => !existingIds.has(m.id));
+          if (newMsgs.length > 0) return [...prev, ...newMsgs];
+          return prev;
+        });
+      }
+    }
+  }, [hasHydrated]);
   const [isGameVisible, setIsGameVisible] = useState(false);
   const [currentPseudo, setCurrentPseudo] = useState<string>("Un ami");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -442,6 +463,36 @@ export function FriendsList({
       setIdentityRequests(identityRequestsData);
     }
   }, [identityRequestsData]);
+
+  // 1. Initialisation optimiste + Sync en arrière-plan depuis le store Zustand (notifications)
+  useEffect(() => {
+    const storedMessages = Object.values(receivedByFriend || {}).flat();
+    if (storedMessages.length > 0) {
+      setPendingMessages(prev => {
+        const prevMap = new Map(prev.map(m => [m.id, m]));
+        let changed = false;
+
+        storedMessages.forEach(m => {
+          const existing = prevMap.get(m.id);
+          if (!existing) {
+            prevMap.set(m.id, m);
+            changed = true;
+          } else if (existing.message_content !== m.message_content) {
+            // Mise à jour (ex: passage à READ:)
+            prevMap.set(m.id, { ...existing, ...m });
+            changed = true;
+          }
+        });
+
+        if (changed) {
+          return Array.from(prevMap.values()).sort((a, b) => 
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          );
+        }
+        return prev;
+      });
+    }
+  }, [receivedByFriend]);
 
   // Synchronisation des messages envoyés (TanStack -> UI)
   useEffect(() => {
@@ -562,17 +613,22 @@ export function FriendsList({
           return !alreadyOnServer;
         });
 
-        // 3. Fusionner avec keptReadMessagesRef (Session Gelée)
-        // Les messages lus sont gardés en mémoire tant que le chat est ouvert
+        // 3. Fusionner avec les messages du store persistant (Zustand/Notification)
+        // car ils sont prioritaires pour l'affichage instantané (notamment si l'app vient d'être ouverte)
         const mergedById = new Map<string, PendingMessage>();
         
         // D'abord les messages du serveur
         serverMessages.forEach(m => mergedById.set(m.id, m as PendingMessage));
         
-        // Ensuite les messages optimistes récents
+        // Ensuite les messages du store persistant (Notification/Sync)
+        Object.values(receivedByFriend).flat().forEach(m => {
+          if (!mergedById.has(m.id)) mergedById.set(m.id, m);
+        });
+
+        // Enfin les messages optimistes récents (Broadcast, etc.)
         survivingRecent.forEach(m => mergedById.set(m.id, m));
 
-        // Enfin, réinjecter les messages gardés en mémoire (Session Gelée)
+        // Et réinjecter les messages gardés en mémoire (Session Gelée)
         const activeId = expandedFriendIdRef.current;
         if (activeId) {
           const kept = keptReadMessagesRef.current.get(activeId) || [];
@@ -591,7 +647,21 @@ export function FriendsList({
         const next = Array.from(mergedById.values());
         next.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
         
-        // 4. Haptic pour nouveaux messages
+        // 4. Synchro descendante : Mettre à jour le store persistant avec les données du serveur
+        // pour propager notamment le statut "lu" (READ:)
+        if (serverMessages.length > 0) {
+          const groupedBySender = serverMessages.reduce((acc, m) => {
+            if (!acc[m.from_user_id]) acc[m.from_user_id] = [];
+            acc[m.from_user_id].push(m as PendingMessage);
+            return acc;
+          }, {} as Record<string, PendingMessage[]>);
+
+          Object.entries(groupedBySender).forEach(([senderId, msgs]) => {
+            useChatStore.getState().addReceivedMessages(senderId, msgs);
+          });
+        }
+
+        // 5. Haptic pour nouveaux messages
         if (hasHydratedIncomingMessagesRef.current) {
           const newMessages = serverMessages.filter(m => !knownIncomingMessageIdsRef.current.has(m.id));
           if (newMessages.length > 0) {
@@ -1193,11 +1263,7 @@ export function FriendsList({
   useEffect(() => {
     const subscription = DeviceEventEmitter.addListener('REFRESH_DATA', async (data?: any) => {
       console.log('🔔 [REFRESH_DATA] Listener triggered with data:', JSON.stringify(data));
-      // 1. Le son est géré nativement par ProutMessagingService.kt sur Android
-      // même en premier plan. On ne joue rien ici pour éviter le son doublé.
 
-      // Ignorer les événements de rafraîchissement génériques sans données de message
-      // (qui viennent potentiellement d'autres endroits de l'app)
       if (data?.source) {
         console.log('🔔 [REFRESH_DATA] Generic refresh event received from', data.source, '- Invalidating queries...');
         queryClient.invalidateQueries({ queryKey: ['pendingMessages'] });
@@ -1205,68 +1271,61 @@ export function FriendsList({
         return;
       }
 
-      // Si on a l'objet complet `messageData` (via la notif), l'injection directe a DÉJÀ
-      // été faite dans `NotificationService.ts` via `useChatStore`.
-      // On a juste à dire à React Query de se rafraîchir en douceur pour synchroniser
-      // le reste de l'UI (comme la liste d'amis).
-      if (data?.messageData) {
-        console.log('🔔 [REFRESH_DATA] Full messageData detected (already injected by NotificationService). Refreshing UI...');
+      // 1. Extraction robuste des données (support m_d, messageData ou champs top-level)
+      let msgDataRaw = data?.m_d || data?.messageData;
+      if (typeof msgDataRaw === 'string') {
+        try { msgDataRaw = JSON.parse(msgDataRaw); } catch(e) {}
+      }
+
+      const senderId = data?.senderId || msgDataRaw?.from_user_id;
+      const proutKey = data?.proutKey || msgDataRaw?.prout_key;
+      const customMessage = data?.customMessage || msgDataRaw?.custom_message || msgDataRaw?.message_content;
+      
+      // Reconstituer le contenu si on a les pièces détachées
+      const messageContent = msgDataRaw?.message_content || (customMessage ? `${proutKey ? `[${proutKey}]` : ''}${customMessage}` : null);
+      const createdAt = msgDataRaw?.created_at || new Date().toISOString();
+      const messageId = msgDataRaw?.id || `notif-${senderId}-${Date.now()}`;
+
+      if (senderId && messageContent) {
+        console.log(`🔔 [REFRESH_DATA] Injecting optimistic message from ${senderId}`);
+        const optimisticMessage: PendingMessage = {
+          id: messageId,
+          from_user_id: senderId,
+          to_user_id: currentUserId || undefined,
+          message_content: messageContent,
+          created_at: createdAt,
+          isPendingDelete: false,
+        };
+
+        setPendingMessages((prev) => {
+          const hasEquivalent = prev.some((msg) => {
+            if (msg.id === optimisticMessage.id) return true;
+            if (msg.from_user_id !== senderId) return false;
+            if ((msg.message_content || '') !== optimisticMessage.message_content) return false;
+            return Math.abs(new Date(msg.created_at).getTime() - new Date(createdAt).getTime()) < 10000;
+          });
+          if (hasEquivalent) return prev;
+          return [...prev, optimisticMessage].sort(
+            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          );
+        });
+
+        // Remonter l'ami dans la liste immédiatement
+        setAppUsers((prev) => {
+          const updated = prev.map((friend) =>
+            friend.id === senderId ? { ...friend, last_interaction_at: createdAt } : friend
+          );
+          return [...updated].sort((a, b) => {
+            const timeA = a.last_interaction_at ? new Date(a.last_interaction_at).getTime() : 0;
+            const timeB = b.last_interaction_at ? new Date(b.last_interaction_at).getTime() : 0;
+            return timeB - timeA;
+          });
+        });
       } else {
-        // Fallback: ancienne méthode si pas de messageData
-        const senderId = typeof data?.senderId === 'string' ? data.senderId : null;
-        const customMessage = typeof data?.customMessage === 'string' ? data.customMessage.trim() : '';
-        const proutKey = typeof data?.proutKey === 'string' ? data.proutKey : null;
-
-        console.log('🔔 [REFRESH_DATA] Parsed fallback data:', { senderId, customMessage, proutKey });
-
-        // Injection optimiste immédiate pour l'aperçu en FriendList quand la notif
-        // arrive avant que le refresh backend/Supabase n'ait eu le temps d'aboutir.
-        if (senderId && customMessage) {
-          console.log('🔔 [REFRESH_DATA] Injecting optimistic message...');
-          const nowIso = new Date().toISOString();
-          const optimisticMessage: PendingMessage = {
-            id: `notif-${senderId}-${Date.now()}`,
-            from_user_id: senderId,
-            to_user_id: currentUserId || undefined,
-            message_content: `${proutKey ? `[${proutKey}]` : ''}${customMessage}`,
-            created_at: nowIso,
-            isPendingDelete: false,
-          };
-
-          setPendingMessages((prev) => {
-            const hasEquivalent = prev.some((msg) => {
-              if (msg.from_user_id !== senderId) return false;
-              if ((msg.message_content || '') !== optimisticMessage.message_content) return false;
-              return Math.abs(new Date(msg.created_at).getTime() - new Date(nowIso).getTime()) < 5000;
-            });
-            if (hasEquivalent) {
-              console.log('🔔 [REFRESH_DATA] Equivalent optimistic message already exists.');
-              return prev;
-            }
-            console.log('🔔 [REFRESH_DATA] Added optimistic message to state.');
-            return [...prev, optimisticMessage].sort(
-              (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-            );
-          });
-
-          setAppUsers((prev) => {
-            const updated = prev.map((friend) =>
-              friend.id === senderId ? { ...friend, last_interaction_at: nowIso } : friend
-            );
-            return [...updated].sort((a, b) => {
-              const timeA = a.last_interaction_at ? new Date(a.last_interaction_at).getTime() : 0;
-              const timeB = b.last_interaction_at ? new Date(b.last_interaction_at).getTime() : 0;
-              return timeB - timeA;
-            });
-          });
-        } else {
-          console.log('🔔 [REFRESH_DATA] Missing senderId or customMessage, skipping optimistic injection.');
-        }
+        console.log('🔔 [REFRESH_DATA] Missing senderId or content, skipping optimistic injection.');
       }
 
       // 2. Invalider TanStack Query et re-fetch avec un petit délai 
-      // pour laisser le temps au backend de persister et éviter d'écraser 
-      // l'état optimiste avec des données obsolètes.
       setTimeout(() => {
         console.log('🔔 [REFRESH_DATA] Timeout reached, invalidating queries and reloading data...');
         queryClient.invalidateQueries({ queryKey: ['pendingMessages'] });

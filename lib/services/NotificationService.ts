@@ -9,6 +9,43 @@ import { useChatStore } from '@/lib/chatStore';
 
 const ACTIVE_CHAT_FRIEND_ID_KEY = 'active_chat_friend_id_v1';
 
+/**
+ * Extrait et injecte les données d'un message dans le store Zustand.
+ * Utilisé pour avoir une synchro instantanée sans attendre le réseau.
+ */
+const injectMessageFromNotification = async (data: any) => {
+  const messageDataRaw = data?.m_d || data?.messageData;
+  if (!messageDataRaw) return;
+
+  try {
+    // Sécurité : Attendre que le store soit hydraté pour ne pas perdre l'injection
+    // (notamment au démarrage depuis un killed state)
+    let retry = 0;
+    while (!useChatStore.getState().hasHydrated && retry < 30) {
+      await new Promise(r => setTimeout(r, 100));
+      retry++;
+    }
+
+    const msg = typeof messageDataRaw === 'string' ? JSON.parse(messageDataRaw) : messageDataRaw;
+    const senderId = data.senderId || msg.from_user_id;
+
+    if (senderId && msg.id) {
+      console.log(`🚀 [NotificationService] Injection directe message ${msg.id} pour ${senderId} (Store prêt: ${useChatStore.getState().hasHydrated})`);
+      
+      useChatStore.getState().addReceivedMessages(senderId, [{
+        id: msg.id,
+        from_user_id: msg.from_user_id,
+        to_user_id: msg.to_user_id,
+        message_content: msg.message_content,
+        created_at: msg.created_at,
+        local_ts: Date.now(),
+      }]);
+    }
+  } catch (e) {
+    console.error('❌ [NotificationService] Erreur injection messageData:', e);
+  }
+};
+
 export const initNotificationHandler = () => {
   Notifications.setNotificationHandler({
     handleNotification: async (notification) => {
@@ -43,32 +80,8 @@ export const setupNotificationListeners = (
     console.log('🔔 [NotificationService] Notification reçue !');
     console.log('📦 Data (full):', JSON.stringify(data, null, 2));
 
-    // Si on a les données complètes du message, on les injecte direct dans le store
-    // pour éviter d'attendre le rafraîchissement réseau
-    const messageDataRaw = data?.m_d || data?.messageData;
-    
-    if (messageDataRaw) {
-      try {
-        console.log('🚀 [NotificationService] messageData (m_d) détecté !');
-        const msg = typeof messageDataRaw === 'string' ? JSON.parse(messageDataRaw) : messageDataRaw;
-        const senderId = data.senderId || msg.from_user_id;
-
-        if (senderId && msg.id) {
-          console.log(`🚀 [NotificationService] Injection directe message ${msg.id} pour ${senderId}`);
-          
-          useChatStore.getState().addReceivedMessages(senderId, [{
-            id: msg.id,
-            from_user_id: msg.from_user_id,
-            to_user_id: msg.to_user_id,
-            message_content: msg.message_content,
-            created_at: msg.created_at,
-            local_ts: Date.now(),
-          }]);
-        }
-      } catch (e) {
-        console.error('❌ [NotificationService] Erreur injection messageData:', e);
-      }
-    }
+    // Injection immédiate dans le store
+    await injectMessageFromNotification(data);
 
     // Émettre un événement global avec les données pour jouer le son et rafraîchir
     if (data && Object.keys(data).length > 0) {
@@ -101,9 +114,12 @@ export const setupNotificationListeners = (
     }
   });
 
-  const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+  const responseListener = Notifications.addNotificationResponseReceivedListener(async response => {
     const data: any = response.notification.request.content.data;
     
+    // Injection immédiate (au cas où on vient du "killed state")
+    await injectMessageFromNotification(data);
+
     // Délai pour s'assurer que l'app est prête
     setTimeout(() => {
       if (data?.type === 'identity_request') {

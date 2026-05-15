@@ -33,6 +33,10 @@ interface ChatState {
   // Rétention par ami (id_ami -> heures, 0 = immédiat, 12, etc.)
   retentionByFriend: Record<string, number>;
 
+  // Hydratation
+  hasHydrated: boolean;
+  setHasHydrated: (val: boolean) => void;
+
   // Actions
   addReceivedMessages: (friendId: string, messages: PendingMessage[]) => void;
   addSentMessages: (friendId: string, messages: VisibleSentMessage[], isFullSync?: boolean) => void;
@@ -52,6 +56,9 @@ export const useChatStore = create<ChatState>()(
       sentByFriend: {},
       messageReactionsByFriend: {},
       retentionByFriend: {},
+      hasHydrated: false,
+
+      setHasHydrated: (val) => set({ hasHydrated: val }),
 
       addReceivedMessages: (friendId, newMsgs) => {
         set((state) => {
@@ -251,6 +258,9 @@ export const useChatStore = create<ChatState>()(
     {
       name: 'prout-chat-history',
       storage: createJSONStorage(() => AsyncStorage),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
     }
   )
 );

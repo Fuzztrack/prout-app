@@ -832,7 +832,19 @@ export default function ChatScreen() {
     if (!hasUnread) return;
     
     void markConversationReadViaBackend(friendId, currentUserId).then(() => {
-      // ✅ Invalider TanStack Query pour faire disparaître l'aperçu dans FriendsList immédiatement
+      // ✅ Mise à jour optimiste du store local pour que FriendsList se mette à jour instantanément
+      const updatedMessages = receivedMessages.map(m => {
+        if (m.from_user_id === friendId) {
+          const parsed = parseMessageContent(m.message_content);
+          if (!parsed.isRead) {
+            return { ...m, message_content: `READ:${m.message_content || ''}` };
+          }
+        }
+        return m;
+      });
+      useChatStore.getState().addReceivedMessages(friendId, updatedMessages);
+
+      // ✅ Invalider TanStack Query pour confirmer l'état serveur
       void queryClient.invalidateQueries({ queryKey: ['pendingMessages', currentUserId] });
     });
   }, [currentUserId, friendId, receivedMessages, queryClient]);
