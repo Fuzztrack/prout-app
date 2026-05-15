@@ -1266,8 +1266,8 @@ export function FriendsList({
 
       if (data?.source) {
         console.log('🔔 [REFRESH_DATA] Generic refresh event received from', data.source, '- Invalidating queries...');
-        queryClient.invalidateQueries({ queryKey: ['pendingMessages'] });
-        queryClient.invalidateQueries({ queryKey: ['friends'] });
+        queryClient.invalidateQueries({ queryKey: ['pendingMessages', currentUserId] });
+        queryClient.invalidateQueries({ queryKey: ['friends', currentUserId] });
         return;
       }
 
@@ -1277,14 +1277,14 @@ export function FriendsList({
         try { msgDataRaw = JSON.parse(msgDataRaw); } catch(e) {}
       }
 
-      const senderId = data?.senderId || msgDataRaw?.from_user_id;
+      const senderId = data?.senderId || msgDataRaw?.from_user_id || msgDataRaw?.senderId;
       const proutKey = data?.proutKey || msgDataRaw?.prout_key;
       const customMessage = data?.customMessage || msgDataRaw?.custom_message || msgDataRaw?.message_content;
       
       // Reconstituer le contenu si on a les pièces détachées
       const messageContent = msgDataRaw?.message_content || (customMessage ? `${proutKey ? `[${proutKey}]` : ''}${customMessage}` : null);
       const createdAt = msgDataRaw?.created_at || new Date().toISOString();
-      const messageId = msgDataRaw?.id || `notif-${senderId}-${Date.now()}`;
+      const messageId = msgDataRaw?.id || data?.id || `notif-${senderId}-${Date.now()}`;
 
       if (senderId && messageContent) {
         console.log(`🔔 [REFRESH_DATA] Injecting optimistic message from ${senderId}`);
@@ -1297,22 +1297,19 @@ export function FriendsList({
           isPendingDelete: false,
         };
 
-        setPendingMessages((prev) => {
-          const hasEquivalent = prev.some((msg) => {
-            if (msg.id === optimisticMessage.id) return true;
-            if (msg.from_user_id !== senderId) return false;
-            if ((msg.message_content || '') !== optimisticMessage.message_content) return false;
-            return Math.abs(new Date(msg.created_at).getTime() - new Date(createdAt).getTime()) < 10000;
-          });
-          if (hasEquivalent) return prev;
-          return [...prev, optimisticMessage].sort(
+        // Injection directe dans le cache TanStack Query (Messages)
+        queryClient.setQueryData(['pendingMessages', currentUserId], (old: any) => {
+          const list = Array.isArray(old) ? old : [];
+          if (list.some((m: any) => m.id === messageId)) return old;
+          return [...list, optimisticMessage].sort(
             (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
           );
         });
 
-        // Remonter l'ami dans la liste immédiatement
-        setAppUsers((prev) => {
-          const updated = prev.map((friend) =>
+        // Injection directe dans le cache TanStack Query (Friends - pour le tri)
+        queryClient.setQueryData(['friends', currentUserId], (old: any) => {
+          if (!Array.isArray(old)) return old;
+          const updated = old.map((friend) =>
             friend.id === senderId ? { ...friend, last_interaction_at: createdAt } : friend
           );
           return [...updated].sort((a, b) => {
@@ -1321,21 +1318,36 @@ export function FriendsList({
             return timeB - timeA;
           });
         });
-      } else {
-        console.log('🔔 [REFRESH_DATA] Missing senderId or content, skipping optimistic injection.');
+
+        // Mise à jour de l'état local (double sécurité)
+        setPendingMessages((prev) => {
+          if (prev.some((msg) => msg.id === messageId)) return prev;
+          return [...prev, optimisticMessage].sort(
+            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          );
+        });
+
+        setAppUsers((prev) => {
+          const updated = prev.map((friend) =>
+            friend.id === senderId ? { ...friend, last_interaction_at: createdAt } : friend
+          );
+          return sortFriends(updated);
+        });
+
+        scheduleAlignFriendListTop();
       }
 
-      // 2. Invalider TanStack Query et re-fetch avec un petit délai 
+      // 2. Invalidation retardée (plus longue pour laisser le temps au backend)
       setTimeout(() => {
-        console.log('🔔 [REFRESH_DATA] Timeout reached, invalidating queries and reloading data...');
-        queryClient.invalidateQueries({ queryKey: ['pendingMessages'] });
-        queryClient.invalidateQueries({ queryKey: ['friends'] });
-      }, 1500);
+        console.log('🔔 [REFRESH_DATA] Timeout reached, invalidating queries...');
+        queryClient.invalidateQueries({ queryKey: ['pendingMessages', currentUserId] });
+        queryClient.invalidateQueries({ queryKey: ['friends', currentUserId] });
+      }, 3000);
     });
     return () => {
       subscription.remove();
     };
-  }, [currentUserId, isSilentMode, queryClient, refreshAllData]);
+  }, [currentUserId, queryClient, scheduleAlignFriendListTop]);
 
   useEffect(() => {
     const subscription = DeviceEventEmitter.addListener('CLEAR_FRIENDLIST_PENDING_SOUND', (data?: any) => {
@@ -2158,14 +2170,38 @@ useEffect(() => {
               const newMessage = payload.new as any;
               if (__DEV__) console.log('🔔 [Realtime] New Message incoming!');
 
-              // Invalidation TanStack
-              queryClient.invalidateQueries({ queryKey: ['pendingMessages', user.id] });
-              queryClient.invalidateQueries({ queryKey: ['friends', user.id] });
+              // Injection directe dans le cache TanStack Query (Messages)
+              queryClient.setQueryData(['pendingMessages', user.id], (old: any) => {
+                const list = Array.isArray(old) ? old : [];
+                if (list.some((m: any) => m.id === newMessage.id)) return old;
+                return [...list, newMessage as PendingMessage].sort(
+                  (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                );
+              });
+
+              // Injection directe dans le cache TanStack Query (Friends - pour le tri)
+              const now = newMessage.created_at || new Date().toISOString();
+              queryClient.setQueryData(['friends', user.id], (old: any) => {
+                if (!Array.isArray(old)) return old;
+                const updated = old.map((friend) =>
+                  friend.id === newMessage.from_user_id ? { ...friend, last_interaction_at: now } : friend
+                );
+                return [...updated].sort((a, b) => {
+                  const timeA = a.last_interaction_at ? new Date(a.last_interaction_at).getTime() : 0;
+                  const timeB = b.last_interaction_at ? new Date(b.last_interaction_at).getTime() : 0;
+                  return timeB - timeA;
+                });
+              });
+
+              // Invalidation TanStack (retardée)
+              setTimeout(() => {
+                queryClient.invalidateQueries({ queryKey: ['pendingMessages', user.id] });
+                queryClient.invalidateQueries({ queryKey: ['friends', user.id] });
+              }, 3000);
 
               // Injection optimiste immédiate pour l'aperçu
               setPendingMessages((prev) => {
-                const existingIds = new Set(prev.map(m => m.id));
-                if (existingIds.has(newMessage.id)) return prev;
+                if (prev.some(m => m.id === newMessage.id)) return prev;
                 const next = [...prev, newMessage as PendingMessage];
                 return next.sort((a, b) => 
                   new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
@@ -2173,7 +2209,6 @@ useEffect(() => {
               });
 
               // Mise à jour optimiste du tri
-              const now = newMessage.created_at || new Date().toISOString();
               setAppUsers((prev) => {
                 const updated = prev.map((f) =>
                   f.id === newMessage.from_user_id ? { ...f, last_interaction_at: now } : f
@@ -2309,9 +2344,9 @@ useEffect(() => {
             // 2. Forcer le rafraîchissement des messages
             setTimeout(() => {
               console.log('📡 [CLIENT] Timeout reached for new-prout broadcast, invalidating and reloading...');
-              queryClient.invalidateQueries({ queryKey: ['pendingMessages'] });
-              queryClient.invalidateQueries({ queryKey: ['friends'] });
-            }, 1500);
+              queryClient.invalidateQueries({ queryKey: ['pendingMessages', user.id] });
+              queryClient.invalidateQueries({ queryKey: ['friends', user.id] });
+            }, 3000);
           })
           .on('broadcast', { event: 'message-read' }, (payload) => {
             if (CHAT_VERBOSE_LOGS) {
@@ -2447,7 +2482,30 @@ useEffect(() => {
               
               if (messageData && messageData.id) {
                 console.log('📡 [CLIENT] Injecting full message from broadcast messageData...');
-                // Si on a l'objet complet (grâce à notre modif backend), on l'injecte dans le store Zustand !
+                
+                // 1. Injection TanStack (Messages)
+                queryClient.setQueryData(['pendingMessages', user.id], (old: any) => {
+                  const list = Array.isArray(old) ? old : [];
+                  if (list.some((m: any) => m.id === messageData.id)) return old;
+                  return [...list, messageData].sort(
+                    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                  );
+                });
+
+                // 2. Injection TanStack (Friends - Tri)
+                queryClient.setQueryData(['friends', user.id], (old: any) => {
+                  if (!Array.isArray(old)) return old;
+                  const updated = old.map((f) =>
+                    f.id === senderId ? { ...f, last_interaction_at: messageData.created_at || now } : f
+                  );
+                  return [...updated].sort((a, b) => {
+                    const tA = a.last_interaction_at ? new Date(a.last_interaction_at).getTime() : 0;
+                    const tB = b.last_interaction_at ? new Date(b.last_interaction_at).getTime() : 0;
+                    return tB - tA;
+                  });
+                });
+
+                // 3. Injection Zustand
                 useChatStore.getState().addReceivedMessages(senderId, [{
                   id: messageData.id,
                   from_user_id: messageData.from_user_id,
@@ -2484,17 +2542,11 @@ useEffect(() => {
                       if ((msg.message_content || '') !== optimisticMessage.message_content) return false;
                       return Math.abs(new Date(msg.created_at).getTime() - new Date(now).getTime()) < 5000;
                     });
-                    if (hasEquivalent) {
-                      console.log('📡 [CLIENT] Equivalent optimistic message from broadcast already exists.');
-                      return prev;
-                    }
-                    console.log('📡 [CLIENT] Added optimistic message from broadcast to state.');
+                    if (hasEquivalent) return prev;
                     return [...prev, optimisticMessage].sort(
                       (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
                     );
                   });
-                } else {
-                   console.log('📡 [CLIENT] Broadcast missing customMessage, skipping optimistic injection.');
                 }
               }
 
@@ -2505,15 +2557,13 @@ useEffect(() => {
                 );
                 return sortFriends(updated);
               });
-            } else {
-               console.log('📡 [CLIENT] Broadcast missing senderId.');
             }
             
             setTimeout(() => {
-              console.log('📡 [CLIENT] Timeout reached for message-received broadcast, invalidating and reloading...');
-              queryClient.invalidateQueries({ queryKey: ['pendingMessages'] });
-              queryClient.invalidateQueries({ queryKey: ['friends'] });
-            }, 1500);
+              console.log('📡 [CLIENT] Timeout reached for message-received broadcast, invalidating...');
+              queryClient.invalidateQueries({ queryKey: ['pendingMessages', user.id] });
+              queryClient.invalidateQueries({ queryKey: ['friends', user.id] });
+            }, 3000);
           })
           .subscribe((status) => {
             if (CHAT_VERBOSE_LOGS) console.log(`📡 [CLIENT] Canal broadcast subscription status: ${status} pour ${channelName}`);

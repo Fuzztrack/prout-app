@@ -549,12 +549,13 @@ export default function ChatScreen() {
   }, [currentUserId, friendId, isHapticEnabled, addReceivedMessages, addSentMessages, retentionHours]);
 
   const triggerGlobalMessageRefresh = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['pendingMessages'] });
-    queryClient.invalidateQueries({ queryKey: ['pendingSentMessages'] });
-    queryClient.invalidateQueries({ queryKey: ['friends'] });
+    if (!currentUserId) return;
+    queryClient.invalidateQueries({ queryKey: ['pendingMessages', currentUserId] });
+    queryClient.invalidateQueries({ queryKey: ['pendingSentMessages', currentUserId] });
+    queryClient.invalidateQueries({ queryKey: ['friends', currentUserId] });
     DeviceEventEmitter.emit('REFRESH_DATA', { source: 'triggerGlobalMessageRefresh' });
     void refreshMessages();
-  }, [queryClient, refreshMessages]);
+  }, [currentUserId, queryClient, refreshMessages]);
 
   useFocusEffect(
     useCallback(() => {
@@ -670,8 +671,8 @@ export default function ChatScreen() {
               });
             }
 
-            queryClient.invalidateQueries({ queryKey: ['pendingMessages'] });
-            queryClient.invalidateQueries({ queryKey: ['friends'] });
+            queryClient.invalidateQueries({ queryKey: ['pendingMessages', currentUserId] });
+            queryClient.invalidateQueries({ queryKey: ['friends', currentUserId] });
             DeviceEventEmitter.emit('REFRESH_DATA', { source: 'chat_insert' });
 
             if (parsedMessage.soundKey && parsedMessage.soundKey !== 'mute') {
@@ -770,8 +771,8 @@ export default function ChatScreen() {
           (payload: any) => {
             const deletedId = (payload.old as any)?.id;
             if (!deletedId) return;
-            queryClient.invalidateQueries({ queryKey: ['pendingMessages'] });
-            queryClient.invalidateQueries({ queryKey: ['friends'] });
+            queryClient.invalidateQueries({ queryKey: ['pendingMessages', currentUserId] });
+            queryClient.invalidateQueries({ queryKey: ['friends', currentUserId] });
             DeviceEventEmitter.emit('REFRESH_DATA', { source: 'chat_delete' });
           }
         )

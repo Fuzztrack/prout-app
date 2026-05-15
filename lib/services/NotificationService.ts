@@ -14,7 +14,19 @@ const ACTIVE_CHAT_FRIEND_ID_KEY = 'active_chat_friend_id_v1';
  * Utilisé pour avoir une synchro instantanée sans attendre le réseau.
  */
 const injectMessageFromNotification = async (data: any) => {
-  const messageDataRaw = data?.m_d || data?.messageData;
+  let messageDataRaw = data?.m_d || data?.messageData;
+  
+  // Support du format à plat (fallback)
+  if (!messageDataRaw && data?.senderId) {
+    messageDataRaw = {
+      id: data.id || `notif-${data.senderId}-${Date.now()}`,
+      from_user_id: data.senderId,
+      to_user_id: data.receiverId,
+      message_content: data.message_content || (data.customMessage ? `${data.proutKey ? `[${data.proutKey}]` : ''}${data.customMessage}` : null),
+      created_at: data.created_at || new Date().toISOString(),
+    };
+  }
+
   if (!messageDataRaw) return;
 
   try {
@@ -27,17 +39,17 @@ const injectMessageFromNotification = async (data: any) => {
     }
 
     const msg = typeof messageDataRaw === 'string' ? JSON.parse(messageDataRaw) : messageDataRaw;
-    const senderId = data.senderId || msg.from_user_id;
+    const senderId = data.senderId || msg.from_user_id || msg.senderId;
 
-    if (senderId && msg.id) {
-      console.log(`🚀 [NotificationService] Injection directe message ${msg.id} pour ${senderId} (Store prêt: ${useChatStore.getState().hasHydrated})`);
+    if (senderId && msg.id && msg.message_content) {
+      console.log(`🚀 [NotificationService] Injection directe message ${msg.id} pour ${senderId}`);
       
       useChatStore.getState().addReceivedMessages(senderId, [{
         id: msg.id,
-        from_user_id: msg.from_user_id,
+        from_user_id: msg.from_user_id || senderId,
         to_user_id: msg.to_user_id,
         message_content: msg.message_content,
-        created_at: msg.created_at,
+        created_at: msg.created_at || new Date().toISOString(),
         local_ts: Date.now(),
       }]);
     }
