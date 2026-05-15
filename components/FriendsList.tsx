@@ -408,10 +408,10 @@ export function FriendsList({
 
   // Gestion des erreurs de chargement (Mode Offline)
   useEffect(() => {
-    if (isFriendsError && appUsers.length === 0) {
+    if (isFriendsError && displayUsers.length === 0) {
       setShowFriendlistRecoveryCard(true);
     }
-  }, [isFriendsError, appUsers.length]);
+  }, [isFriendsError, displayUsers.length]);
 
   // Synchronisation TanStack pour les Demandes
   useEffect(() => {
@@ -3514,24 +3514,26 @@ useEffect(() => {
   const lastValidUsersRef = useRef<any[]>([]);
   
   // Mémoriser la dernière liste valide pour éviter le flash blanc
+  const displayUsers = appUsers.length > 0 ? appUsers : (friendsFromQuery || []);
+
   useEffect(() => {
-    if (appUsers && appUsers.length > 0) {
-      lastValidUsersRef.current = appUsers;
+    if (displayUsers && displayUsers.length > 0) {
+      lastValidUsersRef.current = displayUsers;
     }
-  }, [appUsers]);
+  }, [displayUsers]);
 
   const filteredUsers = useMemo(() => {
     // Si on est en train de charger mais qu'on a déjà eu des données, on garde les anciennes
-    const baseUsers = (appUsers.length === 0 && isRefreshing) 
+    const baseUsers = (displayUsers.length === 0 && isRefreshing) 
       ? lastValidUsersRef.current 
-      : appUsers;
+      : displayUsers;
 
     if (!searchQuery.trim()) return baseUsers;
     const query = searchQuery.toLowerCase().trim();
     return baseUsers.filter((u: any) => 
       (u.pseudo || '').toLowerCase().includes(query)
     );
-  }, [appUsers, searchQuery, isRefreshing]);
+  }, [displayUsers, searchQuery, isRefreshing]);
 
   const unreadMessagesMap = useMemo(() => {
     const map: Record<string, typeof pendingMessages> = {};
@@ -3625,7 +3627,7 @@ useEffect(() => {
           </View>
         }
         ListEmptyComponent={
-          (!currentUserId || isFriendsPending || (isFriendsFetching && appUsers.length === 0)) && !showFriendlistRecoveryCard ? (
+          (!currentUserId || isFriendsPending || (isFriendsFetching && displayUsers.length === 0)) && !showFriendlistRecoveryCard ? (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 100 }}>
               <ActivityIndicator size="large" color="#604a3e" />
             </View>
