@@ -32,11 +32,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const PREVIEW_MAX = Dimensions.get('window').width - 32;
 const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
+const CACHE_AVATAR_URL_KEY = 'cached_current_avatar_url';
 
 export default function ProfilScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const setProfileStore = useAppStore(state => state.setProfile);
+  const clearProfile = useAppStore(state => state.clearProfile);
   
   const [pseudo, setPseudo] = useState('');
   const [email, setEmail] = useState('');
@@ -178,6 +180,7 @@ export default function ProfilScreen() {
 
       setAvatarUrl(publicUrl);
       setProfileStore({ pseudo, avatarUrl: publicUrl });
+      AsyncStorage.setItem(CACHE_AVATAR_URL_KEY, publicUrl).catch(() => {});
       Alert.alert(i18n.t('success'), 'Photo de profil mise à jour');
     } catch (error: any) {
       console.error('Erreur upload avatar:', error);
@@ -361,6 +364,7 @@ export default function ProfilScreen() {
             await logSignOutIntent('Profil:logout', () => supabase.auth.getUser());
             await clearCurrentUserPushToken();
             await supabase.auth.signOut();
+            clearProfile();
             safeReplace(router, '/AuthChoiceScreen');
           }
         }
@@ -384,6 +388,7 @@ export default function ProfilScreen() {
               if (deleteError) throw deleteError;
               await logSignOutIntent('Profil:deleteAccount', () => supabase.auth.getUser());
               await supabase.auth.signOut();
+              clearProfile();
               safeReplace(router, '/AuthChoiceScreen');
             } catch (err) {
               Alert.alert(i18n.t('error'), i18n.t('error_occurred_deletion'));

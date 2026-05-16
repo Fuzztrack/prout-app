@@ -19,9 +19,11 @@ interface AppState {
   // Navigation / UI
   activeView: 'list' | 'tutorial' | 'profile' | 'profileMenu';
   setActiveView: (view: 'list' | 'tutorial' | 'profile' | 'profileMenu') => void;
+  clearProfile: () => void;
 }
 
 const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
+const CACHE_AVATAR_URL_KEY = 'cached_current_avatar_url';
 const SILENT_MODE_KEY = 'silent_mode_enabled';
 const HAPTIC_ENABLED_KEY = 'haptic_feedback_enabled';
 
@@ -51,4 +53,10 @@ export const useAppStore = create<AppState>((set) => ({
   },
 
   setActiveView: (view) => set({ activeView: view }),
+
+  clearProfile: () => {
+    AsyncStorage.removeItem(CACHE_PSEUDO_KEY).catch(() => {});
+    AsyncStorage.removeItem(CACHE_AVATAR_URL_KEY).catch(() => {});
+    set({ userId: null, pseudo: '', avatarUrl: null });
+  },
 }));

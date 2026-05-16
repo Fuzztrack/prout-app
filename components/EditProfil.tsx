@@ -9,11 +9,15 @@ import { safeReplace } from '../lib/navigation';
 import { normalizePhone } from '../lib/normalizePhone';
 import { clearCurrentUserPushToken } from '../lib/pushTokenRegistration';
 import { supabase, supabaseAnonKey, supabaseUrl } from '../lib/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const PREVIEW_MAX = Dimensions.get('window').width - 32;
+const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
+const CACHE_AVATAR_URL_KEY = 'cached_current_avatar_url';
 
 export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void; onProfileUpdated?: (newPseudo: string, newAvatarUrl?: string | null) => void }) {
   const router = useRouter(); // Toujours nécessaire pour la déconnexion
+  const clearProfile = useAppStore(state => state.clearProfile);
   const [pseudo, setPseudo] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -110,6 +114,8 @@ export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void;
 
       // Mettre à jour l'état local pour affichage immédiat
       setAvatarUrl(publicUrl);
+      // Mettre en cache pour affichage instantané au démarrage
+      AsyncStorage.setItem(CACHE_AVATAR_URL_KEY, publicUrl).catch(() => {});
       // Notifier le parent pour l'avatar également
       onProfileUpdated?.(pseudo, publicUrl);
       Alert.alert(i18n.t('success'), 'Photo de profil mise à jour');
@@ -389,6 +395,8 @@ export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void;
         if (pseudoChanged) {
           setCurrentPseudo(trimmedPseudo);
           setPseudo(trimmedPseudo);
+          // Mettre en cache pour affichage instantané au démarrage
+          AsyncStorage.setItem(CACHE_PSEUDO_KEY, trimmedPseudo).catch(() => {});
           // Notifier le parent immédiatement pour le greeting et l'avatar
           onProfileUpdated?.(trimmedPseudo, avatarUrl);
         }
@@ -478,6 +486,7 @@ export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void;
               // Déconnecter l'utilisateur (même si le compte est déjà supprimé)
               await logSignOutIntent('components/EditProfil:deleteAccount', () => supabase.auth.getUser());
               await supabase.auth.signOut();
+              clearProfile();
 
               Alert.alert(i18n.t('success'), i18n.t('account_deleted_success'), [
                 {
@@ -513,6 +522,7 @@ export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void;
             await logSignOutIntent('components/EditProfil:logout', () => supabase.auth.getUser());
             await clearCurrentUserPushToken();
             await supabase.auth.signOut();
+            clearProfile();
             safeReplace(router, '/AuthChoiceScreen');
           }
         }

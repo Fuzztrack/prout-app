@@ -64,6 +64,7 @@ export default function HomeScreen() {
   const [zenModeReason, setZenModeReason] = useState<string | null>(null);
   const [hasScheduledZenMode, setHasScheduledZenMode] = useState(false);
   const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
+  const CACHE_AVATAR_URL_KEY = 'cached_current_avatar_url';
   
   // Animation de secousse pour le header
   const shakeX = useRef(new Animated.Value(0)).current;
@@ -152,9 +153,15 @@ export default function HomeScreen() {
       if (profile) {
         setZenMode(profile.is_zen_mode || false);
         const pseudo = profile.pseudo || '';
-        setProfile({ pseudo, avatarUrl: profile.avatar_url || null });
+        const avatarUrl = profile.avatar_url || null;
+        setProfile({ pseudo, avatarUrl });
         // Mémoriser pour affichage instantané au prochain lancement
         AsyncStorage.setItem(CACHE_PSEUDO_KEY, pseudo).catch(() => {});
+        if (avatarUrl) {
+          AsyncStorage.setItem(CACHE_AVATAR_URL_KEY, avatarUrl).catch(() => {});
+        } else {
+          AsyncStorage.removeItem(CACHE_AVATAR_URL_KEY).catch(() => {});
+        }
       }
 
       // Charger l'état Envois silencieux
@@ -186,22 +193,44 @@ export default function HomeScreen() {
 
       if (profile) {
         const pseudo = profile.pseudo || '';
-        setProfile({ pseudo, avatarUrl: profile.avatar_url || null });
+        const avatarUrl = profile.avatar_url || null;
+        setProfile({ pseudo, avatarUrl });
         AsyncStorage.setItem(CACHE_PSEUDO_KEY, pseudo).catch(() => {});
+        if (avatarUrl) {
+          AsyncStorage.setItem(CACHE_AVATAR_URL_KEY, avatarUrl).catch(() => {});
+        } else {
+          AsyncStorage.removeItem(CACHE_AVATAR_URL_KEY).catch(() => {});
+        }
       }
     } catch {
       // noop
     }
   }, [userId, setProfile]);
+// Précharger le pseudo et l'avatar depuis le cache pour un affichage instantané
+useEffect(() => {
+  setActiveView('list');
 
-  // Précharger le pseudo depuis le cache pour afficher le bonjour instantanément
-  useEffect(() => {
-    setActiveView('list');
-    AsyncStorage.getItem(CACHE_PSEUDO_KEY).then((cached) => {
-      if (cached) setProfile({ pseudo: cached });
-    }).catch(() => {});
-    loadData();
-  }, []);
+  const preloadProfile = async () => {
+    try {
+      const [cachedPseudo, cachedAvatarUrl] = await Promise.all([
+        AsyncStorage.getItem(CACHE_PSEUDO_KEY),
+        AsyncStorage.getItem(CACHE_AVATAR_URL_KEY)
+      ]);
+
+      if (cachedPseudo || cachedAvatarUrl) {
+        setProfile({ 
+          pseudo: cachedPseudo || '', 
+          avatarUrl: cachedAvatarUrl || null 
+        });
+      }
+    } catch (e) {
+      console.log("Erreur préchargement profil:", e);
+    }
+  };
+
+  preloadProfile();
+  loadData();
+}, []);
 
   // Écouter les événements du clavier uniquement pour iOS si besoin, ou supprimer si inutile
   // Sur Android, on évite absolument de provoquer des re-renders globaux quand le clavier bouge
