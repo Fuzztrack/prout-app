@@ -587,14 +587,14 @@ export function FriendsList({
   // Synchronisation des messages reçus (TanStack -> UI)
   useEffect(() => {
     if (pendingMessagesData) {
-      setPendingMessages(prev => {
-        // 1. Filtrer les messages du serveur (exclure bloqués et supprimés localement)
-        const blockedSet = blockedUserIdsRef.current || new Set();
-        const serverMessages = pendingMessagesData
-          .filter(m => !blockedSet.has(m.from_user_id))
-          .filter(m => !deletedMessagesCache.has(m.id))
-          .map(m => ({ ...m, isPendingDelete: false }));
+      // 1. Filtrer les messages du serveur (exclure bloqués et supprimés localement)
+      const blockedSet = blockedUserIdsRef.current || new Set();
+      const serverMessages = pendingMessagesData
+        .filter(m => !blockedSet.has(m.from_user_id))
+        .filter(m => !deletedMessagesCache.has(m.id))
+        .map(m => ({ ...m, isPendingDelete: false }));
 
+      setPendingMessages(prev => {
         // 2. Identifier les messages locaux récents à conserver (optimistes)
         const now = Date.now();
         const survivingRecent = prev.filter(localMsg => {
