@@ -647,32 +647,36 @@ export function FriendsList({
         const next = Array.from(mergedById.values());
         next.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
         
-        // 4. Synchro descendante : Mettre à jour le store persistant avec les données du serveur
-        // pour propager notamment le statut "lu" (READ:)
-        if (serverMessages.length > 0) {
-          const groupedBySender = serverMessages.reduce((acc, m) => {
-            if (!acc[m.from_user_id]) acc[m.from_user_id] = [];
-            acc[m.from_user_id].push(m as PendingMessage);
-            return acc;
-          }, {} as Record<string, PendingMessage[]>);
-
-          Object.entries(groupedBySender).forEach(([senderId, msgs]) => {
-            useChatStore.getState().addReceivedMessages(senderId, msgs);
-          });
-        }
-
-        // 5. Haptic pour nouveaux messages
-        if (hasHydratedIncomingMessagesRef.current) {
-          const newMessages = serverMessages.filter(m => !knownIncomingMessageIdsRef.current.has(m.id));
-          if (newMessages.length > 0) {
-            triggerIncomingMessageHaptic();
-          }
-        }
-        knownIncomingMessageIdsRef.current = new Set(serverMessages.map(m => m.id));
-        hasHydratedIncomingMessagesRef.current = true;
-
         return next;
       });
+
+      // 4. Synchro descendante : Mettre à jour le store persistant avec les données du serveur
+      // pour propager notamment le statut "lu" (READ:)
+      // Doit être en dehors de l'updater setState pour éviter l'erreur "Cannot update a component while rendering"
+      if (serverMessages.length > 0) {
+        const groupedBySender = serverMessages.reduce((acc, m) => {
+          if (!acc[m.from_user_id]) acc[m.from_user_id] = [];
+          acc[m.from_user_id].push(m as PendingMessage);
+          return acc;
+        }, {} as Record<string, PendingMessage[]>);
+
+        Object.entries(groupedBySender).forEach(([senderId, msgs]) => {
+          // Wrap in setTimeout to ensure it doesn't trigger a synchronous re-render during the current render phase
+          setTimeout(() => {
+            useChatStore.getState().addReceivedMessages(senderId, msgs);
+          }, 0);
+        });
+      }
+
+      // 5. Haptic pour nouveaux messages
+      if (hasHydratedIncomingMessagesRef.current) {
+        const newMessages = serverMessages.filter(m => !knownIncomingMessageIdsRef.current.has(m.id));
+        if (newMessages.length > 0) {
+          triggerIncomingMessageHaptic();
+        }
+      }
+      knownIncomingMessageIdsRef.current = new Set(serverMessages.map(m => m.id));
+      hasHydratedIncomingMessagesRef.current = true;
     }
   }, [pendingMessagesData, receivedByFriend]);
 
