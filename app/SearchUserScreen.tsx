@@ -1,13 +1,23 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, TextInput, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, ScrollView, Image } from 'react-native';
+import { View, Text, TextInput, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, ScrollView, Image, Keyboard } from 'react-native';
 import { supabase } from '../lib/supabase';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { safePush } from '../lib/navigation';
 import i18n from '../lib/i18n';
 
 export default function SearchUserScreen() {
   const router = useRouter();
+  
+  // --- SÉCURITÉ CLAVIER ---
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        Keyboard.dismiss();
+      };
+    }, [])
+  );
+  
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);

@@ -1,8 +1,8 @@
 // app/EditProfil.tsx - Page de modification du profil
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, Stack } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useRouter, Stack, useFocusEffect } from 'expo-router';
+import { useEffect, useState, useCallback } from 'react';
+import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Keyboard } from 'react-native';
 import { logSignOutIntent } from '../lib/authDebug';
 import { safePush, safeReplace } from '../lib/navigation';
 import { normalizePhone } from '../lib/normalizePhone';
@@ -11,6 +11,16 @@ import i18n from '../lib/i18n';
 
 export default function EditProfilScreen() {
   const router = useRouter();
+  
+  // --- SÉCURITÉ CLAVIER ---
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        Keyboard.dismiss();
+      };
+    }, [])
+  );
+  
   // Configuration explicite de la modale transparente
   const stackOptions = {
     presentation: 'transparentModal' as const,

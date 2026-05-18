@@ -355,6 +355,16 @@ export default function ChatScreen() {
     };
   }, []);
 
+  // --- SÉCURITÉ CLAVIER ---
+  // On s'assure que le clavier est fermé quand on quitte l'écran (blur)
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        Keyboard.dismiss();
+      };
+    }, [])
+  );
+
   const loadChatContext = useCallback(async () => {
     if (!friendId) return;
     try {

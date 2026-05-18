@@ -15,7 +15,7 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, ActionSheetIOS, Animated, DeviceEventEmitter, Image, Keyboard, KeyboardAvoidingView, Linking, Platform, ScrollView, Share, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, Vibration, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -69,6 +69,15 @@ export default function HomeScreen() {
   // Animation de secousse pour le header
   const shakeX = useRef(new Animated.Value(0)).current;
   const shakeY = useRef(new Animated.Value(0)).current;
+
+  // --- SÉCURITÉ CLAVIER ---
+  // On s'assure que le clavier est fermé quand on revient sur la liste d'amis
+  // (Utile notamment sur Android où le clavier peut rester ouvert après avoir quitté le chat)
+  useFocusEffect(
+    useCallback(() => {
+      Keyboard.dismiss();
+    }, [])
+  );
 
   const handleSoundcheckPress = useCallback(() => {
     router.push('/soundcheck');
