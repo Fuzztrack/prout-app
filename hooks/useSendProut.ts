@@ -45,6 +45,13 @@ export const useSendProut = (userId: string | null) => {
     
     // 🚀 L'étape "MAGIQUE" : Optimistic Update
     onMutate: async (newProut) => {
+      const customMessage = newProut.extraData?.customMessage;
+      
+      // Si c'est une simple notification (swipe) sans message, on ne l'affiche pas dans le chat
+      if (!customMessage || customMessage.trim().length === 0) {
+        return { previousMessages: queryClient.getQueryData(['pendingSentMessages', userId]) };
+      }
+
       // 1. Annuler les rafraîchissements en cours pour ne pas écraser notre modif optimiste
       await queryClient.cancelQueries({ queryKey: ['pendingSentMessages', userId] });
 
@@ -54,7 +61,7 @@ export const useSendProut = (userId: string | null) => {
       // 3. Ajouter "optimistiquement" le nouveau message à la liste locale
       const optimisticMessage = {
         id: `temp-${Date.now()}`, // ID temporaire
-        message_content: newProut.proutKey,
+        message_content: `[${newProut.proutKey}]${customMessage}`,
         created_at: new Date().toISOString(),
         sender_pseudo: newProut.senderPseudo,
         is_optimistic: true, // Pour pouvoir l'identifier si besoin (ex: petit spinner)
