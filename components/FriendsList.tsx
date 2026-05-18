@@ -431,8 +431,8 @@ export function FriendsList({
     // par une version serveur non-lue si le serveur est en retard.
     serverMessages.forEach(m => {
       const existing = mergedMap.get(m.id);
-      if (existing && existing.message_content?.startsWith('READ:') && !m.message_content?.startsWith('READ:')) {
-        // Le local est plus frais (déjà lu), on le garde.
+      if (existing && (existing.message_content?.startsWith('READ:') ?? false)) {
+        // Le local est plus frais (déjà lu), on le garde tel quel, on n'écrase pas.
         return;
       }
       mergedMap.set(m.id, m);
