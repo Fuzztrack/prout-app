@@ -260,6 +260,7 @@ export const useChatStore = create<ChatState>()(
       storage: createJSONStorage(() => AsyncStorage),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);
+        console.log(`⏱️ [PERF] ${Date.now()} - Zustand ChatStore Hydratation terminée`);
       },
     }
   )

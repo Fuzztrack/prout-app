@@ -403,11 +403,17 @@ export function FriendsList({
   const { data: identityRequestsData } = useIdentityRequests(currentUserId);
   const { data: blockedUsersFromQuery } = useBlockedUsers(currentUserId);
 
+  const tRenderStart = Date.now();
+  console.log(`⏱️ [PERF] ${tRenderStart} - FriendsList Render`);
+
   // 🚀 RÉACTIVITÉ INSTANTANÉE : Combiner les messages du store local (injectés par la notif) 
   // et ceux du serveur (TanStack) sans duplication.
   const [pendingMessages, setPendingMessages] = useState<PendingMessage[]>([]);
 
   useEffect(() => {
+    const tEffectStart = Date.now();
+    console.log(`⏱️ [PERF] ${tEffectStart} - FriendsList calcul pendingMessages (Zustand: ${Object.values(receivedByFriend || {}).flat().length}, TanStack: ${pendingMessagesData?.length || 0})`);
+    
     // 1. Prendre les messages du store local (Zustand) comme base instantanée
     const localMessages = Object.values(receivedByFriend || {}).flat();
 

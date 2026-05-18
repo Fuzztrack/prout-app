@@ -14,6 +14,9 @@ const ACTIVE_CHAT_FRIEND_ID_KEY = 'active_chat_friend_id_v1';
  * Utilisé pour avoir une synchro instantanée sans attendre le réseau.
  */
 const injectMessageFromNotification = async (data: any) => {
+  const tStart = Date.now();
+  console.log(`⏱️ [PERF] ${tStart} - DÉBUT injectMessageFromNotification`);
+
   let messageDataRaw = data?.m_d || data?.messageData;
   
   // Support du format à plat (fallback)
@@ -27,16 +30,22 @@ const injectMessageFromNotification = async (data: any) => {
     };
   }
 
-  if (!messageDataRaw) return;
+  if (!messageDataRaw) {
+    console.log(`⏱️ [PERF] ${Date.now()} - FIN injectMessageFromNotification (Pas de données) (+${Date.now() - tStart}ms)`);
+    return;
+  }
 
   try {
     // Sécurité : Attendre que le store soit hydraté pour ne pas perdre l'injection
     // (notamment au démarrage depuis un killed state)
     let retry = 0;
     while (!useChatStore.getState().hasHydrated && retry < 30) {
+      if (retry === 0) console.log(`⏱️ [PERF] ${Date.now()} - injectMessageFromNotification : Attente hydratation Zustand...`);
       await new Promise(r => setTimeout(r, 100));
       retry++;
     }
+    
+    console.log(`⏱️ [PERF] ${Date.now()} - injectMessageFromNotification : Zustand est hydraté (+${Date.now() - tStart}ms)`);
 
     const msg = typeof messageDataRaw === 'string' ? JSON.parse(messageDataRaw) : messageDataRaw;
     const senderId = data.senderId || msg.from_user_id || msg.senderId;
@@ -52,6 +61,7 @@ const injectMessageFromNotification = async (data: any) => {
         created_at: msg.created_at || new Date().toISOString(),
         local_ts: Date.now(),
       }]);
+      console.log(`⏱️ [PERF] ${Date.now()} - FIN injectMessageFromNotification : Message injecté (+${Date.now() - tStart}ms)`);
     }
   } catch (e) {
     console.error('❌ [NotificationService] Erreur injection messageData:', e);
