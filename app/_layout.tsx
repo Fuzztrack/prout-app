@@ -87,20 +87,15 @@ export default function RootLayout() {
   const [toastMessage, setToastMessage] = useState<{ title: string; body: string } | null>(null);
   const [toastOpacity] = useState(new Animated.Value(0));
 
+  const lastNotificationResponse = Notifications.useLastNotificationResponse();
+
   // Check for cold-start notification
   useEffect(() => {
-    (async () => {
-      try {
-        const response = await Notifications.getLastNotificationResponseAsync();
-        if (response && response.notification.request.content.data) {
-          console.log('🥶 [COLD START] Notification response found:', JSON.stringify(response.notification.request.content.data));
-          await injectMessageFromNotification(response.notification.request.content.data);
-        }
-      } catch (error) {
-        console.error('❌ [COLD START] Error checking last notification:', error);
-      }
-    })();
-  }, []);
+    if (lastNotificationResponse && lastNotificationResponse.notification.request.content.data) {
+      console.log('🥶 [COLD START] Notification response found via hook:', JSON.stringify(lastNotificationResponse.notification.request.content.data));
+      injectMessageFromNotification(lastNotificationResponse.notification.request.content.data);
+    }
+  }, [lastNotificationResponse]);
 
   // Activer le Deep Linking
   useDeepLinking();
