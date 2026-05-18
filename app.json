@@ -38,12 +38,11 @@
         "backgroundColor": "#ebb89b"
       },
       "package": "com.fuzztrack.proutapp",
-      "versionCode": 203,
+      "versionCode": 205,
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.READ_MEDIA_IMAGES",
         "android.permission.CAMERA",
         "android.permission.READ_CONTACTS",
         "android.permission.WRITE_CONTACTS"

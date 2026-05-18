@@ -234,11 +234,6 @@ export default function ProfilScreen() {
   };
 
   const handleGalleryPick = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert(i18n.t('error'), 'Permission d\'accès à la galerie requise');
-      return;
-    }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,

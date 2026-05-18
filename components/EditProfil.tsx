@@ -206,13 +206,6 @@ export function EditProfil({ onClose, onProfileUpdated }: { onClose: () => void;
     if (!userId) return;
 
     try {
-      // Demander la permission d'accéder à la galerie
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert(i18n.t('error'), 'Permission d\'accès à la galerie requise');
-        return;
-      }
-
       // Ouvrir la galerie
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
