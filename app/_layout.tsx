@@ -22,7 +22,7 @@ import { registerPushTokenForUser } from '../lib/pushTokenRegistration';
 import i18n from '../lib/i18n';
 
 // Services
-import { initNotificationHandler, setupNotificationListeners } from '@/lib/services/NotificationService';
+import { initNotificationHandler, setupNotificationListeners, injectMessageFromNotification } from '@/lib/services/NotificationService';
 import { saveLocaleToSupabase } from '@/lib/services/AuthService';
 import { initializeApp } from '@/lib/services/AppInitializer';
 
@@ -84,8 +84,23 @@ export default function RootLayout() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showEulaGate, setShowEulaGate] = useState(false);
   const router = useRouter();
-  const [toastMessage, setToastMessage] = useState<{ title: string, body: string } | null>(null);
+  const [toastMessage, setToastMessage] = useState<{ title: string; body: string } | null>(null);
   const [toastOpacity] = useState(new Animated.Value(0));
+
+  // Check for cold-start notification
+  useEffect(() => {
+    (async () => {
+      try {
+        const response = await Notifications.getLastNotificationResponseAsync();
+        if (response && response.notification.request.content.data) {
+          console.log('🥶 [COLD START] Notification response found:', JSON.stringify(response.notification.request.content.data));
+          await injectMessageFromNotification(response.notification.request.content.data);
+        }
+      } catch (error) {
+        console.error('❌ [COLD START] Error checking last notification:', error);
+      }
+    })();
+  }, []);
 
   // Activer le Deep Linking
   useDeepLinking();

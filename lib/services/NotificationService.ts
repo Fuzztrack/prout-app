@@ -13,7 +13,7 @@ const ACTIVE_CHAT_FRIEND_ID_KEY = 'active_chat_friend_id_v1';
  * Extrait et injecte les données d'un message dans le store Zustand.
  * Utilisé pour avoir une synchro instantanée sans attendre le réseau.
  */
-const injectMessageFromNotification = async (data: any) => {
+export const injectMessageFromNotification = async (data: any) => {
   const tStart = Date.now();
   console.log(`⏱️ [PERF] ${tStart} - DÉBUT injectMessageFromNotification`);
 
