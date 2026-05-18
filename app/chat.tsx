@@ -484,19 +484,6 @@ export default function ChatScreen() {
     // Sauvegarde dans le store persistant
     addReceivedMessages(friendId, filteredIncoming);
 
-    // Si on est en mode instantané (0), addReceivedMessages ne fait rien dans le store.
-    if (retentionHours === 0) {
-      setReceivedMessages(prev => {
-        const next = [...prev];
-        filteredIncoming.forEach(m => {
-          if (!next.some(em => em.id === m.id)) {
-            next.push(m);
-          }
-        });
-        return next;
-      });
-    }
-
     const incomingIds = filteredIncoming.map((m) => m.id);
     const newIncoming = filteredIncoming.filter((m) => !knownIncomingMessageIdsRef.current.has(m.id));
     // knownIncomingMessageIdsRef est mis à jour dans le useEffect de sync
@@ -530,21 +517,6 @@ export default function ChatScreen() {
       addSentMessages(friendId, serverSent, true);
     } else {
       addSentMessages(friendId, serverSent, false);
-    }
-    if (retentionHours === 0) {
-      setSentMessages(prev => {
-        const next = [...prev];
-        serverSent.forEach(m => {
-          const idx = next.findIndex(em => em.id === m.id);
-          if (idx === -1) {
-            next.push(m);
-          } else {
-            // Mise à jour du statut (lu) sur le message existant
-            next[idx] = { ...next[idx], status: m.status, readAt: m.readAt };
-          }
-        });
-        return next;
-      });
     }
   }, [currentUserId, friendId, isHapticEnabled, addReceivedMessages, addSentMessages, retentionHours]);
 
@@ -662,15 +634,6 @@ export default function ChatScreen() {
             // Mise à jour du store persistant IMMEDIATEMENT
             addReceivedMessages(friendId, [{ ...newMessage, local_ts: Date.now() }]);
 
-            // Si on est en mode instantané (0), addReceivedMessages ne fait rien dans le store.
-            // On force donc l'affichage local dans receivedMessages pour que l'utilisateur le voie.
-            if (retentionHours === 0) {
-              setReceivedMessages((prev) => {
-                if (prev.some((m) => m.id === newMessage.id)) return prev;
-                return [...prev, { ...newMessage, local_ts: Date.now() }];
-              });
-            }
-
             queryClient.invalidateQueries({ queryKey: ['pendingMessages', currentUserId] });
             queryClient.invalidateQueries({ queryKey: ['friends', currentUserId] });
             DeviceEventEmitter.emit('REFRESH_DATA', { source: 'chat_insert' });
@@ -733,13 +696,6 @@ export default function ChatScreen() {
             };
 
             addSentMessages(friendId, [serverSent]);
-            
-            // Si mode 0h, on met aussi à jour l'écran
-            if (retentionHours === 0) {
-              setSentMessages(prev => {
-                return prev.map(m => m.id === updated.id ? { ...m, status: serverSent.status, readAt: serverSent.readAt } : m);
-              });
-            }
           }
         )
         .on(

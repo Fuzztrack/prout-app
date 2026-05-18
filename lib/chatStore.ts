@@ -63,8 +63,9 @@ export const useChatStore = create<ChatState>()(
       addReceivedMessages: (friendId, newMsgs) => {
         set((state) => {
           const { receivedByFriend, retentionByFriend } = state;
-          const retentionHours = retentionByFriend[friendId] ?? DEFAULT_RETENTION;
-          if (retentionHours === 0) return state;
+          // IMPORTANT : On ne bloque plus l'insertion si retentionHours === 0.
+          // Sinon l'injection de notifications (Cold Start) et les mises à jour optimistes (READ:) échouent silencieusement.
+          // La purge est gérée par cleanupExpired et par la fermeture du chat.
 
           const current = receivedByFriend[friendId] || [];
           const currentMap = new Map(current.map((m) => [m.id, m]));
