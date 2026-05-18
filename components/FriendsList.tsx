@@ -388,34 +388,14 @@ export function FriendsList({
   
   const receivedByFriend = useChatStore(state => state.receivedByFriend);
   const hasHydrated = useChatStore(state => state.hasHydrated);
-  
-  const [appUsers, setAppUsers] = useState<any[]>([]);
-  // Initialisation optimiste à partir du store persistant (Zustand)
-  const [pendingMessages, setPendingMessages] = useState<PendingMessage[]>(() => {
-    return Object.values(useChatStore.getState().receivedByFriend || {}).flat();
-  });
 
-  // Force la synchro une fois que le store est hydraté (au démarrage)
-  useEffect(() => {
-    if (hasHydrated) {
-      const stored = Object.values(useChatStore.getState().receivedByFriend || {}).flat();
-      if (stored.length > 0) {
-        setPendingMessages(prev => {
-          const existingIds = new Set(prev.map(m => m.id));
-          const newMsgs = stored.filter(m => !existingIds.has(m.id));
-          if (newMsgs.length > 0) return [...prev, ...newMsgs];
-          return prev;
-        });
-      }
-    }
-  }, [hasHydrated]);
   const [isGameVisible, setIsGameVisible] = useState(false);
   const [currentPseudo, setCurrentPseudo] = useState<string>("Un ami");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const storedFriends = useFriendsStore((state) => state.friends);
   const setStoredFriends = useFriendsStore((state) => state.setFriends);
-  
+
   const { data: friendsFromQuery, isPending: isFriendsPending, isError: isFriendsError, isFetching: isFriendsFetching } = useFriends(currentUserId);
   const { data: pendingMessagesData } = usePendingMessages(currentUserId);
   const { data: pendingSentData } = usePendingSentMessages(currentUserId);
@@ -423,11 +403,48 @@ export function FriendsList({
   const { data: identityRequestsData } = useIdentityRequests(currentUserId);
   const { data: blockedUsersFromQuery } = useBlockedUsers(currentUserId);
 
+  // 🚀 RÉACTIVITÉ INSTANTANÉE : Combiner les messages du store local (injectés par la notif) 
+  // et ceux du serveur (TanStack) sans duplication.
+  const [pendingMessages, setPendingMessages] = useState<PendingMessage[]>([]);
+
+  useEffect(() => {
+    // 1. Prendre les messages du store local (Zustand) comme base instantanée
+    const localMessages = Object.values(receivedByFriend || {}).flat();
+
+    // 2. Prendre les messages du serveur
+    const serverMessages = pendingMessagesData || [];
+
+    // 3. Fusionner en évitant les doublons (priorité au serveur s'il existe)
+    const mergedMap = new Map<string, PendingMessage>();
+
+    // D'abord les locaux
+    localMessages.forEach(m => mergedMap.set(m.id, m));
+
+    // Ensuite les serveurs (écrasent les locaux si besoin, car source de vérité)
+    // MAIS attention, les messages "lus" localement (READ:) ne doivent pas être écrasés 
+    // par une version serveur non-lue si le serveur est en retard.
+    serverMessages.forEach(m => {
+      const existing = mergedMap.get(m.id);
+      if (existing && existing.message_content?.startsWith('READ:') && !m.message_content?.startsWith('READ:')) {
+        // Le local est plus frais (déjà lu), on le garde.
+        return;
+      }
+      mergedMap.set(m.id, m);
+    });
+
+    const finalMessages = Array.from(mergedMap.values()).sort((a, b) => {
+      const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return timeA - timeB;
+    });
+
+    setPendingMessages(finalMessages);
+  }, [receivedByFriend, pendingMessagesData]);
+
   // Mémoriser la dernière liste valide pour éviter le flash blanc et la déclarer tôt
-  // 1. On priorise l'état local (tri optimiste)
-  // 2. Sinon, on prend la requête TanStack si elle a abouti
-  // 3. Sinon, on prend le store synchrone (Zustand) pour l'affichage instantané
-  const displayUsers = appUsers.length > 0 ? appUsers : (friendsFromQuery || storedFriends || []);
+  // 1. On priorise la requête TanStack si elle a abouti
+  // 2. Sinon, on prend le store synchrone (Zustand) pour l'affichage instantané
+  const displayUsers = friendsFromQuery || storedFriends || [];
 
   // Mettre à jour le store persistant quand on reçoit de nouvelles données
   useEffect(() => {
@@ -463,36 +480,6 @@ export function FriendsList({
       setIdentityRequests(identityRequestsData);
     }
   }, [identityRequestsData]);
-
-  // 1. Initialisation optimiste + Sync en arrière-plan depuis le store Zustand (notifications)
-  useEffect(() => {
-    const storedMessages = Object.values(receivedByFriend || {}).flat();
-    if (storedMessages.length > 0) {
-      setPendingMessages(prev => {
-        const prevMap = new Map(prev.map(m => [m.id, m]));
-        let changed = false;
-
-        storedMessages.forEach(m => {
-          const existing = prevMap.get(m.id);
-          if (!existing) {
-            prevMap.set(m.id, m);
-            changed = true;
-          } else if (existing.message_content !== m.message_content) {
-            // Mise à jour (ex: passage à READ:)
-            prevMap.set(m.id, { ...existing, ...m });
-            changed = true;
-          }
-        });
-
-        if (changed) {
-          return Array.from(prevMap.values()).sort((a, b) => 
-            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-          );
-        }
-        return prev;
-      });
-    }
-  }, [receivedByFriend]);
 
   // Synchronisation des messages envoyés (TanStack -> UI)
   useEffect(() => {
@@ -680,7 +667,7 @@ export function FriendsList({
     }
   }, [pendingMessagesData, receivedByFriend]);
 
-  const appUsersRef = useRef<any[]>([]);
+
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
   const [identityRequests, setIdentityRequests] = useState<any[]>([]);
 
@@ -722,7 +709,7 @@ export function FriendsList({
 
   useFocusEffect(
     useCallback(() => {
-      if (appUsers.length < 1) return;
+      if (displayUsers.length < 1) return;
       let cancelled = false;
       (async () => {
         try {
@@ -738,13 +725,13 @@ export function FriendsList({
       return () => {
         cancelled = true;
       };
-    }, [appUsers.length])
+    }, [displayUsers.length])
   );
   
   // Synchronisation avec TanStack Query pour la liste d'amis
   useEffect(() => {
     if (friendsFromQuery !== undefined) {
-      setAppUsers(friendsFromQuery);
+      setStoredFriends(friendsFromQuery);
     }
   }, [friendsFromQuery]);
 
@@ -967,15 +954,13 @@ export function FriendsList({
   const rowRefs = useRef<Record<string, SwipeableFriendRowHandle | null>>({});
   const searchInputRef = useRef<TextInput | null>(null);
 
-  useEffect(() => {
-    appUsersRef.current = appUsers;
-  }, [appUsers]);
+
 
   useEffect(() => {
-    if (appUsers.length > 0) {
+    if (displayUsers.length > 0) {
       setShowFriendlistRecoveryCard(false);
     }
-  }, [appUsers.length]);
+  }, [displayUsers.length]);
 
   // PRRT! Protocol : à l'entrée du chat, marquer comme lu tous les messages reçus non-lus de cet ami
   // MAIS : Ne pas les supprimer de l'affichage tant que le chat est ouvert
@@ -1331,7 +1316,7 @@ export function FriendsList({
           );
         });
 
-        setAppUsers((prev) => {
+        setStoredFriends((prev) => {
           const updated = prev.map((friend) =>
             friend.id === senderId ? { ...friend, last_interaction_at: createdAt } : friend
           );
@@ -1351,7 +1336,7 @@ export function FriendsList({
     return () => {
       subscription.remove();
     };
-  }, [currentUserId, queryClient, scheduleAlignFriendListTop]);
+  }, [currentUserId, queryClient]);
 
   useEffect(() => {
     const subscription = DeviceEventEmitter.addListener('CLEAR_FRIENDLIST_PENDING_SOUND', (data?: any) => {
@@ -1446,7 +1431,7 @@ export function FriendsList({
     if (serverMessages.length > 0) {
       const now = new Date().toISOString();
       const uniqueSenderIds = [...new Set(serverMessages.map(m => m.from_user_id))];
-      setAppUsers(prev => {
+      setStoredFriends(prev => {
         const updated = prev.map(friend =>
           uniqueSenderIds.includes(friend.id)
             ? { ...friend, last_interaction_at: now }
@@ -2213,7 +2198,7 @@ useEffect(() => {
               });
 
               // Mise à jour optimiste du tri
-              setAppUsers((prev) => {
+              setStoredFriends((prev) => {
                 const updated = prev.map((f) =>
                   f.id === newMessage.from_user_id ? { ...f, last_interaction_at: now } : f
                 );
@@ -2555,7 +2540,7 @@ useEffect(() => {
               }
 
               // Remonter l'ami dans la liste (last_interaction_at)
-              setAppUsers((prev) => {
+              setStoredFriends((prev) => {
                 const updated = prev.map((friend) =>
                   friend.id === senderId ? { ...friend, last_interaction_at: now } : friend
                 );
@@ -2873,7 +2858,7 @@ useEffect(() => {
               void queryClient.invalidateQueries({ queryKey: ['blockedUsers'] });
               void queryClient.invalidateQueries({ queryKey: ['friends'] });
 
-              setAppUsers(prev => prev.filter(u => u.id !== friend.id));
+              setStoredFriends(prev => prev.filter(u => u.id !== friend.id));
               setPendingMessages(prev => prev.filter(m => m.from_user_id !== friend.id && m.to_user_id !== friend.id));
               setUnreadCache(prev => {
                 const copy = { ...prev };
@@ -3028,9 +3013,9 @@ useEffect(() => {
 
   const getVisibleUsers = () => {
     // Filtrage local basé sur searchQuery (même logique que la FlatList)
-    if (!searchQuery.trim()) return appUsers;
+    if (!searchQuery.trim()) return displayUsers;
     const query = searchQuery.toLowerCase().trim();
-    const filtered = appUsers.filter(user =>
+    const filtered = displayUsers.filter(user =>
       user.pseudo && user.pseudo.toLowerCase().includes(query)
     );
     return filtered;
@@ -3084,7 +3069,7 @@ useEffect(() => {
       }
     }, 350);
     return () => clearTimeout(t);
-  }, [expandedFriendId, appUsers, searchQuery]);
+  }, [expandedFriendId, displayUsers, searchQuery]);
 
   useEffect(() => {
     const onShow = (event?: { endCoordinates?: { height?: number } }) => {
@@ -3120,7 +3105,7 @@ useEffect(() => {
       subHide.remove();
       subFrame?.remove();
     };
-  }, [expandedFriendId, appUsers]);
+  }, [expandedFriendId, displayUsers]);
 
   useEffect(() => {
     if (Platform.OS !== 'android') return;
@@ -3386,10 +3371,10 @@ useEffect(() => {
           targetPlatform = profile.push_platform || targetPlatform;
           
           // Mettre à jour l'objet dans la liste pour éviter de refaire la requête
-          const updatedUsers = appUsers.map(u => 
+          const updatedUsers = displayUsers.map(u => 
             u.id === recipient.id ? { ...u, expo_push_token: fcmToken, push_platform: profile.push_platform || u.push_platform } : u
           );
-          setAppUsers(updatedUsers);
+          setStoredFriends(updatedUsers);
         } else {
           Alert.alert(
             i18n.t('error'), 
@@ -3436,7 +3421,7 @@ useEffect(() => {
       // Mise à jour optimiste locale immédiate : mettre à jour last_interaction_at localement
       // pour que le tri soit instantané, puis recharger depuis Supabase pour la synchronisation
       const now = new Date().toISOString();
-      setAppUsers(prevUsers => {
+      setStoredFriends(prevUsers => {
         const updatedUsers = prevUsers.map(friend => 
           friend.id === recipient.id 
             ? { ...friend, last_interaction_at: now }
@@ -3630,13 +3615,13 @@ useEffect(() => {
   };
 
   const displayFriend = useMemo(() => {
-    const activeFriend = expandedFriendId ? appUsers.find(u => u.id === expandedFriendId) : null;
+    const activeFriend = expandedFriendId ? displayUsers.find(u => u.id === expandedFriendId) : null;
     const lastActiveFriendRef = { current: null as any };
     if (activeFriend) {
       lastActiveFriendRef.current = activeFriend;
     }
     return activeFriend || lastActiveFriendRef.current;
-  }, [expandedFriendId, appUsers]);
+  }, [expandedFriendId, displayUsers]);
 
   const handlePressHeader = useCallback(() => {
     Keyboard.dismiss();
@@ -3867,7 +3852,7 @@ useEffect(() => {
         onRefresh={handleRefresh}
         showsVerticalScrollIndicator={false}
         ListFooterComponent={
-          appUsers.length > 0 ? (
+          displayUsers.length > 0 ? (
             <View style={styles.footerHelp}>
               <View style={styles.footerHelpLines}>
                 <View style={styles.footerHelpLine}>
@@ -3912,7 +3897,7 @@ useEffect(() => {
         expandedFriendId={expandedFriendId}
         onClose={handlePressHeader}
         displayFriend={displayFriend}
-        appUsers={appUsers}
+        displayUsers={displayUsers}
         pendingMessages={pendingMessages}
         unreadCache={unreadCache}
         lastSentMessages={lastSentMessages}
