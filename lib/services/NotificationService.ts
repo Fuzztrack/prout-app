@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import i18n from '@/lib/i18n';
 import { safePush, safeReplace } from '@/lib/navigation';
 import { useChatStore } from '@/lib/chatStore';
+import { useFriendsStore } from '@/lib/friendsStore';
 
 const ACTIVE_CHAT_FRIEND_ID_KEY = 'active_chat_friend_id_v1';
 
@@ -61,6 +62,10 @@ export const injectMessageFromNotification = async (data: any) => {
         created_at: msg.created_at || new Date().toISOString(),
         local_ts: Date.now(),
       }]);
+      
+      // 🚀 NOUVEAU: Mettre à jour l'interaction de l'ami immédiatement pour le tri (Cold Start instantané)
+      useFriendsStore.getState().updateFriendInteraction(senderId, msg.created_at || new Date().toISOString());
+      
       // console.log(`⏱️ [PERF] ${Date.now()} - FIN injectMessageFromNotification : Message injecté (+${Date.now() - tStart}ms)`);
     }
   } catch (e) {
