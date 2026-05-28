@@ -404,7 +404,7 @@ export function FriendsList({
   const { data: blockedUsersFromQuery } = useBlockedUsers(currentUserId);
 
   const tRenderStart = Date.now();
-  console.log(`⏱️ [PERF] ${tRenderStart} - FriendsList Render`);
+  // console.log(`⏱️ [PERF] ${tRenderStart} - FriendsList Render`);
 
   // 🚀 RÉACTIVITÉ INSTANTANÉE : Combiner les messages du store local (injectés par la notif) 
   // et ceux du serveur (TanStack) sans duplication.
@@ -412,7 +412,7 @@ export function FriendsList({
 
   useEffect(() => {
     const tEffectStart = Date.now();
-    console.log(`⏱️ [PERF] ${tEffectStart} - FriendsList calcul pendingMessages (Zustand: ${Object.values(receivedByFriend || {}).flat().length}, TanStack: ${pendingMessagesData?.length || 0})`);
+    // console.log(`⏱️ [PERF] ${tEffectStart} - FriendsList calcul pendingMessages (Zustand: ${Object.values(receivedByFriend || {}).flat().length}, TanStack: ${pendingMessagesData?.length || 0})`);
     
     // 1. Prendre les messages du store local (Zustand) comme base instantanée
     const localMessages = Object.values(receivedByFriend || {}).flat();
