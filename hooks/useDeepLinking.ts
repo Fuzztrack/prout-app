@@ -16,24 +16,20 @@ export const useDeepLinking = () => {
       if (!url) return;
 
       // Traitement des notifications via Deep Link (Android Cold/Warm Start)
-      if (url.includes('prootapp://notification')) {
-        console.log('🚀 [DeepLink] Notification URL détectée:', url);
-        try {
-          // Extraire les query parameters
-          const { queryParams } = Linking.parse(url);
-          if (queryParams && Object.keys(queryParams).length > 0) {
-            console.log('📦 [DeepLink] Payload extrait:', JSON.stringify(queryParams));
-            
-            // 1. Injection immédiate dans le store (Zustand)
-            await injectMessageFromNotification(queryParams);
-            
-            // 2. Déclencher le rafraîchissement global (TanStack + UI)
-            DeviceEventEmitter.emit('REFRESH_DATA', queryParams);
-          }
-        } catch (e) {
-          console.error('❌ [DeepLink] Erreur traitement notification:', e);
+      try {
+        const parsed = Linking.parse(url);
+        if (parsed.queryParams?.notificationType === 'prout') {
+          console.log('🚀 [DeepLink] Notification payload détecté');
+          
+          // 1. Injection immédiate dans le store (Zustand)
+          await injectMessageFromNotification(parsed.queryParams);
+          
+          // 2. Déclencher le rafraîchissement global (TanStack + UI)
+          DeviceEventEmitter.emit('REFRESH_DATA', parsed.queryParams);
+          return;
         }
-        return;
+      } catch (e) {
+        console.error('❌ [DeepLink] Erreur traitement notification:', e);
       }
 
       // Regex flexible pour capturer les tokens dans query string (?) ou fragment (#)

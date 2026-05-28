@@ -217,7 +217,7 @@ class ProutMessagingService : FirebaseMessagingService() {
         val smallIcon = if (iconId != 0) iconId else android.R.drawable.ic_dialog_info
 
         // 🚀 AJOUT : Ajouter les données en query parameters de l'URI pour l'hydratation rapide au démarrage
-        val uriBuilder = Uri.parse("prootapp://notification").buildUpon()
+        val uriBuilder = Uri.parse("prootapp://").buildUpon()
         proutKey?.let { uriBuilder.appendQueryParameter("proutKey", it) }
         sender?.let { uriBuilder.appendQueryParameter("sender", it) }
         uriBuilder.appendQueryParameter("notificationType", "prout")
