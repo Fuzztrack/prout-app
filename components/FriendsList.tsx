@@ -1301,6 +1301,9 @@ export function FriendsList({
           );
         });
 
+        // 🚀 AJOUT : Injection dans le store Zustand pour la persistance locale (instantanéité au redémarrage)
+        useChatStore.getState().addReceivedMessages(senderId, [{ ...optimisticMessage, local_ts: Date.now() }]);
+
         // Injection directe dans le cache TanStack Query (Friends - pour le tri)
         queryClient.setQueryData(['friends', currentUserId], (old: any) => {
           if (!Array.isArray(old)) return old;

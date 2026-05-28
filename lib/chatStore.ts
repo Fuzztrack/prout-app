@@ -77,9 +77,16 @@ export const useChatStore = create<ChatState>()(
               currentMap.set(m.id, { ...m, local_ts: m.local_ts || Date.now() });
               changed = true;
             } else {
+              // Si le message existant est marqué comme "READ:" localement, on ne l'écrase pas avec une version non-lue du serveur
+              const existingIsRead = existing.message_content?.startsWith('READ:') ?? false;
+              const newIsRead = m.message_content?.startsWith('READ:') ?? false;
+              
               if (m.message_content !== existing.message_content) {
-                currentMap.set(m.id, { ...existing, ...m, local_ts: existing.local_ts });
-                changed = true;
+                // On écrase seulement si on ne remplace pas un "READ:..." par sa version originale non-lue
+                if (!(existingIsRead && !newIsRead)) {
+                  currentMap.set(m.id, { ...existing, ...m, local_ts: existing.local_ts });
+                  changed = true;
+                }
               }
             }
           });

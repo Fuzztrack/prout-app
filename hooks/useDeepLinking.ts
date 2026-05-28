@@ -1,11 +1,12 @@
 import { useEffect } from 'react';
 import * as Linking from 'expo-linking';
-import { Alert } from 'react-native';
+import { Alert, DeviceEventEmitter } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { safeReplace } from '@/lib/navigation';
 import { logSessionSnapshot } from '@/lib/authDebug';
 import i18n from '@/lib/i18n';
+import { injectMessageFromNotification } from '@/lib/services/NotificationService';
 
 export const useDeepLinking = () => {
   const router = useRouter();
@@ -13,6 +14,27 @@ export const useDeepLinking = () => {
   useEffect(() => {
     const handleUrl = async (url: string) => {
       if (!url) return;
+
+      // Traitement des notifications via Deep Link (Android Cold/Warm Start)
+      if (url.includes('prootapp://notification')) {
+        console.log('🚀 [DeepLink] Notification URL détectée:', url);
+        try {
+          // Extraire les query parameters
+          const { queryParams } = Linking.parse(url);
+          if (queryParams && Object.keys(queryParams).length > 0) {
+            console.log('📦 [DeepLink] Payload extrait:', JSON.stringify(queryParams));
+            
+            // 1. Injection immédiate dans le store (Zustand)
+            await injectMessageFromNotification(queryParams);
+            
+            // 2. Déclencher le rafraîchissement global (TanStack + UI)
+            DeviceEventEmitter.emit('REFRESH_DATA', queryParams);
+          }
+        } catch (e) {
+          console.error('❌ [DeepLink] Erreur traitement notification:', e);
+        }
+        return;
+      }
 
       // Regex flexible pour capturer les tokens dans query string (?) ou fragment (#)
       const accessTokenMatch = url.match(/[?&#]access_token=([^&]+)/);
