@@ -215,6 +215,8 @@ export default function ChatScreen() {
   const setRetentionHours = useChatStore(state => state.setRetentionHours);
   const cleanupExpired = useChatStore(state => state.cleanupExpired);
   const clearHistory = useChatStore(state => state.clearHistory);
+  const savedMessages = useChatStore(state => state.savedMessageIds);
+  const toggleSaveMessage = useChatStore(state => state.toggleSavedMessage);
 
   const retentionHours = retentionByFriend[friendId] ?? 12;
 
@@ -564,8 +566,6 @@ export default function ChatScreen() {
   useEffect(() => {
     const fromStore = receivedByFriend[friendId] || [];
     setReceivedMessages(prev => {
-      // On ne veut pas que les messages disparaissent IMMEDIATEMENT si on passe en mode 0h
-      // On garde donc ce qu'on a déjà, et on ajoute ce qui vient du store (nouveautés)
       const next = [...prev];
       fromStore.forEach(m => {
         if (!next.some(em => em.id === m.id)) {
@@ -579,33 +579,30 @@ export default function ChatScreen() {
 
   useEffect(() => {
     const fromStore = sentByFriend[friendId] || [];
+    
+    // Migrate saved state for confirmed messages
+    const state = useChatStore.getState();
+    const migrations: { oldId: string, newId: string }[] = [];
+
     setSentMessages(prev => {
-      // 1. On part des messages officiels du store
       const next = [...fromStore];
       
-      // 2. Gestion des messages déjà à l'écran (optimistes ou mode 0h)
       prev.forEach(existing => {
-        // Est-ce que ce message est déjà représenté dans le store ?
-        let matchingStoreMsg: VisibleSentMessage | undefined = undefined;
-        const isRepresented = fromStore.some(m => {
-          const sameId = m.id === existing.id;
-          const sameContent = m.text === existing.text && m.soundKey === existing.soundKey;
-          
-          if (sameId || sameContent) {
-            matchingStoreMsg = m;
-            return true;
-          }
-          return false;
-        });
+        const matchingStoreMsg = fromStore.find(m => 
+          m.id === existing.id || 
+          (m.text === existing.text && m.soundKey === existing.soundKey)
+        );
+        const isRepresented = !!matchingStoreMsg;
 
         if (isRepresented && matchingStoreMsg && existing.id.startsWith('local-')) {
-          // On lie l'ID réel à l'ID local pour la stabilité des clés
           messageKeyMapRef.current.set(matchingStoreMsg.id, existing.id);
+          
+          if (state.savedMessageIds[existing.id] && !state.savedMessageIds[matchingStoreMsg.id]) {
+            migrations.push({ oldId: existing.id, newId: matchingStoreMsg.id });
+          }
         }
 
         if (!isRepresented) {
-          // Si on est en mode 0h, on garde tout ce qui n'est pas dans le store
-          // Si on est en mode 12h, on ne garde que les messages optimistes non encore confirmés
           if (retentionHours === 0 || existing.optimistic) {
             next.push(existing);
           }
@@ -614,6 +611,13 @@ export default function ChatScreen() {
 
       return next.sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
     });
+
+    if (migrations.length > 0) {
+      migrations.forEach(mig => {
+        state.toggleSavedMessage(mig.newId);
+        state.toggleSavedMessage(mig.oldId);
+      });
+    }
   }, [sentByFriend, friendId, retentionHours]);
 
   useFocusEffect(
@@ -1244,11 +1248,15 @@ export default function ChatScreen() {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : undefined}
       >
         <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => {
               Keyboard.dismiss();
-              router.back();
-            }} 
+              if (Platform.OS === 'android') {
+                requestAnimationFrame(() => router.back());
+              } else {
+                router.back();
+              }
+            }}
             style={styles.headerIcon}
           >
             <Ionicons name="chevron-back" size={26} color="#604a3e" />
@@ -1334,11 +1342,13 @@ export default function ChatScreen() {
                       status: (message as any).status,
                       readAt: (message as any).readAt,
                       optimistic: (message as any).optimistic,
-                      local_ts: 0 
+                      local_ts: 0
                     } as any}
                     reaction={getReactionBadgeText(message.sourceMessageId || message.id)}
                     onLongPressReact={() => openReactionPicker(message.sourceMessageId || message.id, true)}
                     onLongPressEdit={(msg) => setEditingMessage(msg)}
+                    isSaved={!!savedMessages[message.sourceMessageId || message.id]}
+                    onToggleSave={() => toggleSaveMessage(message.sourceMessageId || message.id)}
                   />
                 </AnimatedMessageRow>
               ) : (
@@ -1352,8 +1362,9 @@ export default function ChatScreen() {
                       senderId: friend.id,
                     }}
                     reaction={getReactionBadgeText(message.sourceMessageId || message.id)}
-                    onReplay={() => {}}
                     onLongPressReact={() => openReactionPicker(message.sourceMessageId || message.id, false)}
+                    isSaved={!!savedMessages[message.sourceMessageId || message.id]}
+                    onToggleSave={() => toggleSaveMessage(message.sourceMessageId || message.id)}
                   />
                 </AnimatedMessageRow>
               )
@@ -1610,6 +1621,10 @@ export default function ChatScreen() {
           <View style={[styles.firstChatOnboardingFeatureRow, { marginTop: 12 }]}>
             <Ionicons name="timer-outline" size={22} color="#604a3e" />
             <Text style={styles.firstChatOnboardingFeatureText}>{i18n.t('chat_onboarding_retention')}</Text>
+          </View>
+          <View style={[styles.firstChatOnboardingFeatureRow, { marginTop: 12 }]}>
+            <Ionicons name="bookmark-outline" size={22} color="#604a3e" />
+            <Text style={styles.firstChatOnboardingFeatureText}>{i18n.t('chat_onboarding_save')}</Text>
           </View>
           <View style={[styles.firstChatOnboardingFeatureRow, { marginTop: 12 }]}>
             <Ionicons name="flag-outline" size={22} color="#604a3e" />

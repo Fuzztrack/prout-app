@@ -13,18 +13,17 @@ export const chatStyles = StyleSheet.create({
   },
   sentBubbleWrapper: {
     alignItems: 'flex-end',
-    maxWidth: '84%',
+    maxWidth: '75%',
     position: 'relative',
     paddingBottom: 12, // Restauration du padding normal
   },
   receivedBubbleWrapper: {
     alignItems: 'flex-start',
     position: 'relative',
-    maxWidth: '88%',
+    maxWidth: '75%',
     paddingBottom: 12,
   },
   receivedBubble: {
-    maxWidth: '88%',
     backgroundColor: '#fff',
     borderRadius: 16,
     borderTopLeftRadius: 4,
@@ -114,5 +113,31 @@ export const chatStyles = StyleSheet.create({
   sentText: {
     color: '#333',
     fontSize: 18,
+  },
+  saveBar: {
+    position: 'absolute',
+    top: 2,
+    bottom: 2,
+    borderRadius: 2,
+  },
+  saveBarReceived: {
+    left: -6,
+    backgroundColor: '#fff',
+  },
+  saveBarSent: {
+    right: -6,
+    backgroundColor: '#e3f2fd',
+  },
+  savedLabel: {
+    color: '#604a3e',
+    fontSize: 12,
+    fontStyle: 'italic',
+    opacity: 0.75,
+  },
+  savedLabelReceived: {
+    marginLeft: 6,
+  },
+  savedLabelSent: {
+    marginRight: 6,
   }
 });

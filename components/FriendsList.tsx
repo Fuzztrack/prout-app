@@ -748,10 +748,20 @@ export function FriendsList({
   const [dismissedPermissionWarning, setDismissedPermissionWarning] = useState(false);
   const [dismissedSilentWarning, setDismissedSilentWarning] = useState(dismissedSilentWarningSession); // reste à true pour toute la session après clic OK
   const dismissedSilentWarningRef = useRef(dismissedSilentWarningSession);
+  const [dismissedSavedMessagesFeatureAlert, setDismissedSavedMessagesFeatureAlert] = useState(true); // default true to avoid flash before load
   const [expandedFriendId, setExpandedFriendId] = useState<string | null>(null);
   const expandedFriendIdRef = useRef<string | null>(null);
   const friendSoundPickCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isClosingFriendSoundModalRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const val = await AsyncStorage.getItem('dismissed_saved_messages_alert');
+        setDismissedSavedMessagesFeatureAlert(val === 'true');
+      } catch {}
+    })();
+  }, []);
   
   useEffect(() => {
     expandedFriendIdRef.current = expandedFriendId;
@@ -3546,11 +3556,25 @@ useEffect(() => {
     const hasRequests = pendingRequests.length > 0 || identityRequests.length > 0;
     const shouldShowSilentWarning = showSilentWarning && !dismissedSilentWarning;
     const shouldShowPermissionWarning = showPermissionWarning && !dismissedPermissionWarning;
+    const shouldShowSavedMessagesAlert = !dismissedSavedMessagesFeatureAlert;
 
-    if (!hasRequests && !shouldShowSilentWarning && !shouldShowPermissionWarning) return null;
+    if (!hasRequests && !shouldShowSilentWarning && !shouldShowPermissionWarning && !shouldShowSavedMessagesAlert) return null;
 
     return (
       <View style={styles.requestsContainer}>
+        {shouldShowSavedMessagesAlert && (
+          <View style={styles.silentWarning}>
+            <Text style={styles.silentWarningText}>{i18n.t('new_feature_saved_messages')}</Text>
+            <View style={styles.silentWarningActions}>
+              <TouchableOpacity style={styles.silentWarningButtonOk} onPress={() => {
+                setDismissedSavedMessagesFeatureAlert(true);
+                AsyncStorage.setItem('dismissed_saved_messages_alert', 'true').catch(console.error);
+              }}>
+                <Text style={styles.silentWarningButtonText}>{i18n.t('ok')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
         {shouldShowPermissionWarning && (
           <View style={styles.silentWarning}>
             <Text style={styles.silentWarningText}>{i18n.t('notifications_disabled_warning')}</Text>

@@ -33,6 +33,9 @@ interface ChatState {
   // Rétention par ami (id_ami -> heures, 0 = immédiat, 12, etc.)
   retentionByFriend: Record<string, number>;
 
+  // Messages sauvegardés (messageId -> boolean)
+  savedMessageIds: Record<string, boolean>;
+
   // Hydratation
   hasHydrated: boolean;
   setHasHydrated: (val: boolean) => void;
@@ -42,6 +45,7 @@ interface ChatState {
   addSentMessages: (friendId: string, messages: VisibleSentMessage[], isFullSync?: boolean) => void;
   setReactions: (friendId: string, reactions: Record<string, any[]>) => void;
   setRetentionHours: (friendId: string, hours: number) => void;
+  toggleSavedMessage: (messageId: string) => void;
   clearHistory: (friendId: string) => void;
   cleanupExpired: () => void;
 }
@@ -56,9 +60,22 @@ export const useChatStore = create<ChatState>()(
       sentByFriend: {},
       messageReactionsByFriend: {},
       retentionByFriend: {},
+      savedMessageIds: {},
       hasHydrated: false,
 
       setHasHydrated: (val) => set({ hasHydrated: val }),
+
+      toggleSavedMessage: (messageId) => {
+        set((state) => {
+          const next = { ...state.savedMessageIds };
+          if (next[messageId]) {
+            delete next[messageId];
+          } else {
+            next[messageId] = true;
+          }
+          return { savedMessageIds: next };
+        });
+      },
 
       addReceivedMessages: (friendId, newMsgs) => {
         set((state) => {
@@ -106,10 +123,7 @@ export const useChatStore = create<ChatState>()(
 
       addSentMessages: (friendId, newMsgs, isFullSync = false) => {
         set((state) => {
-          const { sentByFriend, retentionByFriend } = state;
-          const retentionHours = retentionByFriend[friendId] ?? DEFAULT_RETENTION;
-          if (retentionHours === 0) return state;
-
+          const { sentByFriend } = state;
           const current = sentByFriend[friendId] || [];
           const currentMap = new Map(current.map((m) => [m.id, m]));
 
@@ -186,13 +200,43 @@ export const useChatStore = create<ChatState>()(
 
       clearHistory: (friendId) => {
         set((state) => {
-          const { receivedByFriend, sentByFriend, messageReactionsByFriend } = state;
+          const { receivedByFriend, sentByFriend, messageReactionsByFriend, savedMessageIds } = state;
+          
           const newReceived = { ...receivedByFriend };
           const newSent = { ...sentByFriend };
           const newReactions = { ...messageReactionsByFriend };
-          delete newReceived[friendId];
-          delete newSent[friendId];
-          delete newReactions[friendId];
+
+          const savedReceived = (receivedByFriend[friendId] || []).filter(m => savedMessageIds[m.id]);
+          const savedSent = (sentByFriend[friendId] || []).filter(m => savedMessageIds[m.id]);
+
+          if (savedReceived.length > 0) {
+            newReceived[friendId] = savedReceived;
+          } else {
+            delete newReceived[friendId];
+          }
+
+          if (savedSent.length > 0) {
+            newSent[friendId] = savedSent;
+          } else {
+            delete newSent[friendId];
+          }
+
+          // Preserve reactions only for saved messages
+          if (newReactions[friendId]) {
+            const keptReactions: Record<string, any[]> = {};
+            const validIds = new Set([...savedReceived.map(m => m.id), ...savedSent.map(m => m.id)]);
+            Object.keys(newReactions[friendId]).forEach(msgId => {
+              if (validIds.has(msgId)) {
+                keptReactions[msgId] = newReactions[friendId][msgId];
+              }
+            });
+            if (Object.keys(keptReactions).length > 0) {
+              newReactions[friendId] = keptReactions;
+            } else {
+              delete newReactions[friendId];
+            }
+          }
+
           return {
             receivedByFriend: newReceived,
             sentByFriend: newSent,
@@ -202,7 +246,7 @@ export const useChatStore = create<ChatState>()(
       },
 
       cleanupExpired: () => {
-        const { receivedByFriend, sentByFriend, messageReactionsByFriend, retentionByFriend } = get();
+        const { receivedByFriend, sentByFriend, messageReactionsByFriend, retentionByFriend, savedMessageIds } = get();
         
         const now = Date.now();
         const newReceived: Record<string, PendingMessage[]> = {};
@@ -212,10 +256,12 @@ export const useChatStore = create<ChatState>()(
         // 1. Nettoyage des messages reçus
         Object.keys(receivedByFriend).forEach(fid => {
           const hours = retentionByFriend[fid] ?? DEFAULT_RETENTION;
-          if (hours === 0) return; 
 
-          const threshold = now - (hours * MS_PER_HOUR);
+          const threshold = hours > 0 ? now - (hours * MS_PER_HOUR) : now;
           const filtered = receivedByFriend[fid].filter(m => {
+            if (savedMessageIds[m.id]) return true;
+            if (hours === 0) return false;
+            
             // Source de vérité : created_at (serveur)
             // Fallback : local_ts ou temps actuel
             const serverTs = new Date(m.created_at).getTime();
@@ -228,10 +274,12 @@ export const useChatStore = create<ChatState>()(
         // 2. Nettoyage des messages envoyés
         Object.keys(sentByFriend).forEach(fid => {
           const hours = retentionByFriend[fid] ?? DEFAULT_RETENTION;
-          if (hours === 0) return;
 
-          const threshold = now - (hours * MS_PER_HOUR);
+          const threshold = hours > 0 ? now - (hours * MS_PER_HOUR) : now;
           const filtered = sentByFriend[fid].filter(m => {
+            if (savedMessageIds[m.id]) return true;
+            if (hours === 0) return false;
+
             const serverTs = new Date(m.ts).getTime();
             const ts = isNaN(serverTs) ? (m.local_ts || now) : serverTs;
             return ts > threshold;
