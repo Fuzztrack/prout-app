@@ -49,6 +49,7 @@ export default function RegisterEmailScreen() {
   const handleSignup = async () => {
     if (!pseudo.trim()) return Alert.alert("Oups", "Il nous faut un Pseudo !");
     if (!email.trim()) return Alert.alert("Oups", "L'email est obligatoire.");
+    if (!phone.trim()) return Alert.alert("Oups", "Le numéro de téléphone est obligatoire.");
     if (!password || password.length < 6) return Alert.alert(i18n.t('security'), i18n.t('password_min_length'));
     if (loading) return;
 
@@ -232,7 +233,7 @@ export default function RegisterEmailScreen() {
         </View>
 
         <View style={styles.inputGroup}>
-            <Text style={styles.label}>{i18n.t('phone_label')} <Text style={styles.optional}>{i18n.t('optional')}</Text></Text>
+            <Text style={styles.label}>{i18n.t('phone_label')} <Text style={styles.required}>{i18n.t('required')}</Text></Text>
             <TextInput 
                 value={phone} 
                 onChangeText={setPhone} 

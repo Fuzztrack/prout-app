@@ -42,7 +42,8 @@ class ProutMessagingService : FirebaseMessagingService() {
                     it.body ?: "Tu as reçu un prout !",
                     Uri.EMPTY,
                     null,
-                    null
+                    null,
+                    data
                 )
             }
             return
@@ -93,7 +94,7 @@ class ProutMessagingService : FirebaseMessagingService() {
             Log.d(TAG, "🔕 Notification système supprimée: chat actif déjà ouvert pour senderId=" + data["senderId"])
             return
         }
-        showNotification(channelId, title, body, soundUri, proutKey, sender)
+        showNotification(channelId, title, body, soundUri, proutKey, sender, data)
     }
 
     private fun emitRefreshEventToJs(data: Map<String, String>) {
@@ -186,17 +187,27 @@ class ProutMessagingService : FirebaseMessagingService() {
         body: String,
         soundUri: Uri,
         proutKey: String?,
-        sender: String?
+        sender: String?,
+        data: Map<String, String>
     ) {
         val iconId = resources.getIdentifier("notification_icon", "drawable", packageName)
         val smallIcon = if (iconId != 0) iconId else android.R.drawable.ic_dialog_info
 
+        // 🚀 AJOUT : Ajouter les données en query parameters de l'URI pour l'hydratation rapide au démarrage
+        val uriBuilder = Uri.parse("prootapp://").buildUpon()
+        proutKey?.let { uriBuilder.appendQueryParameter("proutKey", it) }
+        sender?.let { uriBuilder.appendQueryParameter("sender", it) }
+        uriBuilder.appendQueryParameter("notificationType", "prout")
+        
+        data["m_d"]?.let { uriBuilder.appendQueryParameter("m_d", it) }
+        data["customMessage"]?.let { uriBuilder.appendQueryParameter("customMessage", it) }
+        data["senderId"]?.let { uriBuilder.appendQueryParameter("senderId", it) }
+        data["message"]?.let { uriBuilder.appendQueryParameter("message", it) }
+
         val intent = Intent(this, MainActivity::class.java).apply {
             action = Intent.ACTION_VIEW
-            data = Uri.parse("prootapp://")
+            this.data = uriBuilder.build()
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            putExtra("proutKey", proutKey)
-            putExtra("sender", sender)
         }
 
         val pendingIntent = PendingIntent.getActivity(

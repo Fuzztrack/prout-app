@@ -103,8 +103,17 @@ export default function RootLayout() {
   useEffect(() => {
     const nativeSoundSettingsModule = NativeModules.SoundSettingsModule;
     nativeSoundSettingsModule?.setAppInForeground?.(AppState.currentState === 'active');
+    
+    // Effacer toutes les notifications au démarrage de l'app
+    Notifications.dismissAllNotificationsAsync().catch(e => console.log('❌ Error dismissing notifications on mount:', e));
+
     const subscription = AppState.addEventListener('change', (nextState) => {
       nativeSoundSettingsModule?.setAppInForeground?.(nextState === 'active');
+      
+      // Effacer toutes les notifications au retour au premier plan
+      if (nextState === 'active') {
+        Notifications.dismissAllNotificationsAsync().catch(e => console.log('❌ Error dismissing notifications on foreground:', e));
+      }
     });
     return () => subscription.remove();
   }, []);
