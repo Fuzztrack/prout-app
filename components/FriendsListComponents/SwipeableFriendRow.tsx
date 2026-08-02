@@ -35,6 +35,7 @@ type SwipeableFriendRowProps = {
   friend: any; 
   backgroundColor: string; 
   onSendProut: (friend: any) => void; 
+  onPressAvatar?: (friend: any) => void;
   onLongPressAvatar: (friend: any) => void;
   onLongPressRow: (friend: any) => void;
   onPressName?: (friend: any) => void;
@@ -56,6 +57,7 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
   friend, 
   backgroundColor, 
   onSendProut, 
+  onPressAvatar,
   onLongPressAvatar,
   onLongPressRow,
   onPressName, 
@@ -114,6 +116,14 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
       return;
     }
     onPressName?.(friend);
+  };
+
+  const handleAvatarPress = () => {
+    avatarPressActiveRef.current = false;
+    setIsRowTouchActive(false);
+    markPressSuppressed();
+    const triggerModal = onPressAvatar || onLongPressAvatar;
+    triggerModal?.(friend);
   };
 
   useEffect(() => {
@@ -291,18 +301,13 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
             >
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <GHTouchableOpacity
-                  onPress={handleSafePressName}
+                  onPress={handleAvatarPress}
                   onPressIn={() => { avatarPressActiveRef.current = true; setIsRowTouchActive(false); }}
                   onPressOut={() => { avatarPressActiveRef.current = false; }}
-                  onLongPress={() => {
-                    avatarPressActiveRef.current = false;
-                    setIsRowTouchActive(false);
-                    markPressSuppressed();
-                    onLongPressAvatar(friend);
-                  }}
-                  delayLongPress={500}
-                  activeOpacity={0.9}
-                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                  onLongPress={handleAvatarPress}
+                  delayLongPress={300}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
                   {friend.avatar_url ? (
                     <Image 

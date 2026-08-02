@@ -3865,6 +3865,7 @@ useEffect(() => {
               getDisplaySoundLabel={getDisplaySoundLabel}
               swipeImageSource={getSwipeImageForSoundKey(friendSoundKeyByFriend[item.id])}
               onSendProut={handleSendProut}
+              onPressAvatar={handleLongPressName}
               onLongPressAvatar={handleLongPressName}
               onLongPressRow={handleLongPressSoundCategory}
               onPressName={handlePressFriend}
