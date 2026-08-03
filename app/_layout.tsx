@@ -12,6 +12,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { persistQueryClient } from '@tanstack/react-query-persist-client';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 
+import * as Sentry from '@sentry/react-native';
+
 import Onboarding from '../components/Onboarding';
 import EulaAcceptScreen from './eula-accept';
 import { logSessionSnapshot } from '../lib/authDebug';
@@ -20,6 +22,13 @@ import { hasAcceptedEulaLocally } from '../lib/eula';
 import { supabase } from '../lib/supabase';
 import { registerPushTokenForUser } from '../lib/pushTokenRegistration';
 import i18n from '../lib/i18n';
+
+Sentry.init({
+  dsn: 'https://8b5a9c95429ec45d64878d915d6098d7@o4511846476218368.ingest.de.sentry.io/4511846488342608',
+  debug: false,
+  enableAutoSessionTracking: true,
+  tracesSampleRate: 0.2,
+});
 
 // Services
 import { initNotificationHandler, setupNotificationListeners, injectMessageFromNotification } from '@/lib/services/NotificationService';
@@ -62,7 +71,10 @@ class AppErrorBoundary extends React.Component<{ children: React.ReactNode }, { 
     this.state = { hasError: false };
   }
   static getDerivedStateFromError() { return { hasError: true }; }
-  componentDidCatch(error: any, info: any) { console.error('App error boundary caught:', error, info); }
+  componentDidCatch(error: any, info: any) {
+    console.error('App error boundary caught:', error, info);
+    Sentry.captureException(error, { extra: info });
+  }
   render() {
     if (this.state.hasError) {
       return (
@@ -269,6 +281,8 @@ export default function RootLayout() {
     </AppErrorBoundary>
   );
 }
+
+export default Sentry.wrap(RootLayout);
 
 const styles = StyleSheet.create({
   toast: {

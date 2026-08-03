@@ -147,7 +147,8 @@
       "expo-localization",
       "expo-asset",
       "./plugins/withRemoveLocationPermission",
-      "expo-font"
+      "expo-font",
+      "@sentry/react-native"
     ],
     "assetBundlePatterns": [
       "assets/**/*"
