@@ -22,6 +22,7 @@
       "infoPlist": {
         "CFBundleDisplayName": "Proot !",
         "UIBackgroundModes": [
+          "remote-notification",
           "remote-notification"
         ],
         "ITSAppUsesNonExemptEncryption": false,
@@ -41,6 +42,11 @@
       "versionCode": 211,
       "googleServicesFile": "./google-services.json",
       "permissions": [
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.CAMERA",
+        "android.permission.READ_CONTACTS",
+        "android.permission.WRITE_CONTACTS",
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.CAMERA",
@@ -157,6 +163,12 @@
         "projectId": "bdb304d6-9f2e-4af9-82ea-4532522a031f"
       }
     },
-    "owner": "fuzztrack"
+    "owner": "fuzztrack",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/bdb304d6-9f2e-4af9-82ea-4532522a031f"
+    }
   }
 }

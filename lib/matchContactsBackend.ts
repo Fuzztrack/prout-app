@@ -1,7 +1,7 @@
 // Match des contacts via le backend Nest.js
 export async function matchContactsViaBackend(userId: string, phoneNumbers: string[]) {
   const API_URL = 'https://prout-backend.onrender.com/friends/match-contacts';
-  const API_KEY = '82d6d94d97ad501a596bf866c2831623'; // doit matcher backend .env
+  const API_KEY = process.env.EXPO_PUBLIC_BACKEND_API_KEY || '82d6d94d97ad501a596bf866c2831623';
 
   const res = await fetch(API_URL, {
     method: 'POST',

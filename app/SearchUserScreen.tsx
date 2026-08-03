@@ -46,19 +46,9 @@ export default function SearchUserScreen() {
     setLoading(true);
 
     try {
-      // 1. Recherche dans les profils (Insensible à la casse)
-      let profilesQuery = supabase
-        .from('user_profiles')
-        .select('id, pseudo')
-        .ilike('pseudo', `${trimmed}%`) // Commence par
-        .order('pseudo', { ascending: true })
-        .limit(10);
-
-      if (currentUserId) {
-        profilesQuery = profilesQuery.neq('id', currentUserId); // Exclure soi-même
-      }
-
-      const { data: profiles, error } = await profilesQuery;
+      // 1. Recherche sécurisée dans les profils via fonction RPC
+      const { data: profiles, error } = await supabase
+        .rpc('search_users_by_pseudo', { search_text: trimmed });
 
       if (error) throw error;
 
