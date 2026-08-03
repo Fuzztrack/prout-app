@@ -88,7 +88,7 @@ class AppErrorBoundary extends React.Component<{ children: React.ReactNode }, { 
   }
 }
 
-export default function RootLayout() {
+const RootLayout = () => {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [offlineAccess, setOfflineAccess] = useState(false);
