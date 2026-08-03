@@ -23,6 +23,7 @@ L'objectif de ce plan de remédiation est de **sécuriser intégralement l'appli
 | **P0-3** | `markMessageRead` supprimait un message par son seul `messageId` sans vérifier l'expéditeur | Ajout de la clause `.eq('from_user_id', senderId)` sur le `SELECT`, `UPDATE` et `DELETE` dans `prout.service.ts` | ✅ Exécuté & Déployé sur Render |
 | **P0-1 / P0-5** | Clé privée Firebase suivie dans Git & `API_KEY` en clair dans `render.yaml` | `git rm --cached` sur la clé Firebase, nettoyage de `render.yaml` et mise à jour de `backend/.gitignore` | ✅ Exécuté & Pushé dans Git |
 | **P0-2** | `prout-proxy` acceptait le header sans valider le JWT Supabase Auth | Implémentation de `supabaseAdmin.auth.getUser(jwt)` et certification forcée du `senderId` / `userId` | ✅ Exécuté & Déployé sur Supabase Edge Functions |
+| **P1-5** | Absence de suivi des crashs & observabilité en temps réel | Installation de `@sentry/react-native`, configuration du DSN et capture des exceptions globales dans `app/_layout.tsx` | ✅ Exécuté & Intégré |
 
 ---
 
