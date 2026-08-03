@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const PROUT_BACKEND_URL = "https://prout-backend.onrender.com/prout";
 
@@ -14,38 +15,71 @@ serve(async (req) => {
   }
 
   try {
-    // 1. Vérifier l'authentification Supabase via le header Authorization
+    // 1. Extraire le jeton JWT depuis le header Authorization
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Missing or invalid Authorization header" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // 2. Extraire le path pour le router correctement (/prout, /prout/read, /prout/pendingSent...)
+    const token = authHeader.replace("Bearer ", "").trim();
+
+    // 2. Initialiser Supabase Auth Client pour vérifier le jeton
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey);
+
+    // 3. Vérifier le jeton auprès de Supabase Auth
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: "Invalid or expired user session" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // 4. Déterminer la route cible sur le backend NestJS
     const url = new URL(req.url);
-    // Remove the function name part from the pathname
     const route = url.pathname.replace('/prout-proxy', ''); 
     const targetUrl = `${PROUT_BACKEND_URL}${route}`;
 
-    // 3. Récupérer la clé d'API backend protégée depuis les secrets de l'Edge Function
     const BACKEND_API_KEY = Deno.env.get("BACKEND_API_KEY");
     if (!BACKEND_API_KEY) {
       throw new Error("Missing BACKEND_API_KEY environment variable");
     }
 
-    // 4. Lire le body de la requête initiale
+    // 5. Forcer le senderId / userId certifié de l'utilisateur authentifié
     const bodyText = await req.text();
+    let updatedBody = bodyText;
 
-    // 5. Relayer la requête au backend NestJS
+    if (bodyText && req.method === "POST") {
+      try {
+        const bodyJson = JSON.parse(bodyText);
+        if (bodyJson.senderId) {
+          bodyJson.senderId = user.id;
+        }
+        if (bodyJson.extraData && bodyJson.extraData.senderId) {
+          bodyJson.extraData.senderId = user.id;
+        }
+        if (bodyJson.userId) {
+          bodyJson.userId = user.id;
+        }
+        updatedBody = JSON.stringify(bodyJson);
+      } catch (_e) {
+        // Garder le body tel quel si non-JSON
+      }
+    }
+
+    // 6. Transmettre au backend NestJS avec l'identité certifiée
     const response = await fetch(targetUrl, {
       method: req.method,
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": BACKEND_API_KEY, // Injectée de façon sécurisée !
+        "x-api-key": BACKEND_API_KEY,
       },
-      body: bodyText,
+      body: updatedBody,
     });
 
     const responseData = await response.text();
