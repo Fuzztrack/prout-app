@@ -84,7 +84,7 @@ export async function playSound(
   soundKey: string,
   volumeOrOptions: number | PlaySoundOptions = 1.0
 ) {
-  const soundFile = SOUND_ASSETS[soundKey];
+  const soundFile = SOUND_ASSETS[soundKey] || SOUND_ASSETS['toot1'] || SOUND_ASSETS['bzzz1'];
   const options =
     typeof volumeOrOptions === 'number'
       ? { volume: volumeOrOptions }
