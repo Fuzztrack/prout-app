@@ -13,40 +13,38 @@ L'objectif de ce plan de remédiation est de **sécuriser intégralement l'appli
 
 ---
 
-## 🟢 Étape 0 — Quick Wins (DÉJÀ EXÉCUTÉS ET DÉPLOYÉS)
+## 🟢 Étape 0 — Quick Wins & Urgences P0 (DÉJÀ EXÉCUTÉS ET DÉPLOYÉS)
 
 | Identifiant | Description du problème | Correctif appliqué | Statut |
 |---|---|---|---|
-| **P1-1** | `ReferenceError: Notifications is not defined` dans `app/index.tsx` causant des redirections intempestives vers le login | Ajout de l'import `import * as Notifications from 'expo-notifications';` | ✅ Executé & Pushé |
+| **P1-1** | `ReferenceError: Notifications is not defined` dans `app/index.tsx` causant des redirections intempestives | Ajout de l'import `import * as Notifications from 'expo-notifications';` | ✅ Executé & Pushé |
 | **P1-2** | Rate limiter global bloquant à 10 req/min partagées sur toute l'application (IP proxy) | Configuration de `trust proxy` (Express) et réévaluation du plafond à 120 req/min par client | ✅ Executé & Pushé |
+| **P0-4** | RLS permissive `USING (true)` sur `user_profiles` exposant numéros de téléphone et tokens push | Nettoyage des anciennes policies, création de `user_profiles_select_secured`, fonction RPC `search_users_by_pseudo`, suppression de `public.users` et déploiement EAS Update | ✅ Exécuté & Déployé (Supabase + OTA) |
+| **P0-3** | `markMessageRead` supprimait un message par son seul `messageId` sans vérifier l'expéditeur | Ajout de la clause `.eq('from_user_id', senderId)` sur le `SELECT`, `UPDATE` et `DELETE` dans `prout.service.ts` | ✅ Exécuté & Déployé sur Render |
+| **P0-1 / P0-5** | Clé privée Firebase suivie dans Git & `API_KEY` en clair dans `render.yaml` | `git rm --cached` sur la clé Firebase, nettoyage de `render.yaml` et mise à jour de `backend/.gitignore` | ✅ Exécuté & Pushé dans Git |
 
 ---
 
-## 🛡️ Étape 1 : Sprint 0 — Urgences de Sécurité Immédiates (Confinement)
-> **Priorité :** CRITIQUE (P0)  
+## 🛡️ Étape 1 : Sprint 0 — Securisation Serveur & Identité (Prochaines Étapes)
+> **Priorité :** CRITIQUE (P0/P1)  
 > **Durée estimée :** 24 à 48 heures  
 > **Impact utilisateur :** Transparent (aucun changement d'interface)
 
-### 1.1 Sécurisation de la table `user_profiles` (RLS & RGPD) `[P0-4]`
-* **Problème :** RLS permissive `USING (true)` sur `user_profiles` permettant la lecture de l'annuaire complet (numéros de téléphone, push tokens) à n'importe quel inscrit.
+### 1.1 Authentification JWT sur l'Edge Function Proxy `[P0-2]`
+* **Problème :** L'Edge Function `prout-proxy` vérifie uniquement la présence d'un header Bearer sans valider l'identité de l'utilisateur avec Supabase Auth.
 * **Action :**
-  1. Restreindre la politique SELECT de `user_profiles` aux données publiques minimales (pseudo, avatar, id).
-  2. Isoler les colonnes sensibles (`phone`, `expo_push_token`) ou passer par une vue sécurisée / fonction RPC accessible uniquement par son propre propriétaire et le serveur backend.
-* **Fichiers impactés :** `supabase/migrations/*.sql`
+  1. Implémenter la vérification `const { data: { user } } = await supabaseAdmin.auth.getUser(jwt)` dans `prout-proxy`.
+  2. Rejeter avec HTTP 401 si le JWT est invalide ou expiré.
+  3. Injecter de manière sécurisée l'ID utilisateur certifié dans l'en-tête de la requête transmise à NestJS.
+* **Fichiers impactés :** `supabase/functions/prout-proxy/index.ts`
 
-### 1.2 Isolation de la suppression de messages `[P0-3]`
-* **Problème :** `markMessageRead` supprime un message en attente par son seul `messageId` sans vérifier `to_user_id`.
+### 1.2 Refonte de `/friends/match-contacts` `[P0-6]`
+* **Problème :** L'endpoint match de contacts renvoie les numéros de téléphone bruts et crée une amitié automatique acceptée sans consentement.
 * **Action :**
-  1. Modifier `backend/src/prout/prout.service.ts` pour exiger la clause `.eq('to_user_id', callerId)` sur le `SELECT` et le `DELETE`.
-* **Fichiers impactés :** `backend/src/prout/prout.service.ts`
-
-### 1.3 Confinement et rotation des secrets `[P0-1, P0-5]`
-* **Problème :** Clé privée Firebase committée et `API_KEY` en clair dans `render.yaml`.
-* **Action :**
-  1. Ajouter `FIREBASE_SERVICE_ACCOUNT_ONE_LINE.txt` au `.gitignore` backend.
-  2. Supprimer la valeur en dur d'`API_KEY` dans `render.yaml` (`sync: false`).
-  3. Effectuer la rotation des clés sur Supabase, Firebase Console et Render Environment Manager.
-* **Fichiers impactés :** `backend/render.yaml`, `backend/.gitignore`
+  1. Ne plus renvoyer les numéros de téléphone (`phone`) dans la réponse du match.
+  2. Passer la relation d'amitié automatique en demande d'ami en attente (`status: 'pending'`).
+  3. Limiter la taille maximale de la liste de numéros envoyés par requête (ex: 1 000 max).
+* **Fichiers impactés :** `backend/src/friends/friends.service.ts`, `backend/src/friends/friends.controller.ts`
 
 ---
 
