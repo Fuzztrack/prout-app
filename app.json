@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.prrt.app",
-      "buildNumber": "104",
+      "buildNumber": "105",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "CFBundleDisplayName": "Proot !",
@@ -147,8 +147,13 @@
       "expo-localization",
       "expo-asset",
       "./plugins/withRemoveLocationPermission",
-      "expo-font",
-      "@sentry/react-native"
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "prootapp",
+          "project": "react-native"
+        }
+      ]
     ],
     "assetBundlePatterns": [
       "assets/**/*"
