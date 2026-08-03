@@ -12,11 +12,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { persistQueryClient } from '@tanstack/react-query-persist-client';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 
-const Sentry = {
-  init: () => {},
-  wrap: <T,>(c: T): T => c,
-  captureException: (err: any, extra?: any) => {},
-};
+import * as Sentry from '@sentry/react-native';
+
+Sentry.init({
+  dsn: 'https://8b5a9c95429ec45d64878d915d6098d7@o4511846476218368.ingest.de.sentry.io/4511846488342608',
+  enabled: !__DEV__,
+  enableAutoSessionTracking: true,
+  tracesSampleRate: 0.2,
+});
 
 // Services
 import { initNotificationHandler, setupNotificationListeners, injectMessageFromNotification } from '@/lib/services/NotificationService';
