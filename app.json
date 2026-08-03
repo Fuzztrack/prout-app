@@ -165,9 +165,7 @@
       }
     },
     "owner": "fuzztrack",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.1.40",
     "updates": {
       "url": "https://u.expo.dev/bdb304d6-9f2e-4af9-82ea-4532522a031f"
     }
