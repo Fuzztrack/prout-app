@@ -22,6 +22,7 @@ L'objectif de ce plan de remédiation est de **sécuriser intégralement l'appli
 | **P0-4** | RLS permissive `USING (true)` sur `user_profiles` exposant numéros de téléphone et tokens push | Nettoyage des anciennes policies, création de `user_profiles_select_secured`, fonction RPC `search_users_by_pseudo`, suppression de `public.users` et déploiement EAS Update | ✅ Exécuté & Déployé (Supabase + OTA) |
 | **P0-3** | `markMessageRead` supprimait un message par son seul `messageId` sans vérifier l'expéditeur | Ajout de la clause `.eq('from_user_id', senderId)` sur le `SELECT`, `UPDATE` et `DELETE` dans `prout.service.ts` | ✅ Exécuté & Déployé sur Render |
 | **P0-1 / P0-5** | Clé privée Firebase suivie dans Git & `API_KEY` en clair dans `render.yaml` | `git rm --cached` sur la clé Firebase, nettoyage de `render.yaml` et mise à jour de `backend/.gitignore` | ✅ Exécuté & Pushé dans Git |
+| **P0-2** | `prout-proxy` acceptait le header sans valider le JWT Supabase Auth | Implémentation de `supabaseAdmin.auth.getUser(jwt)` et certification forcée du `senderId` / `userId` | ✅ Exécuté & Déployé sur Supabase Edge Functions |
 
 ---
 
