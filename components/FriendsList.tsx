@@ -410,42 +410,7 @@ export function FriendsList({
   // et ceux du serveur (TanStack) sans duplication.
   const [pendingMessages, setPendingMessages] = useState<PendingMessage[]>([]);
 
-  useEffect(() => {
-    const tEffectStart = Date.now();
-    // console.log(`⏱️ [PERF] ${tEffectStart} - FriendsList calcul pendingMessages (Zustand: ${Object.values(receivedByFriend || {}).flat().length}, TanStack: ${pendingMessagesData?.length || 0})`);
-    
-    // 1. Prendre les messages du store local (Zustand) comme base instantanée
-    const localMessages = Object.values(receivedByFriend || {}).flat();
-
-    // 2. Prendre les messages du serveur
-    const serverMessages = pendingMessagesData || [];
-
-    // 3. Fusionner en évitant les doublons (priorité au serveur s'il existe)
-    const mergedMap = new Map<string, PendingMessage>();
-
-    // D'abord les locaux
-    localMessages.forEach(m => mergedMap.set(m.id, m));
-
-    // Ensuite les serveurs (écrasent les locaux si besoin, car source de vérité)
-    // MAIS attention, les messages "lus" localement (READ:) ne doivent pas être écrasés 
-    // par une version serveur non-lue si le serveur est en retard.
-    serverMessages.forEach(m => {
-      const existing = mergedMap.get(m.id);
-      if (existing && (existing.message_content?.startsWith('READ:') ?? false)) {
-        // Le local est plus frais (déjà lu), on le garde tel quel, on n'écrase pas.
-        return;
-      }
-      mergedMap.set(m.id, m);
-    });
-
-    const finalMessages = Array.from(mergedMap.values()).sort((a, b) => {
-      const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
-      const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
-      return timeA - timeB;
-    });
-
-    setPendingMessages(finalMessages);
-  }, [receivedByFriend, pendingMessagesData]);
+  // La logique de fusion a été déplacée dans le hook de synchronisation principal plus bas.
 
   // Mémoriser la dernière liste valide pour éviter le flash blanc et la déclarer tôt
   // 1. On priorise la requête TanStack si elle a abouti
@@ -501,16 +466,13 @@ export function FriendsList({
           if (!Array.isArray(messages)) return;
           
           const updatedMessages = messages.map(msg => {
-            // Si le message a un ID et n'est pas déjà marqué lu
-            if (msg.id && msg.status !== 'read') {
-              const stillOnServer = pendingSentData.some(m => m.id === msg.id);
-              // Sécurité : on attend 15s après l'envoi avant de conclure qu'un message disparu de la DB est "lu"
-              // (évite les problèmes de réplication ou de délais serveur)
-              const isOldEnough = (now - new Date(msg.ts).getTime()) > 15000;
-              
-              if (!stillOnServer && isOldEnough) {
+            // Si le message a un ID SERVEUR (pas local) et n'est pas déjà marqué lu
+            if (msg.id && !msg.id.startsWith('local-') && msg.status !== 'read') {
+              const serverMsg = pendingSentData.find(m => m.id === msg.id);
+              const isReadOnServer = serverMsg?.message_content?.startsWith('READ:');
+              if (!serverMsg || isReadOnServer) {
                 changed = true;
-                if (CHAT_VERBOSE_LOGS) console.log(`✅ [SYNC] Message ${msg.id} marqué comme lu (absent du serveur)`);
+                console.log(`🚀 [PROOT_v1.1.41] Message ${msg.id} à destination de ${userId} marqué comme LU (${isReadOnServer ? 'READ en base' : 'absent du serveur'})`);
                 return { ...msg, status: 'read' as const, readAt: now };
               }
             }
@@ -524,18 +486,30 @@ export function FriendsList({
 
         // 2. Ajouter les nouveaux messages du serveur ou mettre à jour les optimistes
         pendingSentData.forEach((m: any) => {
-          if (m.message_content?.startsWith('READ:')) return;
+          const isReadOnServer = m.message_content?.startsWith('READ:');
           const targetUserId = m.to_user_id;
           const currentForUser = newMap[targetUserId] || [];
           
           // Vérifier si le message existe déjà par ID
-          const existsById = currentForUser.some(msg => msg.id === m.id);
-          if (existsById) return;
+          const existingMsgIndex = currentForUser.findIndex(msg => msg.id === m.id);
+          if (existingMsgIndex !== -1) {
+            if (isReadOnServer && currentForUser[existingMsgIndex].status !== 'read') {
+              const updatedList = [...currentForUser];
+              updatedList[existingMsgIndex] = {
+                ...updatedList[existingMsgIndex],
+                status: 'read' as const,
+                readAt: now
+              };
+              newMap[targetUserId] = updatedList;
+              changed = true;
+            }
+            return;
+          }
 
           // Sinon, essayer de trouver un message optimiste correspondant (même texte, même son, timestamp proche)
           const parsed = parseMessageContent(m.message_content);
           const optimisticIndex = currentForUser.findIndex(msg => 
-            !msg.id && 
+            msg.id && msg.id.startsWith('local-') && 
             msg.text === parsed.text && 
             msg.soundKey === parsed.soundKey &&
             Math.abs(new Date(msg.ts).getTime() - new Date(m.created_at).getTime()) < 30000
@@ -547,7 +521,9 @@ export function FriendsList({
             updatedList[optimisticIndex] = { 
               ...updatedList[optimisticIndex], 
               id: m.id, 
-              ts: m.created_at 
+              ts: m.created_at,
+              status: isReadOnServer ? 'read' : undefined,
+              readAt: isReadOnServer ? now : undefined
             };
             newMap[targetUserId] = updatedList;
             changed = true;
@@ -558,7 +534,9 @@ export function FriendsList({
               text: parsed.text, 
               ts: m.created_at, 
               id: m.id,
-              soundKey: parsed.soundKey
+              soundKey: parsed.soundKey,
+              status: isReadOnServer ? 'read' : undefined,
+              readAt: isReadOnServer ? now : undefined
             }];
             changed = true;
             if (CHAT_VERBOSE_LOGS) console.log(`✅ [SYNC] Nouveau message serveur ajouté: ${m.id}`);
@@ -610,12 +588,20 @@ export function FriendsList({
         // car ils sont prioritaires pour l'affichage instantané (notamment si l'app vient d'être ouverte)
         const mergedById = new Map<string, PendingMessage>();
         
-        // D'abord les messages du serveur
-        serverMessages.forEach(m => mergedById.set(m.id, m as PendingMessage));
-        
-        // Ensuite les messages du store persistant (Notification/Sync)
+        // D'abord les messages du store persistant (Notification/Sync)
+        // ILS ONT LA PRIORITÉ POUR LE STATUT 'LU' (READ:) local
         Object.values(receivedByFriend).flat().forEach(m => {
-          if (!mergedById.has(m.id)) mergedById.set(m.id, m);
+          mergedById.set(m.id, m);
+        });
+
+        // Ensuite les messages du serveur
+        serverMessages.forEach(m => {
+          const existing = mergedById.get(m.id);
+          // Si le message existe déjà en local AVEC le préfixe READ:, on le préserve !
+          if (existing && (existing.message_content?.startsWith('READ:') ?? false)) {
+            return;
+          }
+          mergedById.set(m.id, m as PendingMessage);
         });
 
         // Enfin les messages optimistes récents (Broadcast, etc.)
@@ -2414,6 +2400,21 @@ useEffect(() => {
                 readSentMessagesRef.current.add(id);
                 if (CHAT_VERBOSE_LOGS) console.log(`✅ [CLIENT] ID ${id} ajouté à readSentMessagesRef`);
               });
+
+              // 🚀 [PROOT_v1.1.41] Synchroniser IMMÉDIATEMENT le Zustand Store (pour mettre à jour app/chat.tsx)
+              if (targetUserId) {
+                const storeSent = useChatStore.getState().sentByFriend[targetUserId] || [];
+                if (storeSent.length > 0) {
+                  const updatedStoreSent = storeSent.map((m) => {
+                    if (ids.length === 0 || ids.includes(m.id) || (m.sourceMessageId && ids.includes(m.sourceMessageId))) {
+                      console.log(`🚀 [PROOT_v1.1.41] Broadcast LU appliqué dans Zustand Store pour msgId: ${m.id}`);
+                      return { ...m, status: 'read' as const, readAt: Date.now() };
+                    }
+                    return m;
+                  });
+                  useChatStore.getState().addSentMessages(targetUserId, updatedStoreSent);
+                }
+              }
 
               if (!Array.isArray(msgs) || msgs.length === 0) {
                 if (CHAT_VERBOSE_LOGS) {

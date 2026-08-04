@@ -2,7 +2,7 @@
   "expo": {
     "name": "Proot !",
     "slug": "prrtapp",
-    "version": "1.1.40",
+    "version": "1.1.41",
     "orientation": "portrait",
     "icon": "./asset/images/Prrt_icon.png",
     "scheme": "prootapp",
@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.prrt.app",
-      "buildNumber": "111",
+      "buildNumber": "113",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "CFBundleDisplayName": "Proot !",
@@ -39,7 +39,7 @@
         "backgroundColor": "#ebb89b"
       },
       "package": "com.fuzztrack.proutapp",
-      "versionCode": 212,
+      "versionCode": 213,
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.MODIFY_AUDIO_SETTINGS",
@@ -151,8 +151,7 @@
         "@sentry/react-native/expo",
         {
           "organization": "prootapp",
-          "project": "react-native",
-          "autoUploadSourceMaps": false
+          "project": "react-native"
         }
       ]
     ],

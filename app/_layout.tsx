@@ -25,6 +25,14 @@ Sentry.init({
 import { initNotificationHandler, setupNotificationListeners, injectMessageFromNotification } from '@/lib/services/NotificationService';
 import { saveLocaleToSupabase } from '@/lib/services/AuthService';
 import { initializeApp } from '@/lib/services/AppInitializer';
+import { supabase } from '@/lib/supabase';
+import { registerPushTokenForUser } from '@/lib/pushTokenRegistration';
+import { ensureContactPermissionWithDisclosure } from '@/lib/contactConsent';
+import { hasAcceptedEulaLocally } from '@/lib/eula';
+
+// Components & Screens
+import Onboarding from '@/components/Onboarding';
+import EulaAcceptScreen from './eula-accept';
 
 // Hooks
 import { useDeepLinking } from '@/hooks/useDeepLinking';

@@ -36,11 +36,15 @@ interface ChatState {
   // Messages sauvegardés (messageId -> boolean)
   savedMessageIds: Record<string, boolean>;
 
+  // Pour gérer les race conditions où le broadcast de lecture arrive avant la confirmation du serveur
+  pendingReadReceipts: Record<string, number>;
+
   // Hydratation
   hasHydrated: boolean;
   setHasHydrated: (val: boolean) => void;
 
   // Actions
+  markMessagesAsRead: (friendId: string, messageIds: string[]) => void;
   addReceivedMessages: (friendId: string, messages: PendingMessage[]) => void;
   addSentMessages: (friendId: string, messages: VisibleSentMessage[], isFullSync?: boolean) => void;
   setReactions: (friendId: string, reactions: Record<string, any[]>) => void;
@@ -61,9 +65,43 @@ export const useChatStore = create<ChatState>()(
       messageReactionsByFriend: {},
       retentionByFriend: {},
       savedMessageIds: {},
+      pendingReadReceipts: {},
       hasHydrated: false,
 
       setHasHydrated: (val) => set({ hasHydrated: val }),
+
+      markMessagesAsRead: (friendId, messageIds) => {
+        set((state) => {
+          const now = Date.now();
+          const nextReceipts = { ...state.pendingReadReceipts };
+          messageIds.forEach(id => {
+            nextReceipts[id] = now;
+          });
+
+          const currentSent = state.sentByFriend[friendId] || [];
+          let changed = false;
+          
+          const nextSent = currentSent.map(m => {
+            if (messageIds.includes(m.id) && m.status !== 'read') {
+              changed = true;
+              return { ...m, status: 'read' as const, readAt: now };
+            }
+            return m;
+          });
+
+          if (!changed) {
+            return { pendingReadReceipts: nextReceipts };
+          }
+
+          return {
+            pendingReadReceipts: nextReceipts,
+            sentByFriend: {
+              ...state.sentByFriend,
+              [friendId]: nextSent,
+            }
+          };
+        });
+      },
 
       toggleSavedMessage: (messageId) => {
         set((state) => {
@@ -132,15 +170,34 @@ export const useChatStore = create<ChatState>()(
           newMsgs.forEach((m) => {
             const existing = currentMap.get(m.id);
             if (!existing) {
-              currentMap.set(m.id, { ...m, local_ts: m.local_ts || Date.now() });
+              const isPendingRead = !!state.pendingReadReceipts[m.id];
+              currentMap.set(m.id, { 
+                ...m, 
+                status: isPendingRead ? 'read' : m.status,
+                readAt: isPendingRead ? state.pendingReadReceipts[m.id] : m.readAt,
+                local_ts: m.local_ts || Date.now() 
+              });
               changed = true;
             } else {
-              // On ne met à jour que si le statut change (ex: passage à 'read') ou le texte change.
-              const statusChanged = m.status !== existing.status;
+              // Preserve 'read' status if the server sends an unread status (stale data during sync)
+              // AND force 'read' if it's in our pendingReadReceipts (race condition fix)
+              const isPendingRead = !!state.pendingReadReceipts[m.id];
+              const finalStatus = (existing.status === 'read' || isPendingRead) ? 'read' : m.status;
+              const finalReadAt = (existing.status === 'read') 
+                ? (existing.readAt || m.readAt) 
+                : (isPendingRead ? state.pendingReadReceipts[m.id] : m.readAt);
+
+              const statusChanged = finalStatus !== existing.status;
               const textChanged = m.text !== undefined && m.text !== existing.text;
 
               if (statusChanged || textChanged) {
-                currentMap.set(m.id, { ...existing, ...m, local_ts: existing.local_ts });
+                currentMap.set(m.id, { 
+                  ...existing, 
+                  ...m, 
+                  status: finalStatus,
+                  readAt: finalReadAt,
+                  local_ts: existing.local_ts 
+                });
                 changed = true;
               }
             }

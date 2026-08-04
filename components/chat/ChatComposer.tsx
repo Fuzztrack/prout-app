@@ -61,6 +61,7 @@ interface ChatComposerProps {
   editingMessage?: VisibleSentMessage | null;
   onCancelEdit?: () => void;
   onMessageEdited?: (messageId: string, newText: string) => void;
+  onMessageConfirmed?: () => void;
 }
 
 export const ChatComposer = React.memo(({
@@ -82,6 +83,7 @@ export const ChatComposer = React.memo(({
   editingMessage,
   onCancelEdit,
   onMessageEdited,
+  onMessageConfirmed,
 }: ChatComposerProps) => {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
@@ -232,9 +234,12 @@ export const ChatComposer = React.memo(({
         }
       );
 
+      console.log('🟡 [CHAT_SEND] sendProutViaBackend success. Calling invalidateQueries...');
       DeviceEventEmitter.emit('CLEAR_FRIENDLIST_PENDING_SOUND', { friendId: friend.id });
       queryClient.invalidateQueries({ queryKey: ['pendingMessages', currentUserId] });
       queryClient.invalidateQueries({ queryKey: ['pendingSentMessages', currentUserId] });
+      onMessageConfirmed?.();
+      console.log('🟡 [CHAT_SEND] invalidateQueries called.');
     } catch (error: any) {
       console.error("Erreur lors de l'envoi/modif du message:", error?.message || error);
       Alert.alert(i18n.t('error'), "Une erreur est survenue.");
@@ -258,6 +263,7 @@ export const ChatComposer = React.memo(({
     editingMessage,
     onMessageEdited,
     onCancelEdit,
+    onMessageConfirmed,
     inputRef
   ]);
 

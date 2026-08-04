@@ -23,6 +23,7 @@ export const SentBubble = React.memo(({
   isSaved,
   onToggleSave,
 }: SentBubbleProps) => {
+  console.log(`🚀 [PROOT_v1.1.41] SentBubble render -> msgId: ${message.id}, status: ${message.status}, optimistic: ${message.optimistic}`);
   const [showLabel, setShowLabel] = useState(false);
   const labelTimeoutRef = useRef<any>(null);
 
@@ -93,15 +94,19 @@ export const SentBubble = React.memo(({
         </View>
       </Animated.View>
       <View style={styles.sentFooter}>
-        <Ionicons 
-          name="time-outline" 
-          size={12} 
-          color="#604a3e" 
-          style={[styles.optimisticIcon, { opacity: message.optimistic ? 0.6 : 0 }]} 
-        />
-        <Text style={[styles.sentRead, { opacity: message.status === 'read' ? 1 : 0 }]}>
-          {i18n.t('message_read')}
-        </Text>
+        {message.optimistic ? (
+          <Ionicons 
+            name="time-outline" 
+            size={12} 
+            color="#604a3e" 
+            style={styles.optimisticIcon} 
+          />
+        ) : null}
+        {message.status === 'read' ? (
+          <Text style={styles.sentRead}>
+            {i18n.t('message_read')}
+          </Text>
+        ) : null}
       </View>
     </View>
   );

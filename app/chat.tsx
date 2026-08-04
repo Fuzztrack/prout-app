@@ -635,117 +635,94 @@ export default function ChatScreen() {
         .on(
           'postgres_changes',
           {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'pending_messages',
-            filter: `to_user_id=eq.${currentUserId}`,
-          },
-          (payload: any) => {
-            const newMessage = payload.new as PendingMessage;
-            if (!newMessage || newMessage.from_user_id !== friendId) return;
-            const parsedMessage = parseMessageContent(newMessage.message_content);
-
-            // Mise à jour du store persistant IMMEDIATEMENT
-            addReceivedMessages(friendId, [{ ...newMessage, local_ts: Date.now() }]);
-
-            queryClient.invalidateQueries({ queryKey: ['pendingMessages', currentUserId] });
-            queryClient.invalidateQueries({ queryKey: ['friends', currentUserId] });
-            DeviceEventEmitter.emit('REFRESH_DATA', { source: 'chat_insert' });
-
-            if (parsedMessage.soundKey && parsedMessage.soundKey !== 'mute') {
-              void playSound(parsedMessage.soundKey);
-            }
-
-            if (Platform.OS === 'ios' && isHapticEnabled) {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
-            }
-          }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'pending_messages',
-            filter: `to_user_id=eq.${currentUserId}`,
-          },
-          (payload: any) => {
-            // Un message que j'ai reçu a été mis à jour (ex: édité par l'expéditeur)
-            const updated = payload.new;
-            if (updated.from_user_id !== friendId) return;
-
-            const parsed = parseMessageContent(updated.message_content);
-            
-            // Mettre à jour le store permanent
-            addReceivedMessages(friendId, [{ ...updated, local_ts: Date.now() }]);
-
-            // Mettre à jour l'état local
-            setReceivedMessages((prev) =>
-              prev.map((m) => (m.id === updated.id ? { ...m, message_content: updated.message_content } : m))
-            );
-          }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'pending_messages',
-            filter: `from_user_id=eq.${currentUserId}`,
-          },
-          (payload: any) => {
-            // Un message que j'ai envoyé a été mis à jour (ex: marqué comme LU)
-            const updated = payload.new;
-            if (updated.to_user_id !== friendId) return;
-            
-            const parsed = parseMessageContent(updated.message_content);
-            const serverSent: VisibleSentMessage = {
-              id: updated.id,
-              text: parsed.text,
-              soundKey: parsed.soundKey,
-              ts: updated.created_at,
-              status: parsed.isRead ? 'read' : undefined,
-              readAt: parsed.isRead ? Date.now() : undefined,
-              local_ts: 0, // Sera préservé par le store
-            };
-
-            addSentMessages(friendId, [serverSent]);
-          }
-        )
-        .on(
-          'postgres_changes',
-          {
             event: '*',
             schema: 'public',
             table: 'pending_messages',
-            filter: `from_user_id=eq.${currentUserId}`,
           },
           (payload: any) => {
-            if (payload.eventType === 'UPDATE') return;
-            const targetUserId =
-              payload.eventType === 'DELETE'
-                ? (payload.old as any)?.to_user_id
-                : (payload.new as any)?.to_user_id;
-            if (targetUserId !== friendId) return;
+            console.log('🔴 [CHAT_DEBUG] Realtime Event:', payload.eventType, payload);
+            const { eventType, new: newData, old: oldData } = payload;
+
+            if (eventType === 'INSERT') {
+              const msg = newData as PendingMessage;
+              if (!msg || msg.to_user_id !== currentUserId || msg.from_user_id !== friendId) return;
+
+              const parsedMessage = parseMessageContent(msg.message_content);
+              addReceivedMessages(friendId, [{ ...msg, local_ts: Date.now() }]);
+
+              queryClient.invalidateQueries({ queryKey: ['pendingMessages', currentUserId] });
+              queryClient.invalidateQueries({ queryKey: ['friends', currentUserId] });
+              DeviceEventEmitter.emit('REFRESH_DATA', { source: 'chat_insert' });
+
+              if (parsedMessage.soundKey && parsedMessage.soundKey !== 'mute') {
+                void playSound(parsedMessage.soundKey);
+              }
+
+              if (Platform.OS === 'ios' && isHapticEnabled) {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+              }
+            } else if (eventType === 'UPDATE') {
+              const updated = newData;
+              if (!updated?.id) return;
+
+              // 1. Si c'est un message que j'ai reçu qui a été édité
+              if (updated.to_user_id === currentUserId && updated.from_user_id === friendId) {
+                addReceivedMessages(friendId, [{ ...updated, local_ts: Date.now() }]);
+                setReceivedMessages((prev) =>
+                  prev.map((m) => (m.id === updated.id ? { ...m, message_content: updated.message_content } : m))
+                );
+              }
+
+              // 2. Si c'est un message que j'ai envoyé qui a été marqué LU ou édité
+              const currentSentByFriend = useChatStore.getState().sentByFriend[friendId] || [];
+              const isMySentMsg = currentSentByFriend.some((m) => m.id === updated.id);
+              if (isMySentMsg || updated.from_user_id === currentUserId) {
+                console.log('✨ [CHAT_DEBUG] Message envoyé marqué LU en base de données:', updated.id);
+                const parsed = parseMessageContent(updated.message_content);
+                const serverSent: VisibleSentMessage = {
+                  id: updated.id,
+                  text: parsed.text,
+                  soundKey: parsed.soundKey,
+                  ts: updated.created_at || new Date().toISOString(),
+                  status: parsed.isRead ? 'read' : undefined,
+                  readAt: parsed.isRead ? Date.now() : undefined,
+                  local_ts: 0,
+                };
+
+                addSentMessages(friendId, [serverSent]);
+                triggerGlobalMessageRefresh();
+              }
+            } else if (eventType === 'DELETE') {
+              if (!oldData) return;
+
+              if (oldData.from_user_id === currentUserId && oldData.to_user_id === friendId) {
+                triggerGlobalMessageRefresh();
+              }
+
+              if (oldData.to_user_id === currentUserId) {
+                queryClient.invalidateQueries({ queryKey: ['pendingMessages', currentUserId] });
+                queryClient.invalidateQueries({ queryKey: ['friends', currentUserId] });
+                DeviceEventEmitter.emit('REFRESH_DATA', { source: 'chat_delete' });
+              }
+            }
+          }
+        )
+        .on('broadcast', { event: 'message-read' }, (payload: any) => {
+          console.log('📡 [CHAT_DEBUG] Broadcast message-read reçu direct:', payload);
+          const readIds: string[] = Array.isArray(payload.payload?.ids) ? payload.payload.ids : [];
+          
+          if (readIds.length > 0) {
+            useChatStore.getState().markMessagesAsRead(friendId, readIds);
             triggerGlobalMessageRefresh();
+          } else {
+            const currentSentByFriend = useChatStore.getState().sentByFriend[friendId] || [];
+            if (currentSentByFriend.length > 0) {
+              const updatedSent = currentSentByFriend.map(m => ({ ...m, status: 'read' as const, readAt: Date.now() }));
+              addSentMessages(friendId, updatedSent);
+              triggerGlobalMessageRefresh();
+            }
           }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: 'DELETE',
-            schema: 'public',
-            table: 'pending_messages',
-            filter: `to_user_id=eq.${currentUserId}`,
-          },
-          (payload: any) => {
-            const deletedId = (payload.old as any)?.id;
-            if (!deletedId) return;
-            queryClient.invalidateQueries({ queryKey: ['pendingMessages', currentUserId] });
-            queryClient.invalidateQueries({ queryKey: ['friends', currentUserId] });
-            DeviceEventEmitter.emit('REFRESH_DATA', { source: 'chat_delete' });
-          }
-        )
+        })
         .subscribe();
 
       return () => {
@@ -802,6 +779,8 @@ export default function ChatScreen() {
 
     if (!hasUnread) return;
     
+    console.log(`🚀 [PROOT_v1.1.41] Passage en lecture de la conversation avec ${friendId}`);
+
     // ✅ Mise à jour optimiste IMMÉDIATE du store local pour que FriendsList se mette à jour sans attendre le réseau
     const updatedMessages = receivedMessages.map(m => {
       if (m.from_user_id === friendId) {
@@ -814,9 +793,51 @@ export default function ChatScreen() {
     });
     useChatStore.getState().addReceivedMessages(friendId, updatedMessages);
 
+    // ✅ 1. Mise à jour directe dans Supabase DB + Émission Broadcast immédiate vers l'expéditeur
+    const unreadMsgs = receivedMessages.filter(m => m.from_user_id === friendId && !(m.message_content?.startsWith('READ:') ?? false));
+    const unreadIds = unreadMsgs.map(m => m.id);
+
+    if (unreadMsgs.length > 0) {
+      console.log(`🚀 [PROOT_v1.1.41] Execution UPDATE Supabase direct pour ${unreadMsgs.length} messages non lus`);
+      unreadMsgs.forEach(m => {
+        const readContent = `READ:${m.message_content || ''}`;
+        void supabase
+          .from('pending_messages')
+          .update({ message_content: readContent })
+          .eq('id', m.id)
+          .eq('to_user_id', currentUserId);
+      });
+    }
+
+    // Broadcast ultra-rapide et garanti vers l'expéditeur (attente de l'état SUBSCRIBED WebSocket)
+    const broadcastChannel = supabase.channel(`chat-direct-${friendId}-${currentUserId}`);
+    broadcastChannel.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        await broadcastChannel.send({
+          type: 'broadcast',
+          event: 'message-read',
+          payload: {
+            senderId: friendId,
+            receiverId: currentUserId,
+            ids: unreadIds,
+          },
+        });
+        setTimeout(() => {
+          supabase.removeChannel(broadcastChannel);
+        }, 1000);
+      }
+    });
+
     // Ensuite on confirme au backend
+    // ✅ Nettoyage optimiste du cache TanStack Query pour éliminer la pastille verte dans la liste
+    queryClient.setQueryData(['pendingMessages', currentUserId], (old: any[] | undefined) => {
+      if (!old) return [];
+      return old.filter((m: any) => m.from_user_id !== friendId);
+    });
+
     void markConversationReadViaBackend(friendId, currentUserId).then(() => {
-      // ✅ Invalider TanStack Query pour confirmer l'état serveur
+      console.log(`✅ [CHAT_DEBUG] Confirmation backend markConversationReadViaBackend terminée`);
+      // ✅ Invalider TanStack Query pour synchroniser avec l'état serveur
       void queryClient.invalidateQueries({ queryKey: ['pendingMessages', currentUserId] });
     });
   }, [currentUserId, friendId, receivedMessages, queryClient]);
@@ -827,15 +848,33 @@ export default function ChatScreen() {
       const finalUserId = currentUserIdRef.current;
       const hours = useChatStore.getState().retentionByFriend[friendId] ?? 24;
 
-      // ✅ Force rafraîchissement des messages à la sortie pour nettoyer l'UI de la liste
-      if (finalUserId) {
-        void queryClient.invalidateQueries({ queryKey: ['pendingMessages', finalUserId] });
-      }
+      console.log(`🚪 [CHAT_DEBUG] Démontage du chat avec ${friendId} (retention: ${hours}h)`);
 
-      // Purge automatique en mode instantané uniquement à la fermeture réelle du chat
-      if (hours === 0 && finalUserId && friendId) {
-        void purgeChatViaBackend(finalUserId, friendId);
-        clearHistory(friendId);
+      if (finalUserId) {
+        if (hours === 0 && friendId) {
+          console.log(`🔥 [CHAT_DEBUG] Purge instantanée déclenchée pour friendId ${friendId}`);
+          
+          // 1. Nettoyage synchrone immédiat des caches locaux (Zustand + TanStack Query)
+          queryClient.setQueryData(['pendingMessages', finalUserId], (old: any[] | undefined) => {
+            if (!old) return [];
+            return old.filter((m: any) => m.from_user_id !== friendId);
+          });
+          clearHistory(friendId);
+
+          // 2. Attendre que la purge direct Supabase et backend se terminent avant d'invalider le cache
+          const directDelete = supabase
+            .from('pending_messages')
+            .delete()
+            .or(`and(from_user_id.eq.${finalUserId},to_user_id.eq.${friendId}),and(from_user_id.eq.${friendId},to_user_id.eq.${finalUserId})`);
+
+          void Promise.all([directDelete, purgeChatViaBackend(finalUserId, friendId)]).then(([directRes]) => {
+            console.log(`✅ [CHAT_DEBUG] Purge directe Supabase (${directRes.error ? directRes.error.message : 'OK'}) + backend terminée`);
+            void queryClient.invalidateQueries({ queryKey: ['pendingMessages', finalUserId] });
+            void queryClient.invalidateQueries({ queryKey: ['friends', finalUserId] });
+          });
+        } else {
+          void queryClient.invalidateQueries({ queryKey: ['pendingMessages', finalUserId] });
+        }
       }
     };
   }, [friendId, clearHistory, queryClient]); // On dépend de friendId car c'est lui qui définit la conversation
@@ -924,8 +963,8 @@ export default function ChatScreen() {
         soundKey: m.soundKey,
         status: m.status,
         readAt: m.readAt,
-        sourceMessageId: m.id, 
-        optimistic: m.optimistic,
+        sourceMessageId: m.id,
+        optimistic: m.id.startsWith('local-'),
         isNew,
       };
     });
@@ -1251,10 +1290,14 @@ export default function ChatScreen() {
           <TouchableOpacity
             onPress={() => {
               Keyboard.dismiss();
-              if (Platform.OS === 'android') {
-                requestAnimationFrame(() => router.back());
+              if (router.canGoBack()) {
+                if (Platform.OS === 'android') {
+                  requestAnimationFrame(() => router.back());
+                } else {
+                  router.back();
+                }
               } else {
-                router.back();
+                router.replace('/(tabs)');
               }
             }}
             style={styles.headerIcon}
@@ -1392,6 +1435,7 @@ export default function ChatScreen() {
             editingMessage={editingMessage}
             onCancelEdit={() => setEditingMessage(null)}
             onMessageEdited={handleMessageEdited}
+            onMessageConfirmed={triggerGlobalMessageRefresh}
           />
         </Animated.View>
       </KeyboardAvoidingView>
