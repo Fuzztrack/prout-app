@@ -61,7 +61,6 @@ persistQueryClient({
 });
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
-SystemUI.setBackgroundColorAsync("#ebb89b");
 initNotificationHandler();
 
 class AppErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
@@ -97,6 +96,10 @@ const RootLayout = () => {
   const router = useRouter();
   const [toastMessage, setToastMessage] = useState<{ title: string; body: string } | null>(null);
   const [toastOpacity] = useState(new Animated.Value(0));
+
+  useEffect(() => {
+    void SystemUI.setBackgroundColorAsync("#ebb89b").catch(() => {});
+  }, []);
 
   const lastNotificationResponse = Notifications.useLastNotificationResponse();
 
