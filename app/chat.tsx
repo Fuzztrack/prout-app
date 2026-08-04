@@ -226,6 +226,10 @@ export default function ChatScreen() {
   const [draft, setDraft] = useState('');
   const [editingMessage, setEditingMessage] = useState<VisibleSentMessage | null>(null);
 
+  // Initialisation à partir du store local
+  const [receivedMessages, setReceivedMessages] = useState<PendingMessage[]>(receivedByFriend[friendId] || []);
+  const [sentMessages, setSentMessages] = useState<VisibleSentMessage[]>(sentByFriend[friendId] || []);
+
   const handleMessageEdited = useCallback((messageId: string, newText: string) => {
     // 1. Mettre à jour l'état UI local pour un feedback immédiat
     setSentMessages((prev) => 
@@ -234,7 +238,7 @@ export default function ChatScreen() {
     
     // 2. Mettre à jour le store permanent. 
     // On récupère le message existant pour conserver ses autres propriétés (ts, soundKey, etc.)
-    const existing = sentMessages.find(m => (m.sourceMessageId || m.id) === messageId);
+    const existing = sentMessages.find(m => ((m as any).sourceMessageId || m.id) === messageId);
     if (existing) {
       addSentMessages(friendId, [{ ...existing, text: newText }]);
     }
@@ -266,10 +270,6 @@ export default function ChatScreen() {
     getDefaultSoundCategoryForFirstLaunch() as ChatMessageSoundChoice
   );
   const [pendingChatSoundKey, setPendingChatSoundKey] = useState<string | null>(null);
-  
-  // Initialisation à partir du store local
-  const [receivedMessages, setReceivedMessages] = useState<PendingMessage[]>(receivedByFriend[friendId] || []);
-  const [sentMessages, setSentMessages] = useState<VisibleSentMessage[]>(sentByFriend[friendId] || []);
   
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastOpacity] = useState(new RNAnimated.Value(0));
@@ -619,6 +619,88 @@ export default function ChatScreen() {
       });
     }
   }, [sentByFriend, friendId, retentionHours]);
+
+  const replaceReactionForMessage = useCallback((row: MessageReaction) => {
+    setMessageReactions((prev) => {
+      const nextRows = [...(prev[row.message_id] || []).filter((item) => item.reactor_user_id !== row.reactor_user_id), row]
+        .sort((a, b) => (a.updated_at || '').localeCompare(b.updated_at || ''));
+
+      const next = {
+        ...prev,
+        [row.message_id]: nextRows,
+      };
+      setReactions(friendId, next);
+      return next;
+    });
+  }, [friendId, setReactions]);
+
+  const removeReactionForMessage = useCallback((messageId: string, reactorUserId: string) => {
+    setMessageReactions((prev) => {
+      const existing = prev[messageId] || [];
+      const nextRows = existing.filter((item) => item.reactor_user_id !== reactorUserId);
+
+      let next;
+      if (nextRows.length === 0) {
+        const { [messageId]: _removed, ...rest } = prev;
+        next = rest;
+      } else {
+        next = {
+          ...prev,
+          [messageId]: nextRows,
+        };
+      }
+      setReactions(friendId, next);
+      return next;
+    });
+  }, [friendId, setReactions]);
+
+  const hydrateConversationReactions = useCallback((rows: MessageReaction[]) => {
+    const grouped: Record<string, MessageReaction[]> = {};
+
+    rows.forEach((row) => {
+      if (!grouped[row.message_id]) {
+        grouped[row.message_id] = [];
+      }
+      grouped[row.message_id].push(row);
+    });
+
+    Object.values(grouped).forEach((items) => {
+      items.sort((a, b) => (a.updated_at || '').localeCompare(b.updated_at || ''));
+    });
+
+    setMessageReactions(grouped);
+    setReactions(friendId, grouped);
+  }, [friendId, setReactions]);
+
+  const isReactionForCurrentConversation = useCallback(
+    (row?: Partial<MessageReaction> | null) => {
+      if (!row?.message_sender_id || !row?.message_receiver_id || !currentUserId || !friendId) return false;
+      return (
+        (row.message_sender_id === currentUserId && row.message_receiver_id === friendId) ||
+        (row.message_sender_id === friendId && row.message_receiver_id === currentUserId)
+      );
+    },
+    [currentUserId, friendId]
+  );
+
+  const loadConversationReactions = useCallback(async () => {
+    if (!currentUserId || !friendId) return;
+
+    const { data, error } = await supabase
+      .from('message_reactions')
+      .select('message_id, reactor_user_id, emoji, message_sender_id, message_receiver_id, updated_at')
+      .or(
+        `and(message_sender_id.eq.${currentUserId},message_receiver_id.eq.${friendId}),and(message_sender_id.eq.${friendId},message_receiver_id.eq.${currentUserId})`
+      )
+      .order('updated_at', { ascending: true });
+
+    if (error) {
+      console.error('❌ Erreur chargement réactions:', error);
+      return;
+    }
+
+    hydrateConversationReactions((data || []) as MessageReaction[]);
+  }, [currentUserId, friendId, hydrateConversationReactions]);
 
   useFocusEffect(
     useCallback(() => {
@@ -999,88 +1081,6 @@ export default function ChatScreen() {
     const fromStore = messageReactionsByFriend[friendId] || {};
     setMessageReactions(fromStore);
   }, [messageReactionsByFriend, friendId]);
-
-  const replaceReactionForMessage = useCallback((row: MessageReaction) => {
-    setMessageReactions((prev) => {
-      const nextRows = [...(prev[row.message_id] || []).filter((item) => item.reactor_user_id !== row.reactor_user_id), row]
-        .sort((a, b) => (a.updated_at || '').localeCompare(b.updated_at || ''));
-
-      const next = {
-        ...prev,
-        [row.message_id]: nextRows,
-      };
-      setReactions(friendId, next);
-      return next;
-    });
-  }, [friendId, setReactions]);
-
-  const removeReactionForMessage = useCallback((messageId: string, reactorUserId: string) => {
-    setMessageReactions((prev) => {
-      const existing = prev[messageId] || [];
-      const nextRows = existing.filter((item) => item.reactor_user_id !== reactorUserId);
-
-      let next;
-      if (nextRows.length === 0) {
-        const { [messageId]: _removed, ...rest } = prev;
-        next = rest;
-      } else {
-        next = {
-          ...prev,
-          [messageId]: nextRows,
-        };
-      }
-      setReactions(friendId, next);
-      return next;
-    });
-  }, [friendId, setReactions]);
-
-  const hydrateConversationReactions = useCallback((rows: MessageReaction[]) => {
-    const grouped: Record<string, MessageReaction[]> = {};
-
-    rows.forEach((row) => {
-      if (!grouped[row.message_id]) {
-        grouped[row.message_id] = [];
-      }
-      grouped[row.message_id].push(row);
-    });
-
-    Object.values(grouped).forEach((items) => {
-      items.sort((a, b) => (a.updated_at || '').localeCompare(b.updated_at || ''));
-    });
-
-    setMessageReactions(grouped);
-    setReactions(friendId, grouped);
-  }, [friendId, setReactions]);
-
-  const isReactionForCurrentConversation = useCallback(
-    (row?: Partial<MessageReaction> | null) => {
-      if (!row?.message_sender_id || !row?.message_receiver_id || !currentUserId || !friendId) return false;
-      return (
-        (row.message_sender_id === currentUserId && row.message_receiver_id === friendId) ||
-        (row.message_sender_id === friendId && row.message_receiver_id === currentUserId)
-      );
-    },
-    [currentUserId, friendId]
-  );
-
-  const loadConversationReactions = useCallback(async () => {
-    if (!currentUserId || !friendId) return;
-
-    const { data, error } = await supabase
-      .from('message_reactions')
-      .select('message_id, reactor_user_id, emoji, message_sender_id, message_receiver_id, updated_at')
-      .or(
-        `and(message_sender_id.eq.${currentUserId},message_receiver_id.eq.${friendId}),and(message_sender_id.eq.${friendId},message_receiver_id.eq.${currentUserId})`
-      )
-      .order('updated_at', { ascending: true });
-
-    if (error) {
-      console.error('❌ Erreur chargement réactions:', error);
-      return;
-    }
-
-    hydrateConversationReactions((data || []) as MessageReaction[]);
-  }, [currentUserId, friendId, hydrateConversationReactions]);
 
   const getReactionBadgeText = useCallback(
     (messageId: string) => {
