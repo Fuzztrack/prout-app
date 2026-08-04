@@ -322,7 +322,7 @@ export const useChatStore = create<ChatState>()(
           const threshold = hours > 0 ? now - (hours * MS_PER_HOUR) : now;
           const filtered = receivedByFriend[fid].filter(m => {
             if (savedMessageIds[m.id]) return true;
-            if (hours === 0) return false;
+            if (hours === 0) return true; // Purge 0h est gérée à la fermeture du chat (clearHistory)
             
             // Source de vérité : created_at (serveur)
             // Fallback : local_ts ou temps actuel
@@ -340,7 +340,7 @@ export const useChatStore = create<ChatState>()(
           const threshold = hours > 0 ? now - (hours * MS_PER_HOUR) : now;
           const filtered = sentByFriend[fid].filter(m => {
             if (savedMessageIds[m.id]) return true;
-            if (hours === 0) return false;
+            if (hours === 0) return true; // Purge 0h est gérée à la fermeture du chat (clearHistory)
 
             const serverTs = new Date(m.ts).getTime();
             const ts = isNaN(serverTs) ? (m.local_ts || now) : serverTs;

@@ -303,12 +303,15 @@ export default function ChatScreen() {
 
   // Nettoyage des messages expirés au montage
   useEffect(() => {
-    // Si aucune rétention n'est définie pour cet ami, on force 12h par défaut dans le store
+    // Si aucune rétention n'est définie pour cet ami, on force 24h par défaut dans le store
     if (friendId && retentionByFriend[friendId] === undefined) {
       setRetentionHours(friendId, 24);
     }
+  }, [friendId, retentionByFriend, setRetentionHours]);
+
+  useEffect(() => {
     cleanupExpired();
-  }, [cleanupExpired, friendId, retentionByFriend, setRetentionHours]);
+  }, [cleanupExpired]);
 
   const handleMessageSent = useCallback((msg: VisibleSentMessage) => {
     setSentMessages((prev) => [...prev, msg]);
