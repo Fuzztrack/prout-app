@@ -207,12 +207,17 @@ export const useChatStore = create<ChatState>()(
           // Si on fait un sync complet (ex: via refreshMessages), tout message UUID qui n'est plus dans newMsgs
           // est considéré comme lu par le serveur (et donc par le destinataire).
           if (isFullSync) {
+             const retentionHours = state.retentionByFriend[friendId] ?? DEFAULT_RETENTION;
              const incomingIds = new Set(newMsgs.map(m => m.id));
              current.forEach(existing => {
                // On ne touche pas aux messages optimistes (pas encore sur le serveur)
                // On ne touche pas aux messages déjà marqués comme lus
                if (!existing.id.startsWith('local-') && !incomingIds.has(existing.id) && existing.status !== 'read') {
-                 currentMap.set(existing.id, { ...existing, status: 'read', readAt: Date.now() });
+                 if (retentionHours === 0 && !state.savedMessageIds[existing.id]) {
+                   currentMap.delete(existing.id);
+                 } else {
+                   currentMap.set(existing.id, { ...existing, status: 'read', readAt: Date.now() });
+                 }
                  changed = true;
                }
              });

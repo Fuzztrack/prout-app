@@ -603,7 +603,7 @@ export default function ChatScreen() {
         }
 
         if (!isRepresented) {
-          if (retentionHours === 0 || existing.optimistic) {
+          if (existing.optimistic) {
             next.push(existing);
           }
         }
