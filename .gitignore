@@ -77,3 +77,4 @@ firebase-service-account.json
 .tmp_env
 .env
 backend/.env
+backend/

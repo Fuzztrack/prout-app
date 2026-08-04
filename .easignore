@@ -1,4 +1,8 @@
-# EAS ignore - exclure android/ pour forcer la génération via prebuild (CNG)
+# EAS ignore - exclure dossiers natifs et backend
 /android
 /ios
+/backend
+/temp_restore
+*.apk
+*.aab
 
