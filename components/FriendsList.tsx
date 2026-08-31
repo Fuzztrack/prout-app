@@ -3276,8 +3276,8 @@ useEffect(() => {
     
     try {
       setSendingFriendId(recipient.id);
-      const forcedCustomMessage = (options?.forcedCustomMessage || '').trim().slice(0, 140);
-      const customMessage = forcedCustomMessage || (messageDrafts[recipient.id] || '').trim().slice(0, 140);
+      const forcedCustomMessage = (options?.forcedCustomMessage || '').trim().slice(0, 240);
+      const customMessage = forcedCustomMessage || (messageDrafts[recipient.id] || '').trim().slice(0, 240);
       const isChatTextMessage = customMessage.length > 0;
       const pendingChatSoundKey = pendingChatSoundKeyByFriend[recipient.id];
 

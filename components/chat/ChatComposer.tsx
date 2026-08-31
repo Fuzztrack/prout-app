@@ -100,7 +100,7 @@ export const ChatComposer = React.memo(({
   }, [editingMessage, inputRef]);
 
   const handleSend = useCallback(async () => {
-    const customMessage = draft.trim().slice(0, 140);
+    const customMessage = draft.trim().slice(0, 240);
     if (!customMessage) return;
 
     if (isZenMode) {
@@ -311,7 +311,7 @@ export const ChatComposer = React.memo(({
           value={draft}
           onChangeText={setDraft}
           multiline
-          maxLength={140}
+          maxLength={240}
           autoCorrect={false}
           autoComplete="off"
           autoFocus

@@ -483,7 +483,7 @@ export const ChatModal = ({
                   placeholderTextColor="#777"
                   value={displayDraft}
                   onChangeText={(text) => onDraftChange(displayFriend.id, text)}
-                  maxLength={140}
+                  maxLength={240}
                   multiline
                   keyboardType="default"
                   {...((isSamsungDevice || isHuaweiDevice || isOldAndroid) ? {
