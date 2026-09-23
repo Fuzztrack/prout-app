@@ -386,6 +386,21 @@ const i18n = new I18n({
     silent_notifications_warning: "Vos notifications sont silencieuses !",
     notifications_disabled_warning: "Les notifications sont désactivées ! Active-les pour que l'app fonctionne.",
 
+    // Feedback
+    feedback_banner_title: "💬 Une petite question !",
+    feedback_banner_subtitle: "Tu aimes Proot ? Une idée pour l'améliorer ?",
+    feedback_banner_action: "Donner mon avis",
+    feedback_modal_title: "Ton avis nous intéresse 💛",
+    feedback_modal_subtitle: "Qu'aimerais-tu améliorer ou ajouter à Proot ?",
+    feedback_modal_placeholder: "Écris ton idée ici...",
+    feedback_modal_submit: "Envoyer",
+    feedback_modal_sending: "Envoi en cours...",
+    feedback_success_title: "Merci ! 💛",
+    feedback_success_body: "Ton avis nous aide à améliorer Proot.",
+    feedback_error_title: "Erreur",
+    feedback_error_body: "Impossible d'envoyer ton avis. Vérifie ta connexion et réessaie.",
+    feedback_empty_error: "Veuillez écrire un message avant d'envoyer.",
+
     // Identity Reveal
     identity_revealed_title: "Identité révélée",
     identity_revealed_body: "Ton ami a partagé son identité.",
@@ -954,6 +969,21 @@ const i18n = new I18n({
     app_uninstalled: "%{pseudo} no longer has the app installed!",
     silent_notifications_warning: "Your notifications are silent!",
     notifications_disabled_warning: "Notifications are disabled! Enable them for the app to work properly.",
+
+    // Feedback
+    feedback_banner_title: "💬 A quick question!",
+    feedback_banner_subtitle: "Do you like Proot? Any ideas to make it better?",
+    feedback_banner_action: "Give feedback",
+    feedback_modal_title: "We value your feedback 💛",
+    feedback_modal_subtitle: "What would you like to improve or add to Proot?",
+    feedback_modal_placeholder: "Write your idea here...",
+    feedback_modal_submit: "Send",
+    feedback_modal_sending: "Sending...",
+    feedback_success_title: "Thank you! 💛",
+    feedback_success_body: "Your feedback helps us improve Proot.",
+    feedback_error_title: "Error",
+    feedback_error_body: "Unable to send your feedback. Please check your connection and try again.",
+    feedback_empty_error: "Please enter a message before sending.",
 
     // Identity Reveal
     identity_revealed_title: "Identity revealed",

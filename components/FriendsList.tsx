@@ -52,6 +52,7 @@ import { useChatStore } from '@/lib/chatStore';
 import { useFriendsStore } from '@/lib/friendsStore';
 import { ReportReasonModal } from './FriendsListComponents/Modals/ReportReasonModal';
 import { IdentityModal } from './FriendsListComponents/Modals/IdentityModal';
+import { FeedbackModal } from './FeedbackModal';
 
 const FIRST_CHAT_MODAL_KEY = 'first_chat_modal_seen_v2';
 const CHAT_MESSAGE_SOUND_CHOICE_KEY = 'chat_message_sound_choice_v1';
@@ -734,7 +735,8 @@ export function FriendsList({
   const [dismissedPermissionWarning, setDismissedPermissionWarning] = useState(false);
   const [dismissedSilentWarning, setDismissedSilentWarning] = useState(dismissedSilentWarningSession); // reste à true pour toute la session après clic OK
   const dismissedSilentWarningRef = useRef(dismissedSilentWarningSession);
-  const [dismissedSavedMessagesFeatureAlert, setDismissedSavedMessagesFeatureAlert] = useState(true); // default true to avoid flash before load
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [showFeedbackBanner, setShowFeedbackBanner] = useState(false);
   const [expandedFriendId, setExpandedFriendId] = useState<string | null>(null);
   const expandedFriendIdRef = useRef<string | null>(null);
   const friendSoundPickCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -743,11 +745,42 @@ export function FriendsList({
   useEffect(() => {
     (async () => {
       try {
-        const val = await AsyncStorage.getItem('dismissed_saved_messages_alert');
-        setDismissedSavedMessagesFeatureAlert(val === 'true');
-      } catch {}
+        const countRaw = await AsyncStorage.getItem('@proot_app_launch_count');
+        const count = (countRaw ? parseInt(countRaw, 10) : 0) + 1;
+        await AsyncStorage.setItem('@proot_app_launch_count', String(count));
+
+        const isSubmitted = (await AsyncStorage.getItem('@proot_feedback_submitted')) === 'true';
+        const dismissedUntilRaw = await AsyncStorage.getItem('@proot_feedback_dismissed_until');
+        const dismissedUntil = dismissedUntilRaw ? parseInt(dismissedUntilRaw, 10) : 0;
+        const isDismissed = Date.now() < dismissedUntil;
+
+        if (count >= 5 && !isSubmitted && !isDismissed) {
+          setShowFeedbackBanner(true);
+        }
+      } catch (e) {
+        console.error('Erreur chargement feedback banner state:', e);
+      }
     })();
   }, []);
+
+  const handleDismissFeedbackBanner = async () => {
+    setShowFeedbackBanner(false);
+    try {
+      const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+      await AsyncStorage.setItem('@proot_feedback_dismissed_until', String(Date.now() + thirtyDaysMs));
+    } catch (e) {
+      console.error('Erreur masquage feedback banner:', e);
+    }
+  };
+
+  const handleFeedbackSuccess = async () => {
+    setShowFeedbackBanner(false);
+    try {
+      await AsyncStorage.setItem('@proot_feedback_submitted', 'true');
+    } catch (e) {
+      console.error('Erreur enregistrement feedback success:', e);
+    }
+  };
   
   useEffect(() => {
     expandedFriendIdRef.current = expandedFriendId;
@@ -3557,21 +3590,30 @@ useEffect(() => {
     const hasRequests = pendingRequests.length > 0 || identityRequests.length > 0;
     const shouldShowSilentWarning = showSilentWarning && !dismissedSilentWarning;
     const shouldShowPermissionWarning = showPermissionWarning && !dismissedPermissionWarning;
-    const shouldShowSavedMessagesAlert = !dismissedSavedMessagesFeatureAlert;
 
-    if (!hasRequests && !shouldShowSilentWarning && !shouldShowPermissionWarning && !shouldShowSavedMessagesAlert) return null;
+    if (!hasRequests && !shouldShowSilentWarning && !shouldShowPermissionWarning && !showFeedbackBanner) return null;
 
     return (
       <View style={styles.requestsContainer}>
-        {shouldShowSavedMessagesAlert && (
+        {showFeedbackBanner && (
           <View style={styles.silentWarning}>
-            <Text style={styles.silentWarningText}>{i18n.t('new_feature_saved_messages')}</Text>
+            <Text style={styles.silentWarningText}>{i18n.t('feedback_banner_title')}</Text>
+            <Text style={[styles.silentWarningText, { fontSize: 14, fontWeight: 'normal', marginBottom: 10 }]}>
+              {i18n.t('feedback_banner_subtitle')}
+            </Text>
             <View style={styles.silentWarningActions}>
-              <TouchableOpacity style={styles.silentWarningButtonOk} onPress={() => {
-                setDismissedSavedMessagesFeatureAlert(true);
-                AsyncStorage.setItem('dismissed_saved_messages_alert', 'true').catch(console.error);
-              }}>
-                <Text style={styles.silentWarningButtonText}>{i18n.t('ok')}</Text>
+              <TouchableOpacity
+                style={styles.silentWarningButton}
+                onPress={() => setShowFeedbackModal(true)}
+              >
+                <Text style={styles.silentWarningButtonText}>{i18n.t('feedback_banner_action')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.silentWarningButtonClose}
+                onPress={handleDismissFeedbackBanner}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close" size={18} color="#604a3e" />
               </TouchableOpacity>
             </View>
           </View>
@@ -4039,6 +4081,12 @@ useEffect(() => {
         onModalHide={() => {}}
         onRequestIdentityReveal={requestIdentityReveal}
       />
+
+      <FeedbackModal
+        isVisible={showFeedbackModal}
+        onClose={() => setShowFeedbackModal(false)}
+        onSuccess={handleFeedbackSuccess}
+      />
     </View>
   );
 
@@ -4252,6 +4300,7 @@ const styles = StyleSheet.create({
   silentWarningActions: { flexDirection: 'row', gap: 10, justifyContent: 'flex-end' },
   silentWarningButton: { backgroundColor: '#ebb89b', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
   silentWarningButtonOk: { backgroundColor: '#4CAF50', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
+  silentWarningButtonClose: { backgroundColor: 'rgba(96, 74, 62, 0.12)', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   silentWarningButtonText: { color: 'white', fontWeight: 'bold', fontSize: 14 },
   // Wrapper sans overflow pour que l'ombre iOS soit visible (overflow: hidden coupe l'ombre).
   // iOS : backgroundColor est appliqué dynamiquement (couleur de la ligne) pour que l'ombre se projette.
