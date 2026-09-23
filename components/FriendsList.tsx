@@ -754,7 +754,7 @@ export function FriendsList({
         const dismissedUntil = dismissedUntilRaw ? parseInt(dismissedUntilRaw, 10) : 0;
         const isDismissed = Date.now() < dismissedUntil;
 
-        if (count >= 5 && !isSubmitted && !isDismissed) {
+        if (count >= 1 && !isSubmitted && !isDismissed) {
           setShowFeedbackBanner(true);
         }
       } catch (e) {
