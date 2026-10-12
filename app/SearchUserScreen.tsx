@@ -5,6 +5,8 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { safePush } from '../lib/navigation';
 import i18n from '../lib/i18n';
+import { useAppStore } from '../lib/store';
+import { sendFriendRequestNotification } from '../lib/sendProut';
 
 export default function SearchUserScreen() {
   const router = useRouter();
@@ -46,11 +48,27 @@ export default function SearchUserScreen() {
     setLoading(true);
 
     try {
-      // 1. Recherche sécurisée dans les profils via fonction RPC
-      const { data: profiles, error } = await supabase
-        .rpc('search_users_by_pseudo', { search_text: trimmed });
+      // 1. Recherche dans les profils (RPC ou direct)
+      let profiles: any[] | null = null;
+      try {
+        const { data, error } = await supabase
+          .rpc('search_users_by_pseudo', { search_text: trimmed });
+        if (!error && data) {
+          profiles = data;
+        }
+      } catch (_) {}
 
-      if (error) throw error;
+      if (!profiles || profiles.length === 0) {
+        let profilesQuery = supabase
+          .from('user_profiles')
+          .select('id, pseudo')
+          .ilike('pseudo', `${trimmed}%`)
+          .order('pseudo', { ascending: true })
+          .limit(10);
+        if (currentUserId) profilesQuery = profilesQuery.neq('id', currentUserId);
+        const { data } = await profilesQuery;
+        if (data) profiles = data;
+      }
 
       // Vérifier que la requête est toujours d'actualité
       if (latestQueryRef.current !== trimmed) {
@@ -109,6 +127,8 @@ export default function SearchUserScreen() {
     await performSearch(query);
   };
 
+  const currentPseudo = useAppStore(state => state.pseudo);
+
   const handleAddFriend = async (friendId: string) => {
     try {
       if (!currentUserId) return;
@@ -133,6 +153,8 @@ export default function SearchUserScreen() {
         Alert.alert(i18n.t('success'), i18n.t('request_sent_success'));
         // On met à jour la liste locale pour afficher "En attente"
         setResults(prev => prev.map(p => p.id === friendId ? { ...p, friendStatus: 'pending' } : p));
+        // 💨 Envoi immédiat de la notification push au destinataire
+        sendFriendRequestNotification(friendId, currentPseudo || 'Un ami').catch(() => {});
       }
 
     } catch (e: any) {

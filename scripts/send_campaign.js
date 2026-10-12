@@ -89,7 +89,29 @@ async function sendGlobalCampaign() {
         await expo.sendPushNotificationsAsync(chunk);
         console.log(`✅ Paquet Expo envoyé (${chunk.length} messages)`);
       } catch (err) {
-        console.error("❌ Erreur paquet Expo:", err);
+        if (err.code === 'PUSH_TOO_MANY_EXPERIENCE_IDS' && err.details) {
+          console.log("⚠️ Conflit de projets Expo détecté, envoi par projet...");
+          for (const [expId, tokens] of Object.entries(err.details)) {
+            const groupMessages = tokens.map(t => ({
+              to: t,
+              sound: 'default',
+              title: title,
+              body: body,
+              data: { type: 'campaign' },
+            }));
+            const groupChunks = expo.chunkPushNotifications(groupMessages);
+            for (const gChunk of groupChunks) {
+              try {
+                await expo.sendPushNotificationsAsync(gChunk);
+                console.log(`✅ Paquet Expo (${expId}) envoyé (${gChunk.length} messages)`);
+              } catch (gErr) {
+                console.error(`❌ Erreur sous-paquet Expo (${expId}):`, gErr.message || gErr);
+              }
+            }
+          }
+        } else {
+          console.error("❌ Erreur paquet Expo:", err);
+        }
       }
     }
   }

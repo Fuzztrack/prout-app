@@ -15,6 +15,7 @@ import Animated, {
   cancelAnimation 
 } from 'react-native-reanimated';
 import i18n from '../../lib/i18n';
+import { isProotBot } from '../../lib/prootBot';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SWIPE_THRESHOLD = 150;
@@ -25,6 +26,7 @@ const FRIEND_ROW_LONG_PRESS_DELAY_MS = 320;
 
 const IOS_SOUNDWAVE_IMAGE = require('../../assets/images/proothail.png');
 const IOS_SENT_IMAGE = require('../../assets/images/animprout4.png');
+const PROOT_BOT_AVATAR = require('../../assets/images/proothail2.png');
 
 export type SwipeableFriendRowHandle = {
   startHoldSend: () => void;
@@ -309,7 +311,15 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
                   activeOpacity={0.7}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  {friend.avatar_url ? (
+                  {isProotBot(friend.id) ? (
+                    <View style={styles.botAvatarWrapper}>
+                      <Image 
+                        source={PROOT_BOT_AVATAR} 
+                        style={styles.botAvatarImage}
+                        contentFit="contain"
+                      />
+                    </View>
+                  ) : friend.avatar_url ? (
                     <Image 
                       source={{ uri: friend.avatar_url }} 
                       style={styles.friendAvatar}
@@ -326,20 +336,30 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
                   )}
                 </GHTouchableOpacity>
                 <View style={{ width: 10 }} />
+
+                {/* 1. GAUCHE : Pseudo + Icônes */}
                 <Text style={styles.pseudo} numberOfLines={1}>{friend.pseudo}</Text>
-                {friend.isZenMode && <Ionicons name="moon" size={18} color="#ebb89b" style={{ marginLeft: 5 }} />}
-                {friend.is_muted && <Ionicons name="volume-mute-outline" size={18} color="#666" style={{ marginLeft: 5 }} />}
-                
-                <View style={styles.unreadContainer}>
+                {friend.isZenMode && <Ionicons name="moon" size={16} color="#ebb89b" style={{ marginLeft: 4 }} />}
+                {friend.is_muted && <Ionicons name="volume-mute-outline" size={16} color="#666" style={{ marginLeft: 4 }} />}
+
+                {/* 2. MILIEU : Aperçu du message + Pastille verte d'avant */}
+                <View style={styles.unreadMiddleContainer}>
                   {hasUnread && unreadMessage ? (
                     <View style={styles.unreadInline}>
                       <Text style={styles.unreadMessage} numberOfLines={1} ellipsizeMode="tail">"{unreadMessage}"</Text>
-                      <View style={styles.redDot} />
+                      <View style={styles.greenDot} />
                     </View>
                   ) : hasUnread ? (
-                    <View style={styles.redDot} />
+                    <View style={styles.greenDot} />
                   ) : null}
                 </View>
+
+                {/* 3. DROITE : Badge Prout/Vent 💨 */}
+                {typeof friend.flame_streak === 'number' && friend.flame_streak > 0 && (
+                  <View style={styles.proutStreakBadge}>
+                    <Text style={styles.proutStreakBadgeText}>💨 {friend.flame_streak}</Text>
+                  </View>
+                )}
               </View>
             </GHTouchableOpacity>
             {selectedSoundKey && (
@@ -411,6 +431,19 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     backgroundColor: '#eee',
   },
+  botAvatarWrapper: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#ebb89b',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  botAvatarImage: {
+    width: 38,
+    height: 38,
+  },
   friendAvatarPlaceholder: {
     width: 44,
     height: 44,
@@ -425,35 +458,53 @@ const styles = StyleSheet.create({
     color: '#fff', // Texte blanc sur fond marron
   },
   pseudo: {
-    fontSize: 17, // Légèrement plus petit pour l'harmonie
+    fontSize: 17,
     fontWeight: '700',
     color: '#604a3e',
+    maxWidth: 130,
     flexShrink: 1,
   },
-  unreadContainer: {
+  unreadMiddleContainer: {
     flex: 1,
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 8,
+    paddingHorizontal: 6,
   },
   unreadInline: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    flexShrink: 1,
   },
   unreadMessage: {
     fontSize: 13,
     color: '#604a3e',
     fontStyle: 'italic',
-    marginRight: 4,
+    marginRight: 5,
     flexShrink: 1,
   },
-  redDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#4CAF50', // Vert vif pour être bien visible
+  greenDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#4CAF50', // Pastille verte d'avant
+  },
+  proutStreakBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(96, 74, 62, 0.12)',
+    borderRadius: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    marginLeft: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(96, 74, 62, 0.22)',
+  },
+  proutStreakBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#604a3e',
   },
   animImage: {
     width: Platform.OS === 'android' ? 74 : 60,

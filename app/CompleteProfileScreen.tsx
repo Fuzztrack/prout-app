@@ -29,11 +29,12 @@ export default function CompleteProfileScreen() {
       if (user) {
         setUserId(user.id);
         
-        // Préremplir le pseudo depuis les métadonnées si disponible
+        // Préremplir le pseudo depuis les métadonnées si disponible et non générique
         const pseudoFromMetadata = user.user_metadata?.pseudo;
         const phoneFromMetadata = user.user_metadata?.phone;
         
-        if (pseudoFromMetadata && pseudoFromMetadata !== 'Nouveau Membre') {
+        const isGeneric = (p?: string | null) => !p || p === 'Nouveau Membre' || p.toLowerCase().startsWith('user_');
+        if (pseudoFromMetadata && !isGeneric(pseudoFromMetadata)) {
           setPseudo(pseudoFromMetadata);
         }
         
@@ -53,7 +54,11 @@ export default function CompleteProfileScreen() {
   }, []);
 
   const handleSave = async () => {
-    if (!pseudo.trim()) return Alert.alert(i18n.t('error'), i18n.t('choose_pseudo'));
+    const trimmed = pseudo.trim();
+    const genericTitles = ['nouveau membre', 'new member', 'nuevo miembro', 'novo membro', 'neues mitglied'];
+    if (!trimmed || genericTitles.includes(trimmed.toLowerCase()) || trimmed.toLowerCase().startsWith('user_')) {
+      return Alert.alert(i18n.t('error'), i18n.t('choose_real_pseudo_alert'));
+    }
     
     // Vérifier les permissions de notification avant de sauvegarder
     // Si elles sont indéterminées, on tente de les demander une dernière fois
@@ -147,9 +152,7 @@ export default function CompleteProfileScreen() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        <TouchableOpacity onPress={() => safePush(router, '/(tabs)', { skipInitialCheck: false })} activeOpacity={0.7}>
-          <Image source={require('../assets/images/proot.png')} style={styles.image} resizeMode="contain" />
-        </TouchableOpacity>
+        <Image source={require('../assets/images/proot.png')} style={styles.image} resizeMode="contain" />
         
         <Text style={styles.title}>{i18n.t('complete_profile_title')}</Text>
         <Text style={styles.subtitle}>

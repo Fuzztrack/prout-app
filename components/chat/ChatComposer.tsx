@@ -29,7 +29,9 @@ import {
   DIRECT_SEND_FALLBACK_CATEGORY,
   SOUND_KEYS_BY_CATEGORY,
 } from '@/lib/runtimeSounds';
-import { type VisibleSentMessage } from '@/lib/chatStore';
+import { useChatStore, type VisibleSentMessage } from '@/lib/chatStore';
+import { PROOT_BOT_ID, triggerProotBotResponse } from '@/lib/prootBot';
+import { triggerProutHaptic } from '@/lib/proutHaptics';
 
 const FRIEND_SOUND_CATEGORY_MAP_KEY = 'friend_sound_category_map_v1';
 const CHAT_PROOTHAIL_THUMB = require('../../assets/images/proothail2.png');
@@ -55,7 +57,7 @@ interface ChatComposerProps {
   isChatMuteEnabled: boolean;
   pulseAnimatedStyle: any;
   composerBottomPadding: number;
-  inputRef: React.RefObject<TextInput>;
+  inputRef: React.RefObject<TextInput | null> | any;
   /** false tant que le profil destinataire n'est pas confirmé côté serveur (évite envoi avec jeton push absent). */
   isProfileHydrated?: boolean;
   editingMessage?: VisibleSentMessage | null;
@@ -116,6 +118,15 @@ export const ChatComposer = React.memo(({
     try {
       if (editingMessage) {
         // MODE ÉDITION
+        if (friend.id === PROOT_BOT_ID) {
+          onMessageEdited?.(editingMessage.id, customMessage);
+          setDraft('');
+          if (Platform.OS === 'ios' && isHapticEnabled) {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+          }
+          return;
+        }
+
         const result = await editMessageViaBackend(editingMessage.id, customMessage, currentUserId);
         if (result.success) {
           onMessageEdited?.(editingMessage.id, customMessage);
@@ -136,6 +147,51 @@ export const ChatComposer = React.memo(({
       }
 
       // MODE ENVOI
+      if (friend.id === PROOT_BOT_ID) {
+        let randomKey: string;
+        if (isChatMuteEnabled) {
+          randomKey = 'mute';
+        } else if (pendingChatSoundKey) {
+          randomKey = pendingChatSoundKey;
+        } else {
+          const candidates = SOUND_KEYS_BY_CATEGORY.toot;
+          randomKey =
+            pickRandomWithoutImmediateRepeat(candidates, lastRandomSoundRef.current) || pickRandom(candidates);
+        }
+        lastRandomSoundRef.current = randomKey;
+
+        const botSentMessage: VisibleSentMessage = {
+          id: `bot-sent-${Date.now()}`,
+          text: customMessage,
+          ts: new Date().toISOString(),
+          soundKey: randomKey,
+          local_ts: Date.now(),
+        };
+
+        useChatStore.getState().addSentMessages(PROOT_BOT_ID, [botSentMessage]);
+        onMessageSent(botSentMessage);
+        setDraft('');
+        setPendingChatSoundKey(null);
+
+        if (Platform.OS === 'ios' && isHapticEnabled) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        }
+
+        if (randomKey !== 'mute' && !isSilentMode && !isZenMode) {
+          playSound(randomKey);
+        }
+        triggerProutHaptic(randomKey, isHapticEnabled);
+
+        // Réponse automatique de ProotBot (son + haptique + notif + injection dans le chat store)
+        void triggerProotBotResponse(isHapticEnabled, () => {
+          useChatStore.getState().markMessagesAsRead(PROOT_BOT_ID, [botSentMessage.id]);
+        });
+
+        onMessageConfirmed?.();
+        setSending(false);
+        return;
+      }
+
       try {
         const { data: muteCheck } = await supabase
           .from('friends')

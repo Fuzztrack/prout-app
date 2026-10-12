@@ -3,6 +3,8 @@ import { ActivityIndicator, Alert, Dimensions, FlatList, Modal, StyleSheet, Text
 import { supabase } from '../lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import i18n from '../lib/i18n';
+import { useAppStore } from '../lib/store';
+import { sendFriendRequestNotification } from '../lib/sendProut';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MODAL_MAX_HEIGHT = SCREEN_HEIGHT * 0.85;
@@ -112,6 +114,8 @@ export function SearchUser({ visible, onClose }: { visible: boolean; onClose: ()
     await performSearch(query);
   };
 
+  const currentPseudo = useAppStore(state => state.pseudo);
+
   const handleAddFriend = async (friendId: string) => {
     try {
       if (!currentUserId) return;
@@ -136,6 +140,8 @@ export function SearchUser({ visible, onClose }: { visible: boolean; onClose: ()
         Alert.alert(i18n.t('success'), i18n.t('request_sent'));
         // On met à jour la liste locale pour afficher "En attente"
         setResults(prev => prev.map(p => p.id === friendId ? { ...p, friendStatus: 'pending' } : p));
+        // 💨 Envoi immédiat de la notification push au destinataire
+        sendFriendRequestNotification(friendId, currentPseudo || 'Un ami').catch(() => {});
       }
 
     } catch (e: any) {

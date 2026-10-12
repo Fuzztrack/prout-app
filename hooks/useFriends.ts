@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { fetchPendingReceivedViaBackend, fetchPendingSentViaBackend } from '../lib/sendProutBackend';
+import { fetchPendingReceivedViaBackend } from '../lib/sendProutBackend';
+import { calculateFlameStreak } from '../lib/flameStreak';
+import { isProotBotDismissed, PROOT_BOT_FRIEND } from '../lib/prootBot';
 
 export type Friend = {
   id: string;
@@ -11,6 +13,9 @@ export type Friend = {
   isZenMode: boolean;
   identityAlias?: string | null;
   identityStatus?: string | null;
+  complicity_score?: number;
+  complicity_level?: string;
+  flame_streak?: number | null;
 };
 
 export const useFriends = (userId: string | null) => {
@@ -43,12 +48,12 @@ export const useFriends = (userId: string | null) => {
         const [addedFriendsResult, friendsWhereIAmFriendResult] = await Promise.all([
           supabase
             .from('friends')
-            .select('friend_id, last_interaction_at, is_muted')
+            .select('friend_id, last_interaction_at, is_muted, complicity_score, complicity_level')
             .eq('user_id', uid)
             .eq('status', 'accepted'),
           supabase
             .from('friends')
-            .select('user_id, last_interaction_at')
+            .select('user_id, last_interaction_at, complicity_score, complicity_level')
             .eq('friend_id', uid)
             .eq('status', 'accepted')
         ]);
@@ -74,16 +79,21 @@ export const useFriends = (userId: string | null) => {
         const allFriendIds = [...new Set([...addedFriendsIds, ...friendsWhereIAmFriendIds])]
           .filter((id) => !blockedSet.has(id));
 
+        const isBotDismissed = await isProotBotDismissed();
+        const botList = isBotDismissed ? [] : [PROOT_BOT_FRIEND];
+
         if (allFriendIds.length === 0) {
-          if (__DEV__) console.log('ℹ️ [useFriends] No friends found (legit empty list) for:', uid);
-          return [];
+          if (__DEV__) console.log('ℹ️ [useFriends] No real friends found for:', uid);
+          return botList;
         }
 
-        // 3. Récupérer les profils et les métadonnées (Identity Reveals, Mute, etc.)
+        // 3. Récupérer les profils, interactions récentes et les métadonnées
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
         const [
           profilesResult,
           revealsResult,
-          mutedByResult
+          mutedByResult,
+          recentLogsResult
         ] = await Promise.all([
           supabase
             .from('user_profiles')
@@ -99,7 +109,15 @@ export const useFriends = (userId: string | null) => {
             .select('user_id, is_muted')
             .eq('friend_id', uid)
             .in('user_id', allFriendIds)
-            .eq('is_muted', true)
+            .eq('is_muted', true),
+          supabase
+            .from('interaction_logs')
+            .select('sender_id, receiver_id, created_at')
+            .or(`sender_id.eq.${uid},receiver_id.eq.${uid}`)
+            .gte('created_at', sevenDaysAgo)
+            .order('created_at', { ascending: false })
+            .then((res: any) => res)
+            .catch(() => ({ data: [] as any[], error: null }))
         ]);
 
         if (profilesResult.error) throw profilesResult.error;
@@ -112,22 +130,40 @@ export const useFriends = (userId: string | null) => {
         const revealsData = revealsResult.data || [];
         const mutedByFriendsData = mutedByResult.data || [];
 
+        // Regrouper les logs récents par ami
+        const logsByFriend: Record<string, string[]> = {};
+        ((recentLogsResult as any)?.data || []).forEach((log: any) => {
+          const partnerId = log.sender_id === uid ? log.receiver_id : log.sender_id;
+          if (partnerId) {
+            if (!logsByFriend[partnerId]) logsByFriend[partnerId] = [];
+            logsByFriend[partnerId].push(log.created_at);
+          }
+        });
+
         // Créer des maps pour un accès rapide O(1)
         const lastInteractionMap: Record<string, string> = {};
         const mutedMap: Record<string, boolean> = {};
+        const complicityScoreMap: Record<string, number> = {};
+        const complicityLevelMap: Record<string, string> = {};
 
         // Remplir avec les données de la relation "Moi -> Ami" (Direction principale)
-        (addedFriendsResult.data || []).forEach(rel => {
+        (addedFriendsResult.data || []).forEach((rel: any) => {
           if (rel.last_interaction_at) {
             lastInteractionMap[rel.friend_id] = rel.last_interaction_at;
           }
           if (rel.is_muted) {
             mutedMap[rel.friend_id] = true;
           }
+          if (typeof rel.complicity_score === 'number') {
+            complicityScoreMap[rel.friend_id] = rel.complicity_score;
+          }
+          if (rel.complicity_level) {
+            complicityLevelMap[rel.friend_id] = rel.complicity_level;
+          }
         });
 
-        // Compléter avec la relation "Ami -> Moi" (Direction inverse pour last_interaction_at)
-        (friendsWhereIAmFriendResult.data || []).forEach(rel => {
+        // Compléter avec la relation "Ami -> Moi" (Direction inverse pour last_interaction_at et complicity)
+        (friendsWhereIAmFriendResult.data || []).forEach((rel: any) => {
           const existingTime = lastInteractionMap[rel.user_id];
           const inverseTime = rel.last_interaction_at;
           
@@ -135,6 +171,16 @@ export const useFriends = (userId: string | null) => {
             if (!existingTime || new Date(inverseTime) > new Date(existingTime)) {
               lastInteractionMap[rel.user_id] = inverseTime;
             }
+          }
+
+          if (typeof rel.complicity_score === 'number') {
+            const currentScore = complicityScoreMap[rel.user_id] || 0;
+            if (rel.complicity_score > currentScore) {
+              complicityScoreMap[rel.user_id] = rel.complicity_score;
+            }
+          }
+          if (rel.complicity_level && !complicityLevelMap[rel.user_id]) {
+            complicityLevelMap[rel.user_id] = rel.complicity_level;
           }
         });
 
@@ -148,10 +194,13 @@ export const useFriends = (userId: string | null) => {
           return acc;
         }, {});
 
-        // 4. Formater les amis
+        // 4. Formater les amis avec le calcul de flamme (streak)
         const formattedFriends = finalFriends.map(friend => {
           const isMutedByMe = mutedMap[friend.id] || false;
           const hasMutedMe = mutedByMap[friend.id] || false;
+          const lastInteraction = lastInteractionMap[friend.id] || null;
+          const friendLogs = logsByFriend[friend.id] || [];
+          const flameStreak = calculateFlameStreak(friendLogs, lastInteraction);
           
           return {
             ...friend,
@@ -159,14 +208,19 @@ export const useFriends = (userId: string | null) => {
             identityStatus: identityAliasMap[friend.id]?.status || null,
             is_muted: isMutedByMe,
             isZenMode: friend.is_zen_mode || hasMutedMe,
-            last_interaction_at: lastInteractionMap[friend.id] || null,
+            last_interaction_at: lastInteraction,
+            complicity_score: complicityScoreMap[friend.id] || 0,
+            complicity_level: complicityLevelMap[friend.id] || 'complicity_level_1',
+            flame_streak: flameStreak,
           } as Friend;
         });
 
         if (__DEV__) console.log(`✅ [useFriends] Successfully fetched ${formattedFriends.length} friends for ${uid}`);
 
         // 5. Trier par date d'interaction (le plus récent en premier)
-        return formattedFriends.sort((a, b) => {
+        const combinedFriends = isBotDismissed ? formattedFriends : [...formattedFriends, PROOT_BOT_FRIEND];
+
+        return combinedFriends.sort((a, b) => {
           const timeA = a.last_interaction_at ? new Date(a.last_interaction_at).getTime() : 0;
           const timeB = b.last_interaction_at ? new Date(b.last_interaction_at).getTime() : 0;
           if (timeA !== timeB) return timeB - timeA;

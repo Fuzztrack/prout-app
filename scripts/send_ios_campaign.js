@@ -81,7 +81,30 @@ async function sendCampaign() {
       console.log(`📦 Paquet envoyé (${chunk.length} notifications)`);
       tickets.push(...ticketChunk);
     } catch (error) {
-      console.error("❌ Erreur lors de l'envoi d'un paquet:", error);
+      if (error.code === 'PUSH_TOO_MANY_EXPERIENCE_IDS' && error.details) {
+        console.log("⚠️ Conflit de projets Expo détecté, envoi par projet...");
+        for (const [expId, tokens] of Object.entries(error.details)) {
+          const groupMessages = tokens.map(t => ({
+            to: t,
+            sound: 'default',
+            title: title,
+            body: body,
+            data: { type: 'campaign', sender: 'system' },
+          }));
+          const groupChunks = expo.chunkPushNotifications(groupMessages);
+          for (const gChunk of groupChunks) {
+            try {
+              let tChunk = await expo.sendPushNotificationsAsync(gChunk);
+              console.log(`📦 Paquet (${expId}) envoyé (${gChunk.length} notifications)`);
+              tickets.push(...tChunk);
+            } catch (gErr) {
+              console.error(`❌ Erreur sous-paquet (${expId}):`, gErr.message || gErr);
+            }
+          }
+        }
+      } else {
+        console.error("❌ Erreur lors de l'envoi d'un paquet:", error);
+      }
     }
   }
 

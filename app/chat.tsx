@@ -43,6 +43,7 @@ import { useChatStore, type PendingMessage, type VisibleSentMessage } from '@/li
 import i18n from '@/lib/i18n';
 import { safePush } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
+import { PROOT_BOT_ID } from '@/lib/prootBot';
 import {
   fetchPendingReceivedViaBackend,
   fetchPendingSentViaBackend,
@@ -198,6 +199,7 @@ export default function ChatScreen() {
   const friendId = typeof params.friendId === 'string' ? params.friendId : '';
   const pseudoParam = typeof params.pseudo === 'string' ? params.pseudo : '';
   const pendingSoundKeyParam = typeof params.pendingSoundKey === 'string' ? params.pendingSoundKey : '';
+  const isBot = friendId === PROOT_BOT_ID;
 
   const isZenMode = useAppStore(state => state.isZenMode);
   const isSilentMode = useAppStore(state => state.isSilentMode);
@@ -218,7 +220,7 @@ export default function ChatScreen() {
   const savedMessages = useChatStore(state => state.savedMessageIds);
   const toggleSaveMessage = useChatStore(state => state.toggleSavedMessage);
 
-  const retentionHours = retentionByFriend[friendId] ?? 12;
+  const retentionHours = retentionByFriend[friendId] ?? 24;
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentPseudo, setCurrentPseudo] = useState<string>(storePseudo || 'Un ami');
@@ -247,7 +249,18 @@ export default function ChatScreen() {
   }, [friendId, sentMessages, addSentMessages]);
 
   const optimisticFriend = useMemo((): FriendProfile | null => {
-    if (!friendId || !isUuid(friendId)) return null;
+    if (!friendId) return null;
+    if (isBot) {
+      return {
+        id: PROOT_BOT_ID,
+        pseudo: 'ProotBot 🤖',
+        avatar_url: null,
+        expo_push_token: 'bot-token',
+        push_platform: null,
+        is_zen_mode: false,
+      };
+    }
+    if (!isUuid(friendId)) return null;
     return {
       id: friendId,
       pseudo: pseudoParam || 'Ami',
@@ -256,10 +269,10 @@ export default function ChatScreen() {
       push_platform: null,
       is_zen_mode: false,
     };
-  }, [friendId, pseudoParam]);
+  }, [friendId, isBot, pseudoParam]);
 
   const friend = serverFriend ?? optimisticFriend;
-  const profileConfirmed = !!serverFriend;
+  const profileConfirmed = isBot || !!serverFriend;
 
   useEffect(() => {
     setServerFriend(null);
@@ -315,7 +328,10 @@ export default function ChatScreen() {
 
   const handleMessageSent = useCallback((msg: VisibleSentMessage) => {
     setSentMessages((prev) => [...prev, msg]);
-  }, []);
+    if (isBot) {
+      addSentMessages(friendId, [msg]);
+    }
+  }, [addSentMessages, friendId, isBot]);
 
   useEffect(() => {
     pulseScale.value = withRepeat(
@@ -372,6 +388,24 @@ export default function ChatScreen() {
 
   const loadChatContext = useCallback(async () => {
     if (!friendId) return;
+    if (isBot) {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const user = sessionData?.session?.user ?? null;
+      if (user) {
+        setCurrentUserId(user.id);
+      } else if (storeUserId) {
+        setCurrentUserId(storeUserId);
+      }
+      setServerFriend({
+        id: PROOT_BOT_ID,
+        pseudo: 'ProotBot 🤖',
+        avatar_url: null,
+        expo_push_token: 'bot-token',
+        push_platform: null,
+        is_zen_mode: false,
+      });
+      return;
+    }
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       let user = sessionData?.session?.user ?? null;
@@ -435,7 +469,7 @@ export default function ChatScreen() {
       console.error('❌ Erreur chargement chat:', error);
       showToast("Impossible de charger ce chat.");
     }
-  }, [friendId, pseudoParam, router, storePseudo, showToast]);
+  }, [friendId, isBot, pseudoParam, router, storePseudo, storeUserId, showToast]);
 
   useEffect(() => {
     void loadChatContext();
@@ -487,6 +521,21 @@ export default function ChatScreen() {
 
   const refreshMessages = useCallback(async () => {
     if (!currentUserId || !friendId) return;
+    if (isBot) {
+      const existing = useChatStore.getState().receivedByFriend[PROOT_BOT_ID] || [];
+      if (existing.length === 0) {
+        const welcomeMsg: PendingMessage = {
+          id: 'proot-bot-welcome',
+          from_user_id: PROOT_BOT_ID,
+          to_user_id: currentUserId,
+          message_content: i18n.t('prootbot_welcome_message'),
+          created_at: new Date().toISOString(),
+          local_ts: Date.now(),
+        };
+        addReceivedMessages(PROOT_BOT_ID, [welcomeMsg]);
+      }
+      return;
+    }
     const [incoming, outgoing] = await Promise.all([
       fetchPendingReceivedViaBackend(currentUserId),
       fetchPendingSentViaBackend(currentUserId),
@@ -687,7 +736,7 @@ export default function ChatScreen() {
   );
 
   const loadConversationReactions = useCallback(async () => {
-    if (!currentUserId || !friendId) return;
+    if (!currentUserId || !friendId || isBot) return;
 
     const { data, error } = await supabase
       .from('message_reactions')
@@ -703,7 +752,7 @@ export default function ChatScreen() {
     }
 
     hydrateConversationReactions((data || []) as MessageReaction[]);
-  }, [currentUserId, friendId, hydrateConversationReactions]);
+  }, [currentUserId, friendId, isBot, hydrateConversationReactions]);
 
   useFocusEffect(
     useCallback(() => {
@@ -713,7 +762,7 @@ export default function ChatScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (!currentUserId || !friendId) return;
+      if (!currentUserId || !friendId || isBot) return;
 
       const channel = supabase
         .channel(`chat-direct-${currentUserId}-${friendId}`)
@@ -818,7 +867,7 @@ export default function ChatScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (!currentUserId || !friendId) return;
+      if (!currentUserId || !friendId || isBot) return;
 
       const channel = supabase
         .channel(`chat-reactions-${currentUserId}-${friendId}`)
@@ -877,6 +926,10 @@ export default function ChatScreen() {
       return m;
     });
     useChatStore.getState().addReceivedMessages(friendId, updatedMessages);
+
+    if (isBot) {
+      return;
+    }
 
     // ✅ 1. Mise à jour directe dans Supabase DB + Émission Broadcast immédiate vers l'expéditeur
     const unreadMsgs = receivedMessages.filter(m => m.from_user_id === friendId && !(m.message_content?.startsWith('READ:') ?? false));
@@ -1154,10 +1207,14 @@ export default function ChatScreen() {
 
   const openConversationReportSheet = useCallback(() => {
     if (!friend) return;
+    if (isBot) {
+      showToast(i18n.t('prootbot_harmless'));
+      return;
+    }
     openReportReasonSheet({
       senderId: friend.id,
     });
-  }, [friend, openReportReasonSheet]);
+  }, [friend, isBot, openReportReasonSheet, showToast]);
 
   const openReactionPicker = useCallback(
     (messageId: string, isOwnMessage: boolean) => {
@@ -1193,6 +1250,8 @@ export default function ChatScreen() {
       replaceReactionForMessage(optimisticRow);
       closeReactionPicker();
 
+      if (isBot) return;
+
       const { error } = await supabase.from('message_reactions').upsert(
         {
           message_id: pendingReactionTarget.messageId,
@@ -1212,7 +1271,7 @@ export default function ChatScreen() {
         Alert.alert(i18n.t('error'), "Impossible d'enregistrer la réaction.");
       }
     },
-    [closeReactionPicker, currentUserId, pendingReactionTarget, removeReactionForMessage, replaceReactionForMessage]
+    [closeReactionPicker, currentUserId, isBot, pendingReactionTarget, removeReactionForMessage, replaceReactionForMessage]
   );
 
   const toggleChatMute = useCallback(() => {
@@ -1249,18 +1308,52 @@ export default function ChatScreen() {
     }
   }, []);
 
-  if (!friendId) {
+  if (!friendId || (!isBot && !isUuid(friendId))) {
     return (
-      <View style={styles.centered}>
-        <Text style={styles.errorText}>Chat introuvable.</Text>
-      </View>
-    );
-  }
-
-  if (!isUuid(friendId)) {
-    return (
-      <View style={styles.centered}>
-        <Text style={styles.errorText}>Chat introuvable.</Text>
+      <View style={styles.screen}>
+        <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+          <TouchableOpacity
+            onPress={() => {
+              Keyboard.dismiss();
+              if (router.canGoBack()) {
+                if (Platform.OS === 'android') {
+                  requestAnimationFrame(() => router.back());
+                } else {
+                  router.back();
+                }
+              } else {
+                router.replace('/(tabs)');
+              }
+            }}
+            style={styles.headerIcon}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="chevron-back" size={26} color="#604a3e" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>{i18n.t('error')}</Text>
+          <View style={styles.headerIcon} />
+        </View>
+        <View style={[styles.centered, { flex: 1 }]}>
+          <Text style={styles.errorText}>{i18n.t('chat_not_found')}</Text>
+          <TouchableOpacity
+            onPress={() => {
+              Keyboard.dismiss();
+              if (router.canGoBack()) {
+                if (Platform.OS === 'android') {
+                  requestAnimationFrame(() => router.back());
+                } else {
+                  router.back();
+                }
+              } else {
+                router.replace('/(tabs)');
+              }
+            }}
+            style={styles.errorBackButton}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.errorBackButtonText}>Retour</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -1707,6 +1800,18 @@ const styles = StyleSheet.create({
     color: '#604a3e',
     fontSize: 16,
     fontWeight: '600',
+  },
+  errorBackButton: {
+    marginTop: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    backgroundColor: '#604a3e',
+    borderRadius: 24,
+  },
+  errorBackButtonText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: 'bold',
   },
   header: {
     flexDirection: 'row',

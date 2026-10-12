@@ -28,6 +28,8 @@ import {
 } from '../lib/sendProutBackend';
 // Import supprimé : on utilise maintenant sync_contacts (fonction SQL Supabase)
 import i18n from '../lib/i18n';
+import { triggerProutHaptic } from '../lib/proutHaptics';
+import { isProotBot, PROOT_BOT_ID, triggerProotBotResponse, setProotBotDismissed } from '../lib/prootBot';
 import { useProotAudio, type ChatMessageSoundChoice } from '../hooks/useProotAudio';
 import { getPickupKeys, getDisplaySoundLabel, getDefaultSoundCategoryForFirstLaunch, stopCurrentPlayback } from '../lib/audioService';
 import {
@@ -2729,6 +2731,10 @@ useEffect(() => {
 
   const handleMuteFriend = useStableCallback(async (friend: any) => {
     if (!currentUserId) return;
+    if (friend.id === PROOT_BOT_ID) {
+      showToast(i18n.t('prootbot_not_silent'));
+      return;
+    }
     try {
       const { error } = await supabase
         .from('friends')
@@ -2750,6 +2756,7 @@ useEffect(() => {
 
   const handleUnmuteFriend = useStableCallback(async (friend: any) => {
     if (!currentUserId) return;
+    if (friend.id === PROOT_BOT_ID) return;
     try {
       const { error } = await supabase
         .from('friends')
@@ -2860,6 +2867,25 @@ useEffect(() => {
   const handleDeleteFriend = useStableCallback(async (friend: any) => {
     if (!currentUserId) return;
 
+    if (friend.id === PROOT_BOT_ID) {
+      Alert.alert(
+        i18n.t('hide_prootbot_title'),
+        i18n.t('hide_prootbot_message'),
+        [
+          { text: i18n.t('cancel'), style: 'cancel' },
+          {
+            text: i18n.t('hide_btn'),
+            style: 'destructive',
+            onPress: async () => {
+              await setProotBotDismissed(true);
+              queryClient.invalidateQueries({ queryKey: ['friends'] });
+            },
+          },
+        ]
+      );
+      return;
+    }
+
     Alert.alert(
       i18n.t('block_user_confirm_title'),
       i18n.t('block_user_confirm_body', { pseudo: friend.pseudo }),
@@ -2963,6 +2989,12 @@ useEffect(() => {
     if (isModalTransitionActive()) return;
     if (friendSoundModalVisible) return;
     markModalTransition();
+
+    if (friend.id === PROOT_BOT_ID) {
+      showToast(i18n.t('prootbot_companion_info'));
+      return;
+    }
+
     let revealedName: string | null = null;
 
     // Cas 1 : Le vrai nom est déjà connu (identityAlias)
@@ -3259,6 +3291,32 @@ useEffect(() => {
     recipient: any,
     options?: { forcedCustomMessage?: string; forcedSoundKey?: string }
   ) => {
+    // Cas spécial : ProotBot 🤖 (Bot d'onboarding)
+    if (recipient.id === PROOT_BOT_ID) {
+      const soundKey = options?.forcedSoundKey || 'toot1';
+      const proutName = getDisplaySoundLabel(soundKey);
+      showToast(`${proutName} !`);
+      if (onProutSent) onProutSent();
+      triggerProutHaptic(soundKey, isHapticEnabled);
+      playLocalSound(soundKey);
+
+      const swipeSentId = `bot-swipe-${Date.now()}`;
+      useChatStore.getState().addSentMessages(PROOT_BOT_ID, [{
+        id: swipeSentId,
+        text: '',
+        soundKey,
+        ts: new Date().toISOString(),
+        local_ts: Date.now(),
+      }]);
+
+      // Réponse automatique de ProotBot après 3 secondes
+      triggerProotBotResponse(isHapticEnabled, () => {
+        showToast(i18n.t('prootbot_replied'));
+        useChatStore.getState().markMessagesAsRead(PROOT_BOT_ID, [swipeSentId]);
+      });
+      return;
+    }
+
     // 1. Vérification Mode Zen (Moi) - utilise la prop isZenMode
     if (isZenMode) {
       Alert.alert(i18n.t('zen_mode_active_me_title'), i18n.t('zen_mode_active_me_body'));
@@ -3348,7 +3406,11 @@ useEffect(() => {
       if (onProutSent) {
         onProutSent();
       }
-      triggerOutgoingMessageHaptic();
+      if (!isSilentMessage) {
+        triggerProutHaptic(randomKey, isHapticEnabled);
+      } else {
+        triggerOutgoingMessageHaptic();
+      }
 
       // Jouer localement (si pas silencieux)
       if (!isSilentMessage) {
@@ -3963,6 +4025,31 @@ useEffect(() => {
                   </View>
                 </View>
               </View>
+
+              {/* Actions d'invitation et de recherche si l'utilisateur n'a que ProotBot */}
+              {displayUsers.length === 1 && displayUsers[0].id === PROOT_BOT_ID && (
+                <View style={{ marginTop: 14, width: '100%', alignItems: 'center' }}>
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={onInviteFriend}
+                    style={styles.emptyActionRow}
+                  >
+                    <Ionicons name="share-social-outline" size={18} color="#604a3e" style={styles.emptyActionIcon} />
+                    <Text style={styles.emptyActionText}>{i18n.t('empty_friendlist_invite_friends')}</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => {
+                      DeviceEventEmitter.emit('OPEN_SEARCH_MODAL');
+                    }}
+                    style={[styles.emptyActionRow, { marginTop: 10 }]}
+                  >
+                    <Ionicons name="search" size={18} color="#604a3e" style={styles.emptyActionIcon} />
+                    <Text style={styles.emptyActionText}>{i18n.t('empty_friendlist_search_pseudo')}</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           ) : null
         }

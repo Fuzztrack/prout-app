@@ -100,16 +100,17 @@ export default function NotificationPermissionScreen() {
       </View>
       
       <View style={styles.content}>
-        <Text style={styles.title}>{i18n.t('notification_permission_title')}</Text>
-        
-        <Text style={styles.message}>
-          {i18n.t('notification_permission_message')}
-        </Text>
-        
-        <Text style={styles.message}>
-          {i18n.t('accept_notifications_message')}
-        </Text>
-        
+        <View style={styles.card}>
+          <Text style={styles.cardEmoji}>📢</Text>
+          <Text style={styles.title}>{i18n.t('notification_permission_title')}</Text>
+          <Text style={styles.message}>
+            {i18n.t('notification_permission_message')}
+          </Text>
+          <Text style={styles.subMessage}>
+            {i18n.t('accept_notifications_message')}
+          </Text>
+        </View>
+
         <CustomButton
           title={i18n.t('authorize_notifications')}
           onPress={handleNext}
@@ -140,20 +141,46 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
+  },
+  card: {
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+    marginBottom: 30,
+    borderWidth: 1,
+    borderColor: 'rgba(96, 74, 62, 0.15)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  cardEmoji: {
+    fontSize: 42,
+    marginBottom: 10,
   },
   title: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#604a3e',
     textAlign: 'center',
-    marginBottom: 30,
+    marginBottom: 16,
   },
   message: {
     fontSize: 16,
     color: '#604a3e',
     textAlign: 'center',
-    marginBottom: 40,
     lineHeight: 24,
+    marginBottom: 12,
+    fontWeight: '600',
+  },
+  subMessage: {
+    fontSize: 14,
+    color: '#604a3e',
+    textAlign: 'center',
+    lineHeight: 20,
+    opacity: 0.85,
   },
 });

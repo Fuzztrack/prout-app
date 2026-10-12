@@ -164,6 +164,14 @@ export default function HomeScreen() {
         const pseudo = profile.pseudo || '';
         const avatarUrl = profile.avatar_url || null;
         setProfile({ pseudo, avatarUrl });
+
+        // Si le pseudo est générique (User_...) ou vide, forcer le choix d'un vrai pseudo
+        const isSystem = !pseudo || pseudo === 'Nouveau Membre' || pseudo.toLowerCase().startsWith('user_');
+        if (isSystem) {
+          safeReplace(router, '/CompleteProfileScreen', { skipInitialCheck: false });
+          return;
+        }
+
         // Mémoriser pour affichage instantané au prochain lancement
         AsyncStorage.setItem(CACHE_PSEUDO_KEY, pseudo).catch(() => {});
         if (avatarUrl) {
