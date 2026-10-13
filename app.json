@@ -2,7 +2,7 @@
   "expo": {
     "name": "Proot !",
     "slug": "prrtapp",
-    "version": "1.1.42",
+    "version": "1.1.44",
     "orientation": "portrait",
     "icon": "./asset/images/Prrt_icon.png",
     "scheme": "prootapp",
@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.prrt.app",
-      "buildNumber": "117",
+      "buildNumber": "119",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "CFBundleDisplayName": "Proot !",
@@ -29,7 +29,7 @@
         "NSContactsUsageDescription": "This app uploads phone numbers from your contacts to the secure servers of Proot ! to automatically find your friends. This data is not shared with third parties.",
         "NSPhotoLibraryUsageDescription": "This app needs access to your photos so you can choose a profile picture.",
         "NSPhotoLibraryAddUsageDescription": "This app needs access to your photos so you can choose a profile picture.",
-        "NSCameraUsageDescription": "This app needs access to your camera so you can take a profile picture."
+        "NSCameraUsageDescription": "This app needs access to your camera to take photos and scan friend QR codes."
       }
     },
     "android": {
@@ -39,7 +39,7 @@
         "backgroundColor": "#ebb89b"
       },
       "package": "com.fuzztrack.proutapp",
-      "versionCode": 214,
+      "versionCode": 216,
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.MODIFY_AUDIO_SETTINGS",
@@ -142,6 +142,14 @@
         "expo-contacts",
         {
           "contactsPermission": "This app uploads phone numbers from your contacts to the secure servers of Proot ! to automatically find your friends. This data is not shared with third parties."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "This app needs access to your camera to take photos and scan friend QR codes.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
         }
       ],
       "expo-localization",

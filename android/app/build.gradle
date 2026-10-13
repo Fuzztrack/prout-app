@@ -94,8 +94,8 @@ android {
         applicationId 'com.fuzztrack.proutapp'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 212
-        versionName "1.1.40"
+        versionCode 216
+        versionName "1.1.44"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }

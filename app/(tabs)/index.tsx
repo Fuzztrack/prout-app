@@ -23,7 +23,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const appVersion = Constants.expoConfig?.version ?? '1.1.42';
+  const appVersion = Constants.expoConfig?.version ?? '1.1.44';
   
   const isLoadedRef = useRef(false);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -923,7 +923,6 @@ useEffect(() => {
           </View>
         )}
       <PrivacyPolicyModal visible={showPrivacy} onClose={() => setShowPrivacy(false)} />
-      <SearchUser visible={showSearch} onClose={() => setShowSearch(false)} />
       <IdentityList visible={showIdentity} onClose={() => setShowIdentity(false)} />
       <BlockedUsersList
         visible={showBlockedUsers}
@@ -976,6 +975,9 @@ useEffect(() => {
           </View>
         </View>
       )}
+
+      {/* Modale d'ajout d'amis / QR Code en surimpression absolue */}
+      <SearchUser visible={showSearch} onClose={() => setShowSearch(false)} />
     </>
   );
 }
