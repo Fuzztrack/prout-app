@@ -6,6 +6,7 @@ import { ensureAndroidNotificationChannel } from '@/lib/notifications';
 import { hasAcceptedEulaLocally } from '@/lib/eula';
 import { registerPushTokenForUser } from '@/lib/pushTokenRegistration';
 import { logSessionSnapshot } from '@/lib/authDebug';
+import { cleanupExpiredEphemeralPhotos } from '@/lib/services/ephemeralPhotoService';
 
 export interface InitResult {
   session: any;
@@ -45,6 +46,7 @@ export const initializeApp = async (): Promise<InitResult> => {
     if (session) {
       AsyncStorage.setItem('supabase_was_logged_in', 'true').catch(() => {});
       registerPushTokenForUser(session.user.id).catch(() => {});
+      cleanupExpiredEphemeralPhotos(session.user.id).catch(() => {});
     } else if (wasLoggedIn === 'true') {
       console.log('⚡ Mode offline activé (basé sur supabase_was_logged_in)');
       offlineAccess = true;

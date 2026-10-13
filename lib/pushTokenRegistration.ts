@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
+import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
@@ -33,7 +34,7 @@ export async function clearCurrentUserPushToken() {
 }
 
 export async function registerPushTokenForUser(userId: string) {
-  if (Platform.OS === 'web' || !userId) return;
+  if (Platform.OS === 'web' || !userId || !Device.isDevice) return;
 
   try {
     // 1. Vérifier si l'utilisateur est passé par l'onboarding

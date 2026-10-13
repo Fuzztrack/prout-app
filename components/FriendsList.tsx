@@ -50,7 +50,7 @@ import {
 } from './FriendsListComponents/ChatMessages';
 import { ChatModal } from './FriendsListComponents/ChatModal';
 import { FriendSoundPickModal } from './FriendsListComponents/Modals/FriendSoundPickModal';
-import { useChatStore } from '@/lib/chatStore';
+import { useChatStore, isPhotoExpired } from '@/lib/chatStore';
 import { useFriendsStore } from '@/lib/friendsStore';
 import { ReportReasonModal } from './FriendsListComponents/Modals/ReportReasonModal';
 import { IdentityModal } from './FriendsListComponents/Modals/IdentityModal';
@@ -208,8 +208,21 @@ type PendingMessage = {
 
 type ReportReason = 'spam' | 'harassment' | 'hate_speech' | 'explicit_content' | 'other';
 
-const truncateContactPreview = (text?: string | null, maxLength: number = 15) => {
-  const cleanText = stripReadPrefix(text).trim();
+const truncateContactPreview = (text?: string | null, maxLength: number = 15, messageId?: string) => {
+  const parsed = parseMessageContent(text);
+  const cleanText = parsed.text.trim();
+  const expired = parsed.isImageExpired || isPhotoExpired(messageId, parsed.imageUrl);
+  if (expired) {
+    if (!cleanText) return '';
+    return cleanText.length > maxLength ? `${cleanText.slice(0, maxLength)}...` : cleanText;
+  }
+  if (parsed.imageUrl || parsed.isImageExpired) {
+    if (cleanText) {
+      const display = `📷 ${cleanText}`;
+      return display.length > maxLength ? `${display.slice(0, maxLength)}...` : display;
+    }
+    return '📷 Photo';
+  }
   if (!cleanText) return '';
   return cleanText.length > maxLength ? `${cleanText.slice(0, maxLength)}...` : cleanText;
 };
@@ -566,7 +579,13 @@ export function FriendsList({
       const serverMessages = pendingMessagesData
         .filter(m => !blockedSet.has(m.from_user_id))
         .filter(m => !deletedMessagesCache.has(m.id))
-        .map(m => ({ ...m, isPendingDelete: false }));
+        .map(m => {
+          const parsed = parseMessageContent(m.message_content);
+          if (isPhotoExpired(m.id, parsed.imageUrl) && !(m.message_content?.startsWith('READ:') ?? false)) {
+            return { ...m, message_content: `READ:${m.message_content || ''}`, isPendingDelete: false };
+          }
+          return { ...m, isPendingDelete: false };
+        });
 
       setPendingMessages(prev => {
         // 2. Identifier les messages locaux récents à conserver (optimistes)
@@ -574,6 +593,8 @@ export function FriendsList({
         const survivingRecent = prev.filter(localMsg => {
           // Si le message est déjà marqué READ: ou que sa version dans le store est READ:, ne pas le conserver comme récent non-lu !
           if (localMsg.message_content?.startsWith('READ:')) return false;
+          const parsed = parseMessageContent(localMsg.message_content);
+          if (isPhotoExpired(localMsg.id, parsed.imageUrl)) return false;
           const storeMsg = receivedByFriend[localMsg.from_user_id]?.find(sm => sm.id === localMsg.id);
           if (storeMsg?.message_content?.startsWith('READ:')) return false;
 
@@ -599,6 +620,11 @@ export function FriendsList({
         // D'abord les messages du store persistant (Notification/Sync)
         // ILS ONT LA PRIORITÉ POUR LE STATUT 'LU' (READ:) local
         Object.values(receivedByFriend).flat().forEach(m => {
+          const parsed = parseMessageContent(m.message_content);
+          if (isPhotoExpired(m.id, parsed.imageUrl)) {
+            const hasText = !!parsed.text && parsed.text.trim().length > 0;
+            if (!hasText) return;
+          }
           mergedById.set(m.id, m);
         });
 
@@ -654,10 +680,10 @@ export function FriendsList({
           return acc;
         }, {} as Record<string, PendingMessage[]>);
 
-        Object.entries(groupedBySender).forEach(([senderId, msgs]) => {
+        (Object.entries(groupedBySender) as [string, PendingMessage[]][]).forEach(([senderId, msgs]) => {
           // Wrap in setTimeout to ensure it doesn't trigger a synchronous re-render during the current render phase
           setTimeout(() => {
-            useChatStore.getState().addReceivedMessages(senderId, msgs);
+            useChatStore.getState().addReceivedMessages(senderId, msgs as any);
           }, 0);
         });
       }
@@ -1567,6 +1593,11 @@ export function FriendsList({
         let changed = false;
         const next = prev.map((m) => {
           if (m.message_content?.startsWith('READ:')) return m;
+          const parsed = parseMessageContent(m.message_content);
+          if (isPhotoExpired(m.id, parsed.imageUrl)) {
+            changed = true;
+            return { ...m, message_content: `READ:${m.message_content || ''}` };
+          }
           const storeMsg = storeReceived[m.from_user_id]?.find((sm) => sm.id === m.id);
           if (storeMsg?.message_content?.startsWith('READ:')) {
             changed = true;
@@ -3861,12 +3892,19 @@ useEffect(() => {
   const unreadMessagesMap = useMemo(() => {
     const map: Record<string, typeof pendingMessages> = {};
     pendingMessages.forEach(m => {
-      if (!m.isPendingDelete && !(m.message_content?.startsWith('READ:') ?? false)) {
-        if (!map[m.from_user_id]) {
-          map[m.from_user_id] = [];
-        }
-        map[m.from_user_id].push(m);
+      if (m.isPendingDelete || (m.message_content?.startsWith('READ:') ?? false)) {
+        return;
       }
+      const parsed = parseMessageContent(m.message_content);
+      const expired = isPhotoExpired(m.id, parsed.imageUrl);
+      if (expired) {
+        const hasText = !!parsed.text && parsed.text.trim().length > 0;
+        if (!hasText) return;
+      }
+      if (!map[m.from_user_id]) {
+        map[m.from_user_id] = [];
+      }
+      map[m.from_user_id].push(m);
     });
     return map;
   }, [pendingMessages]);
@@ -4015,6 +4053,7 @@ useEffect(() => {
         renderItem={({ item, index }) => {
           const unreadMessages = unreadMessagesMap[item.id] || [];
           const hasUnread = unreadMessages.length > 0;
+          const lastUnread = unreadMessages[unreadMessages.length - 1];
           
           const isActive = expandedFriendId === item.id;
           const baseColor = index % 2 === 0 ? '#d2f1ef' : '#baded7';
@@ -4035,7 +4074,7 @@ useEffect(() => {
               onLongPressRow={handleLongPressSoundCategory}
               onPressName={handlePressFriend}
               hasUnread={hasUnread}
-              unreadMessage={truncateContactPreview(unreadMessages[unreadMessages.length - 1]?.message_content) || (hasUnread && unreadMessages.length > 1 ? `${unreadMessages.length} messages` : null)}
+              unreadMessage={truncateContactPreview(lastUnread?.message_content, 15, lastUnread?.id) || (hasUnread && unreadMessages.length > 1 ? `${unreadMessages.length} messages` : null)}
               onDeleteFriend={handleDeleteFriend}
               onMuteFriend={handleMuteFriend}
               onUnmuteFriend={handleUnmuteFriend}

@@ -135,7 +135,12 @@ export const setupNotificationListeners = (
     
     // Toast Android
     if (data?.type === 'prout') {
-      showToast(title || 'Prout !', body || '');
+      let displayBody = body || '';
+      if (displayBody.includes('[IMG:') || displayBody.includes('[IMG_ONCE:')) {
+        const textOnly = displayBody.replace(/\[(IMG|IMG_ONCE):[^\]]+\]/, '').trim();
+        displayBody = textOnly ? `📷 ${textOnly}` : '📷 Photo';
+      }
+      showToast(title || 'Prout !', displayBody);
     } else if (data?.type === 'identity_response') {
       showToast(i18n.t('identity_revealed_title'), body || i18n.t('identity_revealed_body'));
     }

@@ -1,7 +1,9 @@
 import React, { useCallback, useRef, useState, useEffect } from 'react';
 import {
+  ActionSheetIOS,
   Alert,
   DeviceEventEmitter,
+  Image,
   Keyboard,
   Platform,
   StyleSheet,
@@ -11,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Animated from 'react-native-reanimated';
@@ -18,6 +21,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import i18n from '@/lib/i18n';
 import { supabase } from '@/lib/supabase';
 import { sendProutViaBackend, editMessageViaBackend } from '@/lib/sendProutBackend';
+import { uploadEphemeralPhoto } from '@/lib/services/ephemeralPhotoService';
 import {
   getDisplaySoundLabel,
   getSelectedSoundCategory,
@@ -88,6 +92,8 @@ export const ChatComposer = React.memo(({
   onMessageConfirmed,
 }: ChatComposerProps) => {
   const [draft, setDraft] = useState('');
+  const [pendingPhotoUri, setPendingPhotoUri] = useState<string | null>(null);
+  const [isViewOnce, setIsViewOnce] = useState(false);
   const [sending, setSending] = useState(false);
   const lastRandomSoundRef = useRef<string | undefined>(undefined);
   const queryClient = useQueryClient();
@@ -101,17 +107,68 @@ export const ChatComposer = React.memo(({
     }
   }, [editingMessage, inputRef]);
 
+  const handlePickPhoto = useCallback(() => {
+    Keyboard.dismiss();
+
+    const handleCameraPick = async () => {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(i18n.t('error'), i18n.t('camera_permission_required') || 'Permission d\'accès à la caméra requise');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        quality: 0.6,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setPendingPhotoUri(result.assets[0].uri);
+      }
+    };
+
+    const handleGalleryPick = async () => {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        quality: 0.6,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setPendingPhotoUri(result.assets[0].uri);
+      }
+    };
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: [i18n.t('cancel'), i18n.t('camera'), i18n.t('gallery')],
+          cancelButtonIndex: 0,
+        },
+        async (buttonIndex) => {
+          if (buttonIndex === 1) await handleCameraPick();
+          else if (buttonIndex === 2) await handleGalleryPick();
+        }
+      );
+    } else {
+      Alert.alert(
+        i18n.t('choose_photo_source') || 'Photo',
+        '',
+        [
+          { text: i18n.t('cancel'), style: 'cancel' },
+          { text: i18n.t('camera'), onPress: () => void handleCameraPick() },
+          { text: i18n.t('gallery'), onPress: () => void handleGalleryPick() },
+        ]
+      );
+    }
+  }, []);
+
   const handleSend = useCallback(async () => {
-    const customMessage = draft.trim().slice(0, 240);
-    if (!customMessage) return;
+    const rawDraft = draft.trim().slice(0, 240);
+    if (!rawDraft && !pendingPhotoUri) return;
 
     if (isZenMode) {
       Alert.alert(i18n.t('zen_mode_active_me_title'), i18n.t('zen_mode_active_me_body'));
       return;
     }
-
-    // Retrait du blocage du mode Zen pour permettre le chat silencieux
-    // if (friend.is_zen_mode) { ... }
 
     setSending(true);
 
@@ -119,7 +176,7 @@ export const ChatComposer = React.memo(({
       if (editingMessage) {
         // MODE ÉDITION
         if (friend.id === PROOT_BOT_ID) {
-          onMessageEdited?.(editingMessage.id, customMessage);
+          onMessageEdited?.(editingMessage.id, rawDraft);
           setDraft('');
           if (Platform.OS === 'ios' && isHapticEnabled) {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
@@ -127,9 +184,9 @@ export const ChatComposer = React.memo(({
           return;
         }
 
-        const result = await editMessageViaBackend(editingMessage.id, customMessage, currentUserId);
+        const result = await editMessageViaBackend(editingMessage.id, rawDraft, currentUserId);
         if (result.success) {
-          onMessageEdited?.(editingMessage.id, customMessage);
+          onMessageEdited?.(editingMessage.id, rawDraft);
           setDraft('');
           if (Platform.OS === 'ios' && isHapticEnabled) {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
@@ -145,6 +202,21 @@ export const ChatComposer = React.memo(({
         }
         return;
       }
+
+      // Upload de la photo éphémère si présente
+      let uploadedImageUrl: string | null = null;
+      if (pendingPhotoUri) {
+        uploadedImageUrl = await uploadEphemeralPhoto(pendingPhotoUri, currentUserId);
+        if (!uploadedImageUrl && !rawDraft) {
+          Alert.alert(i18n.t('error'), "Impossible d'envoyer la photo.");
+          setSending(false);
+          return;
+        }
+      }
+
+      const customMessage = uploadedImageUrl
+        ? (isViewOnce ? `[IMG_ONCE:${uploadedImageUrl}]${rawDraft}` : `[IMG:${uploadedImageUrl}]${rawDraft}`)
+        : rawDraft;
 
       // MODE ENVOI
       if (friend.id === PROOT_BOT_ID) {
@@ -162,7 +234,9 @@ export const ChatComposer = React.memo(({
 
         const botSentMessage: VisibleSentMessage = {
           id: `bot-sent-${Date.now()}`,
-          text: customMessage,
+          text: rawDraft,
+          imageUrl: uploadedImageUrl || undefined,
+          isViewOnce: !!uploadedImageUrl && isViewOnce,
           ts: new Date().toISOString(),
           soundKey: randomKey,
           local_ts: Date.now(),
@@ -171,6 +245,8 @@ export const ChatComposer = React.memo(({
         useChatStore.getState().addSentMessages(PROOT_BOT_ID, [botSentMessage]);
         onMessageSent(botSentMessage);
         setDraft('');
+        setPendingPhotoUri(null);
+        setIsViewOnce(false);
         setPendingChatSoundKey(null);
 
         if (Platform.OS === 'ios' && isHapticEnabled) {
@@ -251,7 +327,9 @@ export const ChatComposer = React.memo(({
 
       const optimisticMessage: VisibleSentMessage = {
         id: `local-${Date.now()}`,
-        text: customMessage,
+        text: rawDraft,
+        imageUrl: uploadedImageUrl || undefined,
+        isViewOnce: !!uploadedImageUrl && isViewOnce,
         ts: new Date().toISOString(),
         soundKey: randomKey,
         optimistic: true,
@@ -260,6 +338,8 @@ export const ChatComposer = React.memo(({
 
       onMessageSent(optimisticMessage);
       setDraft('');
+      setPendingPhotoUri(null);
+      setIsViewOnce(false);
       setPendingChatSoundKey(null);
 
       if (Platform.OS === 'ios' && isHapticEnabled) {
@@ -299,7 +379,7 @@ export const ChatComposer = React.memo(({
     } catch (error: any) {
       console.error("Erreur lors de l'envoi/modif du message:", error?.message || error);
       Alert.alert(i18n.t('error'), "Une erreur est survenue.");
-      if (!editingMessage) setDraft(customMessage);
+      if (!editingMessage) setDraft(rawDraft);
     } finally {
       setSending(false);
     }
@@ -313,6 +393,8 @@ export const ChatComposer = React.memo(({
     isSilentMode,
     isZenMode,
     pendingChatSoundKey,
+    pendingPhotoUri,
+    isViewOnce,
     onMessageSent,
     setPendingChatSoundKey,
     queryClient,
@@ -343,6 +425,51 @@ export const ChatComposer = React.memo(({
           <Ionicons name="close-circle" size={14} color="#604a3e" style={{ marginLeft: 4 }} />
         </TouchableOpacity>
       )}
+
+      {!!pendingPhotoUri && !editingMessage && (
+        <View style={styles.photoPreviewBar}>
+          <View style={styles.photoPreviewThumbContainer}>
+            <Image source={{ uri: pendingPhotoUri }} style={styles.photoPreviewThumb} resizeMode="cover" />
+            {isViewOnce ? (
+              <View style={[styles.photoEphemeralTag, styles.photoEphemeralTagViewOnce]}>
+                <Text style={styles.photoEphemeralTagText}>① 1x</Text>
+              </View>
+            ) : null}
+          </View>
+
+          <TouchableOpacity
+            style={[styles.viewOnceToggle, isViewOnce && styles.viewOnceToggleActive]}
+            onPress={() => {
+              if (Platform.OS === 'ios' && isHapticEnabled) {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+              }
+              setIsViewOnce((prev) => !prev);
+            }}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={i18n.t('view_once')}
+          >
+            <View style={[styles.viewOnceIconBadge, isViewOnce && styles.viewOnceIconBadgeActive]}>
+              <Text style={[styles.viewOnceIconText, isViewOnce && styles.viewOnceIconTextActive]}>①</Text>
+            </View>
+            <Text style={[styles.viewOnceText, isViewOnce && styles.viewOnceTextActive]}>
+              {i18n.t('view_once')}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.photoPreviewCancel}
+            onPress={() => {
+              setPendingPhotoUri(null);
+              setIsViewOnce(false);
+            }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="close-circle" size={20} color="#604a3e" />
+          </TouchableOpacity>
+        </View>
+      )}
+
       <View style={styles.composerRow}>
         {!editingMessage && (
           <TouchableOpacity
@@ -359,28 +486,48 @@ export const ChatComposer = React.memo(({
             />
           </TouchableOpacity>
         )}
-        <TextInput
-          ref={inputRef}
-          style={[styles.input, editingMessage && styles.inputEditing]}
-          placeholder={i18n.t('add_message_placeholder')}
-          placeholderTextColor="#777"
-          value={draft}
-          onChangeText={setDraft}
-          multiline
-          maxLength={240}
-          autoCorrect={false}
-          autoComplete="off"
-          autoFocus
-          keyboardAppearance="light"
-        />
+
+        <View style={[styles.inputContainer, editingMessage && styles.inputContainerEditing]}>
+          <TextInput
+            ref={inputRef}
+            style={styles.input}
+            placeholder={i18n.t('add_message_placeholder')}
+            placeholderTextColor="#777"
+            value={draft}
+            onChangeText={setDraft}
+            multiline
+            maxLength={240}
+            autoCorrect={false}
+            autoComplete="off"
+            keyboardAppearance="light"
+          />
+          {!editingMessage && (
+            <TouchableOpacity
+              style={styles.cameraButton}
+              onPress={handlePickPhoto}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              activeOpacity={0.7}
+              disabled={sending}
+              accessibilityRole="button"
+              accessibilityLabel={i18n.t('photo') || 'Photo'}
+            >
+              <Ionicons
+                name="camera"
+                size={22}
+                color={pendingPhotoUri ? '#FF8A3D' : '#604a3e'}
+              />
+            </TouchableOpacity>
+          )}
+        </View>
+
         <TouchableOpacity
           onPress={() => void handleSend()}
           style={[
             styles.sendButton,
-            (!draft.trim() || sending || !isProfileHydrated) && styles.sendButtonDisabled,
+            ((!draft.trim() && !pendingPhotoUri) || sending || !isProfileHydrated) && styles.sendButtonDisabled,
             editingMessage && styles.editConfirmButton,
           ]}
-          disabled={!draft.trim() || sending || !isProfileHydrated}
+          disabled={(!draft.trim() && !pendingPhotoUri) || sending || !isProfileHydrated}
           activeOpacity={0.85}
         >
           <Ionicons name={editingMessage ? "checkmark" : "send"} size={editingMessage ? 22 : 18} color="#604a3e" />
@@ -424,6 +571,99 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: 'bold',
   },
+  photoPreviewBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    borderRadius: 12,
+    padding: 6,
+    marginBottom: 8,
+    marginHorizontal: 4,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(96, 74, 62, 0.15)',
+  },
+  photoPreviewThumbContainer: {
+    position: 'relative',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  photoPreviewThumb: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+  },
+  photoEphemeralTag: {
+    position: 'absolute',
+    bottom: 2,
+    left: 2,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    borderRadius: 4,
+    paddingHorizontal: 3,
+    paddingVertical: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  photoEphemeralTagText: {
+    color: '#fff',
+    fontSize: 8,
+    fontWeight: 'bold',
+  },
+  photoEphemeralTagViewOnce: {
+    backgroundColor: '#FF8A3D',
+  },
+  viewOnceToggle: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: '#FAF5EE',
+    borderWidth: 1.5,
+    borderColor: '#D4C4B5',
+  },
+  viewOnceToggleActive: {
+    backgroundColor: '#FF8A3D',
+    borderColor: '#E06F24',
+  },
+  viewOnceIconBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#8D7B6F',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewOnceIconBadgeActive: {
+    borderColor: '#FFFFFF',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  viewOnceIconText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#8D7B6F',
+    marginTop: Platform.OS === 'android' ? -1 : 0,
+  },
+  viewOnceIconTextActive: {
+    color: '#FFFFFF',
+  },
+  viewOnceText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#604A3E',
+  },
+  viewOnceTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  photoPreviewCancel: {
+    padding: 4,
+  },
   pendingSoundTag: {
     alignSelf: 'flex-start',
     flexDirection: 'row',
@@ -452,22 +692,34 @@ const styles = StyleSheet.create({
     width: Platform.OS === 'android' ? ANDROID_CHAT_THUMB_SIZE.width : 34,
     height: Platform.OS === 'android' ? ANDROID_CHAT_THUMB_SIZE.height : 34,
   },
-  input: {
+  inputContainer: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
     minHeight: 44,
     maxHeight: 110,
     borderWidth: 1,
     borderColor: '#c5d7d3',
     borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
     backgroundColor: '#fff',
+    paddingLeft: 12,
+    paddingRight: 6,
+  },
+  inputContainerEditing: {
+    borderColor: '#604a3e',
+    backgroundColor: '#fffcf5',
+  },
+  input: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingRight: 4,
     color: '#333',
     fontSize: 18,
   },
-  inputEditing: {
-    borderColor: '#604a3e',
-    backgroundColor: '#fffcf5',
+  cameraButton: {
+    padding: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sendButton: {
     width: 44,

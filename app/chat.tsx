@@ -7,6 +7,8 @@ import {
   ActivityIndicator,
   Alert,
   Animated as RNAnimated,
+  AppState,
+  type AppStateStatus,
   DeviceEventEmitter,
   FlatList,
   Image,
@@ -39,7 +41,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '@/lib/store';
-import { useChatStore, type PendingMessage, type VisibleSentMessage } from '@/lib/chatStore';
+import { useChatStore, isPhotoExpired, type PendingMessage, type VisibleSentMessage } from '@/lib/chatStore';
 import i18n from '@/lib/i18n';
 import { safePush } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
@@ -70,11 +72,15 @@ import { ReceivedBubble } from '@/components/chat/ReceivedBubble';
 import { SentBubble } from '@/components/chat/SentBubble';
 import { ChatComposer } from '@/components/chat/ChatComposer';
 import { chatStyles as bubbleStyles } from '@/components/chat/chatStyles';
+import { deleteEphemeralPhoto, cleanupExpiredEphemeralPhotos } from '@/lib/services/ephemeralPhotoService';
 
 type ParsedMessage = {
   text: string;
   isRead: boolean;
   soundKey?: string;
+  imageUrl?: string;
+  isViewOnce?: boolean;
+  isImageExpired?: boolean;
 };
 
 type FriendProfile = {
@@ -158,11 +164,38 @@ function parseMessageContent(raw?: string | null): ParsedMessage {
   if (text.startsWith('[')) {
     const endBracket = text.indexOf(']');
     if (endBracket !== -1) {
-      soundKey = text.slice(1, endBracket);
-      text = text.slice(endBracket + 1);
+      const tag = text.slice(1, endBracket);
+      if (!tag.startsWith('IMG:') && !tag.startsWith('IMG_ONCE:') && tag !== 'EXPIRED_IMG') {
+        soundKey = tag;
+        text = text.slice(endBracket + 1);
+      }
     }
   }
-  return { text, isRead, soundKey };
+
+  let imageUrl: string | undefined;
+  let isViewOnce = false;
+  let isImageExpired = false;
+
+  if (text.startsWith('[IMG_ONCE:')) {
+    const endImg = text.indexOf(']');
+    if (endImg !== -1) {
+      imageUrl = text.slice(10, endImg);
+      isViewOnce = true;
+      text = text.slice(endImg + 1);
+    }
+  } else if (text.startsWith('[IMG:')) {
+    const endImg = text.indexOf(']');
+    if (endImg !== -1) {
+      imageUrl = text.slice(5, endImg);
+      isViewOnce = false;
+      text = text.slice(endImg + 1);
+    }
+  } else if (text.startsWith('[EXPIRED_IMG]')) {
+    isImageExpired = true;
+    text = text.slice('[EXPIRED_IMG]'.length);
+  }
+
+  return { text, isRead, soundKey, imageUrl, isViewOnce, isImageExpired };
 }
 
 function stripReadPrefix(text?: string | null) {
@@ -227,10 +260,16 @@ export default function ChatScreen() {
   const [serverFriend, setServerFriend] = useState<FriendProfile | null>(null);
   const [draft, setDraft] = useState('');
   const [editingMessage, setEditingMessage] = useState<VisibleSentMessage | null>(null);
+  const [fullScreenImage, setFullScreenImage] = useState<{ url: string; isViewOnce?: boolean; messageId?: string } | null>(null);
 
   // Initialisation à partir du store local
   const [receivedMessages, setReceivedMessages] = useState<PendingMessage[]>(receivedByFriend[friendId] || []);
   const [sentMessages, setSentMessages] = useState<VisibleSentMessage[]>(sentByFriend[friendId] || []);
+
+  const sentMessagesRef = useRef(sentMessages);
+  sentMessagesRef.current = sentMessages;
+  const receivedMessagesRef = useRef(receivedMessages);
+  receivedMessagesRef.current = receivedMessages;
 
   const handleMessageEdited = useCallback((messageId: string, newText: string) => {
     // 1. Mettre à jour l'état UI local pour un feedback immédiat
@@ -328,10 +367,8 @@ export default function ChatScreen() {
 
   const handleMessageSent = useCallback((msg: VisibleSentMessage) => {
     setSentMessages((prev) => [...prev, msg]);
-    if (isBot) {
-      addSentMessages(friendId, [msg]);
-    }
-  }, [addSentMessages, friendId, isBot]);
+    addSentMessages(friendId, [msg]);
+  }, [addSentMessages, friendId]);
 
   useEffect(() => {
     pulseScale.value = withRepeat(
@@ -589,15 +626,25 @@ export default function ChatScreen() {
       .filter((m) => m.to_user_id === friendId)
       .map((m) => {
         const parsed = parseMessageContent(m.message_content || '');
+        const expired = isPhotoExpired(m.id, parsed.imageUrl);
         return {
           id: m.id,
           text: parsed.text,
           soundKey: parsed.soundKey,
+          imageUrl: expired ? undefined : parsed.imageUrl,
+          isViewOnce: parsed.isViewOnce,
+          isImageExpired: expired || parsed.isImageExpired,
           ts: m.created_at,
           status: parsed.isRead ? ('read' as const) : undefined,
           readAt: parsed.isRead ? Date.now() : undefined,
           local_ts: 0,
         } satisfies VisibleSentMessage;
+      })
+      .filter((m) => {
+        const hasText = !!m.text && m.text.trim().length > 0;
+        const hasActiveImg = !m.isImageExpired && !!m.imageUrl;
+        const hasExpiredImg = !!m.isImageExpired;
+        return hasText || hasActiveImg || hasExpiredImg;
       })
       .sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
 
@@ -840,10 +887,14 @@ export default function ChatScreen() {
               if (isMySentMsg || updated.from_user_id === currentUserId) {
                 console.log('✨ [CHAT_DEBUG] Message envoyé marqué LU en base de données:', updated.id);
                 const parsed = parseMessageContent(updated.message_content);
+                const expired = isPhotoExpired(updated.id, parsed.imageUrl);
                 const serverSent: VisibleSentMessage = {
                   id: updated.id,
                   text: parsed.text,
                   soundKey: parsed.soundKey,
+                  imageUrl: expired ? undefined : parsed.imageUrl,
+                  isViewOnce: parsed.isViewOnce,
+                  isImageExpired: expired || parsed.isImageExpired,
                   ts: updated.created_at || new Date().toISOString(),
                   status: parsed.isRead ? 'read' : undefined,
                   readAt: parsed.isRead ? Date.now() : undefined,
@@ -1008,42 +1059,258 @@ export default function ChatScreen() {
     });
   }, [currentUserId, friendId, receivedMessages, queryClient]);
 
+  const cleanupChatSession = useCallback(() => {
+    // On utilise les refs pour avoir les valeurs à jour au moment de la fermeture réelle
+    const finalUserId = currentUserIdRef.current;
+    const hours = useChatStore.getState().retentionByFriend[friendId] ?? 24;
+
+    console.log(`🚪 [CHAT_DEBUG] Fermeture session chat avec ${friendId} (retention: ${hours}h)`);
+
+    if (friendId) {
+      // Nettoyage des photos éphémères du chat à la fermeture
+      const state = useChatStore.getState();
+      const sentList = state.sentByFriend[friendId] || [];
+      const receivedList = state.receivedByFriend[friendId] || [];
+      const localSent = sentMessagesRef.current || [];
+      const localReceived = receivedMessagesRef.current || [];
+
+      const urlsToDelete: string[] = [];
+      const photoMessageEntries: { id: string; url?: string }[] = [];
+
+      // 1. Scanner tous les messages envoyés (local state + store)
+      const allSent = [...localSent, ...sentList];
+      const processedSentIds = new Set<string>();
+      allSent.forEach((m) => {
+        const match = m.text?.match(/\[(IMG|IMG_ONCE):(https:\/\/[^\]]+)\]/);
+        const isViewOnceMsg = !!m.isViewOnce || (!!m.text && m.text.includes('[IMG_ONCE:'));
+        const url = m.imageUrl || (match ? match[2] : undefined);
+        if (url) {
+          const shouldExpire = hours === 0 || isViewOnceMsg;
+          if (shouldExpire) {
+            if (m.status === 'read' || hours === 0) {
+              urlsToDelete.push(url);
+            }
+            if (m.id && !processedSentIds.has(m.id)) {
+              processedSentIds.add(m.id);
+              photoMessageEntries.push({ id: m.id, url });
+            }
+            if ((m as any).sourceMessageId && !processedSentIds.has((m as any).sourceMessageId)) {
+              processedSentIds.add((m as any).sourceMessageId);
+              photoMessageEntries.push({ id: (m as any).sourceMessageId, url });
+            }
+            const mapped = messageKeyMapRef.current.get(m.id);
+            if (mapped && !processedSentIds.has(mapped)) {
+              processedSentIds.add(mapped);
+              photoMessageEntries.push({ id: mapped, url });
+            }
+          }
+        }
+      });
+
+      // 2. Scanner tous les messages reçus (local state + store)
+      const allReceived = [...localReceived, ...receivedList];
+      const processedRecvIds = new Set<string>();
+      allReceived.forEach((m) => {
+        const match = m.message_content?.match(/\[(IMG|IMG_ONCE):(https:\/\/[^\]]+)\]/);
+        const url = match ? match[2] : undefined;
+        if (url) {
+          const shouldExpire = hours === 0;
+          if (shouldExpire) {
+            urlsToDelete.push(url);
+            if (m.id && !processedRecvIds.has(m.id)) {
+              processedRecvIds.add(m.id);
+              photoMessageEntries.push({ id: m.id, url });
+            }
+          }
+        }
+      });
+
+      // Enregistrer tous les IDs et URLs comme expirés dans le store persistant
+      photoMessageEntries.forEach(({ id, url }) => {
+        state.markPhotoAsExpired(id, url);
+      });
+
+      // Supprimer les fichiers physiques du bucket Supabase (pour l'expéditeur si lu ou 0h)
+      urlsToDelete.forEach((url) => {
+        void deleteEphemeralPhoto(url).catch(() => {});
+      });
+
+      // Nettoyer les listes locales du store (si hours === 0, purger tout le chat)
+      if (hours === 0) {
+        state.expireEphemeralPhotos(friendId, false);
+      }
+
+      // Si nous sommes le destinataire et que le mode est 0h, remplacer l'URL photo par [EXPIRED_IMG] sur Supabase DB
+      if (finalUserId && hours === 0) {
+        const processedDbIds = new Set<string>();
+        allReceived.forEach((m) => {
+          if (!m.id || processedDbIds.has(m.id)) return;
+          const hasAnyImg = m.message_content?.includes('[IMG:') || m.message_content?.includes('[IMG_ONCE:');
+          if (hasAnyImg) {
+            processedDbIds.add(m.id);
+            const parsed = parseMessageContent(m.message_content);
+            const soundPrefix = parsed.soundKey ? `[${parsed.soundKey}]` : '';
+            const cleanContent = `READ:${soundPrefix}[EXPIRED_IMG]${parsed.text || ''}`;
+            void supabase
+              .from('pending_messages')
+              .update({ message_content: cleanContent })
+              .eq('id', m.id)
+              .eq('to_user_id', finalUserId);
+          }
+        });
+
+        queryClient.setQueryData(['pendingMessages', finalUserId], (old: any[] | undefined) => {
+          if (!old) return [];
+          return old.map((m: any) => {
+            const hasAnyImg = m.message_content?.includes('[IMG:') || m.message_content?.includes('[IMG_ONCE:');
+            if (m.from_user_id === friendId && hasAnyImg) {
+              const parsed = parseMessageContent(m.message_content);
+              const soundPrefix = parsed.soundKey ? `[${parsed.soundKey}]` : '';
+              return { ...m, message_content: `READ:${soundPrefix}[EXPIRED_IMG]${parsed.text || ''}` };
+            }
+            return m;
+          });
+        });
+      }
+
+      void cleanupExpiredEphemeralPhotos(finalUserId || currentUserIdRef.current || undefined).catch(() => {});
+    }
+
+    if (finalUserId) {
+      if (hours === 0 && friendId) {
+        console.log(`🔥 [CHAT_DEBUG] Purge instantanée déclenchée pour friendId ${friendId}`);
+        
+        // 1. Nettoyage synchrone immédiat des caches locaux (Zustand + TanStack Query)
+        queryClient.setQueryData(['pendingMessages', finalUserId], (old: any[] | undefined) => {
+          if (!old) return [];
+          return old.filter((m: any) => m.from_user_id !== friendId);
+        });
+        clearHistory(friendId);
+
+        // 2. Attendre que la purge direct Supabase et backend se terminent avant d'invalider le cache
+        const directDelete = supabase
+          .from('pending_messages')
+          .delete()
+          .or(`and(from_user_id.eq.${finalUserId},to_user_id.eq.${friendId}),and(from_user_id.eq.${friendId},to_user_id.eq.${finalUserId})`);
+
+        void Promise.all([directDelete, purgeChatViaBackend(finalUserId, friendId)]).then(([directRes]) => {
+          console.log(`✅ [CHAT_DEBUG] Purge directe Supabase (${directRes.error ? directRes.error.message : 'OK'}) + backend terminée`);
+          void queryClient.invalidateQueries({ queryKey: ['pendingMessages', finalUserId] });
+          void queryClient.invalidateQueries({ queryKey: ['friends', finalUserId] });
+        });
+      } else {
+        void queryClient.invalidateQueries({ queryKey: ['pendingMessages', finalUserId] });
+      }
+    }
+  }, [friendId, clearHistory, queryClient]);
+
+  // Déclencher le nettoyage lors de la sortie de l'écran (blur / navigation retour)
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        cleanupChatSession();
+      };
+    }, [cleanupChatSession])
+  );
+
+  // Déclencher le nettoyage lors du démontage réel du composant
   useEffect(() => {
     return () => {
-      // On utilise les refs pour avoir les valeurs à jour au moment du démontage réel
-      const finalUserId = currentUserIdRef.current;
-      const hours = useChatStore.getState().retentionByFriend[friendId] ?? 24;
+      cleanupChatSession();
+    };
+  }, [cleanupChatSession]);
 
-      console.log(`🚪 [CHAT_DEBUG] Démontage du chat avec ${friendId} (retention: ${hours}h)`);
-
-      if (finalUserId) {
-        if (hours === 0 && friendId) {
-          console.log(`🔥 [CHAT_DEBUG] Purge instantanée déclenchée pour friendId ${friendId}`);
-          
-          // 1. Nettoyage synchrone immédiat des caches locaux (Zustand + TanStack Query)
-          queryClient.setQueryData(['pendingMessages', finalUserId], (old: any[] | undefined) => {
-            if (!old) return [];
-            return old.filter((m: any) => m.from_user_id !== friendId);
-          });
-          clearHistory(friendId);
-
-          // 2. Attendre que la purge direct Supabase et backend se terminent avant d'invalider le cache
-          const directDelete = supabase
-            .from('pending_messages')
-            .delete()
-            .or(`and(from_user_id.eq.${finalUserId},to_user_id.eq.${friendId}),and(from_user_id.eq.${friendId},to_user_id.eq.${finalUserId})`);
-
-          void Promise.all([directDelete, purgeChatViaBackend(finalUserId, friendId)]).then(([directRes]) => {
-            console.log(`✅ [CHAT_DEBUG] Purge directe Supabase (${directRes.error ? directRes.error.message : 'OK'}) + backend terminée`);
-            void queryClient.invalidateQueries({ queryKey: ['pendingMessages', finalUserId] });
-            void queryClient.invalidateQueries({ queryKey: ['friends', finalUserId] });
-          });
-        } else {
-          void queryClient.invalidateQueries({ queryKey: ['pendingMessages', finalUserId] });
-        }
+  // Déclencher le nettoyage si l'application passe en arrière-plan (ex: verrouillage écran ou changement d'app)
+  useEffect(() => {
+    const handleAppStateChange = (nextState: AppStateStatus) => {
+      if (nextState === 'background' || nextState === 'inactive') {
+        cleanupChatSession();
       }
     };
-  }, [friendId, clearHistory, queryClient]); // On dépend de friendId car c'est lui qui définit la conversation
+    const sub = AppState.addEventListener('change', handleAppStateChange);
+    return () => {
+      sub.remove();
+    };
+  }, [cleanupChatSession]);
+
+  const handleCloseFullScreenImage = useCallback(() => {
+    if (!fullScreenImage) return;
+    const { url, isViewOnce, messageId } = fullScreenImage;
+    setFullScreenImage(null);
+
+    if (isViewOnce && url) {
+      const state = useChatStore.getState();
+
+      // 1. Enregistrer dans le store comme expiré
+      if (messageId) {
+        state.markPhotoAsExpired(messageId, url);
+      } else {
+        state.markPhotoAsExpired(url, url);
+      }
+
+      // 2. Mettre à jour immédiatement le state local React des messages reçus
+      setReceivedMessages((prev) =>
+        prev.map((m) => {
+          if (m.id === messageId || m.message_content?.includes(url)) {
+            const parsed = parseMessageContent(m.message_content);
+            const soundPrefix = parsed.soundKey ? `[${parsed.soundKey}]` : '';
+            return {
+              ...m,
+              message_content: `READ:${soundPrefix}[EXPIRED_IMG]${parsed.text || ''}`,
+            };
+          }
+          return m;
+        })
+      );
+
+      // 3. Mettre à jour immédiatement le state local React des messages envoyés
+      setSentMessages((prev) =>
+        prev.map((m) => {
+          if (m.id === messageId || m.imageUrl === url || m.text?.includes(url)) {
+            const cleanText = (m.text || '').replace(/\[(IMG|IMG_ONCE):[^\]]+\]/, '').trim();
+            return {
+              ...m,
+              imageUrl: undefined,
+              isImageExpired: true,
+              text: cleanText,
+            };
+          }
+          return m;
+        })
+      );
+
+      // 4. Si nous sommes le destinataire, remplacer l'URL par [EXPIRED_IMG] sur Supabase DB
+      const finalUid = currentUserIdRef.current;
+      if (finalUid) {
+        const targetMsg = (receivedMessagesRef.current || []).find(
+          (m) => m.id === messageId || m.message_content?.includes(url)
+        );
+        if (targetMsg) {
+          const parsed = parseMessageContent(targetMsg.message_content);
+          const soundPrefix = parsed.soundKey ? `[${parsed.soundKey}]` : '';
+          const cleanContent = `READ:${soundPrefix}[EXPIRED_IMG]${parsed.text || ''}`;
+          void supabase
+            .from('pending_messages')
+            .update({ message_content: cleanContent })
+            .eq('id', targetMsg.id)
+            .eq('to_user_id', finalUid);
+
+          queryClient.setQueryData(['pendingMessages', finalUid], (old: any[] | undefined) => {
+            if (!old) return [];
+            return old.map((m: any) => {
+              if (m.id === targetMsg.id) {
+                return { ...m, message_content: cleanContent };
+              }
+              return m;
+            });
+          });
+        }
+      }
+
+      // 5. Supprimer physiquement le fichier image si possible
+      void deleteEphemeralPhoto(url).catch(() => {});
+    }
+  }, [fullScreenImage, queryClient]);
 
   useKeyboardHandler({
     onMove: (e: { height: number }) => {
@@ -1078,23 +1345,44 @@ export default function ChatScreen() {
   });
 
   const timeline = useMemo(() => {
-    const incoming = receivedMessages.map((m) => {
-      const parsed = parseMessageContent(m.message_content);
-      const isNew = new Date(m.created_at).getTime() > chatOpenedAtRef.current;
-      return {
-        id: `received-${m.id}`,
-        ts: m.created_at,
-        isMe: false,
-        text: parsed.text,
-        soundKey: parsed.soundKey,
-        sourceMessageId: m.id,
-        isNew,
-      };
-    });
+    const incoming = receivedMessages
+      .filter((m) => {
+        const parsed = parseMessageContent(m.message_content);
+        const expired = isPhotoExpired(m.id, parsed.imageUrl);
+        const hasText = !!parsed.text && parsed.text.trim().length > 0;
+        const hasActiveImg = !expired && !!parsed.imageUrl && !parsed.isImageExpired;
+        const hasExpiredImg = expired || parsed.isImageExpired;
+        return hasText || hasActiveImg || hasExpiredImg;
+      })
+      .map((m) => {
+        const parsed = parseMessageContent(m.message_content);
+        const expired = isPhotoExpired(m.id, parsed.imageUrl);
+        const isNew = new Date(m.created_at).getTime() > chatOpenedAtRef.current;
+        return {
+          id: `received-${m.id}`,
+          ts: m.created_at,
+          isMe: false,
+          text: parsed.text,
+          soundKey: parsed.soundKey,
+          imageUrl: expired ? undefined : parsed.imageUrl,
+          isViewOnce: parsed.isViewOnce,
+          isImageExpired: expired || parsed.isImageExpired,
+          sourceMessageId: m.id,
+          isNew,
+        };
+      });
 
     // 1. Séparer les messages confirmés (UUID) et optimistes (local-)
-    // On ignore tout message dont le texte est vide (ex: simples swipes sonores sans message)
-    const validSentMessages = sentMessages.filter((m) => !!m.text && m.text.trim().length > 0);
+    // On ignore tout message sans texte ni photo (ex: simples swipes sonores sans message)
+    const validSentMessages = sentMessages.filter((m) => {
+      const match = m.text?.match(/\[(IMG|IMG_ONCE):(https:\/\/[^\]]+)\]/);
+      const url = m.imageUrl || (match ? match[2] : undefined);
+      const expired = isPhotoExpired(m.id, url);
+      const hasText = !!m.text && m.text.replace(/\[(IMG|IMG_ONCE):[^\]]+\]/, '').trim().length > 0;
+      const hasActiveImg = !expired && !!url && !m.isImageExpired;
+      const hasExpiredImg = expired || m.isImageExpired;
+      return hasText || hasActiveImg || hasExpiredImg;
+    });
     const confirmedSent = validSentMessages.filter((m) => !m.id.startsWith('local-'));
     const optimisticSent = validSentMessages.filter((m) => m.id.startsWith('local-'));
 
@@ -1105,7 +1393,8 @@ export default function ChatScreen() {
       const matchingConf = confirmedSent.find(conf => {
          const sameText = (conf.text || '') === (opt.text || '');
          const sameSound = (conf.soundKey || '') === (opt.soundKey || '');
-         return sameText && sameSound;
+         const sameImage = (conf.imageUrl || '') === (opt.imageUrl || '');
+         return sameText && sameSound && sameImage;
       });
 
       if (matchingConf) {
@@ -1122,13 +1411,21 @@ export default function ChatScreen() {
       // s'il en a une. Sinon, on utilise son ID normal.
       const stableId = messageKeyMapRef.current.get(m.id) || m.id;
       const isNew = new Date(m.ts).getTime() > chatOpenedAtRef.current;
+      const match = m.text?.match(/\[(IMG|IMG_ONCE):(https:\/\/[^\]]+)\]/);
+      const isViewOnce = m.isViewOnce || (!!m.text && m.text.includes('[IMG_ONCE:'));
+      const url = m.imageUrl || (match ? match[2] : undefined);
+      const expired = isPhotoExpired(m.id, url);
+      const cleanText = (m.text || '').replace(/\[(IMG|IMG_ONCE):[^\]]+\]/, '').trim();
 
       return {
         id: `sent-${stableId}`,
         ts: m.ts,
         isMe: true,
-        text: m.text,
+        text: cleanText,
         soundKey: m.soundKey,
+        imageUrl: expired ? undefined : url,
+        isViewOnce,
+        isImageExpired: expired || m.isImageExpired,
         status: m.status,
         readAt: m.readAt,
         sourceMessageId: m.id,
@@ -1499,8 +1796,14 @@ export default function ChatScreen() {
             style={styles.messages}
             contentContainerStyle={styles.messagesContent}
             keyboardShouldPersistTaps="handled"
-            renderItem={({ item: message }) =>
-              message.isMe ? (
+            renderItem={({ item: message }) => {
+              const hasText = !!message.text && message.text.trim().length > 0;
+              const hasActiveImage = !!(message as any).imageUrl && !(message as any).isImageExpired;
+              const hasExpiredImage = !!(message as any).isImageExpired;
+              if (!hasText && !hasActiveImage && !hasExpiredImage) {
+                return null;
+              }
+              return message.isMe ? (
                 <AnimatedMessageRow isMe={true} messageId={message.id} isNew={(message as any).isNew}>
                   <SentBubble
                     message={{
@@ -1508,6 +1811,9 @@ export default function ChatScreen() {
                       text: message.text,
                       ts: message.ts,
                       soundKey: message.soundKey,
+                      imageUrl: (message as any).imageUrl,
+                      isViewOnce: (message as any).isViewOnce,
+                      isImageExpired: (message as any).isImageExpired,
                       status: (message as any).status,
                       readAt: (message as any).readAt,
                       optimistic: (message as any).optimistic,
@@ -1516,6 +1822,7 @@ export default function ChatScreen() {
                     reaction={getReactionBadgeText(message.sourceMessageId || message.id)}
                     onLongPressReact={() => openReactionPicker(message.sourceMessageId || message.id, true)}
                     onLongPressEdit={(msg) => setEditingMessage(msg)}
+                    onOpenImage={(url, isViewOnce, msgId) => setFullScreenImage({ url, isViewOnce, messageId: msgId || message.sourceMessageId || message.id })}
                     isSaved={!!savedMessages[message.sourceMessageId || message.id]}
                     onToggleSave={() => toggleSaveMessage(message.sourceMessageId || message.id)}
                   />
@@ -1529,15 +1836,19 @@ export default function ChatScreen() {
                       soundKey: message.soundKey,
                       createdAt: message.ts,
                       senderId: friend.id,
+                      imageUrl: (message as any).imageUrl,
+                      isViewOnce: (message as any).isViewOnce,
+                      isImageExpired: (message as any).isImageExpired,
                     }}
                     reaction={getReactionBadgeText(message.sourceMessageId || message.id)}
                     onLongPressReact={() => openReactionPicker(message.sourceMessageId || message.id, false)}
+                    onOpenImage={(url, isViewOnce, msgId) => setFullScreenImage({ url, isViewOnce, messageId: msgId || message.sourceMessageId || message.id })}
                     isSaved={!!savedMessages[message.sourceMessageId || message.id]}
                     onToggleSave={() => toggleSaveMessage(message.sourceMessageId || message.id)}
                   />
                 </AnimatedMessageRow>
-              )
-            }
+              );
+            }}
           />
         </View>
 
@@ -1809,6 +2120,41 @@ export default function ChatScreen() {
           >
             <Text style={styles.firstChatOnboardingOkText}>{i18n.t('ok')}</Text>
           </TouchableOpacity>
+        </View>
+      </Modal>
+
+      {/* Visualiseur plein écran pour photos éphémères */}
+      <Modal
+        isVisible={!!fullScreenImage}
+        onBackdropPress={handleCloseFullScreenImage}
+        onBackButtonPress={handleCloseFullScreenImage}
+        style={styles.fullScreenModal}
+        animationIn="fadeIn"
+        animationOut="fadeOut"
+        useNativeDriver
+      >
+        <View style={styles.fullScreenModalContent}>
+          <TouchableOpacity
+            style={styles.fullScreenCloseButton}
+            onPress={handleCloseFullScreenImage}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="close" size={28} color="#fff" />
+          </TouchableOpacity>
+          {!!fullScreenImage?.url && (
+            <Image
+              source={{ uri: fullScreenImage.url }}
+              style={styles.fullScreenImage}
+              resizeMode="contain"
+            />
+          )}
+          {fullScreenImage?.isViewOnce ? (
+            <View style={styles.fullScreenBadge}>
+              <Text style={{ fontSize: 12, fontWeight: '800', color: '#FF8A3D' }}>①</Text>
+              <Text style={styles.fullScreenBadgeText}>{i18n.t('view_once')}</Text>
+            </View>
+          ) : null}
         </View>
       </Modal>
     </View>
@@ -2203,5 +2549,44 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     letterSpacing: 0.3,
+  },
+  fullScreenModal: {
+    margin: 0,
+    backgroundColor: 'rgba(0,0,0,0.92)',
+  },
+  fullScreenModalContent: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  fullScreenCloseButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    padding: 8,
+    borderRadius: 20,
+  },
+  fullScreenImage: {
+    width: '100%',
+    height: '80%',
+  },
+  fullScreenBadge: {
+    position: 'absolute',
+    bottom: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 6,
+  },
+  fullScreenBadgeText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: 'bold',
   },
 });

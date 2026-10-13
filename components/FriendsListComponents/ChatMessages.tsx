@@ -14,6 +14,9 @@ export type ParsedMessage = {
   text: string;
   isRead: boolean;
   soundKey?: string;
+  imageUrl?: string;
+  isViewOnce?: boolean;
+  isImageExpired?: boolean;
 };
 
 // Fonctions de parsing extraites
@@ -29,11 +32,38 @@ export const parseMessageContent = (raw?: string | null): ParsedMessage => {
   if (text.startsWith('[')) {
     const endBracket = text.indexOf(']');
     if (endBracket !== -1) {
-      soundKey = text.slice(1, endBracket);
-      text = text.slice(endBracket + 1);
+      const tag = text.slice(1, endBracket);
+      if (!tag.startsWith('IMG:') && !tag.startsWith('IMG_ONCE:') && tag !== 'EXPIRED_IMG') {
+        soundKey = tag;
+        text = text.slice(endBracket + 1);
+      }
     }
   }
-  return { text, isRead, soundKey };
+
+  let imageUrl: string | undefined;
+  let isViewOnce = false;
+  let isImageExpired = false;
+
+  if (text.startsWith('[IMG_ONCE:')) {
+    const endImg = text.indexOf(']');
+    if (endImg !== -1) {
+      imageUrl = text.slice(10, endImg);
+      isViewOnce = true;
+      text = text.slice(endImg + 1);
+    }
+  } else if (text.startsWith('[IMG:')) {
+    const endImg = text.indexOf(']');
+    if (endImg !== -1) {
+      imageUrl = text.slice(5, endImg);
+      isViewOnce = false;
+      text = text.slice(endImg + 1);
+    }
+  } else if (text.startsWith('[EXPIRED_IMG]')) {
+    isImageExpired = true;
+    text = text.slice('[EXPIRED_IMG]'.length);
+  }
+
+  return { text, isRead, soundKey, imageUrl, isViewOnce, isImageExpired };
 };
 
 export const stripReadPrefix = (text?: string | null) => {

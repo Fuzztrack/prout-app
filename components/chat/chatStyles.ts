@@ -1,4 +1,4 @@
-import { Platform, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 const ANDROID_CHAT_BACKGROUND_HERO_SIZE = 520;
 
@@ -139,5 +139,83 @@ export const chatStyles = StyleSheet.create({
   },
   savedLabelSent: {
     marginRight: 6,
-  }
+  },
+  bubbleImageContainer: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: 'rgba(0,0,0,0.06)',
+  },
+  bubbleImage: {
+    width: 210,
+    height: 260,
+    borderRadius: 12,
+  },
+  ephemeralBadge: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    gap: 4,
+  },
+  ephemeralBadgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  viewOnceOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+  },
+  viewOnceCenterBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    gap: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  viewOnceBadgeNumber: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FF8A3D',
+  },
+  viewOnceBadgeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#4A3B32',
+  },
+  expiredImageContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.06)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 6,
+  },
+  expiredImageText: {
+    color: '#888',
+    fontSize: 13,
+    fontStyle: 'italic',
+  },
+  photoCaptionText: {
+    marginTop: 6,
+    fontSize: 16,
+    color: '#333',
+  },
 });

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { useSharedValue, useAnimatedStyle, withSequence, withTiming } from 'react-native-reanimated';
 import i18n from '@/lib/i18n';
@@ -10,6 +10,7 @@ interface SentBubbleProps {
   message: VisibleSentMessage;
   onLongPressReact: (messageId: string) => void;
   onLongPressEdit?: (message: VisibleSentMessage) => void;
+  onOpenImage?: (imageUrl: string, isViewOnce?: boolean, messageId?: string) => void;
   reaction?: string;
   isSaved: boolean;
   onToggleSave: () => void;
@@ -19,6 +20,7 @@ export const SentBubble = React.memo(({
   message,
   onLongPressReact,
   onLongPressEdit,
+  onOpenImage,
   reaction,
   isSaved,
   onToggleSave,
@@ -70,6 +72,14 @@ export const SentBubble = React.memo(({
     };
   });
 
+  const hasText = !!message.text && message.text.trim().length > 0;
+  const hasActiveImage = !!message.imageUrl && !message.isImageExpired;
+  const hasExpiredImage = !!message.isImageExpired;
+
+  if (!hasText && !hasActiveImage && !hasExpiredImage) {
+    return null;
+  }
+
   return (
     <View style={styles.sentBubbleWrapper}>
       <Animated.View style={[{ flexDirection: 'row', alignItems: 'center' }, animatedStyle]}>
@@ -80,7 +90,40 @@ export const SentBubble = React.memo(({
         <View style={{ position: 'relative' }}>
           <TouchableOpacity activeOpacity={0.92} onPress={handlePress} onLongPress={handleLongPress}>
             <View style={[styles.sentBubble, message.status === 'read' && styles.sentBubbleRead]}>
-              <Text style={styles.sentText}>{message.text}</Text>
+              {message.imageUrl ? (
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  onPress={() => onOpenImage?.(message.imageUrl!, message.isViewOnce, message.id)}
+                  onLongPress={handleLongPress}
+                  style={styles.bubbleImageContainer}
+                >
+                  <Image
+                    source={{ uri: message.imageUrl }}
+                    style={styles.bubbleImage}
+                    resizeMode="cover"
+                    blurRadius={message.isViewOnce ? (Platform.OS === 'ios' ? 25 : 18) : 0}
+                  />
+                  {message.isViewOnce ? (
+                    <View style={styles.viewOnceOverlay}>
+                      <View style={styles.viewOnceCenterBadge}>
+                        <Text style={styles.viewOnceBadgeNumber}>①</Text>
+                        <Text style={styles.viewOnceBadgeText}>{i18n.t('tap_to_view')}</Text>
+                      </View>
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
+              ) : message.isImageExpired ? (
+                <View style={styles.expiredImageContainer}>
+                  <Ionicons name="time-outline" size={15} color="#888" />
+                  <Text style={styles.expiredImageText}>{i18n.t('photo_expired')}</Text>
+                </View>
+              ) : null}
+
+              {!!message.text && (
+                <Text style={[styles.sentText, (!!message.imageUrl || message.isImageExpired) && styles.photoCaptionText]}>
+                  {message.text}
+                </Text>
+              )}
             </View>
           </TouchableOpacity>
           

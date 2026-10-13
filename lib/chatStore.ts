@@ -16,6 +16,9 @@ export type VisibleSentMessage = {
   text: string;
   ts: string;
   soundKey?: string;
+  imageUrl?: string;
+  isViewOnce?: boolean;
+  isImageExpired?: boolean;
   status?: 'read';
   readAt?: number;
   optimistic?: boolean;
@@ -39,6 +42,11 @@ interface ChatState {
   // Pour gérer les race conditions où le broadcast de lecture arrive avant la confirmation du serveur
   pendingReadReceipts: Record<string, number>;
 
+  // Photos expirées (messageId -> true, photoUrl -> true)
+  expiredPhotoMessageIds: Record<string, boolean>;
+  expiredPhotoUrls: Record<string, boolean>;
+  markPhotoAsExpired: (messageId: string, url?: string) => void;
+
   // Hydratation
   hasHydrated: boolean;
   setHasHydrated: (val: boolean) => void;
@@ -51,11 +59,20 @@ interface ChatState {
   setRetentionHours: (friendId: string, hours: number) => void;
   toggleSavedMessage: (messageId: string) => void;
   clearHistory: (friendId: string) => void;
+  expireEphemeralPhotos: (friendId: string, onlyViewOnce?: boolean) => void;
   cleanupExpired: () => void;
 }
 
 const MS_PER_HOUR = 3600000;
 const DEFAULT_RETENTION = 24;
+
+export const isPhotoExpired = (messageId?: string, imageUrl?: string): boolean => {
+  if (!messageId && !imageUrl) return false;
+  const state = useChatStore.getState();
+  if (messageId && state.expiredPhotoMessageIds?.[messageId]) return true;
+  if (imageUrl && state.expiredPhotoUrls?.[imageUrl]) return true;
+  return false;
+};
 
 export const useChatStore = create<ChatState>()(
   persist(
@@ -66,9 +83,83 @@ export const useChatStore = create<ChatState>()(
       retentionByFriend: {},
       savedMessageIds: {},
       pendingReadReceipts: {},
+      expiredPhotoMessageIds: {},
+      expiredPhotoUrls: {},
       hasHydrated: false,
 
       setHasHydrated: (val) => set({ hasHydrated: val }),
+
+      markPhotoAsExpired: (messageId: string, url?: string) => {
+        set((state) => {
+          const nextIds = { ...(state.expiredPhotoMessageIds || {}) };
+          if (messageId) nextIds[messageId] = true;
+          const nextUrls = { ...(state.expiredPhotoUrls || {}) };
+          if (url) nextUrls[url] = true;
+
+          const nextSentByFriend = { ...state.sentByFriend };
+          let changedSent = false;
+          Object.keys(nextSentByFriend).forEach((fId) => {
+            const list = nextSentByFriend[fId];
+            if (list) {
+              const updated = list.map((m) => {
+                if (m.id === messageId || (url && (m.imageUrl === url || m.text?.includes(url)))) {
+                  changedSent = true;
+                  const cleanText = (m.text || '').replace(/\[(IMG|IMG_ONCE):[^\]]+\]/, '').trim();
+                  return {
+                    ...m,
+                    imageUrl: undefined,
+                    isImageExpired: true,
+                    text: cleanText,
+                  };
+                }
+                return m;
+              });
+              if (changedSent) nextSentByFriend[fId] = updated;
+            }
+          });
+
+          const nextReceivedByFriend = { ...state.receivedByFriend };
+          let changedRecv = false;
+          Object.keys(nextReceivedByFriend).forEach((fId) => {
+            const list = nextReceivedByFriend[fId];
+            if (list) {
+              const updated = list.map((m) => {
+                if (m.id === messageId || (url && m.message_content?.includes(url))) {
+                  changedRecv = true;
+                  let content = m.message_content || '';
+                  let readPrefix = content.startsWith('READ:') ? 'READ:' : '';
+                  if (content.startsWith('READ:')) content = content.slice(5);
+                  let soundPrefix = '';
+                  if (content.startsWith('[')) {
+                    const endBracket = content.indexOf(']');
+                    if (endBracket !== -1) {
+                      const tag = content.slice(1, endBracket);
+                      if (!tag.startsWith('IMG:') && !tag.startsWith('IMG_ONCE:') && tag !== 'EXPIRED_IMG') {
+                        soundPrefix = `[${tag}]`;
+                        content = content.slice(endBracket + 1);
+                      }
+                    }
+                  }
+                  const cleanText = content.replace(/\[(IMG|IMG_ONCE):[^\]]+\]/, '').replace(/\[EXPIRED_IMG\]/, '').trim();
+                  return {
+                    ...m,
+                    message_content: `${readPrefix}${soundPrefix}[EXPIRED_IMG]${cleanText}`,
+                  };
+                }
+                return m;
+              });
+              if (changedRecv) nextReceivedByFriend[fId] = updated;
+            }
+          });
+
+          return {
+            expiredPhotoMessageIds: nextIds,
+            expiredPhotoUrls: nextUrls,
+            ...(changedSent ? { sentByFriend: nextSentByFriend } : {}),
+            ...(changedRecv ? { receivedByFriend: nextReceivedByFriend } : {}),
+          };
+        });
+      },
 
       markMessagesAsRead: (friendId, messageIds) => {
         set((state) => {
@@ -117,7 +208,7 @@ export const useChatStore = create<ChatState>()(
 
       addReceivedMessages: (friendId, newMsgs) => {
         set((state) => {
-          const { receivedByFriend, retentionByFriend } = state;
+          const { receivedByFriend, retentionByFriend, expiredPhotoUrls, expiredPhotoMessageIds } = state;
           // IMPORTANT : On ne bloque plus l'insertion si retentionHours === 0.
           // Sinon l'injection de notifications (Cold Start) et les mises à jour optimistes (READ:) échouent silencieusement.
           // La purge est gérée par cleanupExpired et par la fermeture du chat.
@@ -126,12 +217,43 @@ export const useChatStore = create<ChatState>()(
           const currentMap = new Map(current.map((m) => [m.id, m]));
 
           let changed = false;
-          newMsgs.forEach((m) => {
+          newMsgs.forEach((rawMsg) => {
+            let m = rawMsg;
+            let content = m.message_content || '';
+            const imgMatch = content.match(/\[(IMG|IMG_ONCE):(https:\/\/[^\]]+)\]/);
+            const url = imgMatch ? imgMatch[2] : undefined;
+            const isExpired = (!!url && !!expiredPhotoUrls?.[url]) || !!expiredPhotoMessageIds?.[m.id];
+            if (isExpired && (!!url || content.includes('[IMG:') || content.includes('[IMG_ONCE:'))) {
+              let readPrefix = content.startsWith('READ:') ? 'READ:' : '';
+              if (content.startsWith('READ:')) content = content.slice(5);
+              let soundPrefix = '';
+              if (content.startsWith('[')) {
+                const endBracket = content.indexOf(']');
+                if (endBracket !== -1) {
+                  const tag = content.slice(1, endBracket);
+                  if (!tag.startsWith('IMG:') && !tag.startsWith('IMG_ONCE:') && tag !== 'EXPIRED_IMG') {
+                    soundPrefix = `[${tag}]`;
+                    content = content.slice(endBracket + 1);
+                  }
+                }
+              }
+              const cleanText = content.replace(/\[(IMG|IMG_ONCE):[^\]]+\]/, '').replace(/\[EXPIRED_IMG\]/, '').trim();
+              m = {
+                ...m,
+                message_content: `${readPrefix}${soundPrefix}[EXPIRED_IMG]${cleanText}`,
+              };
+            }
+
             const existing = currentMap.get(m.id);
             if (!existing) {
               currentMap.set(m.id, { ...m, local_ts: m.local_ts || Date.now() });
               changed = true;
             } else {
+              const existingIsExpired = existing.message_content?.includes('[EXPIRED_IMG]') ?? false;
+              if (existingIsExpired && !m.message_content?.includes('[EXPIRED_IMG]')) {
+                // Ne JAMAIS remplacer un message expiré par une version contenant une photo active
+                return;
+              }
               // Si le message existant est marqué comme "READ:" localement, on ne l'écrase pas avec une version non-lue du serveur
               const existingIsRead = existing.message_content?.startsWith('READ:') ?? false;
               const newIsRead = m.message_content?.startsWith('READ:') ?? false;
@@ -161,13 +283,16 @@ export const useChatStore = create<ChatState>()(
 
       addSentMessages: (friendId, newMsgs, isFullSync = false) => {
         set((state) => {
-          const { sentByFriend } = state;
+          const { sentByFriend, expiredPhotoUrls, expiredPhotoMessageIds } = state;
           const current = sentByFriend[friendId] || [];
           const currentMap = new Map(current.map((m) => [m.id, m]));
 
           let changed = false;
 
-          newMsgs.forEach((m) => {
+          newMsgs.forEach((rawMsg) => {
+            const isExpired = !!rawMsg.isImageExpired || (!!rawMsg.imageUrl && !!expiredPhotoUrls?.[rawMsg.imageUrl]) || !!expiredPhotoMessageIds?.[rawMsg.id];
+            const m = isExpired ? { ...rawMsg, imageUrl: undefined, isImageExpired: true } : rawMsg;
+
             const existing = currentMap.get(m.id);
             if (!existing) {
               const isPendingRead = !!state.pendingReadReceipts[m.id];
@@ -179,6 +304,11 @@ export const useChatStore = create<ChatState>()(
               });
               changed = true;
             } else {
+              const existingIsExpired = !!existing.isImageExpired;
+              const finalImageExpired = existingIsExpired || isExpired;
+              const finalImageUrl = finalImageExpired ? undefined : (m.imageUrl ?? existing.imageUrl);
+              const finalIsViewOnce = m.isViewOnce ?? existing.isViewOnce;
+
               // Preserve 'read' status if the server sends an unread status (stale data during sync)
               // AND force 'read' if it's in our pendingReadReceipts (race condition fix)
               const isPendingRead = !!state.pendingReadReceipts[m.id];
@@ -189,11 +319,15 @@ export const useChatStore = create<ChatState>()(
 
               const statusChanged = finalStatus !== existing.status;
               const textChanged = m.text !== undefined && m.text !== existing.text;
+              const imageChanged = existing.imageUrl !== finalImageUrl || existing.isImageExpired !== finalImageExpired;
 
-              if (statusChanged || textChanged) {
+              if (statusChanged || textChanged || imageChanged) {
                 currentMap.set(m.id, { 
                   ...existing, 
                   ...m, 
+                  imageUrl: finalImageUrl,
+                  isViewOnce: finalIsViewOnce,
+                  isImageExpired: finalImageExpired,
                   status: finalStatus,
                   readAt: finalReadAt,
                   local_ts: existing.local_ts 
@@ -303,6 +437,99 @@ export const useChatStore = create<ChatState>()(
             receivedByFriend: newReceived,
             sentByFriend: newSent,
             messageReactionsByFriend: newReactions,
+          };
+        });
+      },
+
+      expireEphemeralPhotos: (friendId: string, onlyViewOnce: boolean = false) => {
+        set((state) => {
+          const { sentByFriend, receivedByFriend, expiredPhotoMessageIds, expiredPhotoUrls } = state;
+          const currentSent = sentByFriend[friendId] || [];
+          const currentReceived = receivedByFriend[friendId] || [];
+          const nextExpiredIds = { ...(expiredPhotoMessageIds || {}) };
+          const nextExpiredUrls = { ...(expiredPhotoUrls || {}) };
+
+          let changed = false;
+
+          const nextSent: VisibleSentMessage[] = [];
+          for (const m of currentSent) {
+            const imgMatch = m.text?.match(/\[(IMG|IMG_ONCE):(https:\/\/[^\]]+)\]/);
+            const foundUrl = m.imageUrl || (imgMatch ? imgMatch[2] : undefined);
+            const isViewOnceMsg = !!m.isViewOnce || (!!m.text && m.text.includes('[IMG_ONCE:'));
+            const hasImg = !!foundUrl || (m.text && (m.text.includes('[IMG:') || m.text.includes('[IMG_ONCE:')));
+            const shouldExpire = hasImg && (!onlyViewOnce || isViewOnceMsg);
+
+            if (shouldExpire) {
+              changed = true;
+              nextExpiredIds[m.id] = true;
+              if (foundUrl) nextExpiredUrls[foundUrl] = true;
+              const cleanText = (m.text || '').replace(/\[(IMG|IMG_ONCE):[^\]]+\]/, '').trim();
+              nextSent.push({
+                ...m,
+                imageUrl: undefined,
+                isImageExpired: true,
+                isViewOnce: isViewOnceMsg,
+                text: cleanText,
+              });
+            } else {
+              nextSent.push(m);
+            }
+          }
+
+          const nextReceived: PendingMessage[] = [];
+          for (const m of currentReceived) {
+            let content = m.message_content || '';
+            const imgMatch = content.match(/\[(IMG|IMG_ONCE):(https:\/\/[^\]]+)\]/);
+            const foundUrl = imgMatch ? imgMatch[2] : undefined;
+            const isViewOnceMsg = content.includes('[IMG_ONCE:');
+            const hasImg = !!foundUrl || content.includes('[IMG:') || content.includes('[IMG_ONCE:');
+            const shouldExpire = hasImg && (!onlyViewOnce || isViewOnceMsg);
+
+            if (shouldExpire) {
+              changed = true;
+              nextExpiredIds[m.id] = true;
+              if (foundUrl) nextExpiredUrls[foundUrl] = true;
+              let readPrefix = '';
+              if (content.startsWith('READ:')) {
+                readPrefix = 'READ:';
+                content = content.slice(5);
+              }
+              let soundPrefix = '';
+              if (content.startsWith('[')) {
+                const endBracket = content.indexOf(']');
+                if (endBracket !== -1) {
+                  const tag = content.slice(1, endBracket);
+                  if (!tag.startsWith('IMG:') && !tag.startsWith('IMG_ONCE:') && tag !== 'EXPIRED_IMG') {
+                    soundPrefix = `[${tag}]`;
+                    content = content.slice(endBracket + 1);
+                  }
+                }
+              }
+              const cleanText = content.replace(/\[(IMG|IMG_ONCE):[^\]]+\]/, '').trim();
+              nextReceived.push({
+                ...m,
+                message_content: `${readPrefix}${soundPrefix}[EXPIRED_IMG]${cleanText}`,
+              });
+            } else {
+              nextReceived.push(m);
+            }
+          }
+
+          if (!changed && Object.keys(nextExpiredIds).length === Object.keys(expiredPhotoMessageIds || {}).length) {
+            return state;
+          }
+
+          return {
+            expiredPhotoMessageIds: nextExpiredIds,
+            expiredPhotoUrls: nextExpiredUrls,
+            sentByFriend: {
+              ...sentByFriend,
+              [friendId]: nextSent,
+            },
+            receivedByFriend: {
+              ...receivedByFriend,
+              [friendId]: nextReceived,
+            },
           };
         });
       },
