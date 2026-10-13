@@ -103,6 +103,41 @@ export async function setProotBotDismissed(dismissed = true): Promise<void> {
   } catch {}
 }
 
+export const PROOT_BOT_GESTURE_HINT_SEEN_KEY = '@proot_bot_gesture_hint_seen_v1';
+
+let cachedGestureHintSeen: boolean | null = null;
+
+// Pré-chargement asynchrone dès l'importation du module
+AsyncStorage.getItem(PROOT_BOT_GESTURE_HINT_SEEN_KEY)
+  .then((val) => {
+    cachedGestureHintSeen = val === '1' || val === 'true';
+  })
+  .catch(() => {});
+
+export async function isProotBotGestureHintSeen(): Promise<boolean> {
+  if (cachedGestureHintSeen !== null) {
+    return cachedGestureHintSeen;
+  }
+  try {
+    const val = await AsyncStorage.getItem(PROOT_BOT_GESTURE_HINT_SEEN_KEY);
+    cachedGestureHintSeen = val === '1' || val === 'true';
+    return cachedGestureHintSeen;
+  } catch {
+    return false;
+  }
+}
+
+export function isProotBotGestureHintSeenSync(): boolean {
+  return cachedGestureHintSeen === true;
+}
+
+export async function setProotBotGestureHintSeen(): Promise<void> {
+  cachedGestureHintSeen = true;
+  try {
+    await AsyncStorage.setItem(PROOT_BOT_GESTURE_HINT_SEEN_KEY, '1');
+  } catch {}
+}
+
 export async function triggerProotBotResponse(
   isHapticEnabled = true,
   onReply?: (proutKey: string, replyText: string) => void

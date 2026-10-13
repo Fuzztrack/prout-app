@@ -522,6 +522,19 @@ export default function ChatScreen() {
   const refreshMessages = useCallback(async () => {
     if (!currentUserId || !friendId) return;
     if (isBot) {
+      // Nettoyer les messages envoyés vides résiduels (anciens swipes)
+      const botSent = useChatStore.getState().sentByFriend[PROOT_BOT_ID] || [];
+      if (botSent.some((m) => !m.text || m.text.trim() === '')) {
+        const cleaned = botSent.filter((m) => !!m.text && m.text.trim().length > 0);
+        useChatStore.setState((state) => ({
+          sentByFriend: {
+            ...state.sentByFriend,
+            [PROOT_BOT_ID]: cleaned,
+          },
+        }));
+        setSentMessages(cleaned);
+      }
+
       const existing = useChatStore.getState().receivedByFriend[PROOT_BOT_ID] || [];
       if (existing.length === 0) {
         const welcomeMsg: PendingMessage = {
@@ -533,6 +546,20 @@ export default function ChatScreen() {
           local_ts: Date.now(),
         };
         addReceivedMessages(PROOT_BOT_ID, [welcomeMsg]);
+        setReceivedMessages([welcomeMsg]);
+      } else {
+        const hasUnreadBot = existing.some(m => !(m.message_content?.startsWith('READ:') ?? false));
+        if (hasUnreadBot) {
+          const readExisting = existing.map(m =>
+            !(m.message_content?.startsWith('READ:') ?? false)
+              ? { ...m, message_content: `READ:${m.message_content || ''}` }
+              : m
+          );
+          addReceivedMessages(PROOT_BOT_ID, readExisting);
+          setReceivedMessages(readExisting);
+        } else {
+          setReceivedMessages(existing);
+        }
       }
       return;
     }
@@ -926,6 +953,7 @@ export default function ChatScreen() {
       return m;
     });
     useChatStore.getState().addReceivedMessages(friendId, updatedMessages);
+    setReceivedMessages(updatedMessages);
 
     if (isBot) {
       return;
@@ -1065,8 +1093,10 @@ export default function ChatScreen() {
     });
 
     // 1. Séparer les messages confirmés (UUID) et optimistes (local-)
-    const confirmedSent = sentMessages.filter(m => !m.id.startsWith('local-'));
-    const optimisticSent = sentMessages.filter(m => m.id.startsWith('local-'));
+    // On ignore tout message dont le texte est vide (ex: simples swipes sonores sans message)
+    const validSentMessages = sentMessages.filter((m) => !!m.text && m.text.trim().length > 0);
+    const confirmedSent = validSentMessages.filter((m) => !m.id.startsWith('local-'));
+    const optimisticSent = validSentMessages.filter((m) => m.id.startsWith('local-'));
 
     // 2. Associer les ID optimistes aux ID confirmés
     // On parcourt les optimistes et on cherche le premier confirmé qui a le même contenu.

@@ -572,6 +572,11 @@ export function FriendsList({
         // 2. Identifier les messages locaux récents à conserver (optimistes)
         const now = Date.now();
         const survivingRecent = prev.filter(localMsg => {
+          // Si le message est déjà marqué READ: ou que sa version dans le store est READ:, ne pas le conserver comme récent non-lu !
+          if (localMsg.message_content?.startsWith('READ:')) return false;
+          const storeMsg = receivedByFriend[localMsg.from_user_id]?.find(sm => sm.id === localMsg.id);
+          if (storeMsg?.message_content?.startsWith('READ:')) return false;
+
           // Garder messages < 10s (FCM/Broadcast/INSERT récents) s'ils ne sont pas encore sur le serveur
           const isRecent = (now - new Date(localMsg.created_at).getTime()) < 10000;
           if (!isRecent) return false;
@@ -608,7 +613,14 @@ export function FriendsList({
         });
 
         // Enfin les messages optimistes récents (Broadcast, etc.)
-        survivingRecent.forEach(m => mergedById.set(m.id, m));
+        survivingRecent.forEach(m => {
+          const existing = mergedById.get(m.id);
+          // Si le message existe déjà en local AVEC le préfixe READ:, on le préserve !
+          if (existing && (existing.message_content?.startsWith('READ:') ?? false)) {
+            return;
+          }
+          mergedById.set(m.id, m);
+        });
 
         // Et réinjecter les messages gardés en mémoire (Session Gelée)
         const activeId = expandedFriendIdRef.current;
@@ -1548,6 +1560,22 @@ export function FriendsList({
     useCallback(() => {
       // Forcer la fermeture du clavier dès qu'on arrive sur cet écran
       Keyboard.dismiss();
+
+      // Mettre à jour immédiatement l'état pendingMessages avec le statut 'READ:' du store persistant (pour effacer l'aperçu dès le retour)
+      setPendingMessages((prev) => {
+        const storeReceived = useChatStore.getState().receivedByFriend;
+        let changed = false;
+        const next = prev.map((m) => {
+          if (m.message_content?.startsWith('READ:')) return m;
+          const storeMsg = storeReceived[m.from_user_id]?.find((sm) => sm.id === m.id);
+          if (storeMsg?.message_content?.startsWith('READ:')) {
+            changed = true;
+            return { ...m, message_content: storeMsg.message_content };
+          }
+          return m;
+        });
+        return changed ? next : prev;
+      });
       
       // Recharger les données à chaque fois que l'écran gagne le focus
       // Le tri se fait maintenant uniquement via last_interaction_at depuis Supabase
@@ -3273,6 +3301,27 @@ useEffect(() => {
       onSearchQueryChange?.('');
       onSearchChange?.(false);
     }
+
+    // ⚡ Disparition immédiate de l'aperçu du message dès le clic pour ouvrir le chat :
+    setPendingMessages((prev) =>
+      prev.map((m) => {
+        if (m.from_user_id === friend.id && !m.message_content?.startsWith('READ:')) {
+          return { ...m, message_content: `READ:${m.message_content || ''}` };
+        }
+        return m;
+      })
+    );
+
+    const storeMsgs = useChatStore.getState().receivedByFriend[friend.id] || [];
+    if (storeMsgs.some((m) => !m.message_content?.startsWith('READ:'))) {
+      const readMsgs = storeMsgs.map((m) =>
+        !m.message_content?.startsWith('READ:')
+          ? { ...m, message_content: `READ:${m.message_content || ''}` }
+          : m
+      );
+      useChatStore.getState().addReceivedMessages(friend.id, readMsgs);
+    }
+
     safePush(
       router,
       {
@@ -3293,26 +3342,37 @@ useEffect(() => {
   ) => {
     // Cas spécial : ProotBot 🤖 (Bot d'onboarding)
     if (recipient.id === PROOT_BOT_ID) {
-      const soundKey = options?.forcedSoundKey || 'toot1';
+      const forcedFriendSoundKey = friendSoundKeyByFriend[recipient.id];
+      const soundKey = options?.forcedSoundKey || forcedFriendSoundKey || 'toot1';
+      if (forcedFriendSoundKey) {
+        setFriendSpecificSoundKey(recipient.id, null);
+      }
       const proutName = getDisplaySoundLabel(soundKey);
       showToast(`${proutName} !`);
       if (onProutSent) onProutSent();
       triggerProutHaptic(soundKey, isHapticEnabled);
       playLocalSound(soundKey);
 
-      const swipeSentId = `bot-swipe-${Date.now()}`;
-      useChatStore.getState().addSentMessages(PROOT_BOT_ID, [{
-        id: swipeSentId,
-        text: '',
-        soundKey,
-        ts: new Date().toISOString(),
-        local_ts: Date.now(),
-      }]);
+      // Si un message texte a été explicitement envoyé (ex: options), on l'enregistre
+      const customText = (options?.forcedCustomMessage || '').trim();
+      let customSentId: string | undefined;
+      if (customText) {
+        customSentId = `bot-sent-${Date.now()}`;
+        useChatStore.getState().addSentMessages(PROOT_BOT_ID, [{
+          id: customSentId,
+          text: customText,
+          soundKey,
+          ts: new Date().toISOString(),
+          local_ts: Date.now(),
+        }]);
+      }
 
       // Réponse automatique de ProotBot après 3 secondes
       triggerProotBotResponse(isHapticEnabled, () => {
         showToast(i18n.t('prootbot_replied'));
-        useChatStore.getState().markMessagesAsRead(PROOT_BOT_ID, [swipeSentId]);
+        if (customSentId) {
+          useChatStore.getState().markMessagesAsRead(PROOT_BOT_ID, [customSentId]);
+        }
       });
       return;
     }

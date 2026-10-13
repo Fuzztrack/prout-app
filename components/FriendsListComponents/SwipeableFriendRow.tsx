@@ -15,7 +15,8 @@ import Animated, {
   cancelAnimation 
 } from 'react-native-reanimated';
 import i18n from '../../lib/i18n';
-import { isProotBot } from '../../lib/prootBot';
+import { isProotBot, isProotBotGestureHintSeenSync } from '../../lib/prootBot';
+import { ProotBotGestureHint } from './ProotBotGestureHint';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SWIPE_THRESHOLD = 150;
@@ -379,12 +380,16 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
           </Animated.View>
         </GestureDetector>
       </View>
+      {isProotBot(friend.id) && !isProotBotGestureHintSeenSync() && (
+        <ProotBotGestureHint isRowActive={isRowTouchActive} />
+      )}
     </View>
   );
 }));
 
 const styles = StyleSheet.create({
   swipeableRowShadowWrapper: {
+    position: 'relative',
     marginBottom: 5, // Espace de 5px entre chaque bouton
     borderRadius: 15, // Angles arrondis d'origine
     ...Platform.select({
