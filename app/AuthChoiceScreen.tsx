@@ -1,9 +1,10 @@
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { CustomButton } from '../components/CustomButton';
-import { logSessionSnapshot, maskToken } from '../lib/authDebug';
+import { logSessionSnapshot } from '../lib/authDebug';
 import { ensureUserEulaAccepted, hasAcceptedEulaLocally, isUserEulaAccepted, syncLocalEulaAcceptanceFromUser } from '../lib/eula';
 import { safePush, safeReplace } from '../lib/navigation';
 import { registerPushTokenForUser } from '../lib/pushTokenRegistration';
@@ -31,7 +32,7 @@ export default function AuthChoiceScreen() {
   const isOAuthBrowserAuthInProgressRef = useRef(false);
 
   const replaceWithSkip = (path: string) => {
-    safeReplace(router, path, { skipInitialCheck: false });
+    safeReplace(router, path as any, { skipInitialCheck: false });
   };
 
   const closeAuthSessionIfNeeded = async () => {
@@ -57,7 +58,7 @@ export default function AuthChoiceScreen() {
     return WebBrowser.openAuthSessionAsync(url, redirectUrl, options);
   };
 
-  const startAppleOAuthFlow = async (timeoutId: NodeJS.Timeout) => {
+  const startAppleOAuthFlow = async (timeoutId: ReturnType<typeof setTimeout>) => {
     const redirectUrl = getRedirectUrl();
 
     const { data, error } = await supabase.auth.signInWithOAuth({
@@ -92,7 +93,7 @@ export default function AuthChoiceScreen() {
       data.url,
       redirectUrl,
       {
-        presentationStyle: WebBrowser.WebBrowserPresentationStyle.MODAL,
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
         showInRecents: false,
       }
     );
@@ -148,13 +149,87 @@ export default function AuthChoiceScreen() {
     };
   }, []);
 
+  // Helper unique pour finaliser la connexion (OAuth Google / Apple web / Apple native)
+  const finalizeAuthenticatedUser = async (sessionUser: any) => {
+    console.log('✅ Finalisation connexion pour:', sessionUser.id);
+
+    // Tentative d'enregistrement du token push
+    registerPushTokenForUser(sessionUser.id).catch(err => {
+      console.warn('⚠️ Erreur enregistrement token post-auth:', err);
+    });
+
+    isOAuthBrowserAuthInProgressRef.current = false;
+
+    // Récupérer et synchroniser les données utilisateur & EULA
+    const { data: { user } } = await supabase.auth.getUser();
+    const effectiveUser = await ensureUserEulaAccepted(user || sessionUser);
+
+    if (!isUserEulaAccepted(effectiveUser)) {
+      console.log('➡️ Auth OK → EULA acceptation requise');
+      if (typeof (global as any).__isOAuthFlow === 'function') {
+        (global as any).__isOAuthFlow(false);
+      }
+      replaceWithSkip('/eula-accept');
+      return true;
+    }
+
+    await syncLocalEulaAcceptanceFromUser(effectiveUser);
+
+    // Vérifier le profil en base
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('id, pseudo')
+      .eq('id', sessionUser.id)
+      .maybeSingle();
+
+    console.log('📋 Profil final trouvé:', profile?.pseudo || 'aucun');
+
+    const pseudoValidated = effectiveUser?.user_metadata?.pseudo_validated === true;
+
+    // Fin du flux OAuth : libération du routeur
+    if (typeof (global as any).__isOAuthFlow === 'function') {
+      (global as any).__isOAuthFlow(false);
+    }
+
+    const isSystemPseudo = (p: string | null | undefined): boolean => {
+      if (!p || p === 'Nouveau Membre') return true;
+      if (p.toLowerCase().startsWith('user_') && p.length > 10) return true;
+      return false;
+    };
+
+    // Si le pseudo est déjà validé explicitement ET qu'un profil valide existe : direction Home
+    if (pseudoValidated && profile?.pseudo && !isSystemPseudo(profile.pseudo)) {
+      console.log('➡️ Auth OK → Home (profil déjà validé)');
+      replaceWithSkip('/(tabs)');
+      return true;
+    }
+
+    // Sinon, nouvel utilisateur ou pseudo non validé : direction la finalisation d'inscription
+    console.log('➡️ Auth OK → Vérification Permissions -> CompleteProfileScreen');
+    const Notifications = require('expo-notifications');
+    try {
+      const { status } = await Notifications.getPermissionsAsync();
+      if (status === 'undetermined') {
+        console.log('➡️ Direction: NotificationPermissionScreen');
+        replaceWithSkip('/NotificationPermissionScreen?next=%2FCompleteProfileScreen');
+      } else {
+        console.log('➡️ Direction: CompleteProfileScreen');
+        replaceWithSkip('/CompleteProfileScreen');
+      }
+    } catch (e) {
+      console.warn('⚠️ Erreur lors de la vérification des permissions, redirection par défaut:', e);
+      replaceWithSkip('/CompleteProfileScreen');
+    }
+
+    return true;
+  };
+
   // Helper pour gérer le résultat OAuth
-  const handleOAuthResult = async (result: any, timeoutId: NodeJS.Timeout) => {
-    // Marquer qu'on est dans un flux OAuth pour éviter la redirection automatique dans _layout.tsx
+  const handleOAuthResult = async (result: any, timeoutId: ReturnType<typeof setTimeout>) => {
     if (typeof (global as any).__isOAuthFlow === 'function') {
       (global as any).__isOAuthFlow(true);
     }
-    
+
     if (result.type === 'cancel') {
       isOAuthBrowserAuthInProgressRef.current = false;
       clearTimeout(timeoutId);
@@ -164,20 +239,31 @@ export default function AuthChoiceScreen() {
       setLoading(false);
       return false;
     }
-    
+
     if (result.type === 'success') {
       console.log('✅ OAuth réussi, traitement de l\'URL...');
       console.log('🔗 URL callback:', result.url);
       clearTimeout(timeoutId);
-      if (__DEV__) {
-        console.log('🍏 [OAuthCallback]', {
-          hasAccessToken: !!result.url?.includes('access_token='),
-          hasRefreshToken: !!result.url?.includes('refresh_token='),
-          hasError: !!result.url?.includes('error='),
-        });
+
+      // 1. Détection des erreurs retournées dans l'URL par le fournisseur
+      if (result.url) {
+        const errorMatch = result.url.match(/[?#&]error=([^&]+)/);
+        const errorDescMatch = result.url.match(/[?#&]error_description=([^&]+)/);
+        if (errorMatch) {
+          const rawDesc = errorDescMatch ? errorDescMatch[1] : errorMatch[1];
+          const errorMsg = decodeURIComponent(rawDesc.replace(/\+/g, ' '));
+          console.error('❌ Erreur OAuth dans callback:', errorMsg);
+          isOAuthBrowserAuthInProgressRef.current = false;
+          if (typeof (global as any).__isOAuthFlow === 'function') {
+            (global as any).__isOAuthFlow(false);
+          }
+          setLoading(false);
+          Alert.alert(i18n.t('error') || 'Erreur', errorMsg);
+          return false;
+        }
       }
-      
-      // Vérifier si l'URL contient les tokens
+
+      // 2. Vérifier si l'URL contient les tokens
       if (result.url && result.url.includes('access_token') && result.url.includes('refresh_token')) {
         console.log('🔑 Tokens trouvés dans l\'URL, création de la session...');
         try {
@@ -188,7 +274,7 @@ export default function AuthChoiceScreen() {
               access_token: accessToken,
               refresh_token: refreshToken,
             });
-            
+
             if (error) {
               console.error('❌ Erreur création session:', error);
               isOAuthBrowserAuthInProgressRef.current = false;
@@ -196,211 +282,58 @@ export default function AuthChoiceScreen() {
                 (global as any).__isOAuthFlow(false);
               }
               setLoading(false);
+              Alert.alert(i18n.t('error') || 'Erreur', error.message);
               return false;
             }
-            
+
             if (data.session?.user) {
               console.log('✅ Session créée pour:', data.session.user.id);
-              
-              // ✅ TENTATIVE D'ENREGISTREMENT DU TOKEN PUSH IMMÉDIATE APRÈS OAUTH
-              // Sur iOS, le retour du navigateur peut parfois être trop rapide pour le listener global
-              registerPushTokenForUser(data.session.user.id).catch(err => {
-                console.warn('⚠️ Erreur enregistrement token post-OAuth:', err);
-              });
-
-              console.log('🍏 [AuthDebug:oauthTokens]', {
-                accessTokenPreview: maskToken(accessToken),
-                refreshTokenPreview: maskToken(refreshToken),
-              });
               logSessionSnapshot('AuthDebug:setSession', data.session);
-              isOAuthBrowserAuthInProgressRef.current = false;
-              
-              // Récupérer les métadonnées utilisateur pour le pseudo
+
               const { data: { user } } = await supabase.auth.getUser();
-              
-              // 1. D'abord, chercher le pseudo d'inscription explicite
+
+              // Extraire le prénom pour les fournisseurs OAuth (Google / Apple web) si pas de pseudo
               let pseudoFromMetadata = user?.user_metadata?.pseudo || null;
-              
-              // 2. Si pas de pseudo d'inscription, extraire le prénom depuis Apple (full_name ou name)
               if (!pseudoFromMetadata || pseudoFromMetadata === 'Nouveau Membre') {
                 const fullName = user?.user_metadata?.full_name || user?.user_metadata?.name || null;
                 if (fullName) {
-                  // Extraire le prénom (première partie avant l'espace)
                   const firstName = fullName.split(' ')[0].trim();
                   if (firstName && firstName.length > 0) {
                     pseudoFromMetadata = firstName;
-                    console.log('👤 Prénom extrait depuis Apple:', firstName);
-                    
-                    // Stocker le prénom dans les métadonnées pour les prochaines connexions
-                    const { error: updateMetaError } = await supabase.auth.updateUser({
+                    await supabase.auth.updateUser({
                       data: {
                         ...(user?.user_metadata ?? {}),
                         pseudo: firstName,
                         pseudo_validated: false,
                       }
-                    });
-                    if (updateMetaError) {
-                      console.error('❌ Erreur mise à jour métadonnées:', updateMetaError);
-                    } else {
-                      console.log('✅ Prénom stocké dans les métadonnées');
-                    }
+                    }).catch(() => {});
                   }
                 }
               }
-              
-              console.log('👤 Pseudo final à utiliser:', pseudoFromMetadata);
-              console.log('📦 Toutes les métadonnées:', JSON.stringify(user?.user_metadata, null, 2));
-              
-              // Vérifier d'abord le profil actuel
-              const { data: currentProfile } = await supabase
-                .from('user_profiles')
-                .select('pseudo')
-                .eq('id', data.session.user.id)
-                .maybeSingle();
-              
-              console.log('📋 Profil actuel dans la DB:', currentProfile?.pseudo || 'aucun');
-              
-              // Mettre à jour le pseudo si nécessaire
+
+              // Mettre à jour le profil en base si pseudo disponible
               if (pseudoFromMetadata && pseudoFromMetadata !== 'Nouveau Membre') {
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                
                 const { data: checkProfile } = await supabase
                   .from('user_profiles')
                   .select('id, pseudo')
                   .eq('id', data.session.user.id)
                   .maybeSingle();
-                
+
                 const updateData = {
                   pseudo: pseudoFromMetadata,
                   phone: user?.user_metadata?.phone || null,
                   updated_at: new Date().toISOString()
                 };
-                
-                let updateError;
+
                 if (checkProfile) {
-                  const { error } = await supabase
-                    .from('user_profiles')
-                    .update(updateData)
-                    .eq('id', data.session.user.id);
-                  updateError = error;
+                  await supabase.from('user_profiles').update(updateData).eq('id', data.session.user.id);
                 } else {
-                  const { error } = await supabase
-                    .from('user_profiles')
-                    .upsert({
-                      id: data.session.user.id,
-                      ...updateData
-                    }, {
-                      onConflict: 'id'
-                    });
-                  updateError = error;
-                }
-                
-                if (updateError) {
-                  if ((updateError as any).code === '23505') {
-                    console.log('ℹ️ Pseudo Google/Apple déjà pris, l\'utilisateur devra en choisir un autre.');
-                  } else {
-                    console.error('❌ Erreur mise à jour pseudo:', updateError);
-                  }
-                } else {
-                  console.log('✅ Pseudo mis à jour:', pseudoFromMetadata);
-                  // Attendre que la mise à jour soit propagée dans la base
-                  await new Promise(resolve => setTimeout(resolve, 2000));
-                  
-                  // Vérifier que le profil a bien été mis à jour
-                  const { data: verifyProfile } = await supabase
-                    .from('user_profiles')
-                    .select('pseudo')
-                    .eq('id', data.session.user.id)
-                    .maybeSingle();
-                  
-                  if (verifyProfile?.pseudo === pseudoFromMetadata) {
-                    console.log('✅ Profil vérifié, pseudo correct:', verifyProfile.pseudo);
-                  } else {
-                    console.warn('⚠️ Profil pas encore synchronisé, pseudo DB:', verifyProfile?.pseudo, 'attendu:', pseudoFromMetadata);
-                  }
+                  await supabase.from('user_profiles').upsert({ id: data.session.user.id, ...updateData }, { onConflict: 'id' });
                 }
               }
-              
-              // Recharger les métadonnées après la mise à jour
-              const { data: { user: updatedUser } } = await supabase.auth.getUser();
-              const { data: { session: postCallbackSession } } = await supabase.auth.getSession();
-              logSessionSnapshot('AuthDebug:postCallback:getSession', postCallbackSession);
-              const finalPseudoFromMetadata = updatedUser?.user_metadata?.pseudo || pseudoFromMetadata;
 
-              const effectiveUser = await ensureUserEulaAccepted(updatedUser);
-
-              if (!isUserEulaAccepted(effectiveUser)) {
-                console.log('➡️ OAuth OK → EULA acceptation requise');
-                if (typeof (global as any).__isOAuthFlow === 'function') {
-                  (global as any).__isOAuthFlow(false);
-                }
-                replaceWithSkip('/eula-accept');
-                return true;
-              }
-
-              await syncLocalEulaAcceptanceFromUser(effectiveUser);
-              
-              // Vérifier le profil et naviguer
-              const { data: profile } = await supabase
-                .from('user_profiles')
-                .select('pseudo')
-                .eq('id', data.session.user.id)
-                .maybeSingle();
-              
-              console.log('📋 Profil final trouvé:', profile?.pseudo || 'aucun');
-              console.log('👤 Pseudo final depuis métadonnées:', finalPseudoFromMetadata);
-              
-              // Fonction pour détecter si un pseudo semble aléatoire (contient des chiffres/lettres aléatoires)
-              const isPseudoRandom = (pseudo: string | null | undefined): boolean => {
-                if (!pseudo) return true;
-                if (pseudo === 'Nouveau Membre') return true;
-                // Détecter les pseudos générés automatiquement par Supabase (format: User_[UUID])
-                if (pseudo.startsWith('User_') && pseudo.length > 10) return true;
-                // Détecter les pseudos qui semblent aléatoires (ex: "abc123xyz", UUID, etc.)
-                const randomPattern = /^[a-z0-9]{8,}$/i; // 8+ caractères alphanumériques sans espaces
-                const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-                return randomPattern.test(pseudo) && !pseudo.includes(' ') || uuidPattern.test(pseudo);
-              };
-              
-              const pseudoValidated = effectiveUser?.user_metadata?.pseudo_validated === true;
-
-              // Fin du flux OAuth : on libère le routeur global
-              if (typeof (global as any).__isOAuthFlow === 'function') {
-                (global as any).__isOAuthFlow(false);
-              }
-
-              // ✅ FIX : On redirige vers la Home QUE si le pseudo a été explicitement validé par l'utilisateur.
-              if (pseudoValidated) {
-                console.log('➡️ OAuth OK → Home (pseudo déjà validé)');
-                replaceWithSkip('/(tabs)');
-                return true;
-              }
-
-              // Sinon, passage obligé par la case départ pour choisir/confirmer le pseudo
-              // AVEC VÉRIFICATION DES PERMISSIONS DE NOTIFICATION AU PRÉALABLE
-              console.log('➡️ OAuth OK → Vérification Permissions -> CompleteProfileScreen');
-              
-              // On importe dynamiquement Notifications pour éviter les dépendances circulaires
-              const Notifications = require('expo-notifications');
-              
-              try {
-                const { status } = await Notifications.getPermissionsAsync();
-                if (status === 'undetermined') {
-                  console.log('➡️ Direction: NotificationPermissionScreen');
-                  replaceWithSkip('/NotificationPermissionScreen?next=%2FCompleteProfileScreen');
-                } else {
-                  console.log('➡️ Direction: CompleteProfileScreen');
-                  replaceWithSkip('/CompleteProfileScreen');
-                }
-              } catch (e) {
-                console.warn('⚠️ Erreur lors de la vérification des permissions, redirection par défaut:', e);
-                replaceWithSkip('/CompleteProfileScreen');
-              }
-              
-              return true;
+              return await finalizeAuthenticatedUser(data.session.user);
             }
-          } else {
-            console.error('❌ Tokens OAuth introuvables ou invalides dans l’URL callback');
           }
         } catch (e: any) {
           console.error('❌ Erreur traitement URL:', e);
@@ -409,48 +342,32 @@ export default function AuthChoiceScreen() {
             (global as any).__isOAuthFlow(false);
           }
           setLoading(false);
+          Alert.alert(i18n.t('error') || 'Erreur', e.message || i18n.t('error'));
           return false;
         }
       }
-      
-      // Si pas de tokens dans l'URL, attendre que le callback soit traité
+
+      // 3. Fallback : attente de la session si tokens absents de l'URL directe
       console.log('⏳ Pas de tokens dans l\'URL, attente callback...');
       await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Vérifier si la session a été créée
+
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError) {
-        console.error('❌ Erreur récupération session:', sessionError);
-        isOAuthBrowserAuthInProgressRef.current = false;
-        if (typeof (global as any).__isOAuthFlow === 'function') {
-          (global as any).__isOAuthFlow(false);
-        }
-        setLoading(false);
-        return false;
-      }
-      
-      if (session?.user) {
-        console.log('✅ Session créée pour:', session.user.id);
-        logSessionSnapshot('AuthDebug:postCallback:getSession', session);
-        isOAuthBrowserAuthInProgressRef.current = false;
-        if (typeof (global as any).__isOAuthFlow === 'function') {
-          (global as any).__isOAuthFlow(false);
-        }
-        // Même si on n'a pas eu les tokens dans l'URL, une session existe → on déclenche la suite
-        replaceWithSkip('/confirm-email');
-        return true;
-      } else {
+      if (sessionError || !session?.user) {
         console.warn('⚠️ Pas de session après OAuth');
         isOAuthBrowserAuthInProgressRef.current = false;
         if (typeof (global as any).__isOAuthFlow === 'function') {
           (global as any).__isOAuthFlow(false);
         }
         setLoading(false);
+        Alert.alert(i18n.t('error') || 'Erreur', sessionError?.message || i18n.t('session_invalid'));
         return false;
       }
+
+      return await finalizeAuthenticatedUser(session.user);
     }
-    
+
+    isOAuthBrowserAuthInProgressRef.current = false;
+    setLoading(false);
     return false;
   };
 
@@ -461,7 +378,7 @@ export default function AuthChoiceScreen() {
     isOAuthBrowserAuthInProgressRef.current = false;
     try {
       const redirectUrl = getRedirectUrl();
-      
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -473,22 +390,20 @@ export default function AuthChoiceScreen() {
       if (error) throw error;
 
       if (data?.url) {
-        // Marquer qu'on est dans un flux OAuth pour éviter la redirection automatique dans _layout.tsx
         if (typeof (global as any).__isOAuthFlow === 'function') {
           (global as any).__isOAuthFlow(true);
         }
         isOAuthBrowserAuthInProgressRef.current = true;
-        
+
         const result = await openAuthSessionSafe(
           data.url, 
           redirectUrl,
           {
-            presentationStyle: WebBrowser.WebBrowserPresentationStyle.MODAL,
+            presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
             showInRecents: false,
           }
         );
-        
-        // Utiliser handleOAuthResult pour gérer le résultat de manière cohérente
+
         const timeoutId = setTimeout(() => {
           if (isOAuthBrowserAuthInProgressRef.current) {
             console.log('⏱️ Auth Google toujours en cours dans le navigateur, on garde le chargement actif.');
@@ -500,7 +415,7 @@ export default function AuthChoiceScreen() {
           }
           setLoading(false);
         }, 20000);
-        
+
         await handleOAuthResult(result, timeoutId);
       }
     } catch (e: any) {
@@ -510,33 +425,100 @@ export default function AuthChoiceScreen() {
     }
   };
 
-  // 3. Connexion Apple
+  // 3. Connexion Apple (iOS native avec Face ID / Touch ID, et fallback OAuth Web pour Android)
   const handleAppleLogin = async () => {
     if (!(await ensureEulaAccepted())) return;
     setLoading(true);
     isOAuthBrowserAuthInProgressRef.current = false;
     console.log('🍏 1. Début Apple Sign In');
-    
-    // Timeout de sécurité
-    const timeoutId = setTimeout(() => {
-      if (isOAuthBrowserAuthInProgressRef.current) {
-        console.log('⏱️ Auth Apple toujours en cours dans le navigateur, on garde le chargement actif.');
-        return;
-      }
-      console.warn('⏱️ Timeout Apple Sign In - réactivation du bouton');
-      setLoading(false);
-    }, 20000);
-    
+
     try {
-      // Flux unique OAuth Apple (iOS + Android) pour garantir un comportement stable au 1er essai.
-      console.log(`🍏 2. ${Platform.OS === 'ios' ? 'iOS' : 'Android'} - Début OAuth Web Apple...`);
+      // Priorité à l'authentification Apple native sur iOS (Face ID / Touch ID)
+      if (Platform.OS === 'ios') {
+        const isAvailable = await AppleAuthentication.isAvailableAsync();
+        if (isAvailable) {
+          console.log('🍏 2. iOS - Apple Authentication native...');
+          let credential;
+          try {
+            credential = await AppleAuthentication.signInAsync({
+              requestedScopes: [
+                AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+                AppleAuthentication.AppleAuthenticationScope.EMAIL,
+              ],
+            });
+          } catch (nativeErr: any) {
+            if (nativeErr.code === 'ERR_REQUEST_CANCELED') {
+              console.log('🍏 Connexion Apple annulée par l\'utilisateur');
+              setLoading(false);
+              return;
+            }
+            console.warn('⚠️ Échec Apple native, tentative fallback web:', nativeErr);
+            throw nativeErr;
+          }
+
+          if (!credential.identityToken) {
+            throw new Error(i18n.t('cannot_connect_apple'));
+          }
+
+          console.log('🍏 3. Token Apple reçu, connexion Supabase via signInWithIdToken...');
+          const { data, error } = await supabase.auth.signInWithIdToken({
+            provider: 'apple',
+            token: credential.identityToken,
+          });
+
+          if (error) {
+            console.error('❌ Erreur Supabase Apple:', error);
+            throw error;
+          }
+
+          if (data.session?.user) {
+            console.log('✅ 4. Supabase connecté avec Apple native !', data.session.user.id);
+
+            // Apple ne fournit le prénom et nom QUE lors de la TOUTE PREMIÈRE inscription
+            const givenName = credential.fullName?.givenName?.trim();
+            const familyName = credential.fullName?.familyName?.trim();
+            const fullName = [givenName, familyName].filter(Boolean).join(' ');
+
+            if (givenName || fullName) {
+              const pseudoToSet = givenName || fullName;
+              try {
+                await supabase.auth.updateUser({
+                  data: {
+                    pseudo: pseudoToSet,
+                    full_name: fullName || givenName,
+                    pseudo_from_apple: true,
+                    pseudo_validated: false,
+                  },
+                });
+                console.log('✅ Prénom Apple stocké dans les métadonnées:', pseudoToSet);
+              } catch (metaErr) {
+                console.warn('⚠️ Erreur mise à jour métadonnées Apple:', metaErr);
+              }
+            }
+
+            await finalizeAuthenticatedUser(data.session.user);
+            return;
+          }
+        }
+      }
+
+      // Android ou fallback si Apple Authentication native n'est pas disponible (ex: simulateur sans compte)
+      console.log(`🍏 Fallback OAuth Web Apple (${Platform.OS})...`);
+      const timeoutId = setTimeout(() => {
+        if (isOAuthBrowserAuthInProgressRef.current) {
+          console.log('⏱️ Auth Apple toujours en cours dans le navigateur, on garde le chargement actif.');
+          return;
+        }
+        console.warn('⏱️ Timeout Apple Sign In - réactivation du bouton');
+        setLoading(false);
+      }, 20000);
+
       await startAppleOAuthFlow(timeoutId);
       return;
     } catch (e: any) {
       isOAuthBrowserAuthInProgressRef.current = false;
-      clearTimeout(timeoutId);
       if (e.code === 'ERR_REQUEST_CANCELED') {
-        console.log('🍏 Connexion Apple annulée');
+        console.log('🍏 Connexion Apple annulée par l\'utilisateur');
         if (typeof (global as any).__isOAuthFlow === 'function') {
           (global as any).__isOAuthFlow(false);
         }
@@ -544,13 +526,12 @@ export default function AuthChoiceScreen() {
         return;
       }
       console.error('❌ ERREUR GLOBALE Apple:', e);
-      console.error('❌ Détails erreur:', JSON.stringify(e, null, 2));
       if (typeof (global as any).__isOAuthFlow === 'function') {
         (global as any).__isOAuthFlow(false);
       }
       Alert.alert(
-        'Erreur Apple', 
-        e.message || 'Impossible de se connecter avec Apple. Essayez sur un appareil réel si vous êtes sur simulateur.'
+        i18n.t('apple_error'),
+        e.message || i18n.t('cannot_connect_apple')
       );
       setLoading(false);
     }

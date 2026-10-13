@@ -586,6 +586,9 @@ const i18n = new I18n({
 
     // Login
     session_invalid: "Session invalide après connexion",
+    cannot_connect_apple: "Impossible de se connecter avec Apple",
+    apple_error: "Erreur Apple",
+    google_error: "Erreur Google",
     connection_error: "Une erreur est survenue lors de la connexion",
     cannot_reset_temp_email: "Impossible de réinitialiser le mot de passe avec un email temporaire.\n\nVeuillez contacter le support.",
     email_required_title: "Email requis",
