@@ -193,7 +193,7 @@ export function AppHeader({
                 ]}
                 accessibilityLabel="Créer un GroopProot"
               >
-                <Ionicons name="people-outline" size={24} color="#ffffff" />
+                <Ionicons name="people-outline" size={31} color="#ffffff" />
               </TouchableOpacity>
             )}
             {isZenMode && (

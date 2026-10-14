@@ -26,7 +26,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const appVersion = Constants.expoConfig?.version ?? '1.1.46';
+  const appVersion = Constants.expoConfig?.version ?? '1.1.50';
   
   const isLoadedRef = useRef(false);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -805,10 +805,10 @@ useEffect(() => {
                          
                          <View style={styles.menuCard}>
                            {[
-                            { label: i18n.t('invite_friend'), icon: 'share-social-outline', onPress: handleShare, iconColor: '#604a3e' },
                             { label: zenMenuLabel, icon: zenModeEnabled ? 'moon' : 'moon-outline', onPress: () => { void toggleZenMode(); }, iconColor: zenModeEnabled ? '#ebb89b' : '#604a3e' },
                              { label: i18n.t('silent_mode'), icon: isSilentMode ? 'volume-mute' : 'volume-mute-outline', onPress: () => { toggleSilentMode(); }, iconColor: isSilentMode ? '#ebb89b' : '#604a3e' },
                              { label: i18n.t('resonance_dashboard_menu'), icon: 'trophy', onPress: () => { setActiveView('list'); router.push('/complicity'); }, iconColor: '#604a3e' },
+                            { label: i18n.t('invite_friend'), icon: 'share-social-outline', onPress: handleShare, iconColor: '#604a3e' },
                              { label: i18n.t('review_app_functions'), icon: 'help-circle-outline', onPress: () => setActiveView('tutorial'), iconColor: '#604a3e' },
                              { label: i18n.t('who_is_who'), icon: 'eye-outline', onPress: () => { setShowIdentity(true); setActiveView('list'); }, iconColor: '#604a3e' },
                              { label: i18n.t('blocked_friends_menu'), icon: 'ban-outline', onPress: () => { setShowBlockedUsers(true); setActiveView('list'); }, iconColor: '#604a3e' },
@@ -884,10 +884,10 @@ useEffect(() => {
                       
                       <View style={styles.menuCard}>
                           {[
-                            { label: i18n.t('invite_friend'), icon: 'share-social-outline', onPress: handleShare, iconColor: '#604a3e' },
                             { label: zenMenuLabel, icon: zenModeEnabled ? 'moon' : 'moon-outline', onPress: () => { void toggleZenMode(); }, iconColor: zenModeEnabled ? '#ebb89b' : '#604a3e' },
                             { label: i18n.t('silent_mode'), icon: isSilentMode ? 'volume-mute' : 'volume-mute-outline', onPress: () => { toggleSilentMode(); }, iconColor: isSilentMode ? '#ebb89b' : '#604a3e' },
                             { label: i18n.t('resonance_dashboard_menu'), icon: 'trophy', onPress: () => { setActiveView('list'); router.push('/complicity'); }, iconColor: '#604a3e' },
+                            { label: i18n.t('invite_friend'), icon: 'share-social-outline', onPress: handleShare, iconColor: '#604a3e' },
                             { label: i18n.t('review_app_functions'), icon: 'help-circle-outline', onPress: () => setActiveView('tutorial'), iconColor: '#604a3e' },
                             { label: i18n.t('who_is_who'), icon: 'eye-outline', onPress: () => { setShowIdentity(true); setActiveView('list'); }, iconColor: '#604a3e' },
                             { label: i18n.t('blocked_friends_menu'), icon: 'ban-outline', onPress: () => { setShowBlockedUsers(true); setActiveView('list'); }, iconColor: '#604a3e' },
