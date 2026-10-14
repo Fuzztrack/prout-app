@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useEffect, useRef } from 'react';
 import { Animated, Image, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 
@@ -17,6 +17,8 @@ interface AppHeaderProps {
   onSearchToggle?: () => void;
   onAddFriendPress?: () => void;
   onGroopProotPress?: () => void;
+  isBlastModeActive?: boolean;
+  onToggleBlastMode?: () => void;
   onProfileMenuPress?: () => void;
   onProfilePress?: () => void;
   onZenModePress?: () => void;
@@ -37,6 +39,8 @@ export function AppHeader({
   onSearchToggle,
   onAddFriendPress,
   onGroopProotPress,
+  isBlastModeActive = false,
+  onToggleBlastMode,
   onProfileMenuPress,
   onProfilePress,
   onZenModePress,
@@ -194,6 +198,27 @@ export function AppHeader({
                 accessibilityLabel="Créer un GroopProot"
               >
                 <Ionicons name="people-outline" size={31} color="#ffffff" />
+              </TouchableOpacity>
+            )}
+            {!(isProfileMenuOpen || isProfileOpen) && onToggleBlastMode && (
+              <TouchableOpacity
+                onPress={onToggleBlastMode}
+                style={[
+                  styles.iconButton,
+                  { justifyContent: 'center', alignItems: 'center', minHeight: 28 },
+                  isBlastModeActive && {
+                    backgroundColor: 'rgba(255, 87, 34, 0.25)',
+                    borderRadius: 14,
+                    paddingHorizontal: 4,
+                  },
+                ]}
+                accessibilityLabel="Mode Blast"
+              >
+                <MaterialCommunityIcons
+                  name="bomb"
+                  size={26}
+                  color={isBlastModeActive ? "#ff5722" : "#ffffff"}
+                />
               </TouchableOpacity>
             )}
             {isZenMode && (

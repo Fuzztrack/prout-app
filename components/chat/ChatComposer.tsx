@@ -358,6 +358,9 @@ export const ChatComposer = React.memo(({
       if (!isSilentMessage && !isSilentMode && !isZenMessage) {
         playSound(randomKey);
       }
+      if (!isSilentMessage && !isZenMessage) {
+        triggerProutHaptic(randomKey, isHapticEnabled);
+      }
 
       if (isZenMessage) {
         Alert.alert(

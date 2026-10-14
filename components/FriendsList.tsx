@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { FlashList, FlashListRef } from '@shopify/flash-list';
 // Force git update 2
@@ -11,6 +11,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, AppState, DeviceEventEmitter, Dimensions, FlatList, Image, Keyboard, Linking, NativeModules, Platform, Animated as RNAnimated, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSharedValue } from 'react-native-reanimated';
 import { SwipeableFriendRow, SwipeableFriendRowHandle } from './FriendsListComponents/SwipeableFriendRow';
 import { useAppStore } from '../lib/store';
 import { useFriends, usePendingMessages, usePendingSentMessages, useBlockedUsers } from '../hooks/useFriends';
@@ -362,6 +363,8 @@ export function FriendsList({
   listIntroTrigger = 0,
   refreshTrigger = 0,
   onInviteFriend,
+  isBlastMode = false,
+  onBlastModeChange,
 }: {
   onProutSent?: () => void;
   isZenMode?: boolean;
@@ -374,6 +377,8 @@ export function FriendsList({
   listIntroTrigger?: number;
   refreshTrigger?: number;
   onInviteFriend?: () => void;
+  isBlastMode?: boolean;
+  onBlastModeChange?: (active: boolean) => void;
 } = {}) {  const useStableCallback = <T extends (...args: any[]) => any>(callback: T) => {
     const ref = useRef(callback);
     useEffect(() => {
@@ -421,6 +426,20 @@ export function FriendsList({
   const { data: identityRequestsData } = useIdentityRequests(currentUserId);
   const { data: blockedUsersFromQuery } = useBlockedUsers(currentUserId);
 
+  const [selectedBlastFriendIds, setSelectedBlastFriendIds] = useState<string[]>([]);
+  const [blastAnimatingIds, setBlastAnimatingIds] = useState<string[]>([]);
+  const blastDragX = useSharedValue(0);
+  const blastActiveRowId = useSharedValue<string | null>(null);
+
+  useEffect(() => {
+    if (!isBlastMode) {
+      setSelectedBlastFriendIds([]);
+      setBlastAnimatingIds([]);
+      blastDragX.value = 0;
+      blastActiveRowId.value = null;
+    }
+  }, [isBlastMode]);
+
   const tRenderStart = Date.now();
   // console.log(`⏱️ [PERF] ${tRenderStart} - FriendsList Render`);
 
@@ -434,6 +453,52 @@ export function FriendsList({
   // 1. On priorise la requête TanStack si elle a abouti
   // 2. Sinon, on prend le store synchrone (Zustand) pour l'affichage instantané
   const displayUsers = friendsFromQuery || storedFriends || [];
+
+  const handleToggleBlastFriend = useCallback((friend: any) => {
+    setSelectedBlastFriendIds(prev => {
+      if (prev.includes(friend.id)) {
+        return prev.filter(id => id !== friend.id);
+      } else {
+        return [...prev, friend.id];
+      }
+    });
+  }, []);
+
+  const renderBlastHeader = () => {
+    if (!isBlastMode) return null;
+    const count = selectedBlastFriendIds.length;
+
+    return (
+      <View style={styles.blastBannerContainer}>
+        <View style={styles.blastBannerRow}>
+          <View style={styles.blastBannerTitleRow}>
+            <Text style={styles.blastBannerEmoji}>💥</Text>
+            <View>
+              <Text style={styles.blastBannerTitle}>Mode Blast</Text>
+              <Text style={styles.blastBannerSubtitle}>
+                {count === 0
+                  ? "Sélectionne tes amis à blaster"
+                  : `${count} ami${count > 1 ? 's' : ''} sélectionné${count > 1 ? 's' : ''}`}
+              </Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            onPress={() => onBlastModeChange?.(false)}
+            style={styles.blastCloseButton}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="close" size={20} color="#604a3e" />
+          </TouchableOpacity>
+        </View>
+        {count > 0 && (
+          <Text style={styles.blastHintText}>
+            👉 Swipe sur l'un d'eux pour envoyer à tous en même temps !
+          </Text>
+        )}
+      </View>
+    );
+  };
 
   // Mettre à jour le store persistant quand on reçoit de nouvelles données
   useEffect(() => {
@@ -3446,6 +3511,151 @@ useEffect(() => {
     recipient: any,
     options?: { forcedCustomMessage?: string; forcedSoundKey?: string }
   ) => {
+    // Cas Mode Blast : Envoi simultané à plusieurs amis 💥
+    if (isBlastMode && selectedBlastFriendIds.length > 0) {
+      const targetIds = selectedBlastFriendIds.includes(recipient.id)
+        ? selectedBlastFriendIds
+        : [recipient.id, ...selectedBlastFriendIds];
+
+      if (targetIds.length > 1) {
+        if (isZenMode) {
+          Alert.alert(i18n.t('zen_mode_active_me_title'), i18n.t('zen_mode_active_me_body'));
+          return;
+        }
+
+        // 1. Déclencher le swipe animé sur TOUTES les autres rangées sélectionnées
+        const otherTargetIds = targetIds.filter(id => id !== recipient.id);
+        setBlastAnimatingIds(otherTargetIds);
+        for (const targetId of otherTargetIds) {
+          rowRefs.current[targetId]?.animateBlastSwipe?.();
+        }
+
+        // 2. Choisir un son unique pour tout le monde
+        const forcedFriendSoundKey = friendSoundKeyByFriend[recipient.id];
+        let soundKey: string;
+        if (options?.forcedSoundKey) {
+          soundKey = options.forcedSoundKey;
+        } else if (forcedFriendSoundKey && SOUND_ASSETS[forcedFriendSoundKey]) {
+          soundKey = forcedFriendSoundKey;
+          setFriendSpecificSoundKey(recipient.id, null);
+        } else {
+          soundKey = await getNextRandomSound(recipient.id);
+        }
+
+        // 3. Feedback unique (0 redondance sonore, 1 seul son et 1 vibration)
+        const proutName = getDisplaySoundLabel(soundKey);
+        showToast(`💥 Blast (${targetIds.length} amis) : ${proutName} !`);
+        if (onProutSent) onProutSent();
+        triggerProutHaptic(soundKey, isHapticEnabled);
+        playLocalSound(soundKey);
+
+        // 4. Récupérer le pseudo expéditeur
+        const { data: { user } } = await supabase.auth.getUser();
+        let senderPseudo = currentPseudo || 'Ami';
+        if (user) {
+          const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('pseudo')
+            .eq('id', user.id)
+            .single();
+          if (profile?.pseudo) {
+            senderPseudo = profile.pseudo.trim();
+          }
+        }
+
+        // 5. Envoi à chaque destinataire en parallèle
+        const targetFriends = targetIds
+          .map(tid => displayUsers.find(u => u.id === tid) || (tid === recipient.id ? recipient : null))
+          .filter(Boolean);
+
+        void Promise.allSettled(targetFriends.map(async (target) => {
+          if (!target) return;
+          if (target.id === PROOT_BOT_ID) {
+            triggerProotBotResponse(isHapticEnabled, () => {});
+            return;
+          }
+          if (target.isGroup) {
+            try {
+              await sendGroupProut({
+                groupId: target.id,
+                groupName: target.pseudo,
+                soundKey,
+                senderPseudo,
+                currentUserId: currentUserId || '',
+              });
+            } catch (e) {
+              console.warn('Erreur blast group:', e);
+            }
+            return;
+          }
+
+          let fcmToken = target.expo_push_token;
+          let targetPlatform = target.push_platform || 'android';
+          if (!fcmToken || fcmToken.trim() === '') {
+            try {
+              const { data: prof } = await supabase
+                .from('user_profiles')
+                .select('expo_push_token, push_platform')
+                .eq('id', target.id)
+                .single();
+              if (prof?.expo_push_token) {
+                fcmToken = prof.expo_push_token;
+                targetPlatform = prof.push_platform || targetPlatform;
+              }
+            } catch {}
+          }
+
+          if (fcmToken) {
+            try {
+              await sendProutViaBackend(
+                fcmToken,
+                senderPseudo,
+                soundKey,
+                targetPlatform as any,
+                { senderId: user?.id, receiverId: target.id }
+              );
+              // Broadcast direct pour réactivité UI
+              const channel = supabase.channel(`room-${target.id}`);
+              channel.subscribe(async (status) => {
+                if (status === 'SUBSCRIBED') {
+                  await channel.send({
+                    type: 'broadcast',
+                    event: 'new-prout',
+                    payload: { proutKey: soundKey, senderPseudo, timestamp: new Date().toISOString() },
+                  });
+                  supabase.removeChannel(channel);
+                }
+              });
+            } catch (err) {
+              console.warn(`Erreur blast ami ${target.id}:`, err);
+            }
+          }
+        }));
+
+        // 6. Nettoyage et fin du Mode Blast APRÈS que l'animation ait terminé de jouer (750ms)
+        setTimeout(() => {
+          setBlastAnimatingIds([]);
+          setSelectedBlastFriendIds([]);
+          onBlastModeChange?.(false);
+
+          const nowIso = new Date().toISOString();
+          const currentStored = useFriendsStore.getState().friends || [];
+          const updated = currentStored.map((friend: any) =>
+            targetIds.includes(friend.id)
+              ? { ...friend, last_interaction_at: nowIso }
+              : friend
+          );
+          setStoredFriends(sortFriends(updated));
+        }, 750);
+
+        setTimeout(() => {
+          DeviceEventEmitter.emit('REFRESH_DATA', { source: 'friendslist_update' });
+        }, 850);
+
+        return;
+      }
+    }
+
     // Cas spécial : ProotBot 🤖 (Bot d'onboarding)
     if (recipient.id === PROOT_BOT_ID) {
       const forcedFriendSoundKey = friendSoundKeyByFriend[recipient.id];
@@ -3533,28 +3743,6 @@ useEffect(() => {
       return;
     }
 
-    // 3. Vérification Sourdine : si le destinataire a mis l'expéditeur en sourdine
-    if (!currentUserId) return;
-    try {
-      const { data: muteCheck } = await supabase
-        .from('friends')
-        .select('is_muted')
-        .eq('user_id', recipient.id)
-        .eq('friend_id', currentUserId)
-        .maybeSingle();
-      
-      if (muteCheck?.is_muted) {
-        Alert.alert(
-          i18n.t('mute_mode_active_title'),
-          i18n.t('mute_mode_active_body', { pseudo: recipient.pseudo })
-        );
-        return;
-      }
-    } catch (e) {
-      console.error('❌ Erreur vérification sourdine:', e);
-      // Continuer même en cas d'erreur pour ne pas bloquer l'envoi
-    }
-
     // Vérifier le cooldown pour cet utilisateur
     const now = Date.now();
     const lastSent = cooldownMapRef.current.get(recipient.id);
@@ -3604,7 +3792,7 @@ useEffect(() => {
         }
       }
 
-      // Feedback immédiat côté expéditeur
+      // Feedback IMMÉDIAT côté expéditeur (0ms de latence)
       const proutName = isSilentMessage ? 'Silencieux' : getDisplaySoundLabel(randomKey);
       showToast(`${proutName} !`);
       if (onProutSent) {
@@ -3619,6 +3807,30 @@ useEffect(() => {
       // Jouer localement (si pas silencieux)
       if (!isSilentMessage) {
         playLocalSound(randomKey);
+      }
+
+      // 3. Vérification Sourdine : si le destinataire a mis l'expéditeur en sourdine
+      if (!currentUserId) return;
+      try {
+        const { data: muteCheck } = await supabase
+          .from('friends')
+          .select('is_muted')
+          .eq('user_id', recipient.id)
+          .eq('friend_id', currentUserId)
+          .maybeSingle();
+        
+        if (muteCheck?.is_muted) {
+          Alert.alert(
+            i18n.t('mute_mode_active_title'),
+            i18n.t('mute_mode_active_body', { pseudo: recipient.pseudo })
+          );
+          cooldownMapRef.current.delete(recipient.id);
+          setSendingFriendId(null);
+          return;
+        }
+      } catch (e) {
+        console.error('❌ Erreur vérification sourdine:', e);
+        // Continuer même en cas d'erreur pour ne pas bloquer l'envoi
       }
 
       // TOUJOURS recharger le pseudo depuis la base pour être sûr d'avoir la valeur à jour
@@ -4069,6 +4281,9 @@ useEffect(() => {
           unreadMessagesMap,
           unreadCache,
           expandedUnreadId,
+          isBlastMode,
+          selectedBlastFriendIds,
+          blastAnimatingIds,
         }}
         keyExtractor={(item) => item.id}
 
@@ -4093,6 +4308,7 @@ useEffect(() => {
         ListHeaderComponent={
           <View>
             {/* SearchBar retirée d'ici pour être stable en haut */}
+            {renderBlastHeader()}
             <TouchableWithoutFeedback onPress={handlePressHeader} disabled={isSearchVisible}>
               <View>
                 {renderRequestsHeader()}
@@ -4196,6 +4412,13 @@ useEffect(() => {
               introTrigger={listIntroTrigger}
               selectedSoundKey={friendSoundKeyByFriend[item.id]}
               onClearSelectedSound={handleClearSelectedSound}
+              isBlastMode={isBlastMode}
+              isBlastSelected={selectedBlastFriendIds.includes(item.id)}
+              hasBlastSelectedFriends={selectedBlastFriendIds.length > 0}
+              blastDragX={blastDragX}
+              blastActiveRowId={blastActiveRowId}
+              onToggleBlastSelect={handleToggleBlastFriend}
+              isBlastAnimating={blastAnimatingIds.includes(item.id)}
             />
           );
         }}
@@ -4421,6 +4644,51 @@ const styles = StyleSheet.create({
   keyboardAvoidingView: { flex: 1 },
   list: { flex: 1 },
   listContent: { paddingTop: 8, paddingBottom: 20 },
+  blastBannerContainer: {
+    backgroundColor: 'rgba(255, 87, 34, 0.12)',
+    borderWidth: 1.5,
+    borderColor: '#ff5722',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 10,
+  },
+  blastBannerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  blastBannerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  blastBannerEmoji: {
+    fontSize: 24,
+  },
+  blastBannerTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#604a3e',
+  },
+  blastBannerSubtitle: {
+    fontSize: 12,
+    color: '#8c5039',
+    fontWeight: '600',
+  },
+  blastCloseButton: {
+    padding: 4,
+    backgroundColor: 'rgba(96, 74, 62, 0.12)',
+    borderRadius: 12,
+  },
+  blastHintText: {
+    marginTop: 6,
+    fontSize: 11,
+    fontStyle: 'italic',
+    color: '#604a3e',
+    textAlign: 'center',
+    fontWeight: '600',
+  },
   headerOverlayContainer: {
     position: 'relative',
     zIndex: 10,

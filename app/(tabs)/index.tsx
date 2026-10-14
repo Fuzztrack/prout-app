@@ -26,7 +26,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const appVersion = Constants.expoConfig?.version ?? '1.1.50';
+  const appVersion = Constants.expoConfig?.version ?? '1.1.51';
   
   const isLoadedRef = useRef(false);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -69,6 +69,10 @@ export default function HomeScreen() {
   const [showSilentModal, setShowSilentModal] = useState(false);
   const [zenModeReason, setZenModeReason] = useState<string | null>(null);
   const [hasScheduledZenMode, setHasScheduledZenMode] = useState(false);
+  const [isBlastModeActive, setIsBlastModeActive] = useState(false);
+  const toggleBlastMode = useCallback(() => {
+    setIsBlastModeActive(prev => !prev);
+  }, []);
   const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
   const CACHE_AVATAR_URL_KEY = 'cached_current_avatar_url';
   
@@ -155,15 +159,21 @@ export default function HomeScreen() {
         .eq('id', currentUser.id)
         .single();
       
-      // Charger la préférence de retour haptique depuis AsyncStorage (iOS uniquement)
-      if (Platform.OS === 'ios') {
-        const hapticEnabled = await AsyncStorage.getItem('haptic_feedback_enabled');
-        const isEnabled = hapticEnabled === null || hapticEnabled === 'true'; // Activé par défaut si non défini
-        setHapticEnabled(isEnabled);
+      // Charger la préférence de retour haptique depuis AsyncStorage (iOS & Android)
+      // Migration : si le terminal a hérité de l'ancien 'false' imposé sur Android, on réinitialise à true
+      const hasMigrated = await AsyncStorage.getItem('haptic_feedback_migrated_v3');
+      let isEnabled = true;
+      if (!hasMigrated) {
+        isEnabled = true;
+        await AsyncStorage.multiSet([
+          ['haptic_feedback_enabled', 'true'],
+          ['haptic_feedback_migrated_v3', 'true'],
+        ]);
       } else {
-        // Sur Android, le retour haptique n'est pas disponible pour le moment
-        setHapticEnabled(false);
+        const hapticEnabled = await AsyncStorage.getItem('haptic_feedback_enabled');
+        isEnabled = hapticEnabled === null || hapticEnabled === 'true';
       }
+      setHapticEnabled(isEnabled);
       
       if (profile) {
         setZenMode(profile.is_zen_mode || false);
@@ -751,6 +761,8 @@ useEffect(() => {
         setActiveView('list');
         setShowGroopProotModal(true);
       }}
+      isBlastModeActive={isBlastModeActive}
+      onToggleBlastMode={toggleBlastMode}
       onZenModePress={() => {
         void applyZenMode(false);
       }}
@@ -763,7 +775,7 @@ useEffect(() => {
       shakeX={shakeX}
       shakeY={shakeY}
     />
-  ), [currentPseudo, currentAvatarUrl, activeView, isZenMode, isSilentMode, isSearchVisible, toggleSearchVisibility, setActiveView, setShowGroopProotModal, applyZenMode, setSilentMode, handleSoundcheckPress, toggleProfileMenu, shakeX, shakeY]);
+  ), [currentPseudo, currentAvatarUrl, activeView, isZenMode, isSilentMode, isSearchVisible, toggleSearchVisibility, setActiveView, setShowGroopProotModal, isBlastModeActive, toggleBlastMode, applyZenMode, setSilentMode, handleSoundcheckPress, toggleProfileMenu, shakeX, shakeY]);
 
   return (
     <>
@@ -791,6 +803,8 @@ useEffect(() => {
                      refreshTrigger={friendsRefreshTrigger}
                      headerComponent={headerComponent}
                      onInviteFriend={handleShare}
+                     isBlastMode={isBlastModeActive}
+                     onBlastModeChange={setIsBlastModeActive}
                    />       
                    {activeView === 'profileMenu' && (
                      <View style={styles.menuOverlay}>
@@ -812,8 +826,7 @@ useEffect(() => {
                              { label: i18n.t('review_app_functions'), icon: 'help-circle-outline', onPress: () => setActiveView('tutorial'), iconColor: '#604a3e' },
                              { label: i18n.t('who_is_who'), icon: 'eye-outline', onPress: () => { setShowIdentity(true); setActiveView('list'); }, iconColor: '#604a3e' },
                              { label: i18n.t('blocked_friends_menu'), icon: 'ban-outline', onPress: () => { setShowBlockedUsers(true); setActiveView('list'); }, iconColor: '#604a3e' },
-                             // Retour haptique uniquement sur iOS
-                             ...(Platform.OS === 'ios' ? [{ label: i18n.t('haptic_feedback'), icon: isHapticEnabled ? 'phone-portrait' : 'phone-portrait-outline', onPress: toggleHapticFeedback, iconColor: isHapticEnabled ? '#ebb89b' : '#604a3e' }] : []),
+                             { label: i18n.t('haptic_feedback'), icon: isHapticEnabled ? 'phone-portrait' : 'phone-portrait-outline', onPress: toggleHapticFeedback, iconColor: isHapticEnabled ? '#ebb89b' : '#604a3e' },
                              { label: i18n.t('privacy_policy_menu'), icon: 'document-text-outline', onPress: () => { setShowPrivacy(true); setActiveView('list'); }, iconColor: '#604a3e' },
                            ].map((item, index) => (
                              <TouchableOpacity 
@@ -870,6 +883,8 @@ useEffect(() => {
                   refreshTrigger={friendsRefreshTrigger}
                   headerComponent={headerComponent}
                   onInviteFriend={handleShare}
+                  isBlastMode={isBlastModeActive}
+                  onBlastModeChange={setIsBlastModeActive}
                 />    
                 {activeView === 'profileMenu' && (
                   <View style={styles.menuOverlay}>
@@ -892,7 +907,7 @@ useEffect(() => {
                             { label: i18n.t('who_is_who'), icon: 'eye-outline', onPress: () => { setShowIdentity(true); setActiveView('list'); }, iconColor: '#604a3e' },
                             { label: i18n.t('blocked_friends_menu'), icon: 'ban-outline', onPress: () => { setShowBlockedUsers(true); setActiveView('list'); }, iconColor: '#604a3e' },
                             // Retour haptique uniquement sur iOS
-                            ...(Platform.OS === 'ios' ? [{ label: i18n.t('haptic_feedback'), icon: isHapticEnabled ? 'phone-portrait' : 'phone-portrait-outline', onPress: toggleHapticFeedback, iconColor: isHapticEnabled ? '#ebb89b' : '#604a3e' }] : []),
+                            { label: i18n.t('haptic_feedback'), icon: isHapticEnabled ? 'phone-portrait' : 'phone-portrait-outline', onPress: toggleHapticFeedback, iconColor: isHapticEnabled ? '#ebb89b' : '#604a3e' },
                             { label: i18n.t('privacy_policy_menu'), icon: 'document-text-outline', onPress: () => { setShowPrivacy(true); setActiveView('list'); }, iconColor: '#604a3e' },
                         ].map((item, index) => (
                           <TouchableOpacity 
