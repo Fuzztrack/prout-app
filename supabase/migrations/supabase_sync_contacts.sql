@@ -23,8 +23,7 @@ BEGIN
   -- Récupérer l'ID de l'utilisateur actuel (via auth.uid())
   current_user_id := auth.uid();
 
-  -- 1. Insérer les relations pour les contacts trouvés
-  -- Cela va DÉCLENCHER le trigger de réciprocité automatiquement !
+  -- 1. Insérer les relations A -> B
   INSERT INTO friends (user_id, friend_id, method, status)
   SELECT 
     current_user_id, -- Moi
@@ -34,9 +33,21 @@ BEGIN
   FROM user_profiles p
   WHERE p.phone = ANY(phones) -- On cherche parmi les numéros envoyés
     AND p.id != current_user_id -- Pas moi-même
-  ON CONFLICT (user_id, friend_id) DO NOTHING; -- Si déjà ami, on ne fait rien
+  ON CONFLICT (user_id, friend_id) DO NOTHING;
 
-  -- 2. Retourner les profils trouvés pour l'affichage immédiat dans l'app
+  -- 2. Insérer les relations réciproques B -> A (amitié mutuelle garantie)
+  INSERT INTO friends (user_id, friend_id, method, status)
+  SELECT 
+    p.id,            -- Le contact trouvé
+    current_user_id, -- Moi
+    'contact',
+    'accepted'
+  FROM user_profiles p
+  WHERE p.phone = ANY(phones)
+    AND p.id != current_user_id
+  ON CONFLICT (user_id, friend_id) DO NOTHING;
+
+  -- 3. Retourner les profils trouvés pour l'affichage immédiat dans l'app
   RETURN QUERY
   SELECT p.id, p.pseudo, p.phone
   FROM user_profiles p

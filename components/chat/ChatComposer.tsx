@@ -35,8 +35,10 @@ import {
   SOUND_KEYS_BY_CATEGORY,
 } from '@/lib/runtimeSounds';
 import { useChatStore, type VisibleSentMessage } from '@/lib/chatStore';
+import { useAppStore } from '@/lib/store';
 import { PROOT_BOT_ID, triggerProotBotResponse } from '@/lib/prootBot';
 import { triggerProutHaptic } from '@/lib/proutHaptics';
+import { recordMessageAction, recordSoundSelectAction } from '@/lib/userExperienceTracking';
 
 const FRIEND_SOUND_CATEGORY_MAP_KEY = 'friend_sound_category_map_v1';
 const CHAT_PROOTHAIL_THUMB = require('../../assets/images/proothail2.png');
@@ -98,6 +100,7 @@ export const ChatComposer = React.memo(({
   onMessageEdited,
   onMessageConfirmed,
 }: ChatComposerProps) => {
+  const isNightMode = useAppStore(state => state.isNightMode);
   const [draft, setDraft] = useState('');
   const [pendingPhotoUri, setPendingPhotoUri] = useState<string | null>(null);
   const [isViewOnce, setIsViewOnce] = useState(false);
@@ -251,6 +254,10 @@ export const ChatComposer = React.memo(({
 
         useChatStore.getState().addSentMessages(PROOT_BOT_ID, [botSentMessage]);
         onMessageSent(botSentMessage);
+        recordMessageAction().catch(() => {});
+        if (pendingChatSoundKey) {
+          recordSoundSelectAction().catch(() => {});
+        }
         setDraft('');
         setPendingPhotoUri(null);
         setIsViewOnce(false);
@@ -396,6 +403,10 @@ export const ChatComposer = React.memo(({
       }
 
       console.log('🟡 [CHAT_SEND] send success. Calling invalidateQueries...');
+      recordMessageAction().catch(() => {});
+      if (pendingChatSoundKey) {
+        recordSoundSelectAction().catch(() => {});
+      }
       if (!isGroup) {
         DeviceEventEmitter.emit('CLEAR_FRIENDLIST_PENDING_SOUND', { friendId: friend.id });
       }
@@ -436,28 +447,28 @@ export const ChatComposer = React.memo(({
   ]);
 
   return (
-    <View style={[styles.composer, { paddingBottom: composerBottomPadding }]}>
+    <View style={[styles.composer, { paddingBottom: composerBottomPadding }, isNightMode && { backgroundColor: '#1c1613', borderTopColor: '#271e19' }]}>
       {editingMessage && (
-        <View style={styles.editingBanner}>
-          <Text style={styles.editingBannerText}>Modification du message...</Text>
+        <View style={[styles.editingBanner, isNightMode && { backgroundColor: '#271e19', borderColor: '#3d2f28', borderWidth: 1 }]}>
+          <Text style={[styles.editingBannerText, isNightMode && { color: '#f5e6dc' }]}>Modification du message...</Text>
           <TouchableOpacity onPress={() => { setDraft(''); onCancelEdit?.(); }}>
-            <Ionicons name="close-circle" size={20} color="#604a3e" />
+            <Ionicons name="close-circle" size={20} color={isNightMode ? "#ebb89b" : "#604a3e"} />
           </TouchableOpacity>
         </View>
       )}
       {!!pendingChatSoundKey && !editingMessage && (
         <TouchableOpacity
-          style={styles.pendingSoundTag}
+          style={[styles.pendingSoundTag, isNightMode && { backgroundColor: '#1e3330', borderColor: '#ebb89b' }]}
           onPress={() => setPendingChatSoundKey(null)}
           activeOpacity={0.8}
         >
-          <Text style={styles.pendingSoundTagText}>{getDisplaySoundLabel(pendingChatSoundKey)}</Text>
-          <Ionicons name="close-circle" size={14} color="#604a3e" style={{ marginLeft: 4 }} />
+          <Text style={[styles.pendingSoundTagText, isNightMode && { color: '#f5e6dc' }]}>{getDisplaySoundLabel(pendingChatSoundKey)}</Text>
+          <Ionicons name="close-circle" size={14} color={isNightMode ? "#ebb89b" : "#604a3e"} style={{ marginLeft: 4 }} />
         </TouchableOpacity>
       )}
 
       {!!pendingPhotoUri && !editingMessage && (
-        <View style={styles.photoPreviewBar}>
+        <View style={[styles.photoPreviewBar, isNightMode && { backgroundColor: '#271e19', borderColor: '#3d2f28' }]}>
           <View style={styles.photoPreviewThumbContainer}>
             <Image source={{ uri: pendingPhotoUri }} style={styles.photoPreviewThumb} resizeMode="cover" />
             {isViewOnce ? (
@@ -468,7 +479,11 @@ export const ChatComposer = React.memo(({
           </View>
 
           <TouchableOpacity
-            style={[styles.viewOnceToggle, isViewOnce && styles.viewOnceToggleActive]}
+            style={[
+              styles.viewOnceToggle,
+              isNightMode && { backgroundColor: '#1e1612', borderColor: '#3d2f28' },
+              isViewOnce && styles.viewOnceToggleActive,
+            ]}
             onPress={() => {
               if (Platform.OS === 'ios' && isHapticEnabled) {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -482,7 +497,11 @@ export const ChatComposer = React.memo(({
             <View style={[styles.viewOnceIconBadge, isViewOnce && styles.viewOnceIconBadgeActive]}>
               <Text style={[styles.viewOnceIconText, isViewOnce && styles.viewOnceIconTextActive]}>①</Text>
             </View>
-            <Text style={[styles.viewOnceText, isViewOnce && styles.viewOnceTextActive]}>
+            <Text style={[
+              styles.viewOnceText,
+              isNightMode && { color: '#f5e6dc' },
+              isViewOnce && styles.viewOnceTextActive,
+            ]}>
               {i18n.t('view_once')}
             </Text>
           </TouchableOpacity>
@@ -495,7 +514,7 @@ export const ChatComposer = React.memo(({
             }}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="close-circle" size={20} color="#604a3e" />
+            <Ionicons name="close-circle" size={20} color={isNightMode ? "#ebb89b" : "#604a3e"} />
           </TouchableOpacity>
         </View>
       )}
@@ -517,19 +536,24 @@ export const ChatComposer = React.memo(({
           </TouchableOpacity>
         )}
 
-        <View style={[styles.inputContainer, editingMessage && styles.inputContainerEditing]}>
+        <View style={[
+          styles.inputContainer,
+          editingMessage && styles.inputContainerEditing,
+          isNightMode && { backgroundColor: '#271e19', borderColor: '#3d2f28' },
+          editingMessage && isNightMode && { backgroundColor: '#2d221c', borderColor: '#ebb89b' },
+        ]}>
           <TextInput
             ref={inputRef}
-            style={styles.input}
+            style={[styles.input, isNightMode && { color: '#f5e6dc' }]}
             placeholder={i18n.t('add_message_placeholder')}
-            placeholderTextColor="#777"
+            placeholderTextColor={isNightMode ? "#8a7466" : "#777"}
             value={draft}
             onChangeText={setDraft}
             multiline
             maxLength={240}
             autoCorrect={false}
             autoComplete="off"
-            keyboardAppearance="light"
+            keyboardAppearance={isNightMode ? "dark" : "light"}
           />
           {!editingMessage && (
             <TouchableOpacity
@@ -544,7 +568,7 @@ export const ChatComposer = React.memo(({
               <Ionicons
                 name="camera"
                 size={22}
-                color={pendingPhotoUri ? '#FF8A3D' : '#604a3e'}
+                color={pendingPhotoUri ? '#FF8A3D' : (isNightMode ? '#ebb89b' : '#604a3e')}
               />
             </TouchableOpacity>
           )}
@@ -556,11 +580,17 @@ export const ChatComposer = React.memo(({
             styles.sendButton,
             ((!draft.trim() && !pendingPhotoUri) || sending || !isProfileHydrated) && styles.sendButtonDisabled,
             editingMessage && styles.editConfirmButton,
+            isNightMode && { backgroundColor: '#1e3330', borderColor: '#2e4d48' },
+            editingMessage && isNightMode && { backgroundColor: '#2e4d48', borderColor: '#ebb89b' },
           ]}
           disabled={(!draft.trim() && !pendingPhotoUri) || sending || !isProfileHydrated}
           activeOpacity={0.85}
         >
-          <Ionicons name={editingMessage ? "checkmark" : "send"} size={editingMessage ? 22 : 18} color="#604a3e" />
+          <Ionicons
+            name={editingMessage ? "checkmark" : "send"}
+            size={editingMessage ? 22 : 18}
+            color={isNightMode ? (editingMessage ? '#ebb89b' : '#f5e6dc') : '#604a3e'}
+          />
         </TouchableOpacity>
       </View>
     </View>

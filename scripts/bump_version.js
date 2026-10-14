@@ -40,7 +40,7 @@ function bumpVersion() {
 
   // 3. Mettre à jour app/(tabs)/index.tsx (fallback version et texte UI)
   let indexTsx = fs.readFileSync(INDEX_TSX_PATH, 'utf8');
-  const indexVersionRegex = /(const appVersion = Constants\.expoConfig\?\.version \?\? ')[0-9.]+(';)/;
+  const indexVersionRegex = /(const appVersion = (?:appJson\.expo\.version \?\? )?Constants\.expoConfig\?\.version \?\? ')[0-9.]+(';)/;
   const uiVersionRegex = /(`Proot ! version \${appVersion}`)|(Proot ! version )[0-9.]+/g;
   
   let modified = false;

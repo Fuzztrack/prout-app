@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import i18n from '@/lib/i18n';
+import { useAppStore } from '@/lib/store';
 import { Audio } from 'expo-av';
 import { SOUND_ASSETS, SOUND_KEYS_BY_CATEGORY } from '@/lib/runtimeSounds';
 import ProotSilenceChallenge from '@/components/ProotSilenceChallenge';
@@ -92,6 +93,7 @@ function getSoundDisplayName(soundKey: string) {
 }
 
 export default function SoundcheckScreen() {
+  const isNightMode = useAppStore(state => state.isNightMode);
   const router = useRouter();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -214,23 +216,31 @@ export default function SoundcheckScreen() {
   }, [stopCurrentSound]);
 
   const renderSoundRow = useCallback(
-    (soundKey: string) => (
-      <TouchableOpacity
-        key={soundKey}
-        style={[styles.libraryItem, previewingSoundKey === soundKey && styles.libraryItemActive]}
-        onPress={() => playSelectedSound(soundKey)}
-        activeOpacity={0.85}
-      >
-        <Text style={styles.libraryItemText}>{getSoundDisplayName(soundKey)}</Text>
-      </TouchableOpacity>
-    ),
-    [previewingSoundKey, playSelectedSound]
+    (soundKey: string) => {
+      const isActive = previewingSoundKey === soundKey;
+      return (
+        <TouchableOpacity
+          key={soundKey}
+          style={[
+            styles.libraryItem,
+            isActive && styles.libraryItemActive,
+            isNightMode && { backgroundColor: '#1e3330', borderColor: 'transparent' },
+            isActive && isNightMode && { backgroundColor: '#2e4d48', borderColor: '#ebb89b' },
+          ]}
+          onPress={() => playSelectedSound(soundKey)}
+          activeOpacity={0.85}
+        >
+          <Text style={[styles.libraryItemText, isNightMode && { color: '#f5e6dc' }]}>{getSoundDisplayName(soundKey)}</Text>
+        </TouchableOpacity>
+      );
+    },
+    [previewingSoundKey, playSelectedSound, isNightMode]
   );
 
   useFocusEffect(useCallback(() => { return () => { stopCurrentSound().catch(() => {}); }; }, [stopCurrentSound]));
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={[styles.container, isNightMode && { backgroundColor: '#1c1613' }]} edges={['bottom']}>
       <View style={[styles.header, { paddingTop: insets.top }]}>
         <View style={styles.titleRow}>
           <View style={styles.titleCluster}>
@@ -264,7 +274,7 @@ export default function SoundcheckScreen() {
             style={styles.challengeButtonContainer}
             activeOpacity={0.8}
           >
-            <View style={styles.challengeCard}>
+            <View style={[styles.challengeCard, isNightMode && { borderColor: 'rgba(235, 184, 155, 0.3)' }]}>
               <Image
                 source={require('../assets/images/challenge.png')}
                 style={styles.challengeIcon}
@@ -280,16 +290,16 @@ export default function SoundcheckScreen() {
               style={styles.backButton}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
-              <Ionicons name="arrow-back" size={24} color="#604a3e" />
+              <Ionicons name="arrow-back" size={24} color={isNightMode ? "#f5e6dc" : "#604a3e"} />
             </TouchableOpacity>
-          <Text style={styles.pageSubtitleNav}>{i18n.t('soundcheck_subtitle_explore_library')}</Text>
+          <Text style={[styles.pageSubtitleNav, isNightMode && { color: '#c4b0a4' }]}>{i18n.t('soundcheck_subtitle_explore_library')}</Text>
           <View style={styles.headerSpacer} />
         </View>
       </View>
       <View style={styles.content}>
         <View style={styles.libraryArea}>
           <ScrollView
-            style={[styles.libraryScroll, { maxHeight: tableMaxHeight }]}
+            style={[styles.libraryScroll, { maxHeight: tableMaxHeight }, isNightMode && { backgroundColor: 'rgba(39, 30, 25, 0.7)', borderColor: '#3d2f28' }]}
             contentContainerStyle={styles.libraryScrollContent}
             showsVerticalScrollIndicator
           >
@@ -301,7 +311,7 @@ export default function SoundcheckScreen() {
                     style={[styles.libraryHeaderImage, TOOT_HEADER_SIZE]} 
                     isActive={previewingCategory === 'toot'} 
                   />
-                  <Text style={styles.libraryHeaderSubtitle}>
+                  <Text style={[styles.libraryHeaderSubtitle, isNightMode && { color: '#c4b0a4' }]}>
                     {i18n.t('soundcheck_subtitle_toot_android')}
                   </Text>
                 </View>
@@ -313,7 +323,7 @@ export default function SoundcheckScreen() {
                     style={styles.libraryHeaderImage} 
                     isActive={previewingCategory === 'bzzz'} 
                   />
-                  <Text style={styles.libraryHeaderSubtitle}>{i18n.t('soundcheck_subtitle_buzz')}</Text>
+                  <Text style={[styles.libraryHeaderSubtitle, isNightMode && { color: '#c4b0a4' }]}>{i18n.t('soundcheck_subtitle_buzz')}</Text>
                 </View>
                 {playableBzzzKeys.map((soundKey) => renderSoundRow(soundKey))}
               </View>
@@ -325,7 +335,7 @@ export default function SoundcheckScreen() {
                     style={[styles.libraryHeaderImage, { width: 78, height: 32 }]} 
                     isActive={previewingCategory === 'pop'} 
                   />
-                  <Text style={styles.libraryHeaderSubtitle}>{i18n.t('soundcheck_subtitle_pop')}</Text>
+                  <Text style={[styles.libraryHeaderSubtitle, isNightMode && { color: '#c4b0a4' }]}>{i18n.t('soundcheck_subtitle_pop')}</Text>
                 </View>
                 {playablePopKeys.map((soundKey) => renderSoundRow(soundKey))}
 
@@ -335,7 +345,7 @@ export default function SoundcheckScreen() {
                     style={[styles.libraryHeaderImage, MOOD_HEADER_SIZE]} 
                     isActive={previewingCategory === 'mood'} 
                   />
-                  <Text style={styles.libraryHeaderSubtitle}>{i18n.t('soundcheck_subtitle_mood')}</Text>
+                  <Text style={[styles.libraryHeaderSubtitle, isNightMode && { color: '#c4b0a4' }]}>{i18n.t('soundcheck_subtitle_mood')}</Text>
                 </View>
                 {playableMoodKeys.map((soundKey) => renderSoundRow(soundKey))}
 
@@ -345,7 +355,7 @@ export default function SoundcheckScreen() {
                     style={styles.libraryHeaderImage} 
                     isActive={previewingCategory === 'trll'} 
                   />
-                  <Text style={styles.libraryHeaderSubtitle}>{i18n.t('soundcheck_subtitle_tweet')}</Text>
+                  <Text style={[styles.libraryHeaderSubtitle, isNightMode && { color: '#c4b0a4' }]}>{i18n.t('soundcheck_subtitle_tweet')}</Text>
                 </View>
                 {playableTrllKeys.map((soundKey) => renderSoundRow(soundKey))}
               </View>

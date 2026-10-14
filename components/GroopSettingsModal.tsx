@@ -30,6 +30,7 @@ import {
   GroupMemberInfo,
 } from '../lib/groopProotService';
 import { Friend } from '../hooks/useFriends';
+import { useAppStore } from '../lib/store';
 
 interface GroopSettingsModalProps {
   visible: boolean;
@@ -59,6 +60,7 @@ export function GroopSettingsModal({
   const [isMembersExpanded, setIsMembersExpanded] = useState(false);
   const [members, setMembers] = useState<GroupMemberInfo[]>([]);
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
+  const isNightMode = useAppStore(state => state.isNightMode);
 
   useEffect(() => {
     if (group && visible) {
@@ -78,7 +80,7 @@ export function GroopSettingsModal({
   const handleSaveName = async () => {
     const trimmed = name.trim();
     if (trimmed.length < 2 || trimmed.length > 50) {
-      Alert.alert('Nom invalide', 'Le nom du groupe doit comporter entre 2 et 50 caractères.');
+      Alert.alert(i18n.t('error'), i18n.t('group_error_name_invalid'));
       return;
     }
 
@@ -107,7 +109,7 @@ export function GroopSettingsModal({
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert(i18n.t('error'), 'Permission d’accès à la caméra requise');
+        Alert.alert(i18n.t('error'), i18n.t('group_camera_permission_required'));
         return;
       }
 
@@ -184,8 +186,8 @@ export function GroopSettingsModal({
 
   const openPhotoOptions = () => {
     if (Platform.OS === 'ios') {
-      const options = ['Prendre une photo', 'Choisir dans la galerie'];
-      if (avatarUrl) options.push('Supprimer la photo');
+      const options = [i18n.t('group_take_photo'), i18n.t('group_choose_gallery')];
+      if (avatarUrl) options.push(i18n.t('group_remove_photo'));
       options.push(i18n.t('cancel'));
 
       const destructiveIndex = avatarUrl ? 2 : undefined;
@@ -196,7 +198,7 @@ export function GroopSettingsModal({
           options,
           cancelButtonIndex: cancelIndex,
           destructiveButtonIndex: destructiveIndex,
-          title: 'Photo du GroopProot',
+          title: i18n.t('group_photo_options_title'),
         },
         (buttonIndex) => {
           if (buttonIndex === 0) void handlePickCamera();
@@ -206,15 +208,15 @@ export function GroopSettingsModal({
       );
     } else {
       const buttons: any[] = [
-        { text: 'Prendre une photo', onPress: () => void handlePickCamera() },
-        { text: 'Choisir dans la galerie', onPress: () => void handlePickGallery() },
+        { text: i18n.t('group_take_photo'), onPress: () => void handlePickCamera() },
+        { text: i18n.t('group_choose_gallery'), onPress: () => void handlePickGallery() },
       ];
       if (avatarUrl) {
-        buttons.push({ text: 'Supprimer la photo', style: 'destructive', onPress: () => void handleRemovePhoto() });
+        buttons.push({ text: i18n.t('group_remove_photo'), style: 'destructive', onPress: () => void handleRemovePhoto() });
       }
       buttons.push({ text: i18n.t('cancel'), style: 'cancel' });
 
-      Alert.alert('Photo du GroopProot', 'Choisissez une option', buttons);
+      Alert.alert(i18n.t('group_photo_options_title'), '', buttons);
     }
   };
 
@@ -254,12 +256,12 @@ export function GroopSettingsModal({
   const handleDestructiveAction = () => {
     if (isCreator) {
       Alert.alert(
-        'Supprimer le GroopProot',
-        `Voulez-vous supprimer définitivement "${name}" ? Cette action est irréversible et supprimera le groupe pour tous les membres.`,
+        i18n.t('group_delete_title'),
+        i18n.t('group_delete_confirm', { name }),
         [
           { text: i18n.t('cancel'), style: 'cancel' },
           {
-            text: 'Supprimer',
+            text: i18n.t('group_delete_btn'),
             style: 'destructive',
             onPress: async () => {
               try {
@@ -282,12 +284,12 @@ export function GroopSettingsModal({
       );
     } else {
       Alert.alert(
-        'Quitter le GroopProot',
-        `Voulez-vous quitter le groupe "${name}" ?`,
+        i18n.t('group_leave_title'),
+        i18n.t('group_leave_confirm', { name }),
         [
           { text: i18n.t('cancel'), style: 'cancel' },
           {
-            text: 'Quitter',
+            text: i18n.t('group_leave_btn'),
             style: 'destructive',
             onPress: async () => {
               try {
@@ -324,12 +326,12 @@ export function GroopSettingsModal({
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={styles.keyboardContainer}
           >
-            <View style={styles.modalCard}>
+            <View style={[styles.modalCard, isNightMode && { backgroundColor: '#271e19', borderColor: '#3d2f28', borderWidth: 1 }]}>
               {/* En-tête */}
-              <View style={styles.header}>
-                <Text style={styles.headerTitle}>Gestion du GroopProot</Text>
+              <View style={[styles.header, isNightMode && { borderBottomColor: '#3d2f28' }]}>
+                <Text style={[styles.headerTitle, isNightMode && { color: '#f5e6dc' }]}>{i18n.t('group_mode_title')}</Text>
                 <TouchableOpacity onPress={onClose} style={styles.closeButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                  <Ionicons name="close-circle" size={26} color="#604a3e" />
+                  <Ionicons name="close-circle" size={26} color={isNightMode ? "#f5e6dc" : "#604a3e"} />
                 </TouchableOpacity>
               </View>
 
@@ -343,9 +345,9 @@ export function GroopSettingsModal({
                     disabled={isUploadingPhoto}
                     style={styles.avatarButton}
                   >
-                    <View style={styles.avatarContainer}>
+                    <View style={[styles.avatarContainer, isNightMode && { backgroundColor: '#1e1612', borderColor: '#3d2f28' }]}>
                       {isUploadingPhoto ? (
-                        <ActivityIndicator color="#604a3e" size="large" />
+                        <ActivityIndicator color={isNightMode ? "#ebb89b" : "#604a3e"} size="large" />
                       ) : avatarUrl ? (
                         <Image
                           source={{ uri: avatarUrl }}
@@ -354,27 +356,27 @@ export function GroopSettingsModal({
                           transition={200}
                         />
                       ) : (
-                        <Ionicons name="people" size={44} color="#604a3e" />
+                        <Ionicons name="people" size={44} color={isNightMode ? "#ebb89b" : "#604a3e"} />
                       )}
                     </View>
                     <View style={styles.cameraBadge}>
                       <Ionicons name="camera" size={15} color="#ffffff" />
                     </View>
                   </TouchableOpacity>
-                  <Text style={styles.avatarHint}>Toucher pour changer la photo</Text>
+                  <Text style={[styles.avatarHint, isNightMode && { color: '#c4b0a4' }]}>{i18n.t('group_photo_options_title')}</Text>
                 </View>
 
                 {/* Nom du groupe */}
                 <View style={styles.nameSection}>
-                  <Text style={styles.fieldLabel}>Nom du groupe</Text>
+                  <Text style={[styles.fieldLabel, isNightMode && { color: '#ebb89b' }]}>{i18n.t('group_mode_name_placeholder')}</Text>
                   {isEditingName ? (
                     <View style={styles.nameEditRow}>
                       <TextInput
-                        style={styles.nameInput}
+                        style={[styles.nameInput, isNightMode && { backgroundColor: '#1e1612', borderColor: '#3d2f28', color: '#f5e6dc' }]}
                         value={name}
                         onChangeText={setName}
-                        placeholder="Nom du groupe"
-                        placeholderTextColor="#A0887A"
+                        placeholder={i18n.t('group_mode_name_placeholder')}
+                        placeholderTextColor={isNightMode ? "#8a7466" : "#A0887A"}
                         maxLength={50}
                         autoFocus
                       />
@@ -396,20 +398,20 @@ export function GroopSettingsModal({
                           setIsEditingName(false);
                         }}
                       >
-                        <Ionicons name="close" size={20} color="#604a3e" />
+                        <Ionicons name="close" size={20} color={isNightMode ? "#f5e6dc" : "#604a3e"} />
                       </TouchableOpacity>
                     </View>
                   ) : (
                     <TouchableOpacity
                       activeOpacity={0.7}
-                      style={styles.nameDisplayRow}
+                      style={[styles.nameDisplayRow, isNightMode && { backgroundColor: '#1e1612', borderColor: '#3d2f28' }]}
                       onPress={() => setIsEditingName(true)}
                     >
-                      <Text style={styles.groupNameText} numberOfLines={1}>
+                      <Text style={[styles.groupNameText, isNightMode && { color: '#f5e6dc' }]} numberOfLines={1}>
                         {name || 'Sans nom'}
                       </Text>
-                      <View style={styles.pencilBadge}>
-                        <Ionicons name="pencil" size={14} color="#604a3e" />
+                      <View style={[styles.pencilBadge, isNightMode && { backgroundColor: '#3d2f28' }]}>
+                        <Ionicons name="pencil" size={14} color={isNightMode ? "#ebb89b" : "#604a3e"} />
                       </View>
                     </TouchableOpacity>
                   )}
@@ -417,12 +419,13 @@ export function GroopSettingsModal({
 
                 {/* Mode de Rétention (24h / 0h) */}
                 <View style={styles.retentionSection}>
-                  <Text style={styles.fieldLabel}>Mode de rétention</Text>
+                  <Text style={[styles.fieldLabel, isNightMode && { color: '#ebb89b' }]}>{i18n.t('group_retention_label')}</Text>
                   <View style={styles.retentionRow}>
                     <TouchableOpacity
                       style={[
                         styles.retentionBtn,
-                        currentRetention === '24h' && styles.retentionBtnActive,
+                        isNightMode && { backgroundColor: '#1e1612', borderColor: '#3d2f28' },
+                        currentRetention === '24h' && (isNightMode ? { backgroundColor: '#263b38', borderColor: '#4da699' } : styles.retentionBtnActive),
                       ]}
                       onPress={() => handleChangeRetention('24h')}
                       disabled={isUpdatingRetention}
@@ -431,23 +434,25 @@ export function GroopSettingsModal({
                       <Ionicons
                         name="timer-outline"
                         size={15}
-                        color={currentRetention === '24h' ? '#ffffff' : '#604a3e'}
+                        color={currentRetention === '24h' ? '#ffffff' : (isNightMode ? '#ebb89b' : '#604a3e')}
                         style={{ marginRight: 6 }}
                       />
                       <Text
                         style={[
                           styles.retentionBtnText,
-                          currentRetention === '24h' && styles.retentionBtnTextActive,
+                          isNightMode && { color: '#c4b0a4' },
+                          currentRetention === '24h' && (isNightMode ? { color: '#ffffff' } : styles.retentionBtnTextActive),
                         ]}
                       >
-                        24 Heures
+                        {i18n.t('group_retention_24h')}
                       </Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                       style={[
                         styles.retentionBtn,
-                        currentRetention === 'permanent' && styles.retentionBtnActive,
+                        isNightMode && { backgroundColor: '#1e1612', borderColor: '#3d2f28' },
+                        currentRetention === 'permanent' && (isNightMode ? { backgroundColor: '#263b38', borderColor: '#4da699' } : styles.retentionBtnActive),
                       ]}
                       onPress={() => handleChangeRetention('permanent')}
                       disabled={isUpdatingRetention}
@@ -456,52 +461,53 @@ export function GroopSettingsModal({
                       <Ionicons
                         name="flash"
                         size={15}
-                        color={currentRetention === 'permanent' ? '#ffffff' : '#604a3e'}
+                        color={currentRetention === 'permanent' ? '#ffffff' : (isNightMode ? '#ebb89b' : '#604a3e')}
                         style={{ marginRight: 6 }}
                       />
                       <Text
                         style={[
                           styles.retentionBtnText,
-                          currentRetention === 'permanent' && styles.retentionBtnTextActive,
+                          isNightMode && { color: '#c4b0a4' },
+                          currentRetention === 'permanent' && (isNightMode ? { color: '#ffffff' } : styles.retentionBtnTextActive),
                         ]}
                       >
-                        0h (Éphémère)
+                        {i18n.t('group_retention_permanent')}
                       </Text>
                     </TouchableOpacity>
                   </View>
-                  <Text style={styles.retentionHintText}>
+                  <Text style={[styles.retentionHintText, isNightMode && { color: '#c4b0a4' }]}>
                     {currentRetention === '24h'
-                      ? '⏳ Les messages s’effacent automatiquement après 24h.'
-                      : '⚡ Les messages s’effacent à la fermeture du chat.'}
+                      ? i18n.t('group_retention_24h_hint')
+                      : i18n.t('group_retention_permanent_hint')}
                   </Text>
                 </View>
 
                 {/* Métadonnées du groupe */}
-                <View style={styles.infoCard}>
+                <View style={[styles.infoCard, isNightMode && { backgroundColor: '#1e1612', borderColor: '#3d2f28' }]}>
                   <TouchableOpacity
                     style={styles.membersExpandRow}
                     onPress={toggleMembersExpanded}
                     activeOpacity={0.7}
                   >
                     <View style={styles.infoRowLeft}>
-                      <View style={styles.infoIconWrapper}>
-                        <Ionicons name="people-outline" size={16} color="#604a3e" />
+                      <View style={[styles.infoIconWrapper, isNightMode && { backgroundColor: '#3d2f28' }]}>
+                        <Ionicons name="people-outline" size={16} color={isNightMode ? "#ebb89b" : "#604a3e"} />
                       </View>
-                      <Text style={styles.infoText}>
-                        {(members.length > 0 ? members.length : (group.groupMembersCount || 2))} membres
+                      <Text style={[styles.infoText, isNightMode && { color: '#f5e6dc' }]}>
+                        {(members.length > 0 ? members.length : (group.groupMembersCount || 2))} {i18n.t('group_members_title').toLowerCase()}
                       </Text>
                     </View>
                     <Ionicons 
                       name={isMembersExpanded ? "chevron-down" : "chevron-forward"} 
                       size={18} 
-                      color="#604a3e" 
+                      color={isNightMode ? "#f5e6dc" : "#604a3e"} 
                     />
                   </TouchableOpacity>
 
                   {isMembersExpanded && (
                     <View style={styles.membersListContainer}>
                       {isLoadingMembers ? (
-                        <ActivityIndicator size="small" color="#604a3e" style={{ marginVertical: 8 }} />
+                        <ActivityIndicator size="small" color={isNightMode ? "#ebb89b" : "#604a3e"} style={{ marginVertical: 8 }} />
                       ) : (
                         members.map((member) => (
                           <View key={member.userId} style={styles.memberItemRow}>
@@ -514,14 +520,14 @@ export function GroopSettingsModal({
                                 cachePolicy="disk"
                               />
                             ) : (
-                              <View style={styles.memberAvatarPlaceholder}>
-                                <Text style={styles.memberAvatarPlaceholderText}>
+                              <View style={[styles.memberAvatarPlaceholder, isNightMode && { backgroundColor: '#3d2f28' }]}>
+                                <Text style={[styles.memberAvatarPlaceholderText, isNightMode && { color: '#ebb89b' }]}>
                                   {member.pseudo.charAt(0).toUpperCase()}
                                 </Text>
                               </View>
                             )}
                             <View style={styles.memberInfoCol}>
-                              <Text style={styles.memberPseudoText} numberOfLines={1}>
+                              <Text style={[styles.memberPseudoText, isNightMode && { color: '#f5e6dc' }]} numberOfLines={1}>
                                 {member.pseudo} {member.userId === currentUserId ? '(Vous)' : ''}
                               </Text>
                             </View>
@@ -536,12 +542,12 @@ export function GroopSettingsModal({
                     </View>
                   )}
 
-                  <View style={[styles.infoRow, { borderTopWidth: 1, borderTopColor: '#e8dbce', marginTop: 4, paddingTop: 8 }]}>
-                    <View style={styles.infoIconWrapper}>
-                      <Ionicons name="shield-checkmark-outline" size={16} color="#604a3e" />
+                  <View style={[styles.infoRow, { borderTopWidth: 1, borderTopColor: isNightMode ? '#3d2f28' : '#e8dbce', marginTop: 4, paddingTop: 8 }]}>
+                    <View style={[styles.infoIconWrapper, isNightMode && { backgroundColor: '#3d2f28' }]}>
+                      <Ionicons name="shield-checkmark-outline" size={16} color={isNightMode ? "#ebb89b" : "#604a3e"} />
                     </View>
-                    <Text style={styles.infoText}>
-                      {isCreator ? 'Vous êtes le créateur' : 'Membre du groupe'}
+                    <Text style={[styles.infoText, isNightMode && { color: '#f5e6dc' }]}>
+                      {isCreator ? 'Créateur' : 'Membre'}
                     </Text>
                   </View>
                 </View>
@@ -564,7 +570,7 @@ export function GroopSettingsModal({
                         style={{ marginRight: 8 }}
                       />
                       <Text style={styles.destructiveButtonText}>
-                        {isCreator ? 'Supprimer le GroopProot' : 'Quitter le GroopProot'}
+                        {isCreator ? i18n.t('group_delete_title') : i18n.t('group_leave_title')}
                       </Text>
                     </>
                   )}

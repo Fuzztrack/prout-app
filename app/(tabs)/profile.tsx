@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAppStore } from '@/lib/store';
 import { logSignOutIntent } from '../../lib/authDebug';
 import i18n from '../../lib/i18n';
 import { safePush, safeReplace } from '../../lib/navigation';
@@ -10,6 +11,7 @@ import { clearCurrentUserPushToken } from '../../lib/pushTokenRegistration';
 import { supabase } from '../../lib/supabase';
 
 export default function ProfileScreen() {
+  const isNightMode = useAppStore(state => state.isNightMode);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
@@ -102,8 +104,8 @@ export default function ProfileScreen() {
   }
 
   return (
-    <View style={styles.wrapper}>
-      <ScrollView contentContainerStyle={[styles.container, { paddingTop: insets.top + 20 }]}>
+    <View style={[styles.wrapper, isNightMode && { backgroundColor: '#1c1613' }]}>
+      <ScrollView contentContainerStyle={[styles.container, { paddingTop: insets.top + 20 }, isNightMode && { backgroundColor: '#1c1613' }]}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => safePush(router, '/(tabs)', { skipInitialCheck: false })} activeOpacity={0.7}>
             <Image
@@ -119,8 +121,8 @@ export default function ProfileScreen() {
           {profile?.avatar_url ? (
             <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
           ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Text style={styles.avatarPlaceholderText}>
+            <View style={[styles.avatarPlaceholder, isNightMode && { backgroundColor: '#271e19' }]}>
+              <Text style={[styles.avatarPlaceholderText, isNightMode && { color: '#ebb89b' }]}>
                 {profile?.pseudo ? profile.pseudo.charAt(0).toUpperCase() : '?'}
               </Text>
             </View>
@@ -128,38 +130,44 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.infoContainer}>
-          <Text style={styles.pseudo}>
+          <Text style={[styles.pseudo, isNightMode && { color: '#f5e6dc' }]}>
             <Text style={styles.label}>{i18n.t('pseudo')}: </Text>
             {profile?.pseudo || i18n.t('not_defined')}
           </Text>
-          <Text style={styles.email}>
+          <Text style={[styles.email, isNightMode && { color: '#c4b0a4' }]}>
             <Text style={styles.label}>{i18n.t('email')}: </Text>
             {email}
           </Text>
-          <Text style={styles.phone}>
+          <Text style={[styles.phone, isNightMode && { color: '#c4b0a4' }]}>
             <Text style={styles.label}>{i18n.t('phone')}: </Text>
             {profile?.phone || i18n.t('not_defined_phone')}
           </Text>
         </View>
 
-        <TouchableOpacity style={styles.editButton} onPress={() => safePush(router, '/Profil', { skipInitialCheck: false })}>
-          <Ionicons name="create-outline" size={24} color="#604a3e" />
-          <Text style={styles.editText}>{i18n.t('edit_profile')}</Text>
+        <TouchableOpacity 
+          style={[styles.editButton, isNightMode && { backgroundColor: '#2e4d48', borderColor: '#4da699' }]} 
+          onPress={() => safePush(router, '/Profil', { skipInitialCheck: false })}
+        >
+          <Ionicons name="create-outline" size={24} color={isNightMode ? "#f5e6dc" : "#604a3e"} />
+          <Text style={[styles.editText, isNightMode && { color: '#f5e6dc' }]}>{i18n.t('edit_profile')}</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#604a3e" />
-          <Text style={styles.backText}>{i18n.t('back')}</Text>
+        <TouchableOpacity 
+          style={[styles.backButton, isNightMode && { backgroundColor: '#1e1612', borderColor: '#3d2f28' }]} 
+          onPress={() => router.back()}
+        >
+          <Ionicons name="arrow-back" size={24} color={isNightMode ? "#f5e6dc" : "#604a3e"} />
+          <Text style={[styles.backText, isNightMode && { color: '#f5e6dc' }]}>{i18n.t('back')}</Text>
         </TouchableOpacity>
 
         <View style={styles.spacer} />
 
         <TouchableOpacity style={styles.logoutLink} onPress={handleLogout}>
-          <Text style={styles.logoutLinkText}>{i18n.t('logout')}</Text>
+          <Text style={[styles.logoutLinkText, isNightMode && { color: '#ebb89b' }]}>{i18n.t('logout')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={handleContactSupport} style={styles.supportLink}>
-          <Text style={styles.supportLinkText}>{i18n.t('contact_support')}</Text>
+          <Text style={[styles.supportLinkText, isNightMode && { color: '#ebb89b' }]}>{i18n.t('contact_support')}</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>

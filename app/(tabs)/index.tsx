@@ -12,9 +12,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import i18n from '@/lib/i18n';
 import { safeReplace } from '@/lib/navigation';
 import { registerPushTokenForUser } from '@/lib/pushTokenRegistration';
+import { recordAppOpen } from '@/lib/userExperienceTracking';
+import { syncUserContacts } from '@/lib/contactSync';
 import { supabase } from '@/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
+import appJson from '../../app.json';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
@@ -26,7 +29,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const appVersion = Constants.expoConfig?.version ?? '1.1.51';
+  const appVersion = appJson.expo.version ?? Constants.expoConfig?.version ?? '1.1.51';
   
   const isLoadedRef = useRef(false);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -37,12 +40,14 @@ export default function HomeScreen() {
   const isZenMode = useAppStore(state => state.isZenMode);
   const isSilentMode = useAppStore(state => state.isSilentMode);
   const isHapticEnabled = useAppStore(state => state.isHapticEnabled);
+  const isNightMode = useAppStore(state => state.isNightMode);
   const activeView = useAppStore(state => state.activeView);
   
   const setProfile = useAppStore(state => state.setProfile);
   const setZenMode = useAppStore(state => state.setZenMode);
   const setSilentMode = useAppStore(state => state.setSilentMode);
   const setHapticEnabled = useAppStore(state => state.setHapticEnabled);
+  const setNightMode = useAppStore(state => state.setNightMode);
   const setActiveView = useAppStore(state => state.setActiveView);
 
   const [showPrivacy, setShowPrivacy] = useState(false);
@@ -242,6 +247,8 @@ export default function HomeScreen() {
 // Précharger le pseudo et l'avatar depuis le cache pour un affichage instantané
 useEffect(() => {
   setActiveView('list');
+  recordAppOpen().catch(() => {});
+  syncUserContacts().catch(() => {});
 
   const preloadProfile = async () => {
     try {
@@ -709,6 +716,20 @@ useEffect(() => {
     }
   };
 
+  const toggleNightMode = () => {
+    const newValue = !isNightMode;
+    setNightMode(newValue);
+    if (isHapticEnabled && Platform.OS !== 'web') {
+      try {
+        if (Platform.OS === 'ios') {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+        } else {
+          Vibration.vibrate(100);
+        }
+      } catch {}
+    }
+  };
+
   const toggleSilentMode = () => {
     if (isSilentMode) {
       setSilentMode(false);
@@ -779,7 +800,7 @@ useEffect(() => {
 
   return (
     <>
-      <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={[styles.container, { paddingTop: insets.top }, isNightMode && { backgroundColor: '#1c1613' }]}>
         {Platform.OS === 'ios' ? (
           <KeyboardAvoidingView 
             behavior="padding"
@@ -807,7 +828,7 @@ useEffect(() => {
                      onBlastModeChange={setIsBlastModeActive}
                    />       
                    {activeView === 'profileMenu' && (
-                     <View style={styles.menuOverlay}>
+                     <View style={[styles.menuOverlay, isNightMode && { backgroundColor: '#1c1613' }]}>
                        <ScrollView 
                          style={{ flex: 1 }} 
                          contentContainerStyle={{ paddingBottom: 20 }}
@@ -817,34 +838,35 @@ useEffect(() => {
                            {headerComponent}
                          </TouchableOpacity>
                          
-                         <View style={styles.menuCard}>
+                         <View style={[styles.menuCard, isNightMode && { backgroundColor: '#271e19' }]}>
                            {[
-                            { label: zenMenuLabel, icon: zenModeEnabled ? 'moon' : 'moon-outline', onPress: () => { void toggleZenMode(); }, iconColor: zenModeEnabled ? '#ebb89b' : '#604a3e' },
-                             { label: i18n.t('silent_mode'), icon: isSilentMode ? 'volume-mute' : 'volume-mute-outline', onPress: () => { toggleSilentMode(); }, iconColor: isSilentMode ? '#ebb89b' : '#604a3e' },
-                             { label: i18n.t('resonance_dashboard_menu'), icon: 'trophy', onPress: () => { setActiveView('list'); router.push('/complicity'); }, iconColor: '#604a3e' },
-                            { label: i18n.t('invite_friend'), icon: 'share-social-outline', onPress: handleShare, iconColor: '#604a3e' },
-                             { label: i18n.t('review_app_functions'), icon: 'help-circle-outline', onPress: () => setActiveView('tutorial'), iconColor: '#604a3e' },
-                             { label: i18n.t('who_is_who'), icon: 'eye-outline', onPress: () => { setShowIdentity(true); setActiveView('list'); }, iconColor: '#604a3e' },
-                             { label: i18n.t('blocked_friends_menu'), icon: 'ban-outline', onPress: () => { setShowBlockedUsers(true); setActiveView('list'); }, iconColor: '#604a3e' },
-                             { label: i18n.t('haptic_feedback'), icon: isHapticEnabled ? 'phone-portrait' : 'phone-portrait-outline', onPress: toggleHapticFeedback, iconColor: isHapticEnabled ? '#ebb89b' : '#604a3e' },
-                             { label: i18n.t('privacy_policy_menu'), icon: 'document-text-outline', onPress: () => { setShowPrivacy(true); setActiveView('list'); }, iconColor: '#604a3e' },
+                            { label: zenMenuLabel, icon: zenModeEnabled ? 'moon' : 'moon-outline', onPress: () => { void toggleZenMode(); }, iconColor: zenModeEnabled ? '#ebb89b' : (isNightMode ? '#f5e6dc' : '#604a3e') },
+                             { label: i18n.t('silent_mode'), icon: isSilentMode ? 'volume-mute' : 'volume-mute-outline', onPress: () => { toggleSilentMode(); }, iconColor: isSilentMode ? '#ebb89b' : (isNightMode ? '#f5e6dc' : '#604a3e') },
+                             { label: i18n.t('resonance_dashboard_menu'), icon: 'trophy', onPress: () => { setActiveView('list'); router.push('/complicity'); }, iconColor: isNightMode ? '#f5e6dc' : '#604a3e' },
+                            { label: i18n.t('invite_friend'), icon: 'share-social-outline', onPress: handleShare, iconColor: isNightMode ? '#f5e6dc' : '#604a3e' },
+                             { label: i18n.t('review_app_functions'), icon: 'help-circle-outline', onPress: () => setActiveView('tutorial'), iconColor: isNightMode ? '#f5e6dc' : '#604a3e' },
+                             { label: i18n.t('who_is_who'), icon: 'eye-outline', onPress: () => { setShowIdentity(true); setActiveView('list'); }, iconColor: isNightMode ? '#f5e6dc' : '#604a3e' },
+                             { label: i18n.t('blocked_friends_menu'), icon: 'ban-outline', onPress: () => { setShowBlockedUsers(true); setActiveView('list'); }, iconColor: isNightMode ? '#f5e6dc' : '#604a3e' },
+                             { label: i18n.t('haptic_feedback'), icon: isHapticEnabled ? 'phone-portrait' : 'phone-portrait-outline', onPress: toggleHapticFeedback, iconColor: isHapticEnabled ? '#ebb89b' : (isNightMode ? '#f5e6dc' : '#604a3e') },
+                             { label: i18n.t('night_mode'), icon: isNightMode ? 'moon' : 'moon-outline', onPress: toggleNightMode, iconColor: isNightMode ? '#ebb89b' : (isNightMode ? '#f5e6dc' : '#604a3e') },
+                             { label: i18n.t('privacy_policy_menu'), icon: 'document-text-outline', onPress: () => { setShowPrivacy(true); setActiveView('list'); }, iconColor: isNightMode ? '#f5e6dc' : '#604a3e' },
                            ].map((item, index) => (
                              <TouchableOpacity 
                                key={index}
-                               style={[styles.menuItem, { backgroundColor: index % 2 === 0 ? '#d2f1ef' : '#baded7' }]} 
+                               style={[styles.menuItem, { backgroundColor: isNightMode ? (index % 2 === 0 ? '#1e3330' : '#243d39') : (index % 2 === 0 ? '#d2f1ef' : '#baded7') }]} 
                                onPress={item.onPress}
                              >
-                               <Text style={styles.menuText}>{item.label}</Text>
+                               <Text style={[styles.menuText, isNightMode && { color: '#f5e6dc' }]}>{item.label}</Text>
                                <Ionicons
                                  name={item.icon as any}
-                              size={22}
+                                 size={22}
                                  color={item.iconColor}
                                />
                              </TouchableOpacity>
                            ))}
                          </View>
                         <View style={{ alignItems: 'center', marginTop: 8, marginBottom: 8 }}>
-                          <Text style={styles.menuVersionText}>{`Proot ! version ${appVersion}`}</Text>
+                          <Text style={[styles.menuVersionText, isNightMode && { color: '#c4b0a4' }]}>{`Proot ! version ${appVersion}`}</Text>
                           <TouchableOpacity 
                             onPress={() => {
                               const url = Platform.OS === 'ios' 
@@ -854,7 +876,7 @@ useEffect(() => {
                             }}
                             style={{ marginTop: -4 }}
                           >
-                            <Text style={[styles.menuVersionText, { color: '#604a3e', textDecorationLine: 'underline', opacity: 1, fontWeight: '600' }]}>
+                            <Text style={[styles.menuVersionText, { color: isNightMode ? '#ebb89b' : '#604a3e', textDecorationLine: 'underline', opacity: 1, fontWeight: '600' }]}>
                               {i18n.t('check_for_updates') || 'Vérifier la mise à jour'}
                             </Text>
                           </TouchableOpacity>
@@ -887,7 +909,7 @@ useEffect(() => {
                   onBlastModeChange={setIsBlastModeActive}
                 />    
                 {activeView === 'profileMenu' && (
-                  <View style={styles.menuOverlay}>
+                  <View style={[styles.menuOverlay, isNightMode && { backgroundColor: '#1c1613' }]}>
                     <ScrollView 
                       style={{ flex: 1 }} 
                       contentContainerStyle={{ paddingBottom: 20 }}
@@ -897,35 +919,36 @@ useEffect(() => {
                         {headerComponent}
                       </TouchableOpacity>
                       
-                      <View style={styles.menuCard}>
+                      <View style={[styles.menuCard, isNightMode && { backgroundColor: '#271e19' }]}>
                           {[
-                            { label: zenMenuLabel, icon: zenModeEnabled ? 'moon' : 'moon-outline', onPress: () => { void toggleZenMode(); }, iconColor: zenModeEnabled ? '#ebb89b' : '#604a3e' },
-                            { label: i18n.t('silent_mode'), icon: isSilentMode ? 'volume-mute' : 'volume-mute-outline', onPress: () => { toggleSilentMode(); }, iconColor: isSilentMode ? '#ebb89b' : '#604a3e' },
-                            { label: i18n.t('resonance_dashboard_menu'), icon: 'trophy', onPress: () => { setActiveView('list'); router.push('/complicity'); }, iconColor: '#604a3e' },
-                            { label: i18n.t('invite_friend'), icon: 'share-social-outline', onPress: handleShare, iconColor: '#604a3e' },
-                            { label: i18n.t('review_app_functions'), icon: 'help-circle-outline', onPress: () => setActiveView('tutorial'), iconColor: '#604a3e' },
-                            { label: i18n.t('who_is_who'), icon: 'eye-outline', onPress: () => { setShowIdentity(true); setActiveView('list'); }, iconColor: '#604a3e' },
-                            { label: i18n.t('blocked_friends_menu'), icon: 'ban-outline', onPress: () => { setShowBlockedUsers(true); setActiveView('list'); }, iconColor: '#604a3e' },
+                            { label: zenMenuLabel, icon: zenModeEnabled ? 'moon' : 'moon-outline', onPress: () => { void toggleZenMode(); }, iconColor: zenModeEnabled ? '#ebb89b' : (isNightMode ? '#f5e6dc' : '#604a3e') },
+                            { label: i18n.t('silent_mode'), icon: isSilentMode ? 'volume-mute' : 'volume-mute-outline', onPress: () => { toggleSilentMode(); }, iconColor: isSilentMode ? '#ebb89b' : (isNightMode ? '#f5e6dc' : '#604a3e') },
+                            { label: i18n.t('resonance_dashboard_menu'), icon: 'trophy', onPress: () => { setActiveView('list'); router.push('/complicity'); }, iconColor: isNightMode ? '#f5e6dc' : '#604a3e' },
+                            { label: i18n.t('invite_friend'), icon: 'share-social-outline', onPress: handleShare, iconColor: isNightMode ? '#f5e6dc' : '#604a3e' },
+                            { label: i18n.t('review_app_functions'), icon: 'help-circle-outline', onPress: () => setActiveView('tutorial'), iconColor: isNightMode ? '#f5e6dc' : '#604a3e' },
+                            { label: i18n.t('who_is_who'), icon: 'eye-outline', onPress: () => { setShowIdentity(true); setActiveView('list'); }, iconColor: isNightMode ? '#f5e6dc' : '#604a3e' },
+                            { label: i18n.t('blocked_friends_menu'), icon: 'ban-outline', onPress: () => { setShowBlockedUsers(true); setActiveView('list'); }, iconColor: isNightMode ? '#f5e6dc' : '#604a3e' },
                             // Retour haptique uniquement sur iOS
-                            { label: i18n.t('haptic_feedback'), icon: isHapticEnabled ? 'phone-portrait' : 'phone-portrait-outline', onPress: toggleHapticFeedback, iconColor: isHapticEnabled ? '#ebb89b' : '#604a3e' },
-                            { label: i18n.t('privacy_policy_menu'), icon: 'document-text-outline', onPress: () => { setShowPrivacy(true); setActiveView('list'); }, iconColor: '#604a3e' },
+                            { label: i18n.t('haptic_feedback'), icon: isHapticEnabled ? 'phone-portrait' : 'phone-portrait-outline', onPress: toggleHapticFeedback, iconColor: isHapticEnabled ? '#ebb89b' : (isNightMode ? '#f5e6dc' : '#604a3e') },
+                            { label: i18n.t('night_mode'), icon: isNightMode ? 'moon' : 'moon-outline', onPress: toggleNightMode, iconColor: isNightMode ? '#ebb89b' : (isNightMode ? '#f5e6dc' : '#604a3e') },
+                            { label: i18n.t('privacy_policy_menu'), icon: 'document-text-outline', onPress: () => { setShowPrivacy(true); setActiveView('list'); }, iconColor: isNightMode ? '#f5e6dc' : '#604a3e' },
                         ].map((item, index) => (
                           <TouchableOpacity 
                             key={index}
-                            style={[styles.menuItem, { backgroundColor: index % 2 === 0 ? '#d2f1ef' : '#baded7' }]} 
+                            style={[styles.menuItem, { backgroundColor: isNightMode ? (index % 2 === 0 ? '#1e3330' : '#243d39') : (index % 2 === 0 ? '#d2f1ef' : '#baded7') }]} 
                             onPress={item.onPress}
                           >
-                            <Text style={styles.menuText}>{item.label}</Text>
+                            <Text style={[styles.menuText, isNightMode && { color: '#f5e6dc' }]}>{item.label}</Text>
                             <Ionicons
                               name={item.icon as any}
-                                size={22}
+                              size={22}
                               color={item.iconColor}
                             />
                           </TouchableOpacity>
                         ))}
                       </View>
                       <View style={{ alignItems: 'center', marginTop: 8, marginBottom: 8 }}>
-                        <Text style={styles.menuVersionText}>{`Proot ! version ${appVersion}`}</Text>
+                        <Text style={[styles.menuVersionText, isNightMode && { color: '#c4b0a4' }]}>{`Proot ! version ${appVersion}`}</Text>
                         <TouchableOpacity 
                           onPress={() => {
                             const url = Platform.OS === 'ios' 
@@ -935,7 +958,7 @@ useEffect(() => {
                           }}
                           style={{ marginTop: -4 }}
                         >
-                          <Text style={[styles.menuVersionText, { color: '#604a3e', textDecorationLine: 'underline', opacity: 1, fontWeight: '600' }]}>
+                          <Text style={[styles.menuVersionText, { color: isNightMode ? '#ebb89b' : '#604a3e', textDecorationLine: 'underline', opacity: 1, fontWeight: '600' }]}>
                             {i18n.t('check_for_updates') || 'Vérifier la mise à jour'}
                           </Text>
                         </TouchableOpacity>
@@ -959,9 +982,9 @@ useEffect(() => {
       {/* Après le conteneur principal : au-dessus du menu liste (z-index) */}
       {showZenOptions && (
         <View style={styles.zenOverlay}>
-          <View style={styles.zenCard}>
-            <Text style={styles.zenTitle}>{i18n.t('zen_confirm_title')}</Text>
-            <Text style={styles.zenSubtitle}>{i18n.t('choose_duration')}</Text>
+          <View style={[styles.zenCard, isNightMode && { backgroundColor: '#271e19' }]}>
+            <Text style={[styles.zenTitle, isNightMode && { color: '#f5e6dc' }]}>{i18n.t('zen_confirm_title')}</Text>
+            <Text style={[styles.zenSubtitle, isNightMode && { color: '#c4b0a4' }]}>{i18n.t('choose_duration')}</Text>
             {[
               { label: '1h', type: '1h' as const },
               { label: '8h', type: '8h' as const },
@@ -970,17 +993,17 @@ useEffect(() => {
             ].map((opt) => (
               <TouchableOpacity
                 key={opt.type}
-                style={styles.zenOption}
+                style={[styles.zenOption, isNightMode && { backgroundColor: '#1e3330' }]}
                 onPress={async () => {
                   setShowZenOptions(false);
                   await handleZenSelection(opt.type);
                 }}
               >
-                <Text style={styles.zenOptionText}>{opt.label}</Text>
+                <Text style={[styles.zenOptionText, isNightMode && { color: '#f5e6dc' }]}>{opt.label}</Text>
               </TouchableOpacity>
             ))}
-            <TouchableOpacity style={styles.zenCancel} onPress={() => setShowZenOptions(false)}>
-              <Text style={styles.zenCancelText}>{i18n.t('cancel')}</Text>
+            <TouchableOpacity style={[styles.zenCancel, isNightMode && { backgroundColor: '#243d39' }]} onPress={() => setShowZenOptions(false)}>
+              <Text style={[styles.zenCancelText, isNightMode && { color: '#c4b0a4' }]}>{i18n.t('cancel')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -991,11 +1014,11 @@ useEffect(() => {
           <TouchableWithoutFeedback onPress={() => setShowSilentModal(false)}>
             <View style={StyleSheet.absoluteFill} />
           </TouchableWithoutFeedback>
-          <View style={styles.silentModalCard}>
-            <Text style={styles.zenTitle}>{i18n.t('silent_mode_title')}</Text>
-            <Text style={styles.silentModalDescription}>{i18n.t('silent_mode_description')}</Text>
-            <TouchableOpacity style={styles.zenCancel} onPress={confirmSilentMode}>
-              <Text style={styles.zenCancelText}>{i18n.t('ok')}</Text>
+          <View style={[styles.silentModalCard, isNightMode && { backgroundColor: '#271e19' }]}>
+            <Text style={[styles.zenTitle, isNightMode && { color: '#f5e6dc' }]}>{i18n.t('silent_mode_title')}</Text>
+            <Text style={[styles.silentModalDescription, isNightMode && { color: '#f5e6dc' }]}>{i18n.t('silent_mode_description')}</Text>
+            <TouchableOpacity style={[styles.zenCancel, isNightMode && { backgroundColor: '#243d39' }]} onPress={confirmSilentMode}>
+              <Text style={[styles.zenCancelText, isNightMode && { color: '#ebb89b' }]}>{i18n.t('ok')}</Text>
             </TouchableOpacity>
           </View>
         </View>

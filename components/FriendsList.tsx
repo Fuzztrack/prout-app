@@ -58,6 +58,8 @@ import { ReportReasonModal } from './FriendsListComponents/Modals/ReportReasonMo
 import { IdentityModal } from './FriendsListComponents/Modals/IdentityModal';
 import { FeedbackModal } from './FeedbackModal';
 import { GroopSettingsModal } from './GroopSettingsModal';
+import { useFooterHelpVisibility, recordSwipeAction, recordSoundSelectAction, recordMessageAction } from '../lib/userExperienceTracking';
+import { syncUserContacts } from '../lib/contactSync';
 
 const FIRST_CHAT_MODAL_KEY = 'first_chat_modal_seen_v2';
 const CHAT_MESSAGE_SOUND_CHOICE_KEY = 'chat_message_sound_choice_v1';
@@ -406,11 +408,13 @@ export function FriendsList({
   const isZenMode = useAppStore(state => state.isZenMode);
   const isSilentMode = useAppStore(state => state.isSilentMode);
   const isHapticEnabled = useAppStore(state => state.isHapticEnabled);
+  const isNightMode = useAppStore(state => state.isNightMode);
   const storePseudo = useAppStore(state => state.pseudo);
   const queryClient = useQueryClient();
   
   const receivedByFriend = useChatStore(state => state.receivedByFriend);
   const hasHydrated = useChatStore(state => state.hasHydrated);
+  const shouldShowFooterHelp = useFooterHelpVisibility();
 
   const [isGameVisible, setIsGameVisible] = useState(false);
   const [currentPseudo, setCurrentPseudo] = useState<string>("Un ami");
@@ -469,31 +473,38 @@ export function FriendsList({
     const count = selectedBlastFriendIds.length;
 
     return (
-      <View style={styles.blastBannerContainer}>
+      <View style={[
+        styles.blastBannerContainer,
+        isNightMode && { backgroundColor: 'rgba(235, 184, 155, 0.12)', borderColor: '#ebb89b' },
+      ]}>
         <View style={styles.blastBannerRow}>
           <View style={styles.blastBannerTitleRow}>
             <Text style={styles.blastBannerEmoji}>💥</Text>
             <View>
-              <Text style={styles.blastBannerTitle}>Mode Blast</Text>
-              <Text style={styles.blastBannerSubtitle}>
+              <Text style={[styles.blastBannerTitle, isNightMode && { color: '#f5e6dc' }]}>
+                {i18n.t('blast_mode_title')}
+              </Text>
+              <Text style={[styles.blastBannerSubtitle, isNightMode && { color: '#ebb89b' }]}>
                 {count === 0
-                  ? "Sélectionne tes amis à blaster"
-                  : `${count} ami${count > 1 ? 's' : ''} sélectionné${count > 1 ? 's' : ''}`}
+                  ? i18n.t('blast_mode_select_hint')
+                  : count === 1
+                    ? i18n.t('blast_mode_selected_one')
+                    : i18n.t('blast_mode_selected_many', { count })}
               </Text>
             </View>
           </View>
 
           <TouchableOpacity
             onPress={() => onBlastModeChange?.(false)}
-            style={styles.blastCloseButton}
+            style={[styles.blastCloseButton, isNightMode && { backgroundColor: 'rgba(255, 255, 255, 0.12)' }]}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="close" size={20} color="#604a3e" />
+            <Ionicons name="close" size={20} color={isNightMode ? '#f5e6dc' : '#604a3e'} />
           </TouchableOpacity>
         </View>
         {count > 0 && (
-          <Text style={styles.blastHintText}>
-            👉 Swipe sur l'un d'eux pour envoyer à tous en même temps !
+          <Text style={[styles.blastHintText, isNightMode && { color: '#ebb89b' }]}>
+            {i18n.t('blast_mode_swipe_hint')}
           </Text>
         )}
       </View>
@@ -1862,6 +1873,7 @@ const switchChatSoundListCategoryIfOpen = useCallback((choice: ChatMessageSoundC
 
 const handleSelectChatSpecificSound = useCallback((soundKey: string) => {
   if (!expandedFriendId) return;
+  recordSoundSelectAction().catch(() => {});
   setIsChatSoundPickerVisible(false);
   setPendingChatSpecificSoundListCategory(null);
   setPendingChatSoundKeyByFriend((prev) => ({
@@ -1881,6 +1893,7 @@ const handleSelectChatSpecificSound = useCallback((soundKey: string) => {
 
 const handleSelectGlobalDefaultCategory = useCallback(async (category: SoundCategory) => {
   setGlobalDefaultCategory(category);
+  recordSoundSelectAction().catch(() => {});
   try {
     await AsyncStorage.setItem(SOUND_CATEGORY_KEY, category);
   } catch (_) {}
@@ -1903,6 +1916,7 @@ const handleSelectFriendSpecificSoundKey = useCallback((soundKey: string) => {
   const friendId = friendSoundModalFriend?.id;
   if (!friendId || !SOUND_ASSETS[soundKey]) return;
 
+  recordSoundSelectAction().catch(() => {});
   stopCurrentPlayback().catch(() => {});
   setPreviewingFriendSoundKey(null);
   setFriendSpecificSoundKey(friendId, soundKey);
@@ -2999,20 +3013,20 @@ useEffect(() => {
       const isCreator = friend.createdBy === currentUserId;
       if (isCreator) {
         Alert.alert(
-          'Supprimer le GroopProot',
-          `Voulez-vous dissoudre le groupe "${friend.pseudo}" pour tous les membres ?`,
+          i18n.t('group_delete_title'),
+          i18n.t('group_delete_confirm', { name: friend.pseudo }),
           [
             { text: i18n.t('cancel'), style: 'cancel' },
             {
-              text: 'Supprimer',
+              text: i18n.t('group_delete_btn'),
               style: 'destructive',
               onPress: async () => {
                 try {
                   await deleteGroup(friend.id, currentUserId);
                   queryClient.invalidateQueries({ queryKey: ['friends'] });
-                  showToast('Groupe dissous');
+                  showToast(i18n.t('group_delete_title'));
                 } catch {
-                  Alert.alert('Erreur', 'Impossible de supprimer le groupe.');
+                  Alert.alert(i18n.t('error_title') || 'Erreur', i18n.t('group_error_create') || 'Impossible de supprimer le groupe.');
                 }
               },
             },
@@ -3020,20 +3034,20 @@ useEffect(() => {
         );
       } else {
         Alert.alert(
-          'Quitter le GroopProot',
-          `Voulez-vous quitter le groupe "${friend.pseudo}" ?`,
+          i18n.t('group_leave_title'),
+          i18n.t('group_leave_confirm', { name: friend.pseudo }),
           [
             { text: i18n.t('cancel'), style: 'cancel' },
             {
-              text: 'Quitter',
+              text: i18n.t('group_leave_btn'),
               style: 'destructive',
               onPress: async () => {
                 try {
                   await leaveGroup(friend.id, currentUserId);
                   queryClient.invalidateQueries({ queryKey: ['friends'] });
-                  showToast('Vous avez quitté le groupe');
+                  showToast(i18n.t('group_left_toast'));
                 } catch {
-                  Alert.alert('Erreur', 'Impossible de quitter le groupe.');
+                  Alert.alert(i18n.t('error_title') || 'Erreur', 'Impossible de quitter le groupe.');
                 }
               },
             },
@@ -3511,6 +3525,15 @@ useEffect(() => {
     recipient: any,
     options?: { forcedCustomMessage?: string; forcedSoundKey?: string }
   ) => {
+    if (options?.forcedCustomMessage) {
+      recordMessageAction().catch(() => {});
+    } else {
+      recordSwipeAction().catch(() => {});
+    }
+    if (options?.forcedSoundKey) {
+      recordSoundSelectAction().catch(() => {});
+    }
+
     // Cas Mode Blast : Envoi simultané à plusieurs amis 💥
     if (isBlastMode && selectedBlastFriendIds.length > 0) {
       const targetIds = selectedBlastFriendIds.includes(recipient.id)
@@ -3544,7 +3567,7 @@ useEffect(() => {
 
         // 3. Feedback unique (0 redondance sonore, 1 seul son et 1 vibration)
         const proutName = getDisplaySoundLabel(soundKey);
-        showToast(`💥 Blast (${targetIds.length} amis) : ${proutName} !`);
+        showToast(i18n.t('blast_toast_sent', { count: targetIds.length, sound: proutName }));
         if (onProutSent) onProutSent();
         triggerProutHaptic(soundKey, isHapticEnabled);
         playLocalSound(soundKey);
@@ -4190,7 +4213,10 @@ useEffect(() => {
     setIsRefreshing(true);
     setShowFriendlistRecoveryCard(false);
     if (__DEV__) console.log('🔄 [FriendsList] Refresh manuel...');
-    await refreshAllData();
+    await Promise.allSettled([
+      refreshAllData(),
+      syncUserContacts(true),
+    ]);
   };
 
   const lastValidUsersRef = useRef<any[]>([]);
@@ -4319,14 +4345,14 @@ useEffect(() => {
         ListEmptyComponent={
           (!currentUserId || ((isFriendsPending || isFriendsFetching) && displayUsers.length === 0)) && !showFriendlistRecoveryCard ? (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 100 }}>
-              <ActivityIndicator size="large" color="#604a3e" />
+              <ActivityIndicator size="large" color={isNightMode ? '#ebb89b' : '#604a3e'} />
             </View>
           ) : (
-            <View style={styles.emptyCard}>
+            <View style={[styles.emptyCard, isNightMode && { backgroundColor: 'rgba(39, 30, 25, 0.85)' }]}>
               {showFriendlistRecoveryCard && !searchQuery.trim() ? (
                 <>
-                  <Text style={styles.emptyText}>{i18n.t('connection_error_title')}</Text>
-                  <Text style={styles.subText}>{i18n.t('friendlist_loading_too_long')}</Text>
+                  <Text style={[styles.emptyText, isNightMode && { color: '#f5e6dc' }]}>{i18n.t('connection_error_title')}</Text>
+                  <Text style={[styles.subText, isNightMode && { color: '#c4b0a4' }]}>{i18n.t('friendlist_loading_too_long')}</Text>
                   <TouchableOpacity
                     activeOpacity={0.85}
                     onPress={() => void handleRefresh()}
@@ -4337,18 +4363,18 @@ useEffect(() => {
                 </>
               ) : searchQuery.trim() ? (
                 // Message pour recherche sans résultat
-                <Text style={styles.emptyText}>Aucun ami</Text>
+                <Text style={[styles.emptyText, isNightMode && { color: '#c4b0a4' }]}>{i18n.t('no_friend_found') || 'Aucun ami'}</Text>
               ) : (
                 // Message par défaut (friendlist vide, hors recherche)
                 <>
-                  <Text style={styles.emptyText}>{i18n.t('no_friends')}</Text>
+                  <Text style={[styles.emptyText, isNightMode && { color: '#f5e6dc' }]}>{i18n.t('no_friends')}</Text>
                   <TouchableOpacity
                     activeOpacity={0.85}
                     onPress={onInviteFriend}
                     style={styles.emptyActionRow}
                   >
-                    <Ionicons name="share-social-outline" size={18} color="#604a3e" style={styles.emptyActionIcon} />
-                    <Text style={styles.emptyActionText}>{i18n.t('empty_friendlist_invite_friends')}</Text>
+                    <Ionicons name="share-social-outline" size={18} color={isNightMode ? '#ebb89b' : '#604a3e'} style={styles.emptyActionIcon} />
+                    <Text style={[styles.emptyActionText, isNightMode && { color: '#f5e6dc' }]}>{i18n.t('empty_friendlist_invite_friends')}</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -4359,8 +4385,8 @@ useEffect(() => {
                     }}
                     style={[styles.emptyActionRow, { marginTop: 10 }]}
                   >
-                    <Ionicons name="search" size={18} color="#604a3e" style={styles.emptyActionIcon} />
-                    <Text style={styles.emptyActionText}>{i18n.t('empty_friendlist_search_pseudo')}</Text>
+                    <Ionicons name="search" size={18} color={isNightMode ? '#ebb89b' : '#604a3e'} style={styles.emptyActionIcon} />
+                    <Text style={[styles.emptyActionText, isNightMode && { color: '#f5e6dc' }]}>{i18n.t('empty_friendlist_search_pseudo')}</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -4371,8 +4397,8 @@ useEffect(() => {
                     }}
                     style={[styles.emptyActionRow, { marginTop: 10 }]}
                   >
-                    <Ionicons name="person-circle-outline" size={19} color="#604a3e" style={styles.emptyActionIcon} />
-                    <Text style={styles.emptyActionText}>{i18n.t('no_friends_phone_hint')}</Text>
+                    <Ionicons name="person-circle-outline" size={19} color={isNightMode ? '#ebb89b' : '#604a3e'} style={styles.emptyActionIcon} />
+                    <Text style={[styles.emptyActionText, isNightMode && { color: '#f5e6dc' }]}>{i18n.t('no_friends_phone_hint')}</Text>
                   </TouchableOpacity>
                 </>
               )}
@@ -4385,9 +4411,11 @@ useEffect(() => {
           const lastUnread = unreadMessages[unreadMessages.length - 1];
           
           const isActive = expandedFriendId === item.id;
-          const baseColor = index % 2 === 0 ? '#d2f1ef' : '#baded7';
+          const baseColor = isNightMode 
+            ? (index % 2 === 0 ? '#1e3330' : '#243d39')
+            : (index % 2 === 0 ? '#d2f1ef' : '#baded7');
           const backgroundColor = isActive 
-            ? '#8fb3a5' 
+            ? (isNightMode ? '#2e4d48' : '#8fb3a5') 
             : baseColor;
 
           return (
@@ -4427,65 +4455,69 @@ useEffect(() => {
         showsVerticalScrollIndicator={false}
         ListFooterComponent={
           displayUsers.length > 0 ? (
-            <View style={styles.footerHelp}>
-              <View style={styles.footerHelpLines}>
-                <View style={styles.footerHelpLine}>
-                  <View style={styles.footerHelpLineContent}>
-                    <Image
-                      source={require('../assets/images/tip.png')}
-                      style={styles.footerHelpTip}
-                      resizeMode="contain"
-                    />
-                    <Text style={styles.footerHelpText}>{i18n.t('friendlist_onboarding_swipe')}</Text>
+            shouldShowFooterHelp || (displayUsers.length === 1 && displayUsers[0].id === PROOT_BOT_ID) ? (
+              <View style={styles.footerHelp}>
+                {shouldShowFooterHelp && (
+                  <View style={styles.footerHelpLines}>
+                    <View style={styles.footerHelpLine}>
+                      <View style={styles.footerHelpLineContent}>
+                        <Image
+                          source={require('../assets/images/tip.png')}
+                          style={styles.footerHelpTip}
+                          resizeMode="contain"
+                        />
+                        <Text style={[styles.footerHelpText, isNightMode && { color: '#c4b0a4' }]}>{i18n.t('friendlist_onboarding_swipe')}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.footerHelpLine}>
+                      <View style={styles.footerHelpLineContent}>
+                        <Image
+                          source={require('../assets/images/tip.png')}
+                          style={styles.footerHelpTip}
+                          resizeMode="contain"
+                        />
+                        <Text style={[styles.footerHelpText, isNightMode && { color: '#c4b0a4' }]}>{i18n.t('friendlist_onboarding_long_press')}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.footerHelpLine}>
+                      <View style={styles.footerHelpLineContent}>
+                        <Image
+                          source={require('../assets/images/tip.png')}
+                          style={styles.footerHelpTip}
+                          resizeMode="contain"
+                        />
+                        <Text style={[styles.footerHelpText, isNightMode && { color: '#c4b0a4' }]}>{i18n.t('friendlist_onboarding_tap')}</Text>
+                      </View>
+                    </View>
                   </View>
-                </View>
-                <View style={styles.footerHelpLine}>
-                  <View style={styles.footerHelpLineContent}>
-                    <Image
-                      source={require('../assets/images/tip.png')}
-                      style={styles.footerHelpTip}
-                      resizeMode="contain"
-                    />
-                    <Text style={styles.footerHelpText}>{i18n.t('friendlist_onboarding_long_press')}</Text>
+                )}
+
+                {/* Actions d'invitation et de recherche si l'utilisateur n'a que ProotBot */}
+                {displayUsers.length === 1 && displayUsers[0].id === PROOT_BOT_ID && (
+                  <View style={{ marginTop: shouldShowFooterHelp ? 14 : 0, width: '100%', alignItems: 'center' }}>
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={onInviteFriend}
+                      style={styles.emptyActionRow}
+                    >
+                      <Ionicons name="share-social-outline" size={18} color={isNightMode ? '#ebb89b' : '#604a3e'} style={styles.emptyActionIcon} />
+                      <Text style={[styles.emptyActionText, isNightMode && { color: '#f5e6dc' }]}>{i18n.t('empty_friendlist_invite_friends')}</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={() => {
+                        DeviceEventEmitter.emit('OPEN_SEARCH_MODAL');
+                      }}
+                      style={[styles.emptyActionRow, { marginTop: 10 }]}
+                    >
+                      <Ionicons name="search" size={18} color={isNightMode ? '#ebb89b' : '#604a3e'} style={styles.emptyActionIcon} />
+                      <Text style={[styles.emptyActionText, isNightMode && { color: '#f5e6dc' }]}>{i18n.t('empty_friendlist_search_pseudo')}</Text>
+                    </TouchableOpacity>
                   </View>
-                </View>
-                <View style={styles.footerHelpLine}>
-                  <View style={styles.footerHelpLineContent}>
-                    <Image
-                      source={require('../assets/images/tip.png')}
-                      style={styles.footerHelpTip}
-                      resizeMode="contain"
-                    />
-                    <Text style={styles.footerHelpText}>{i18n.t('friendlist_onboarding_tap')}</Text>
-                  </View>
-                </View>
+                )}
               </View>
-
-              {/* Actions d'invitation et de recherche si l'utilisateur n'a que ProotBot */}
-              {displayUsers.length === 1 && displayUsers[0].id === PROOT_BOT_ID && (
-                <View style={{ marginTop: 14, width: '100%', alignItems: 'center' }}>
-                  <TouchableOpacity
-                    activeOpacity={0.85}
-                    onPress={onInviteFriend}
-                    style={styles.emptyActionRow}
-                  >
-                    <Ionicons name="share-social-outline" size={18} color="#604a3e" style={styles.emptyActionIcon} />
-                    <Text style={styles.emptyActionText}>{i18n.t('empty_friendlist_invite_friends')}</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    activeOpacity={0.85}
-                    onPress={() => {
-                      DeviceEventEmitter.emit('OPEN_SEARCH_MODAL');
-                    }}
-                    style={[styles.emptyActionRow, { marginTop: 10 }]}
-                  >
-                    <Ionicons name="search" size={18} color="#604a3e" style={styles.emptyActionIcon} />
-                    <Text style={styles.emptyActionText}>{i18n.t('empty_friendlist_search_pseudo')}</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
+            ) : null
           ) : null
         }
       />

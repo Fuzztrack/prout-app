@@ -80,8 +80,8 @@ export function GroopProotModal({
     } else {
       if (selectedFriendIds.length >= 10) {
         Alert.alert(
-          'Limite atteinte',
-          'Un groupe peut comporter au maximum 10 amis (+ vous-même).'
+          i18n.t('group_limit_reached_title'),
+          i18n.t('group_limit_reached_body')
         );
         return;
       }
@@ -121,8 +121,8 @@ export function GroopProotModal({
       }
     } catch (error: any) {
       Alert.alert(
-        'Erreur de création',
-        error?.message || 'Impossible de créer le groupe pour le moment.'
+        i18n.t('error'),
+        error?.message || i18n.t('group_error_create')
       );
     } finally {
       setIsSubmitting(false);
@@ -144,7 +144,7 @@ export function GroopProotModal({
           <View style={styles.header}>
             <View style={styles.headerTitleRow}>
               <Ionicons name="people" size={24} color="#604a3e" style={{ marginRight: 8 }} />
-              <Text style={styles.headerTitle}>Créer un GroopProot</Text>
+              <Text style={styles.headerTitle}>{i18n.t('group_mode_title')}</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
               <Ionicons name="close" size={26} color="#604a3e" />
@@ -158,7 +158,7 @@ export function GroopProotModal({
               <Ionicons name="pencil-outline" size={18} color="#8a7466" style={{ marginRight: 8 }} />
               <TextInput
                 style={styles.nameInput}
-                placeholder="Nom du groupe (ex: Les Invincibles)"
+                placeholder={i18n.t('group_mode_name_placeholder')}
                 placeholderTextColor="#9e8a7d"
                 value={groupName}
                 onChangeText={setGroupName}
@@ -169,7 +169,7 @@ export function GroopProotModal({
 
             {/* Sélecteur de Rétention */}
             <View style={styles.retentionContainer}>
-              <Text style={styles.sectionLabel}>Rétention des messages :</Text>
+              <Text style={styles.sectionLabel}>{i18n.t('group_retention_label')}</Text>
               <View style={styles.retentionRow}>
                 <TouchableOpacity
                   style={[
@@ -189,7 +189,7 @@ export function GroopProotModal({
                     styles.retentionBtnText,
                     retentionMode === '24h' && styles.retentionBtnTextActive,
                   ]}>
-                    24 Heures
+                    {i18n.t('group_retention_24h')}
                   </Text>
                 </TouchableOpacity>
 
@@ -211,24 +211,24 @@ export function GroopProotModal({
                     styles.retentionBtnText,
                     retentionMode === 'permanent' && styles.retentionBtnTextActive,
                   ]}>
-                    0h (Éphémère)
+                    {i18n.t('group_retention_permanent')}
                   </Text>
                 </TouchableOpacity>
               </View>
               <Text style={styles.retentionHint}>
                 {retentionMode === '24h'
-                  ? '⏳ Tous les messages s’effacent automatiquement après 24h.'
-                  : '⚡ Les messages s’effacent à la fermeture du chat.'}
+                  ? i18n.t('group_retention_24h_hint')
+                  : i18n.t('group_retention_permanent_hint')}
               </Text>
             </View>
 
             {/* Compteur d'amis & Recherche */}
             <View style={styles.friendsHeader}>
               <Text style={styles.sectionLabel}>
-                Sélection des amis ({selectedFriendIds.length}/10) :
+                {i18n.t('group_members_select', { count: selectedFriendIds.length })}
               </Text>
               {selectedFriendIds.length < 2 && (
-                <Text style={styles.minWarning}>Min. 2 amis</Text>
+                <Text style={styles.minWarning}>{i18n.t('group_min_members_warning')}</Text>
               )}
             </View>
 
@@ -237,7 +237,7 @@ export function GroopProotModal({
                 <Ionicons name="search" size={16} color="#8a7466" style={{ marginRight: 6 }} />
                 <TextInput
                   style={styles.searchInput}
-                  placeholder="Rechercher un ami..."
+                  placeholder={i18n.t('group_search_friends_placeholder')}
                   placeholderTextColor="#9e8a7d"
                   value={searchFriend}
                   onChangeText={setSearchFriend}
@@ -262,8 +262,8 @@ export function GroopProotModal({
               <View style={styles.emptyContainer}>
                 <Text style={styles.emptyText}>
                   {selectableFriends.length === 0
-                    ? 'Ajoutez d’abord des amis pour créer un groupe !'
-                    : 'Aucun ami trouvé avec ce pseudo.'}
+                    ? i18n.t('group_empty_friends')
+                    : i18n.t('group_no_friends_found')}
                 </Text>
               </View>
             )}
@@ -335,7 +335,7 @@ export function GroopProotModal({
                 <>
                   <Ionicons name="people" size={20} color="#ffffff" style={{ marginRight: 8 }} />
                   <Text style={styles.createButtonText}>
-                    Créer le GroopProot
+                    {i18n.t('group_create_btn')}
                   </Text>
                 </>
               )}

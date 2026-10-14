@@ -12,9 +12,11 @@ interface AppState {
   isZenMode: boolean;
   isSilentMode: boolean;
   isHapticEnabled: boolean;
+  isNightMode: boolean;
   setZenMode: (enabled: boolean) => void;
   setSilentMode: (enabled: boolean) => void;
   setHapticEnabled: (enabled: boolean) => void;
+  setNightMode: (enabled: boolean) => void;
 
   // Navigation / UI
   activeView: 'list' | 'tutorial' | 'profile' | 'profileMenu';
@@ -26,6 +28,7 @@ const CACHE_PSEUDO_KEY = 'cached_current_pseudo';
 const CACHE_AVATAR_URL_KEY = 'cached_current_avatar_url';
 const SILENT_MODE_KEY = 'silent_mode_enabled';
 const HAPTIC_ENABLED_KEY = 'haptic_feedback_enabled';
+const NIGHT_MODE_KEY = 'night_mode_enabled';
 
 export const useAppStore = create<AppState>((set) => ({
   // Valeurs initiales
@@ -35,6 +38,7 @@ export const useAppStore = create<AppState>((set) => ({
   isZenMode: false,
   isSilentMode: false,
   isHapticEnabled: true,
+  isNightMode: false,
   activeView: 'list',
 
   // Actions
@@ -52,6 +56,11 @@ export const useAppStore = create<AppState>((set) => ({
     set({ isHapticEnabled: enabled });
   },
 
+  setNightMode: (enabled) => {
+    AsyncStorage.setItem(NIGHT_MODE_KEY, String(enabled));
+    set({ isNightMode: enabled });
+  },
+
   setActiveView: (view) => set({ activeView: view }),
 
   clearProfile: () => {
@@ -60,3 +69,10 @@ export const useAppStore = create<AppState>((set) => ({
     set({ userId: null, pseudo: '', avatarUrl: null });
   },
 }));
+
+// Hydratation immédiate du Mode Nuit
+AsyncStorage.getItem(NIGHT_MODE_KEY).then((val) => {
+  if (val === 'true') {
+    useAppStore.setState({ isNightMode: true });
+  }
+}).catch(() => {});

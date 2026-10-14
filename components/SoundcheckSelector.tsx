@@ -14,6 +14,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import i18n from '../lib/i18n';
 import { PREVIEW_SOUNDS_BY_CATEGORY } from '../lib/runtimeSounds';
+import { recordSoundSelectAction } from '../lib/userExperienceTracking';
 
 // 🔊 Preview player global (évite la cacophonie)
 let currentPreviewSound: Audio.Sound | null = null;
@@ -190,6 +191,7 @@ export default function SoundcheckSelector({
   const persistAndNotify = useCallback(
     async (index: number) => {
       const category = CATEGORIES[index].id;
+      recordSoundSelectAction().catch(() => {});
       try {
         await AsyncStorage.setItem(SOUND_CATEGORY_KEY, category);
       } catch (_) {}

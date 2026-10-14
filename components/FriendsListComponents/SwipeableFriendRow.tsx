@@ -102,6 +102,7 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
   const selectedSoundBadgeOffset = useSharedValue(selectedSoundKey ? 0 : 160);
   const blastAnim = useSharedValue(isBlastMode ? 1 : 0);
   const isHapticEnabled = useAppStore(state => state.isHapticEnabled);
+  const isNightMode = useAppStore(state => state.isNightMode);
   const thresholdPassedRef = useRef(false);
   const [showSentImage, setShowSentImage] = useState(false);
   const [isRowTouchActive, setIsRowTouchActive] = useState(false);
@@ -445,6 +446,7 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           style={[
             styles.blastCheckbox,
+            isNightMode && { borderColor: '#ebb89b', backgroundColor: 'rgba(30, 24, 20, 0.8)' },
             isBlastSelected && styles.blastCheckboxSelected,
           ]}
         >
@@ -459,7 +461,7 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
             <Text style={styles.deleteText}>{i18n.t('block_user')}</Text>
           </Animated.View>
 
-          <View style={styles.swipeBackground} collapsable={false}>
+          <View style={[styles.swipeBackground, isNightMode && { backgroundColor: 'rgba(28, 22, 19, 0.4)' }]} collapsable={false}>
             <Animated.Image
               source={(showSentImage || isBlastAnimating) ? IOS_SENT_IMAGE : (swipeImageSource || IOS_SOUNDWAVE_IMAGE)}
               style={[styles.animImage, animatedImageScale]}
@@ -471,7 +473,7 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
             <Animated.View
               style={[
                 styles.swipeForeground,
-                { backgroundColor: isRowTouchActive ? '#9fc5b8' : backgroundColor },
+                { backgroundColor: isRowTouchActive ? (isNightMode ? '#34524e' : '#9fc5b8') : backgroundColor },
                 animatedLineStyle,
               ]}
             >
@@ -500,7 +502,7 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
                     {isProotBot(friend.id) ? (
-                      <View style={styles.botAvatarWrapper}>
+                      <View style={[styles.botAvatarWrapper, isNightMode && { backgroundColor: '#3d2f28' }]}>
                         <Image 
                           source={PROOT_BOT_AVATAR} 
                           style={styles.botAvatarImage}
@@ -508,7 +510,7 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
                         />
                       </View>
                     ) : friend.isGroup ? (
-                      <View style={styles.groupAvatarWrapper}>
+                      <View style={[styles.groupAvatarWrapper, isNightMode && { backgroundColor: '#3d2f28' }]}>
                         {friend.avatar_url ? (
                           <Image 
                             source={{ uri: friend.avatar_url }} 
@@ -518,7 +520,7 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
                             cachePolicy="disk"
                           />
                         ) : (
-                          <Ionicons name="people" size={22} color="#604a3e" />
+                          <Ionicons name="people" size={22} color={isNightMode ? "#ebb89b" : "#604a3e"} />
                         )}
                       </View>
                     ) : friend.avatar_url ? (
@@ -530,8 +532,8 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
                         cachePolicy="disk"
                       />
                     ) : (
-                      <View style={styles.friendAvatarPlaceholder}>
-                        <Text style={styles.friendAvatarPlaceholderText}>
+                      <View style={[styles.friendAvatarPlaceholder, isNightMode && { backgroundColor: '#3d2f28' }]}>
+                        <Text style={[styles.friendAvatarPlaceholderText, isNightMode && { color: '#ebb89b' }]}>
                           {friend.pseudo ? friend.pseudo.charAt(0).toUpperCase() : '?'}
                         </Text>
                       </View>
@@ -540,26 +542,26 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
                   <View style={{ width: 10 }} />
 
                   {/* 1. GAUCHE : Pseudo + Icônes */}
-                  <Text style={styles.pseudo} numberOfLines={1}>{friend.pseudo}</Text>
+                  <Text style={[styles.pseudo, isNightMode && { color: '#f5e6dc' }]} numberOfLines={1}>{friend.pseudo}</Text>
                   {friend.isGroup ? (
                     <View style={styles.groupBadgesRow}>
-                      <View style={styles.groupCountBadge}>
-                        <Ionicons name="people" size={11} color="#604a3e" style={{ marginRight: 2 }} />
-                        <Text style={styles.groupCountText}>{friend.groupMembersCount || 2}</Text>
+                      <View style={[styles.groupCountBadge, isNightMode && { backgroundColor: 'rgba(255,255,255,0.12)' }]}>
+                        <Ionicons name="people" size={11} color={isNightMode ? "#ebb89b" : "#604a3e"} style={{ marginRight: 2 }} />
+                        <Text style={[styles.groupCountText, isNightMode && { color: '#f5e6dc' }]}>{friend.groupMembersCount || 2}</Text>
                       </View>
                       {friend.retentionMode === 'permanent' ? (
-                        <Ionicons name="flash" size={16} color="#604a3e" style={styles.groupFlashIcon} />
+                        <Ionicons name="flash" size={16} color={isNightMode ? "#ebb89b" : "#604a3e"} style={styles.groupFlashIcon} />
                       ) : (
-                        <View style={styles.retentionBadge}>
-                          <Ionicons name="timer-outline" size={11} color="#604a3e" style={{ marginRight: 2 }} />
-                          <Text style={styles.retentionBadgeText}>24h</Text>
+                        <View style={[styles.retentionBadge, isNightMode && { backgroundColor: 'rgba(255,255,255,0.08)' }]}>
+                          <Ionicons name="timer-outline" size={11} color={isNightMode ? "#ebb89b" : "#604a3e"} style={{ marginRight: 2 }} />
+                          <Text style={[styles.retentionBadgeText, isNightMode && { color: '#f5e6dc' }]}>24h</Text>
                         </View>
                       )}
                     </View>
                   ) : (
                     <>
                       {friend.isZenMode && <Ionicons name="moon" size={16} color="#ebb89b" style={{ marginLeft: 4 }} />}
-                      {friend.is_muted && <Ionicons name="volume-mute-outline" size={16} color="#666" style={{ marginLeft: 4 }} />}
+                      {friend.is_muted && <Ionicons name="volume-mute-outline" size={16} color={isNightMode ? "#a0887a" : "#666"} style={{ marginLeft: 4 }} />}
                     </>
                   )}
 
@@ -567,7 +569,7 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
                   <View style={styles.unreadMiddleContainer}>
                     {hasUnread && unreadMessage ? (
                       <View style={styles.unreadInline}>
-                        <Text style={styles.unreadMessage} numberOfLines={1} ellipsizeMode="tail">{`"${unreadMessage}"`}</Text>
+                        <Text style={[styles.unreadMessage, isNightMode && { color: '#f5e6dc' }]} numberOfLines={1} ellipsizeMode="tail">{`"${unreadMessage}"`}</Text>
                         <View style={styles.greenDot} />
                       </View>
                     ) : hasUnread ? (
@@ -577,15 +579,15 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
 
                   {/* 3. DROITE : Badge Prout/Vent 💨 */}
                   {!friend.isGroup && typeof friend.flame_streak === 'number' && friend.flame_streak > 0 && (
-                    <View style={styles.proutStreakBadge}>
-                      <Text style={styles.proutStreakBadgeText}>💨 {friend.flame_streak}</Text>
+                    <View style={[styles.proutStreakBadge, isNightMode && { backgroundColor: 'rgba(255,255,255,0.1)' }]}>
+                      <Text style={[styles.proutStreakBadgeText, isNightMode && { color: '#f5e6dc' }]}>💨 {friend.flame_streak}</Text>
                     </View>
                   )}
                 </View>
               </GHTouchableOpacity>
               {selectedSoundKey && (
-                <Animated.View style={[styles.friendSelectedSoundBadge, animatedSelectedSoundBadgeStyle]}>
-                  <Text style={styles.friendSelectedSoundBadgeText} numberOfLines={1}>
+                <Animated.View style={[styles.friendSelectedSoundBadge, animatedSelectedSoundBadgeStyle, isNightMode && { backgroundColor: '#3d2f28' }]}>
+                  <Text style={[styles.friendSelectedSoundBadgeText, isNightMode && { color: '#f5e6dc' }]} numberOfLines={1}>
                     {getDisplaySoundLabel(selectedSoundKey)}
                   </Text>
                   <GHTouchableOpacity
@@ -593,7 +595,7 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     style={{ marginLeft: 4 }}
                   >
-                    <Ionicons name="close-circle" size={14} color="#3a2a22" />
+                    <Ionicons name="close-circle" size={14} color={isNightMode ? "#ebb89b" : "#3a2a22"} />
                   </GHTouchableOpacity>
                 </Animated.View>
               )}

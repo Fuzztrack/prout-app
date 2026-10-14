@@ -42,53 +42,11 @@ export const getOnboardingSlides = (): OnboardingSlide[] => [
     color: '#9C27B0',
   },
   {
-    key: 'contacts',
-    title: i18n.t('contact_permission_title'),
-    description: i18n.t('contact_permission_message'),
-    icon: 'people-outline',
-    color: '#E91E63',
-  },
-  {
     key: 'sound',
     title: i18n.t('onboarding_sound_title'),
     description: i18n.t('onboarding_sound_desc'),
     icon: 'volume-high-outline',
     color: '#F4A261',
-  },
-  {
-    key: 'gesture',
-    title: i18n.t('onboarding_gesture_title'),
-    description: i18n.t('onboarding_gesture_desc'),
-    icon: 'paper-plane-outline',
-    color: '#4CAF50',
-  },
-  {
-    key: 'message',
-    title: i18n.t('onboarding_message_title'),
-    description: i18n.t('onboarding_message_desc'),
-    icon: 'chatbubble-outline',
-    color: '#2196F3',
-  },
-  {
-    key: 'specific-sound',
-    title: i18n.t('onboarding_specific_sound_title'),
-    description: i18n.t('onboarding_specific_sound_desc'),
-    icon: 'finger-print',
-    color: '#2A9D8F',
-  },
-  {
-    key: 'silent',
-    title: i18n.t('tuto_silent_title'),
-    description: i18n.t('tuto_silent_desc'),
-    icon: 'notifications-off-outline',
-    color: '#6C757D',
-  },
-  {
-    key: 'mute',
-    title: i18n.t('tuto_4_title'),
-    description: i18n.t('tuto_4_desc'),
-    icon: 'ban-outline',
-    color: '#E57373',
   },
 ];
 
@@ -145,12 +103,6 @@ export default function Onboarding({ onFinish }: OnboardingProps) {
   return (
     <View style={styles.overlay}>
       <SafeAreaView style={styles.safeArea}>
-        {currentIndex >= 3 && (
-          <TouchableOpacity style={styles.skipButton} onPress={completeOnboarding}>
-            <Text style={styles.skipText}>{i18n.t('onboarding_skip')}</Text>
-          </TouchableOpacity>
-        )}
-
         <Animated.FlatList
           ref={flatListRef}
           data={slides}

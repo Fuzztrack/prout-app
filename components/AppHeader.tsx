@@ -1,6 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useEffect, useRef } from 'react';
 import { Animated, Image, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { useAppStore } from '../lib/store';
 
 const SHOW_SOUNDCHECK_BUTTON = true;
 const ENABLE_SOUNDCHECK_BUTTON_ANIMATION = false;
@@ -49,6 +50,7 @@ export function AppHeader({
   shakeX,
   shakeY,
 }: AppHeaderProps) {
+  const isNightMode = useAppStore(state => state.isNightMode);
   const AnimatedContainer = shakeX && shakeY ? Animated.View : View;
   const { height: screenHeight } = useWindowDimensions();
   const soundcheckVibeY = useRef(new Animated.Value(0)).current;
@@ -114,12 +116,37 @@ export function AppHeader({
   return (
     <View style={styles.headerSection}>
       <View style={styles.topRow}>
-        {/* Logo à gauche */}
+        {/* Menu liste / Paramètres à gauche (collé à gauche) */}
+        {onProfileMenuPress && (
+          <TouchableOpacity 
+            onPress={onProfileMenuPress} 
+            style={[
+              styles.menuVignette,
+              (isProfileMenuOpen || isProfileOpen) && { opacity: 0.7 }
+            ]}
+            activeOpacity={0.75}
+            accessibilityLabel="Paramètres"
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            {(isProfileMenuOpen || isProfileOpen) ? (
+              <Ionicons name="close-circle-outline" size={28} color="#ffffff" />
+            ) : (
+              <Image 
+                source={require('../assets/images/icon_compte.png')} 
+                style={styles.menuNavIcon} 
+                resizeMode="contain"
+              />
+            )}
+          </TouchableOpacity>
+        )}
+
+        {/* Logo au centre */}
         <AnimatedContainer
           style={[
             styles.logoContainer,
             animatedStyle,
           ]}
+          pointerEvents="box-none"
         >
           <Image
             source={require('../assets/images/proot.png')}
@@ -138,8 +165,8 @@ export function AppHeader({
             {profileAvatarUrl ? (
               <Image source={{ uri: profileAvatarUrl }} style={styles.profileAvatar} />
             ) : (
-              <View style={styles.profileAvatarFallback}>
-                <Ionicons name="person" size={18} color="#604a3e" />
+              <View style={[styles.profileAvatarFallback, isNightMode && { backgroundColor: '#3d2f28' }]}>
+                <Ionicons name="person" size={18} color={isNightMode ? '#ebb89b' : '#604a3e'} />
               </View>
             )}
           </View>
@@ -157,26 +184,6 @@ export function AppHeader({
         <View style={[styles.menuRow, { justifyContent: 'space-between' }]}>
           {/* Icônes à gauche */}
           <View style={styles.leftIconsContainer}>
-            {onProfileMenuPress && (
-              <TouchableOpacity 
-                onPress={onProfileMenuPress} 
-                style={[
-                  styles.iconButton, 
-                  { justifyContent: 'center', alignItems: 'center', minHeight: 28 }, 
-                  (isProfileMenuOpen || isProfileOpen) && { opacity: 0.7 }
-                ]}
-              >
-                {(isProfileMenuOpen || isProfileOpen) ? (
-                  <Ionicons name="close-circle-outline" size={28} color="#ffffff" />
-                ) : (
-                  <Image 
-                    source={require('../assets/images/icon_compte.png')} 
-                    style={styles.navIcon} 
-                    resizeMode="contain"
-                  />
-                )}
-              </TouchableOpacity>
-            )}
             {!(isProfileMenuOpen || isProfileOpen) && onAddFriendPress && (
               <TouchableOpacity
                 onPress={onAddFriendPress}
@@ -248,7 +255,10 @@ export function AppHeader({
                 onPress={onSoundcheckPress}
                 style={[styles.iconButton, { justifyContent: 'center', alignItems: 'center', minHeight: 30, marginTop: 1 }]}
               >
-                <View style={styles.soundcheckCard}>
+                <View style={[
+                  styles.soundcheckCard,
+                  isNightMode && { backgroundColor: 'rgba(255, 255, 255, 0.18)', borderColor: 'rgba(235, 184, 155, 0.3)' }
+                ]}>
                   <Image
                     source={require('../assets/images/soundcheck3.png')}
                     style={[styles.soundcheckIcon, ENABLE_SOUNDCHECK_BUTTON_ANIMATION ? soundcheckVibeStyle : undefined]}
@@ -312,6 +322,18 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     marginTop: 2,
     minHeight: 30,
+  },
+  menuVignette: {
+    marginLeft: -12,
+    zIndex: 1,
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 28,
+  },
+  menuNavIcon: {
+    width: 28,
+    height: 28,
   },
   profileVignette: {
     alignItems: 'center',

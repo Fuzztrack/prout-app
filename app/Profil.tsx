@@ -39,6 +39,7 @@ export default function ProfilScreen() {
   const insets = useSafeAreaInsets();
   const setProfileStore = useAppStore(state => state.setProfile);
   const clearProfile = useAppStore(state => state.clearProfile);
+  const isNightMode = useAppStore(state => state.isNightMode);
   
   const [pseudo, setPseudo] = useState('');
   const [email, setEmail] = useState('');
@@ -402,15 +403,15 @@ export default function ProfilScreen() {
 
   if (loading && !userId) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#604a3e" />
-        <Text style={styles.loadingText}>Chargement...</Text>
+      <View style={[styles.centerContainer, isNightMode && { backgroundColor: '#1c1613' }]}>
+        <ActivityIndicator size="large" color={isNightMode ? "#ebb89b" : "#604a3e"} />
+        <Text style={[styles.loadingText, isNightMode && { color: '#f5e6dc' }]}>Chargement...</Text>
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={[styles.container, isNightMode && { backgroundColor: '#1c1613' }]} edges={['bottom']}>
       <View style={[styles.header, { paddingTop: insets.top }]}>
         <View style={styles.navRow}>
           <TouchableOpacity 
@@ -418,9 +419,9 @@ export default function ProfilScreen() {
             style={styles.backButton}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            <Ionicons name="arrow-back" size={24} color="#604a3e" />
+            <Ionicons name="arrow-back" size={24} color={isNightMode ? "#f5e6dc" : "#604a3e"} />
           </TouchableOpacity>
-          <Text style={styles.pageSubtitleNav}>{i18n.t('profile_title')}</Text>
+          <Text style={[styles.pageSubtitleNav, isNightMode && { color: '#f5e6dc' }]}>{i18n.t('profile_title')}</Text>
           <View style={styles.headerSpacer} />
         </View>
       </View>
@@ -432,15 +433,15 @@ export default function ProfilScreen() {
               onPress={() => !uploadingAvatar && setAvatarPreviewVisible(true)}
               disabled={uploadingAvatar || loading}
               activeOpacity={0.85}
-              style={styles.avatarContainer}
+              style={[styles.avatarContainer, isNightMode && { backgroundColor: '#271e19' }]}
             >
               {uploadingAvatar ? (
-                <ActivityIndicator size="large" color="#604a3e" />
+                <ActivityIndicator size="large" color={isNightMode ? "#ebb89b" : "#604a3e"} />
               ) : avatarUrl ? (
                 <Image source={{ uri: avatarUrl }} style={styles.avatar} />
               ) : (
-                <View style={styles.avatarPlaceholder}>
-                  <Text style={styles.avatarPlaceholderText}>
+                <View style={[styles.avatarPlaceholder, isNightMode && { backgroundColor: '#271e19' }]}>
+                  <Text style={[styles.avatarPlaceholderText, isNightMode && { color: '#ebb89b' }]}>
                     {pseudo ? pseudo.charAt(0).toUpperCase() : '?'}
                   </Text>
                 </View>
@@ -449,7 +450,7 @@ export default function ProfilScreen() {
             <TouchableOpacity
               onPress={handlePickAvatar}
               disabled={uploadingAvatar || loading}
-              style={styles.cameraSideButton}
+              style={[styles.cameraSideButton, isNightMode && { backgroundColor: '#271e19', borderColor: '#ebb89b' }]}
             >
               <Ionicons name="camera" size={28} color="#ebb89b" />
             </TouchableOpacity>
@@ -457,43 +458,46 @@ export default function ProfilScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.label}>{i18n.t('pseudo')}</Text>
+          <Text style={[styles.label, isNightMode && { color: '#f5e6dc' }]}>{i18n.t('pseudo')}</Text>
           <TextInput
             placeholder={i18n.t('pseudo')}
             value={pseudo}
             onChangeText={setPseudo}
-            style={styles.input}
-            placeholderTextColor="#999"
+            style={[styles.input, isNightMode && { backgroundColor: '#271e19', color: '#f5e6dc', borderColor: '#3d2f28' }]}
+            placeholderTextColor={isNightMode ? "#8a7466" : "#999"}
+            keyboardAppearance={isNightMode ? "dark" : "light"}
           />
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.label}>{i18n.t('email')}</Text>
+          <Text style={[styles.label, isNightMode && { color: '#f5e6dc' }]}>{i18n.t('email')}</Text>
           <TextInput
             placeholder={i18n.t('email')}
             value={email}
             onChangeText={setEmail}
-            style={styles.input}
+            style={[styles.input, isNightMode && { backgroundColor: '#271e19', color: '#f5e6dc', borderColor: '#3d2f28' }]}
             keyboardType="email-address"
             autoCapitalize="none"
-            placeholderTextColor="#999"
+            placeholderTextColor={isNightMode ? "#8a7466" : "#999"}
+            keyboardAppearance={isNightMode ? "dark" : "light"}
           />
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.label}>{i18n.t('phone')}</Text>
+          <Text style={[styles.label, isNightMode && { color: '#f5e6dc' }]}>{i18n.t('phone')}</Text>
           <TextInput
             placeholder={i18n.t('phone')}
             value={phone}
             onChangeText={setPhone}
-            style={styles.input}
+            style={[styles.input, isNightMode && { backgroundColor: '#271e19', color: '#f5e6dc', borderColor: '#3d2f28' }]}
             keyboardType="phone-pad"
-            placeholderTextColor="#999"
+            placeholderTextColor={isNightMode ? "#8a7466" : "#999"}
+            keyboardAppearance={isNightMode ? "dark" : "light"}
           />
         </View>
 
         <TouchableOpacity
-          style={styles.updateAllButton}
+          style={[styles.updateAllButton, isNightMode && { backgroundColor: '#2e4d48', borderColor: '#4da699' }]}
           onPress={handleUpdateAll}
           disabled={loading}
         >
@@ -508,20 +512,20 @@ export default function ProfilScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.logoutButton}
+          style={[styles.logoutButton, isNightMode && { backgroundColor: '#1e1612', borderColor: '#3d2f28' }]}
           onPress={handleLogout}
           disabled={loading}
         >
-          <Ionicons name="log-out-outline" size={24} color="#604a3e" />
-          <Text style={styles.logoutText}>{i18n.t('logout')}</Text>
+          <Ionicons name="log-out-outline" size={24} color={isNightMode ? "#ebb89b" : "#604a3e"} />
+          <Text style={[styles.logoutText, isNightMode && { color: '#ebb89b' }]}>{i18n.t('logout')}</Text>
         </TouchableOpacity>
 
         <View style={styles.spacer} />
 
         <View style={styles.bottomSection}>
           <TouchableOpacity style={styles.supportButton} onPress={contactSupport}>
-            <Ionicons name="mail-outline" size={20} color="#604a3e" />
-            <Text style={styles.supportText}>{i18n.t('contact_support')}</Text>
+            <Ionicons name="mail-outline" size={20} color={isNightMode ? "#ebb89b" : "#604a3e"} />
+            <Text style={[styles.supportText, isNightMode && { color: '#ebb89b' }]}>{i18n.t('contact_support')}</Text>
           </TouchableOpacity>
 
           <View style={styles.deleteButtonContainer}>

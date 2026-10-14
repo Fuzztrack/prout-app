@@ -256,6 +256,7 @@ export default function ChatScreen() {
   const isZenMode = useAppStore(state => state.isZenMode);
   const isSilentMode = useAppStore(state => state.isSilentMode);
   const isHapticEnabled = useAppStore(state => state.isHapticEnabled);
+  const isNightMode = useAppStore(state => state.isNightMode);
   const storePseudo = useAppStore(state => state.pseudo);
   const storeUserId = useAppStore(state => state.userId);
 
@@ -1827,7 +1828,7 @@ export default function ChatScreen() {
 
   if (isGroup ? (!groupId || !isUuid(groupId)) : (!friendId || (!isBot && !isUuid(friendId)))) {
     return (
-      <View style={styles.screen}>
+      <View style={[styles.screen, isNightMode && { backgroundColor: '#1c1613' }]}>
         <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
           <TouchableOpacity
             onPress={() => {
@@ -1893,9 +1894,9 @@ export default function ChatScreen() {
         : Math.max(insets.bottom, 10);
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, isNightMode && { backgroundColor: '#1c1613' }]}>
       <KeyboardAvoidingView
-        style={styles.screen}
+        style={[styles.screen, isNightMode && { backgroundColor: '#1c1613' }]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : undefined}
       >
@@ -1915,7 +1916,7 @@ export default function ChatScreen() {
             }}
             style={styles.headerIcon}
           >
-            <Ionicons name="chevron-back" size={26} color="#604a3e" />
+            <Ionicons name="chevron-back" size={26} color={isNightMode ? "#f5e6dc" : "#604a3e"} />
           </TouchableOpacity>
           <TouchableOpacity
             disabled={!isGroup}
@@ -1924,15 +1925,15 @@ export default function ChatScreen() {
             activeOpacity={isGroup ? 0.7 : 1}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', maxWidth: '100%' }}>
-              <Text style={[styles.headerTitle, { flexShrink: 1, marginHorizontal: 0 }]} numberOfLines={1}>
+              <Text style={[styles.headerTitle, { flexShrink: 1, marginHorizontal: 0 }, isNightMode && { color: '#f5e6dc' }]} numberOfLines={1}>
                 {isGroup ? (currentGroupName || groupName || 'GroopProot') : i18n.t('sticky_chat_with', { pseudo: friend.pseudo })}
               </Text>
               {isGroup && (
-                <Ionicons name="information-circle-outline" size={15} color="#604a3e" style={{ marginLeft: 4 }} />
+                <Ionicons name="information-circle-outline" size={15} color={isNightMode ? "#ebb89b" : "#604a3e"} style={{ marginLeft: 4 }} />
               )}
             </View>
             {isGroup && !!groupMembersSummary && (
-              <Text style={styles.groupMembersSubtitle} numberOfLines={1} ellipsizeMode="tail">
+              <Text style={[styles.groupMembersSubtitle, isNightMode && { color: '#c4b0a4' }]} numberOfLines={1} ellipsizeMode="tail">
                 {groupMembersSummary}
               </Text>
             )}
@@ -1946,7 +1947,7 @@ export default function ChatScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={i18n.t('report_conversation_title')}
               >
-                <Ionicons name="flag-outline" size={21} color="#604a3e" />
+                <Ionicons name="flag-outline" size={21} color={isNightMode ? "#f5e6dc" : "#604a3e"} />
               </TouchableOpacity>
             )}
 
@@ -1956,7 +1957,7 @@ export default function ChatScreen() {
                   const nextMode: '24h' | 'permanent' = groupRetentionMode === '24h' ? 'permanent' : '24h';
                   void updateGroupRetentionMode(groupId, nextMode).then(() => {
                     setGroupRetentionMode(nextMode);
-                    showToast(nextMode === '24h' ? 'Rétention : 24 heures' : 'Rétention : 0h (Éphémère)');
+                    showToast(nextMode === '24h' ? i18n.t('group_retention_toast_24h') : i18n.t('group_retention_toast_ephemeral'));
                     queryClient.invalidateQueries({ queryKey: ['friends', currentUserId] });
                     void refreshMessages();
                   }).catch(() => {
@@ -2124,11 +2125,11 @@ export default function ChatScreen() {
         style={styles.soundPickerModal}
         backdropOpacity={0.35}
       >
-        <View style={styles.soundPickerCard}>
+        <View style={[styles.soundPickerCard, isNightMode && { backgroundColor: '#271e19', borderColor: '#3d2f28' }]}>
           <View style={styles.soundPickerHeader}>
             <View />
             <TouchableOpacity onPress={closeChatSoundPicker} activeOpacity={0.8}>
-              <Ionicons name="close" size={22} color="#604a3e" />
+              <Ionicons name="close" size={22} color={isNightMode ? "#f5e6dc" : "#604a3e"} />
             </TouchableOpacity>
           </View>
 
@@ -2209,7 +2210,11 @@ export default function ChatScreen() {
           </ScrollView>
 
           <ScrollView
-            style={[styles.soundOptionsList, { height: CHAT_SPECIFIC_MIN_HEIGHT }]}
+            style={[
+              styles.soundOptionsList,
+              { height: CHAT_SPECIFIC_MIN_HEIGHT },
+              isNightMode && { backgroundColor: 'rgba(30, 22, 18, 0.7)', borderColor: '#3d2f28' },
+            ]}
             contentContainerStyle={[
               styles.soundOptionsListContent,
               {
@@ -2228,6 +2233,8 @@ export default function ChatScreen() {
                 style={[
                   styles.soundOptionButton,
                   pendingChatSoundKey === soundKey && styles.soundOptionButtonActive,
+                  isNightMode && { backgroundColor: '#1e3330', borderColor: '#2e4d48' },
+                  pendingChatSoundKey === soundKey && isNightMode && { backgroundColor: '#2e4d48', borderColor: '#ebb89b' },
                 ]}
                 onPress={() => {
                   reopenKeyboardAfterSoundPickRef.current = true;
@@ -2236,7 +2243,7 @@ export default function ChatScreen() {
                 }}
                 activeOpacity={0.85}
               >
-                <Text style={styles.soundOptionButtonText}>{getDisplaySoundLabel(soundKey)}</Text>
+                <Text style={[styles.soundOptionButtonText, isNightMode && { color: '#f5e6dc' }]}>{getDisplaySoundLabel(soundKey)}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -2282,13 +2289,13 @@ export default function ChatScreen() {
         style={styles.reactionPickerModal}
         backdropOpacity={0.25}
       >
-        <View style={styles.reactionPickerCard}>
-          <Text style={styles.reactionPickerTitle}>Reagir au message</Text>
+        <View style={[styles.reactionPickerCard, isNightMode && { backgroundColor: '#271e19', borderColor: '#3d2f28' }]}>
+          <Text style={[styles.reactionPickerTitle, isNightMode && { color: '#f5e6dc' }]}>Reagir au message</Text>
           <View style={styles.reactionPickerRow}>
             {QUICK_REACTIONS.map((emoji) => (
               <TouchableOpacity
                 key={emoji}
-                style={styles.reactionOption}
+                style={[styles.reactionOption, isNightMode && { backgroundColor: '#1e3330', borderColor: '#2e4d48' }]}
                 onPress={() => handleReactionSelect(emoji)}
                 activeOpacity={0.85}
               >
@@ -2297,7 +2304,7 @@ export default function ChatScreen() {
             ))}
           </View>
           <TouchableOpacity style={styles.reactionPickerCancel} onPress={closeReactionPicker} activeOpacity={0.85}>
-            <Text style={styles.reactionPickerCancelText}>{i18n.t('cancel')}</Text>
+            <Text style={[styles.reactionPickerCancelText, isNightMode && { color: '#ebb89b' }]}>{i18n.t('cancel')}</Text>
           </TouchableOpacity>
         </View>
       </Modal>
