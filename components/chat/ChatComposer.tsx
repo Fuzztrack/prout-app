@@ -22,6 +22,7 @@ import i18n from '@/lib/i18n';
 import { supabase } from '@/lib/supabase';
 import { sendProutViaBackend, editMessageViaBackend } from '@/lib/sendProutBackend';
 import { uploadEphemeralPhoto } from '@/lib/services/ephemeralPhotoService';
+import { sendGroupMessage } from '@/lib/groopProotService';
 import {
   getDisplaySoundLabel,
   getSelectedSoundCategory,
@@ -49,6 +50,9 @@ interface ChatComposerProps {
     push_platform: 'ios' | 'android' | null;
     is_zen_mode: boolean;
   };
+  isGroup?: boolean;
+  groupId?: string;
+  groupName?: string;
   currentUserId: string;
   currentPseudo: string;
   isZenMode: boolean;
@@ -72,6 +76,9 @@ interface ChatComposerProps {
 
 export const ChatComposer = React.memo(({
   friend,
+  isGroup = false,
+  groupId,
+  groupName,
   currentUserId,
   currentPseudo,
   isZenMode,
@@ -268,41 +275,43 @@ export const ChatComposer = React.memo(({
         return;
       }
 
-      try {
-        const { data: muteCheck } = await supabase
-          .from('friends')
-          .select('is_muted')
-          .eq('friend_id', currentUserId)
-          .eq('user_id', friend.id)
-          .maybeSingle();
+      if (!isGroup) {
+        try {
+          const { data: muteCheck } = await supabase
+            .from('friends')
+            .select('is_muted')
+            .eq('friend_id', currentUserId)
+            .eq('user_id', friend.id)
+            .maybeSingle();
 
-        if (muteCheck?.is_muted) {
+          if (muteCheck?.is_muted) {
+            Alert.alert(
+              i18n.t('mute_mode_active_title'),
+              i18n.t('mute_mode_active_body', { pseudo: friend.pseudo })
+            );
+            setSending(false);
+            return;
+          }
+        } catch (e) {
+          console.error('❌ Erreur vérification sourdine:', e);
+        }
+
+        if (!friend.expo_push_token) {
           Alert.alert(
-            i18n.t('mute_mode_active_title'),
-            i18n.t('mute_mode_active_body', { pseudo: friend.pseudo })
+            i18n.t('error'), 
+            i18n.t('notifications_not_enabled', { pseudo: friend.pseudo }),
+            [{ text: i18n.t('ok'), style: 'cancel' }]
           );
           setSending(false);
           return;
         }
-      } catch (e) {
-        console.error('❌ Erreur vérification sourdine:', e);
-      }
-
-      if (!friend.expo_push_token) {
-        Alert.alert(
-          i18n.t('error'), 
-          i18n.t('notifications_not_enabled', { pseudo: friend.pseudo }),
-          [{ text: i18n.t('ok'), style: 'cancel' }]
-        );
-        setSending(false);
-        return;
       }
 
       let randomKey: string;
       let isSilentMessage = false;
       let isZenMessage = false;
 
-      if (friend.is_zen_mode) {
+      if (!isGroup && friend.is_zen_mode) {
         // En mode Zen, on force le silence absolu mais on garde le son du chat dans la DB pour la lecture
         isZenMessage = true;
       }
@@ -315,7 +324,7 @@ export const ChatComposer = React.memo(({
       } else {
         const savedMap = await AsyncStorage.getItem(FRIEND_SOUND_CATEGORY_MAP_KEY);
         const parsedMap = savedMap ? JSON.parse(savedMap) : {};
-        const selectedCategory = parsedMap?.[friend.id] || (await getSelectedSoundCategory());
+        const selectedCategory = (!isGroup && parsedMap?.[friend.id]) || (await getSelectedSoundCategory());
         const candidates =
           SOUND_KEYS_BY_CATEGORY[selectedCategory] ||
           SOUND_KEYS_BY_CATEGORY[DIRECT_SEND_FALLBACK_CATEGORY] ||
@@ -357,21 +366,36 @@ export const ChatComposer = React.memo(({
         );
       }
 
-      await sendProutViaBackend(
-        friend.expo_push_token,
-        currentPseudo || 'Un ami',
-        randomKey,
-        friend.push_platform || 'android',
-        {
-          customMessage,
+      if (isGroup && groupId) {
+        await sendGroupMessage({
+          groupId,
+          groupName: groupName || friend.pseudo,
           senderId: currentUserId,
-          receiverId: friend.id,
-          isSilentMessage: isZenMessage || isSilentMessage // On passe le flag au backend
-        }
-      );
+          senderPseudo: currentPseudo || 'Un ami',
+          text: rawDraft,
+          soundKey: isSilentMessage ? undefined : randomKey,
+          imageUrl: uploadedImageUrl || undefined,
+          isViewOnce: !!uploadedImageUrl && isViewOnce,
+        });
+      } else {
+        await sendProutViaBackend(
+          friend.expo_push_token!,
+          currentPseudo || 'Un ami',
+          randomKey,
+          friend.push_platform || 'android',
+          {
+            customMessage,
+            senderId: currentUserId,
+            receiverId: friend.id,
+            isSilentMessage: isZenMessage || isSilentMessage // On passe le flag au backend
+          }
+        );
+      }
 
-      console.log('🟡 [CHAT_SEND] sendProutViaBackend success. Calling invalidateQueries...');
-      DeviceEventEmitter.emit('CLEAR_FRIENDLIST_PENDING_SOUND', { friendId: friend.id });
+      console.log('🟡 [CHAT_SEND] send success. Calling invalidateQueries...');
+      if (!isGroup) {
+        DeviceEventEmitter.emit('CLEAR_FRIENDLIST_PENDING_SOUND', { friendId: friend.id });
+      }
       queryClient.invalidateQueries({ queryKey: ['pendingMessages', currentUserId] });
       queryClient.invalidateQueries({ queryKey: ['pendingSentMessages', currentUserId] });
       onMessageConfirmed?.();
@@ -388,6 +412,9 @@ export const ChatComposer = React.memo(({
     currentUserId,
     draft,
     friend,
+    isGroup,
+    groupId,
+    groupName,
     isHapticEnabled,
     isChatMuteEnabled,
     isSilentMode,

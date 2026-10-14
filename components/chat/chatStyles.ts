@@ -218,4 +218,9 @@ export const chatStyles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
   },
+  senderPseudoHeader: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
 });

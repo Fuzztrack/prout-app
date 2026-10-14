@@ -16,6 +16,7 @@ interface AppHeaderProps {
   isSearchVisible?: boolean;
   onSearchToggle?: () => void;
   onAddFriendPress?: () => void;
+  onGroopProotPress?: () => void;
   onProfileMenuPress?: () => void;
   onProfilePress?: () => void;
   onZenModePress?: () => void;
@@ -35,6 +36,7 @@ export function AppHeader({
   isSearchVisible = false,
   onSearchToggle,
   onAddFriendPress,
+  onGroopProotPress,
   onProfileMenuPress,
   onProfilePress,
   onZenModePress,
@@ -180,6 +182,18 @@ export function AppHeader({
                 ]}
               >
                 <Ionicons name="person-add-outline" size={24} color="#ffffff" />
+              </TouchableOpacity>
+            )}
+            {!(isProfileMenuOpen || isProfileOpen) && onGroopProotPress && (
+              <TouchableOpacity
+                onPress={onGroopProotPress}
+                style={[
+                  styles.iconButton,
+                  { justifyContent: 'center', alignItems: 'center', minHeight: 28 },
+                ]}
+                accessibilityLabel="Créer un GroopProot"
+              >
+                <Ionicons name="people-outline" size={24} color="#ffffff" />
               </TouchableOpacity>
             )}
             {isZenMode && (

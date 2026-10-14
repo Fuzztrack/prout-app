@@ -5,6 +5,27 @@ import Animated, { useSharedValue, useAnimatedStyle, withSequence, withTiming } 
 import i18n from '@/lib/i18n';
 import { chatStyles as styles } from './chatStyles';
 
+const PSEUDO_COLORS = [
+  '#0084ff', // Bleu ciel
+  '#00a884', // Émeraude WhatsApp
+  '#e542a3', // Rose framboise
+  '#ff6b4a', // Corail
+  '#8e44ad', // Violet pastel
+  '#d35400', // Ambre cuivré
+  '#16a085', // Turquoise
+  '#27ae60', // Vert prairie
+];
+
+function getConsistentColorForPseudo(pseudo?: string): string {
+  if (!pseudo) return '#00a884';
+  let hash = 0;
+  for (let i = 0; i < pseudo.length; i++) {
+    hash = pseudo.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % PSEUDO_COLORS.length;
+  return PSEUDO_COLORS[index];
+}
+
 interface ReceivedBubbleProps {
   message: {
     id: string;
@@ -12,10 +33,12 @@ interface ReceivedBubbleProps {
     soundKey?: string;
     createdAt?: string;
     senderId: string;
+    senderPseudo?: string;
     imageUrl?: string;
     isViewOnce?: boolean;
     isImageExpired?: boolean;
   };
+  isGroup?: boolean;
   onLongPressReact: (messageId: string) => void;
   onOpenImage?: (imageUrl: string, isViewOnce?: boolean, messageId?: string) => void;
   reaction?: string;
@@ -25,6 +48,7 @@ interface ReceivedBubbleProps {
 
 export const ReceivedBubble = React.memo(({
   message,
+  isGroup = false,
   onLongPressReact,
   onOpenImage,
   reaction,
@@ -87,6 +111,11 @@ export const ReceivedBubble = React.memo(({
             onLongPress={() => onLongPressReact(message.id)}
             style={styles.receivedBubble}
           >
+            {isGroup && !!message.senderPseudo && (
+              <Text style={[styles.senderPseudoHeader, { color: getConsistentColorForPseudo(message.senderPseudo) }]}>
+                {message.senderPseudo}
+              </Text>
+            )}
             {message.imageUrl ? (
               <TouchableOpacity
                 activeOpacity={0.9}

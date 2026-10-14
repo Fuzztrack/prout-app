@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { fetchPendingReceivedViaBackend } from '../lib/sendProutBackend';
+import { fetchPendingReceivedViaBackend, fetchPendingSentViaBackend } from '../lib/sendProutBackend';
 import { calculateFlameStreak } from '../lib/flameStreak';
 import { isProotBotDismissed, PROOT_BOT_FRIEND } from '../lib/prootBot';
+import { fetchUserGroups } from '../lib/groopProotService';
 
 export type Friend = {
   id: string;
@@ -16,6 +17,10 @@ export type Friend = {
   complicity_score?: number;
   complicity_level?: string;
   flame_streak?: number | null;
+  isGroup?: boolean;
+  groupMembersCount?: number;
+  retentionMode?: '24h' | 'permanent';
+  createdBy?: string;
 };
 
 export const useFriends = (userId: string | null) => {
@@ -79,12 +84,37 @@ export const useFriends = (userId: string | null) => {
         const allFriendIds = [...new Set([...addedFriendsIds, ...friendsWhereIAmFriendIds])]
           .filter((id) => !blockedSet.has(id));
 
+        // 2b. Charger les groupes de l'utilisateur
+        let formattedGroups: Friend[] = [];
+        try {
+          const userGroups = await fetchUserGroups(uid);
+          formattedGroups = (userGroups || []).map(g => ({
+            id: g.id,
+            pseudo: g.name,
+            avatar_url: g.avatar_url,
+            last_interaction_at: g.last_interaction_at,
+            is_muted: false,
+            isZenMode: false,
+            isGroup: true,
+            groupMembersCount: g.members_count || 1,
+            retentionMode: g.retention_mode,
+            createdBy: g.created_by,
+          }));
+        } catch (groupErr) {
+          console.warn('⚠️ [useFriends] Failed to fetch user groups:', groupErr);
+        }
+
         const isBotDismissed = await isProotBotDismissed();
-        const botList = isBotDismissed ? [] : [PROOT_BOT_FRIEND];
+        const botList = isBotDismissed ? formattedGroups : [...formattedGroups, PROOT_BOT_FRIEND];
 
         if (allFriendIds.length === 0) {
           if (__DEV__) console.log('ℹ️ [useFriends] No real friends found for:', uid);
-          return botList;
+          return botList.sort((a, b) => {
+            const timeA = a.last_interaction_at ? new Date(a.last_interaction_at).getTime() : 0;
+            const timeB = b.last_interaction_at ? new Date(b.last_interaction_at).getTime() : 0;
+            if (timeA !== timeB) return timeB - timeA;
+            return (a.pseudo || '').localeCompare(b.pseudo || '');
+          });
         }
 
         // 3. Récupérer les profils, interactions récentes et les métadonnées
@@ -116,8 +146,7 @@ export const useFriends = (userId: string | null) => {
             .or(`sender_id.eq.${uid},receiver_id.eq.${uid}`)
             .gte('created_at', sevenDaysAgo)
             .order('created_at', { ascending: false })
-            .then((res: any) => res)
-            .catch(() => ({ data: [] as any[], error: null }))
+            .then((res: any) => res, () => ({ data: [] as any[], error: null }))
         ]);
 
         if (profilesResult.error) throw profilesResult.error;
@@ -195,7 +224,7 @@ export const useFriends = (userId: string | null) => {
         }, {});
 
         // 4. Formater les amis avec le calcul de flamme (streak)
-        const formattedFriends = finalFriends.map(friend => {
+        const formattedFriends = finalFriends.map((friend: any) => {
           const isMutedByMe = mutedMap[friend.id] || false;
           const hasMutedMe = mutedByMap[friend.id] || false;
           const lastInteraction = lastInteractionMap[friend.id] || null;
@@ -218,7 +247,9 @@ export const useFriends = (userId: string | null) => {
         if (__DEV__) console.log(`✅ [useFriends] Successfully fetched ${formattedFriends.length} friends for ${uid}`);
 
         // 5. Trier par date d'interaction (le plus récent en premier)
-        const combinedFriends = isBotDismissed ? formattedFriends : [...formattedFriends, PROOT_BOT_FRIEND];
+        const combinedFriends = isBotDismissed
+          ? [...formattedFriends, ...formattedGroups]
+          : [...formattedFriends, ...formattedGroups, PROOT_BOT_FRIEND];
 
         return combinedFriends.sort((a, b) => {
           const timeA = a.last_interaction_at ? new Date(a.last_interaction_at).getTime() : 0;

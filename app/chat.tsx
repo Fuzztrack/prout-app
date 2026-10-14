@@ -73,6 +73,8 @@ import { SentBubble } from '@/components/chat/SentBubble';
 import { ChatComposer } from '@/components/chat/ChatComposer';
 import { chatStyles as bubbleStyles } from '@/components/chat/chatStyles';
 import { deleteEphemeralPhoto, cleanupExpiredEphemeralPhotos } from '@/lib/services/ephemeralPhotoService';
+import { fetchGroupMessages, purgeExpiredGroupMessages, updateGroupRetentionMode, fetchGroupMembers, GroupMemberInfo } from '@/lib/groopProotService';
+import { GroopSettingsModal } from '@/components/GroopSettingsModal';
 
 type ParsedMessage = {
   text: string;
@@ -228,11 +230,28 @@ export default function ChatScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const params = useLocalSearchParams<{ friendId?: string; pseudo?: string; pendingSoundKey?: string }>();
+  const params = useLocalSearchParams<{
+    friendId?: string;
+    pseudo?: string;
+    pendingSoundKey?: string;
+    groupId?: string;
+    groupName?: string;
+    retention?: string;
+  }>();
+  const isGroup = Boolean(params.groupId);
+  const groupId = typeof params.groupId === 'string' ? params.groupId : '';
+  const groupName = typeof params.groupName === 'string' ? params.groupName : '';
+  const groupRetention = (params.retention as '24h' | 'permanent') || '24h';
   const friendId = typeof params.friendId === 'string' ? params.friendId : '';
   const pseudoParam = typeof params.pseudo === 'string' ? params.pseudo : '';
   const pendingSoundKeyParam = typeof params.pendingSoundKey === 'string' ? params.pendingSoundKey : '';
   const isBot = friendId === PROOT_BOT_ID;
+
+  const [currentGroupName, setCurrentGroupName] = useState(groupName);
+  const [currentGroupAvatar, setCurrentGroupAvatar] = useState<string | null>(null);
+  const [groupData, setGroupData] = useState<any>(null);
+  const [groupSettingsVisible, setGroupSettingsVisible] = useState(false);
+  const [groupMembers, setGroupMembers] = useState<GroupMemberInfo[]>([]);
 
   const isZenMode = useAppStore(state => state.isZenMode);
   const isSilentMode = useAppStore(state => state.isSilentMode);
@@ -253,10 +272,20 @@ export default function ChatScreen() {
   const savedMessages = useChatStore(state => state.savedMessageIds);
   const toggleSaveMessage = useChatStore(state => state.toggleSavedMessage);
 
-  const retentionHours = retentionByFriend[friendId] ?? 24;
+  const [groupRetentionMode, setGroupRetentionMode] = useState<'24h' | 'permanent'>(groupRetention);
+  const retentionHours = isGroup
+    ? (groupRetentionMode === 'permanent' ? 0 : 24)
+    : (retentionByFriend[friendId] ?? 24);
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentPseudo, setCurrentPseudo] = useState<string>(storePseudo || 'Un ami');
+
+  const groupMembersSummary = useMemo(() => {
+    if (!isGroup || groupMembers.length === 0) return '';
+    return groupMembers
+      .map(m => (m.userId === currentUserId ? 'Vous' : m.pseudo))
+      .join(', ');
+  }, [isGroup, groupMembers, currentUserId]);
   const [serverFriend, setServerFriend] = useState<FriendProfile | null>(null);
   const [draft, setDraft] = useState('');
   const [editingMessage, setEditingMessage] = useState<VisibleSentMessage | null>(null);
@@ -288,6 +317,16 @@ export default function ChatScreen() {
   }, [friendId, sentMessages, addSentMessages]);
 
   const optimisticFriend = useMemo((): FriendProfile | null => {
+    if (isGroup && groupId) {
+      return {
+        id: groupId,
+        pseudo: groupName || 'GroopProot',
+        avatar_url: null,
+        expo_push_token: null,
+        push_platform: null,
+        is_zen_mode: false,
+      };
+    }
     if (!friendId) return null;
     if (isBot) {
       return {
@@ -308,10 +347,10 @@ export default function ChatScreen() {
       push_platform: null,
       is_zen_mode: false,
     };
-  }, [friendId, isBot, pseudoParam]);
+  }, [isGroup, groupId, groupName, friendId, isBot, pseudoParam]);
 
   const friend = serverFriend ?? optimisticFriend;
-  const profileConfirmed = isBot || !!serverFriend;
+  const profileConfirmed = isBot || isGroup || !!serverFriend;
 
   useEffect(() => {
     setServerFriend(null);
@@ -424,6 +463,59 @@ export default function ChatScreen() {
   );
 
   const loadChatContext = useCallback(async () => {
+    if (isGroup && groupId) {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const user = sessionData?.session?.user ?? null;
+      const uid = user?.id || storeUserId;
+      if (uid) {
+        setCurrentUserId(uid);
+      }
+      if (storePseudo) {
+        setCurrentPseudo(storePseudo);
+      } else if (uid) {
+        try {
+          const { data: meRes } = await supabase.from('user_profiles').select('pseudo').eq('id', uid).maybeSingle();
+          if (meRes?.pseudo) setCurrentPseudo(meRes.pseudo);
+        } catch {}
+      }
+
+      let grpName = groupName;
+      let grpAvatar: string | null = null;
+      try {
+        const { data: grp } = await supabase.from('groups').select('*').eq('id', groupId).maybeSingle();
+        if (grp) {
+          setGroupData(grp);
+          if (grp.name) {
+            grpName = grp.name;
+            setCurrentGroupName(grp.name);
+          }
+          if (grp.avatar_url) {
+            grpAvatar = grp.avatar_url;
+            setCurrentGroupAvatar(grp.avatar_url);
+          }
+          if (grp.retention_mode) {
+            setGroupRetentionMode(grp.retention_mode as '24h' | 'permanent');
+          }
+        }
+      } catch {}
+
+      try {
+        const mems = await fetchGroupMembers(groupId);
+        setGroupMembers(mems);
+      } catch (err) {
+        console.warn('⚠️ [chat.tsx] Error fetching group members:', err);
+      }
+
+      setServerFriend({
+        id: groupId,
+        pseudo: grpName || 'GroopProot',
+        avatar_url: grpAvatar,
+        expo_push_token: null,
+        push_platform: null,
+        is_zen_mode: false,
+      });
+      return;
+    }
     if (!friendId) return;
     if (isBot) {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -506,7 +598,7 @@ export default function ChatScreen() {
       console.error('❌ Erreur chargement chat:', error);
       showToast("Impossible de charger ce chat.");
     }
-  }, [friendId, isBot, pseudoParam, router, storePseudo, storeUserId, showToast]);
+  }, [isGroup, groupId, groupName, friendId, isBot, pseudoParam, router, storePseudo, storeUserId, showToast]);
 
   useEffect(() => {
     void loadChatContext();
@@ -557,7 +649,49 @@ export default function ChatScreen() {
   }, []);
 
   const refreshMessages = useCallback(async () => {
-    if (!currentUserId || !friendId) return;
+    if (!currentUserId) return;
+    if (isGroup && groupId) {
+      try {
+        await purgeExpiredGroupMessages(groupId);
+        const groupMsgs = await fetchGroupMessages(groupId);
+        const mySent: VisibleSentMessage[] = [];
+        const othersReceived: PendingMessage[] = [];
+
+        groupMsgs.forEach((m) => {
+          if (m.sender_id === currentUserId) {
+            mySent.push({
+              id: m.id,
+              text: m.message || '',
+              soundKey: m.sound_key || undefined,
+              imageUrl: m.image_url || undefined,
+              isViewOnce: m.is_view_once,
+              ts: m.created_at,
+              optimistic: false,
+              local_ts: 0,
+            });
+          } else {
+            othersReceived.push({
+              id: m.id,
+              from_user_id: m.sender_id,
+              to_user_id: currentUserId,
+              message_content: m.message || '',
+              sound_key: m.sound_key || undefined,
+              created_at: m.created_at,
+              senderPseudo: m.sender_pseudo,
+              imageUrl: m.image_url || undefined,
+              isViewOnce: m.is_view_once,
+            } as any);
+          }
+        });
+
+        setSentMessages(mySent);
+        setReceivedMessages(othersReceived);
+      } catch (err) {
+        console.warn('⚠️ [refreshMessages] Error fetching group messages:', err);
+      }
+      return;
+    }
+    if (!friendId) return;
     if (isBot) {
       // Nettoyer les messages envoyés vides résiduels (anciens swipes)
       const botSent = useChatStore.getState().sentByFriend[PROOT_BOT_ID] || [];
@@ -656,7 +790,7 @@ export default function ChatScreen() {
     } else {
       addSentMessages(friendId, serverSent, false);
     }
-  }, [currentUserId, friendId, isHapticEnabled, addReceivedMessages, addSentMessages, retentionHours]);
+  }, [currentUserId, friendId, isGroup, groupId, isHapticEnabled, addReceivedMessages, addSentMessages, retentionHours]);
 
   const triggerGlobalMessageRefresh = useCallback(() => {
     if (!currentUserId) return;
@@ -675,21 +809,23 @@ export default function ChatScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (!friendId) return;
+      const activeId = isGroup ? groupId : friendId;
+      if (!activeId) return;
 
       const nativeSoundSettingsModule = NativeModules.SoundSettingsModule;
-      AsyncStorage.setItem(ACTIVE_CHAT_FRIEND_ID_KEY, friendId).catch(() => {});
-      nativeSoundSettingsModule?.setActiveChatFriendId?.(friendId);
+      AsyncStorage.setItem(ACTIVE_CHAT_FRIEND_ID_KEY, activeId).catch(() => {});
+      nativeSoundSettingsModule?.setActiveChatFriendId?.(activeId);
 
       return () => {
         AsyncStorage.removeItem(ACTIVE_CHAT_FRIEND_ID_KEY).catch(() => {});
         nativeSoundSettingsModule?.clearActiveChatFriendId?.();
       };
-    }, [friendId])
+    }, [friendId, isGroup, groupId])
   );
 
   // Synchronisation avec le store persistant (pour l'hydratation et l'historique 12h)
   useEffect(() => {
+    if (isGroup) return;
     const fromStore = receivedByFriend[friendId] || [];
     setReceivedMessages(prev => {
       const next = [...prev];
@@ -810,7 +946,7 @@ export default function ChatScreen() {
   );
 
   const loadConversationReactions = useCallback(async () => {
-    if (!currentUserId || !friendId || isBot) return;
+    if (isGroup || !currentUserId || !friendId || isBot) return;
 
     const { data, error } = await supabase
       .from('message_reactions')
@@ -836,7 +972,57 @@ export default function ChatScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (!currentUserId || !friendId || isBot) return;
+      if (!currentUserId) return;
+
+      if (isGroup && groupId) {
+        const groupChannel = supabase
+          .channel(`chat-group-${groupId}`)
+          .on(
+            'postgres_changes',
+            {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'group_messages',
+              filter: `group_id=eq.${groupId}`,
+            },
+            (payload: any) => {
+              const newMsg = payload.new;
+              if (!newMsg || newMsg.sender_id === currentUserId) return;
+
+              if (newMsg.sound_key && newMsg.sound_key !== 'mute' && !isSilentMode && !isZenMode) {
+                void playSound(newMsg.sound_key);
+              }
+              if (Platform.OS === 'ios' && isHapticEnabled) {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+              }
+
+              setReceivedMessages((prev) => {
+                if (prev.some((m) => m.id === newMsg.id)) return prev;
+                return [
+                  ...prev,
+                  {
+                    id: newMsg.id,
+                    from_user_id: newMsg.sender_id,
+                    to_user_id: currentUserId,
+                    message_content: newMsg.message || '',
+                    sound_key: newMsg.sound_key || undefined,
+                    created_at: newMsg.created_at,
+                    senderPseudo: newMsg.sender_pseudo,
+                    imageUrl: newMsg.image_url || undefined,
+                    isViewOnce: newMsg.is_view_once,
+                  } as any,
+                ];
+              });
+            }
+          )
+          .subscribe();
+
+        return () => {
+          supabase.removeChannel(groupChannel);
+        };
+      }
+
+      if (!friendId || isBot) return;
 
       const channel = supabase
         .channel(`chat-direct-${currentUserId}-${friendId}`)
@@ -940,12 +1126,12 @@ export default function ChatScreen() {
       return () => {
         supabase.removeChannel(channel);
       };
-    }, [currentUserId, friendId, isHapticEnabled, queryClient, triggerGlobalMessageRefresh, retentionHours, addReceivedMessages, addSentMessages])
+    }, [currentUserId, friendId, isGroup, groupId, isSilentMode, isZenMode, isHapticEnabled, queryClient, triggerGlobalMessageRefresh, retentionHours, addReceivedMessages, addSentMessages])
   );
 
   useFocusEffect(
     useCallback(() => {
-      if (!currentUserId || !friendId || isBot) return;
+      if (isGroup || !currentUserId || !friendId || isBot) return;
 
       const channel = supabase
         .channel(`chat-reactions-${currentUserId}-${friendId}`)
@@ -980,7 +1166,7 @@ export default function ChatScreen() {
   );
 
   useEffect(() => {
-    if (!currentUserId || !friendId) return;
+    if (isGroup || !currentUserId || !friendId) return;
     
     // On ne marque comme lu que s'il y a des messages reçus qui ne sont pas encore marqués READ:
     const hasUnread = receivedMessages.some((m) => {
@@ -1202,7 +1388,10 @@ export default function ChatScreen() {
         void queryClient.invalidateQueries({ queryKey: ['pendingMessages', finalUserId] });
       }
     }
-  }, [friendId, clearHistory, queryClient]);
+    if (isGroup && groupId) {
+      void purgeExpiredGroupMessages(groupId);
+    }
+  }, [friendId, isGroup, groupId, clearHistory, queryClient]);
 
   // Déclencher le nettoyage lors de la sortie de l'écran (blur / navigation retour)
   useFocusEffect(
@@ -1368,6 +1557,7 @@ export default function ChatScreen() {
           isViewOnce: parsed.isViewOnce,
           isImageExpired: expired || parsed.isImageExpired,
           sourceMessageId: m.id,
+          senderPseudo: (m as any).senderPseudo,
           isNew,
         };
       });
@@ -1635,7 +1825,7 @@ export default function ChatScreen() {
     }
   }, []);
 
-  if (!friendId || (!isBot && !isUuid(friendId))) {
+  if (isGroup ? (!groupId || !isUuid(groupId)) : (!friendId || (!isBot && !isUuid(friendId)))) {
     return (
       <View style={styles.screen}>
         <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
@@ -1727,20 +1917,54 @@ export default function ChatScreen() {
           >
             <Ionicons name="chevron-back" size={26} color="#604a3e" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{i18n.t('sticky_chat_with', { pseudo: friend.pseudo })}</Text>
+          <TouchableOpacity
+            disabled={!isGroup}
+            onPress={() => isGroup && setGroupSettingsVisible(true)}
+            style={{ flex: 1, alignItems: 'center', justifyContent: 'center', marginHorizontal: 8 }}
+            activeOpacity={isGroup ? 0.7 : 1}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', maxWidth: '100%' }}>
+              <Text style={[styles.headerTitle, { flexShrink: 1, marginHorizontal: 0 }]} numberOfLines={1}>
+                {isGroup ? (currentGroupName || groupName || 'GroopProot') : i18n.t('sticky_chat_with', { pseudo: friend.pseudo })}
+              </Text>
+              {isGroup && (
+                <Ionicons name="information-circle-outline" size={15} color="#604a3e" style={{ marginLeft: 4 }} />
+              )}
+            </View>
+            {isGroup && !!groupMembersSummary && (
+              <Text style={styles.groupMembersSubtitle} numberOfLines={1} ellipsizeMode="tail">
+                {groupMembersSummary}
+              </Text>
+            )}
+          </TouchableOpacity>
           <View style={styles.headerActions}>
-            <TouchableOpacity
-              onPress={openConversationReportSheet}
-              style={[styles.headerIcon, styles.headerReportIcon]}
-              activeOpacity={0.85}
-              accessibilityRole="button"
-              accessibilityLabel={i18n.t('report_conversation_title')}
-            >
-              <Ionicons name="flag-outline" size={21} color="#604a3e" />
-            </TouchableOpacity>
+            {!isGroup && (
+              <TouchableOpacity
+                onPress={openConversationReportSheet}
+                style={[styles.headerIcon, styles.headerReportIcon]}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel={i18n.t('report_conversation_title')}
+              >
+                <Ionicons name="flag-outline" size={21} color="#604a3e" />
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
               onPress={() => {
+                if (isGroup) {
+                  const nextMode: '24h' | 'permanent' = groupRetentionMode === '24h' ? 'permanent' : '24h';
+                  void updateGroupRetentionMode(groupId, nextMode).then(() => {
+                    setGroupRetentionMode(nextMode);
+                    showToast(nextMode === '24h' ? 'Rétention : 24 heures' : 'Rétention : 0h (Éphémère)');
+                    queryClient.invalidateQueries({ queryKey: ['friends', currentUserId] });
+                    void refreshMessages();
+                  }).catch(() => {
+                    Alert.alert(i18n.t('error'), 'Impossible de modifier le mode de rétention.');
+                  });
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                  return;
+                }
                 const next = retentionHours === 24 ? 0 : 24;
                 setRetentionHours(friendId, next);
                 if (next === 24) {
@@ -1836,10 +2060,12 @@ export default function ChatScreen() {
                       soundKey: message.soundKey,
                       createdAt: message.ts,
                       senderId: friend.id,
+                      senderPseudo: (message as any).senderPseudo,
                       imageUrl: (message as any).imageUrl,
                       isViewOnce: (message as any).isViewOnce,
                       isImageExpired: (message as any).isImageExpired,
                     }}
+                    isGroup={isGroup}
                     reaction={getReactionBadgeText(message.sourceMessageId || message.id)}
                     onLongPressReact={() => openReactionPicker(message.sourceMessageId || message.id, false)}
                     onOpenImage={(url, isViewOnce, msgId) => setFullScreenImage({ url, isViewOnce, messageId: msgId || message.sourceMessageId || message.id })}
@@ -1855,6 +2081,9 @@ export default function ChatScreen() {
         <Animated.View style={composerKeyboardStyle}>
           <ChatComposer
             friend={friend}
+            isGroup={isGroup}
+            groupId={groupId}
+            groupName={groupName}
             currentUserId={currentUserId}
             currentPseudo={currentPseudo}
             isZenMode={isZenMode}
@@ -2157,6 +2386,46 @@ export default function ChatScreen() {
           ) : null}
         </View>
       </Modal>
+
+      {isGroup && (
+        <GroopSettingsModal
+          visible={groupSettingsVisible}
+          onClose={() => setGroupSettingsVisible(false)}
+          group={{
+            id: groupId,
+            pseudo: currentGroupName || groupName || 'GroopProot',
+            avatar_url: currentGroupAvatar,
+            createdBy: groupData?.created_by,
+            groupMembersCount: groupData?.members_count,
+            retentionMode: groupRetentionMode,
+            isGroup: true,
+            is_muted: false,
+            isZenMode: false,
+            last_interaction_at: null,
+          }}
+          currentUserId={currentUserId}
+          onGroupUpdated={(updated) => {
+            if (updated.name) {
+              setCurrentGroupName(updated.name);
+              showToast(`Groupe renommé en "${updated.name}"`);
+            }
+            if (updated.avatar_url !== undefined) {
+              setCurrentGroupAvatar(updated.avatar_url);
+              showToast('Photo de profil mise à jour');
+            }
+            if (updated.retention_mode) {
+              setGroupRetentionMode(updated.retention_mode);
+              showToast(updated.retention_mode === '24h' ? 'Rétention : 24 heures' : 'Rétention : 0h (Éphémère)');
+              void refreshMessages();
+            }
+            queryClient.invalidateQueries({ queryKey: ['friends', currentUserId] });
+          }}
+          onGroupDeleted={() => {
+            queryClient.invalidateQueries({ queryKey: ['friends', currentUserId] });
+            router.replace('/(tabs)');
+          }}
+        />
+      )}
     </View>
   );
 }
@@ -2242,6 +2511,13 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     marginHorizontal: 8,
+  },
+  groupMembersSubtitle: {
+    fontSize: 11,
+    color: '#8b6f5d',
+    textAlign: 'center',
+    maxWidth: '100%',
+    marginTop: 1,
   },
   messages: {
     flex: 1,

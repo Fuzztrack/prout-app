@@ -43,6 +43,7 @@ import { safePush } from '../lib/navigation';
 import { SearchBar } from './SearchBar';
 import { SOUND_CATEGORY_KEY, type SoundCategory } from './SoundcheckSelector';
 import ProotSilenceChallenge from './ProotSilenceChallenge';
+import { sendGroupProut, leaveGroup, deleteGroup } from '../lib/groopProotService';
 import { 
   parseMessageContent, 
   stripReadPrefix, 
@@ -55,6 +56,7 @@ import { useFriendsStore } from '@/lib/friendsStore';
 import { ReportReasonModal } from './FriendsListComponents/Modals/ReportReasonModal';
 import { IdentityModal } from './FriendsListComponents/Modals/IdentityModal';
 import { FeedbackModal } from './FeedbackModal';
+import { GroopSettingsModal } from './GroopSettingsModal';
 
 const FIRST_CHAT_MODAL_KEY = 'first_chat_modal_seen_v2';
 const CHAT_MESSAGE_SOUND_CHOICE_KEY = 'chat_message_sound_choice_v1';
@@ -739,6 +741,8 @@ export function FriendsList({
   );
   const [isFirstChatModalVisible, setIsFirstChatModalVisible] = useState(false);
   const [firstFriendlistOnboardingStep, setFirstFriendlistOnboardingStep] = useState<'footer' | null>(null);
+  const [groupSettingsVisible, setGroupSettingsVisible] = useState(false);
+  const [selectedGroupForSettings, setSelectedGroupForSettings] = useState<any>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -2926,6 +2930,54 @@ useEffect(() => {
   const handleDeleteFriend = useStableCallback(async (friend: any) => {
     if (!currentUserId) return;
 
+    if (friend.isGroup) {
+      const isCreator = friend.createdBy === currentUserId;
+      if (isCreator) {
+        Alert.alert(
+          'Supprimer le GroopProot',
+          `Voulez-vous dissoudre le groupe "${friend.pseudo}" pour tous les membres ?`,
+          [
+            { text: i18n.t('cancel'), style: 'cancel' },
+            {
+              text: 'Supprimer',
+              style: 'destructive',
+              onPress: async () => {
+                try {
+                  await deleteGroup(friend.id, currentUserId);
+                  queryClient.invalidateQueries({ queryKey: ['friends'] });
+                  showToast('Groupe dissous');
+                } catch {
+                  Alert.alert('Erreur', 'Impossible de supprimer le groupe.');
+                }
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert(
+          'Quitter le GroopProot',
+          `Voulez-vous quitter le groupe "${friend.pseudo}" ?`,
+          [
+            { text: i18n.t('cancel'), style: 'cancel' },
+            {
+              text: 'Quitter',
+              style: 'destructive',
+              onPress: async () => {
+                try {
+                  await leaveGroup(friend.id, currentUserId);
+                  queryClient.invalidateQueries({ queryKey: ['friends'] });
+                  showToast('Vous avez quitté le groupe');
+                } catch {
+                  Alert.alert('Erreur', 'Impossible de quitter le groupe.');
+                }
+              },
+            },
+          ]
+        );
+      }
+      return;
+    }
+
     if (friend.id === PROOT_BOT_ID) {
       Alert.alert(
         i18n.t('hide_prootbot_title'),
@@ -3048,6 +3100,12 @@ useEffect(() => {
     if (isModalTransitionActive()) return;
     if (friendSoundModalVisible) return;
     markModalTransition();
+
+    if (friend.isGroup) {
+      setSelectedGroupForSettings(friend);
+      setGroupSettingsVisible(true);
+      return;
+    }
 
     if (friend.id === PROOT_BOT_ID) {
       showToast(i18n.t('prootbot_companion_info'));
@@ -3353,6 +3411,23 @@ useEffect(() => {
       useChatStore.getState().addReceivedMessages(friend.id, readMsgs);
     }
 
+    if (friend.isGroup) {
+      safePush(
+        router,
+        {
+          pathname: '/chat',
+          params: {
+            groupId: friend.id,
+            groupName: friend.pseudo || '',
+            retention: friend.retentionMode || '24h',
+            pendingSoundKey: friendSoundKeyByFriend[friend.id] || '',
+          },
+        },
+        { skipInitialCheck: true, immediate: true }
+      );
+      return;
+    }
+
     safePush(
       router,
       {
@@ -3405,6 +3480,44 @@ useEffect(() => {
           useChatStore.getState().markMessagesAsRead(PROOT_BOT_ID, [customSentId]);
         }
       });
+      return;
+    }
+
+    // Cas spécial : GroopProot 👥 (Prout simultané au groupe)
+    if (recipient.isGroup) {
+      if (isZenMode) {
+        Alert.alert(i18n.t('zen_mode_active_me_title'), i18n.t('zen_mode_active_me_body'));
+        return;
+      }
+
+      const forcedFriendSoundKey = friendSoundKeyByFriend[recipient.id];
+      let soundKey: string;
+      if (options?.forcedSoundKey) {
+        soundKey = options.forcedSoundKey;
+      } else if (forcedFriendSoundKey && SOUND_ASSETS[forcedFriendSoundKey]) {
+        soundKey = forcedFriendSoundKey;
+        setFriendSpecificSoundKey(recipient.id, null);
+      } else {
+        soundKey = await getNextRandomSound(recipient.id);
+      }
+
+      const proutName = getDisplaySoundLabel(soundKey);
+      showToast(`${proutName} (${recipient.pseudo}) !`);
+      if (onProutSent) onProutSent();
+      triggerProutHaptic(soundKey, isHapticEnabled);
+      playLocalSound(soundKey);
+
+      try {
+        await sendGroupProut({
+          groupId: recipient.id,
+          groupName: recipient.pseudo,
+          soundKey,
+          senderPseudo: currentPseudo || 'Ami',
+          currentUserId: currentUserId || '',
+        });
+      } catch (err) {
+        console.warn('⚠️ Erreur envoi prout de groupe:', err);
+      }
       return;
     }
 
@@ -4272,6 +4385,30 @@ useEffect(() => {
         isVisible={showFeedbackModal}
         onClose={() => setShowFeedbackModal(false)}
         onSuccess={handleFeedbackSuccess}
+      />
+
+      <GroopSettingsModal
+        visible={groupSettingsVisible}
+        onClose={() => {
+          setGroupSettingsVisible(false);
+          setSelectedGroupForSettings(null);
+        }}
+        group={selectedGroupForSettings}
+        currentUserId={currentUserId || ''}
+        onGroupUpdated={(updated) => {
+          queryClient.invalidateQueries({ queryKey: ['friends', currentUserId] });
+          if (updated.name) {
+            showToast(`Groupe renommé en "${updated.name}"`);
+          } else if (updated.avatar_url !== undefined) {
+            showToast('Photo de profil mise à jour');
+          } else if (updated.retention_mode) {
+            showToast(updated.retention_mode === '24h' ? 'Rétention : 24 heures' : 'Rétention : 0h (Éphémère)');
+          }
+        }}
+        onGroupDeleted={() => {
+          queryClient.invalidateQueries({ queryKey: ['friends', currentUserId] });
+          showToast('Mise à jour effectuée');
+        }}
       />
     </View>
   );

@@ -320,6 +320,20 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
                         contentFit="contain"
                       />
                     </View>
+                  ) : friend.isGroup ? (
+                    <View style={styles.groupAvatarWrapper}>
+                      {friend.avatar_url ? (
+                        <Image 
+                          source={{ uri: friend.avatar_url }} 
+                          style={{ width: '100%', height: '100%' }}
+                          contentFit="cover"
+                          transition={200}
+                          cachePolicy="disk"
+                        />
+                      ) : (
+                        <Ionicons name="people" size={22} color="#604a3e" />
+                      )}
+                    </View>
                   ) : friend.avatar_url ? (
                     <Image 
                       source={{ uri: friend.avatar_url }} 
@@ -340,8 +354,27 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
 
                 {/* 1. GAUCHE : Pseudo + Icônes */}
                 <Text style={styles.pseudo} numberOfLines={1}>{friend.pseudo}</Text>
-                {friend.isZenMode && <Ionicons name="moon" size={16} color="#ebb89b" style={{ marginLeft: 4 }} />}
-                {friend.is_muted && <Ionicons name="volume-mute-outline" size={16} color="#666" style={{ marginLeft: 4 }} />}
+                {friend.isGroup ? (
+                  <View style={styles.groupBadgesRow}>
+                    <View style={styles.groupCountBadge}>
+                      <Ionicons name="people" size={11} color="#604a3e" style={{ marginRight: 2 }} />
+                      <Text style={styles.groupCountText}>{friend.groupMembersCount || 2}</Text>
+                    </View>
+                    {friend.retentionMode === 'permanent' ? (
+                      <Ionicons name="flash" size={16} color="#604a3e" style={styles.groupFlashIcon} />
+                    ) : (
+                      <View style={styles.retentionBadge}>
+                        <Ionicons name="timer-outline" size={11} color="#604a3e" style={{ marginRight: 2 }} />
+                        <Text style={styles.retentionBadgeText}>24h</Text>
+                      </View>
+                    )}
+                  </View>
+                ) : (
+                  <>
+                    {friend.isZenMode && <Ionicons name="moon" size={16} color="#ebb89b" style={{ marginLeft: 4 }} />}
+                    {friend.is_muted && <Ionicons name="volume-mute-outline" size={16} color="#666" style={{ marginLeft: 4 }} />}
+                  </>
+                )}
 
                 {/* 2. MILIEU : Aperçu du message + Pastille verte d'avant */}
                 <View style={styles.unreadMiddleContainer}>
@@ -356,7 +389,7 @@ export const SwipeableFriendRow = React.memo(forwardRef<SwipeableFriendRowHandle
                 </View>
 
                 {/* 3. DROITE : Badge Prout/Vent 💨 */}
-                {typeof friend.flame_streak === 'number' && friend.flame_streak > 0 && (
+                {!friend.isGroup && typeof friend.flame_streak === 'number' && friend.flame_streak > 0 && (
                   <View style={styles.proutStreakBadge}>
                     <Text style={styles.proutStreakBadgeText}>💨 {friend.flame_streak}</Text>
                   </View>
@@ -543,5 +576,51 @@ const styles = StyleSheet.create({
     color: '#3a2a22',
     fontWeight: 'bold',
     // maxWidth supprimé pour afficher le nom en entier
+  },
+  groupAvatarWrapper: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#fff5eb',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#604a3e',
+    overflow: 'hidden',
+  },
+  groupBadgesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 6,
+    gap: 4,
+  },
+  groupCountBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(96, 74, 62, 0.12)',
+    borderRadius: 8,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  groupCountText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#604a3e',
+  },
+  retentionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(96, 74, 62, 0.08)',
+    borderRadius: 8,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  retentionBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#604a3e',
+  },
+  groupFlashIcon: {
+    marginLeft: 1,
   },
 });

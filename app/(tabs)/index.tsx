@@ -5,7 +5,10 @@ import { FriendsList } from '@/components/FriendsList';
 import { IdentityList } from '@/components/IdentityList';
 import { PrivacyPolicyModal } from '@/components/PrivacyPolicyModal';
 import { SearchUser } from '@/components/SearchUser';
+import { GroopProotModal } from '@/components/GroopProotModal';
 import { TutorialSwiper } from '@/components/TutorialSwiper';
+import { useFriends } from '@/hooks/useFriends';
+import { useQueryClient } from '@tanstack/react-query';
 import i18n from '@/lib/i18n';
 import { safeReplace } from '@/lib/navigation';
 import { registerPushTokenForUser } from '@/lib/pushTokenRegistration';
@@ -23,7 +26,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const appVersion = Constants.expoConfig?.version ?? '1.1.45';
+  const appVersion = Constants.expoConfig?.version ?? '1.1.46';
   
   const isLoadedRef = useRef(false);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -44,12 +47,15 @@ export default function HomeScreen() {
 
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [showGroopProotModal, setShowGroopProotModal] = useState(false);
   const [showIdentity, setShowIdentity] = useState(false);
   const [showBlockedUsers, setShowBlockedUsers] = useState(false);
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [listIntroTrigger, setListIntroTrigger] = useState(1);
   const [friendsRefreshTrigger, setFriendsRefreshTrigger] = useState(0);
+  const queryClient = useQueryClient();
+  const { data: friendsList = [] } = useFriends(userId);
   const friendsListRef = useRef<any>(null);
   const zenTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const zenStartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -741,6 +747,10 @@ useEffect(() => {
         setActiveView('list');
         setShowSearch(true);
       }}
+      onGroopProotPress={() => {
+        setActiveView('list');
+        setShowGroopProotModal(true);
+      }}
       onZenModePress={() => {
         void applyZenMode(false);
       }}
@@ -753,7 +763,7 @@ useEffect(() => {
       shakeX={shakeX}
       shakeY={shakeY}
     />
-  ), [currentPseudo, currentAvatarUrl, activeView, isZenMode, isSilentMode, isSearchVisible, toggleSearchVisibility, setActiveView, applyZenMode, setSilentMode, handleSoundcheckPress, toggleProfileMenu, shakeX, shakeY]);
+  ), [currentPseudo, currentAvatarUrl, activeView, isZenMode, isSilentMode, isSearchVisible, toggleSearchVisibility, setActiveView, setShowGroopProotModal, applyZenMode, setSilentMode, handleSoundcheckPress, toggleProfileMenu, shakeX, shakeY]);
 
   return (
     <>
@@ -978,6 +988,17 @@ useEffect(() => {
 
       {/* Modale d'ajout d'amis / QR Code en surimpression absolue */}
       <SearchUser visible={showSearch} onClose={() => setShowSearch(false)} />
+
+      {/* Modale de création d'un GroopProot */}
+      <GroopProotModal
+        visible={showGroopProotModal}
+        onClose={() => setShowGroopProotModal(false)}
+        friends={friendsList}
+        onGroupCreated={(newGroup) => {
+          setFriendsRefreshTrigger((prev) => prev + 1);
+          queryClient.invalidateQueries({ queryKey: ['friends', userId] });
+        }}
+      />
     </>
   );
 }
