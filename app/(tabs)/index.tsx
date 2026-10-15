@@ -31,7 +31,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const appVersion = appJson.expo.version ?? Constants.expoConfig?.version ?? '1.1.52';
+  const appVersion = appJson.expo.version ?? Constants.expoConfig?.version ?? '1.1.53';
   
   const isLoadedRef = useRef(false);
   const [isInitializing, setIsInitializing] = useState(true);
