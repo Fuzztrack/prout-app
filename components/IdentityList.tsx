@@ -167,7 +167,7 @@ export function IdentityList({ visible, onClose }: IdentityListProps) {
         // Charger les contacts du téléphone pour trouver les noms révélés
         let contactsList: Contacts.Contact[] = [];
         try {
-          const contactsStatus = await ensureContactPermissionWithDisclosure();
+          const { status: contactsStatus } = await Contacts.getPermissionsAsync();
           if (contactsStatus === 'granted') {
             const { data: contactsData } = await Contacts.getContactsAsync({ 
               fields: [Contacts.Fields.PhoneNumbers, Contacts.Fields.Name] 

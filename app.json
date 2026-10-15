@@ -2,9 +2,9 @@
   "expo": {
     "name": "Proot !",
     "slug": "prrtapp",
-    "version": "1.1.51",
+    "version": "1.1.52",
     "orientation": "portrait",
-    "icon": "./asset/images/Prrt_icon.png",
+    "icon": "./assets/images/icon.png",
     "scheme": "prootapp",
     "userInterfaceStyle": "automatic",
     "backgroundColor": "#ebb89b",
@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.prrt.app",
-      "buildNumber": "125",
+      "buildNumber": "127",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "CFBundleDisplayName": "Proot !",
@@ -35,23 +35,17 @@
     "android": {
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
-        "foregroundImage": "./asset/images/Prrt_icon.png",
+        "foregroundImage": "./assets/images/adaptive_icon.png",
         "backgroundColor": "#ebb89b"
       },
       "package": "com.fuzztrack.proutapp",
-      "versionCode": 220,
+      "versionCode": 221,
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.CAMERA",
-        "android.permission.READ_CONTACTS",
-        "android.permission.WRITE_CONTACTS",
-        "android.permission.MODIFY_AUDIO_SETTINGS",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.CAMERA",
-        "android.permission.READ_CONTACTS",
-        "android.permission.WRITE_CONTACTS"
+        "android.permission.READ_CONTACTS"
       ],
       "newArchEnabled": true
     },
@@ -82,7 +76,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./asset/images/Prrt_icon.png",
+          "icon": "./assets/images/icon.png",
           "color": "#ffffff",
           "sounds": [
             "./assets/sounds/bzzz1.wav",

@@ -4391,6 +4391,29 @@ useEffect(() => {
 
                   <TouchableOpacity
                     activeOpacity={0.85}
+                    onPress={async () => {
+                      try {
+                        const status = await ensureContactPermissionWithDisclosure(true);
+                        if (status === 'granted') {
+                          const count = await syncUserContacts(true);
+                          if (count > 0) {
+                            Alert.alert(i18n.t('success'), i18n.t('contact_sync_success', { count }));
+                          } else {
+                            Alert.alert(i18n.t('info'), i18n.t('contact_sync_none'));
+                          }
+                        }
+                      } catch (e) {
+                        console.warn('Erreur sync contacts:', e);
+                      }
+                    }}
+                    style={[styles.emptyActionRow, { marginTop: 10 }]}
+                  >
+                    <Ionicons name="people-outline" size={19} color={isNightMode ? '#ebb89b' : '#604a3e'} style={styles.emptyActionIcon} />
+                    <Text style={[styles.emptyActionText, isNightMode && { color: '#f5e6dc' }]}>{i18n.t('contact_sync_button')}</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={0.85}
                     onPress={() => {
                       // Ouvrir la même page profil que le header (vue interne dans index.tsx)
                       DeviceEventEmitter.emit('OPEN_PROFILE_VIEW');
@@ -4513,6 +4536,29 @@ useEffect(() => {
                     >
                       <Ionicons name="search" size={18} color={isNightMode ? '#ebb89b' : '#604a3e'} style={styles.emptyActionIcon} />
                       <Text style={[styles.emptyActionText, isNightMode && { color: '#f5e6dc' }]}>{i18n.t('empty_friendlist_search_pseudo')}</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={async () => {
+                        try {
+                          const status = await ensureContactPermissionWithDisclosure(true);
+                          if (status === 'granted') {
+                            const count = await syncUserContacts(true);
+                            if (count > 0) {
+                              Alert.alert(i18n.t('success'), i18n.t('contact_sync_success', { count }));
+                            } else {
+                              Alert.alert(i18n.t('info'), i18n.t('contact_sync_none'));
+                            }
+                          }
+                        } catch (e) {
+                          console.warn('Erreur sync contacts:', e);
+                        }
+                      }}
+                      style={[styles.emptyActionRow, { marginTop: 10 }]}
+                    >
+                      <Ionicons name="people-outline" size={19} color={isNightMode ? '#ebb89b' : '#604a3e'} style={styles.emptyActionIcon} />
+                      <Text style={[styles.emptyActionText, isNightMode && { color: '#f5e6dc' }]}>{i18n.t('contact_sync_button')}</Text>
                     </TouchableOpacity>
                   </View>
                 )}

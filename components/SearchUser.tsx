@@ -26,6 +26,9 @@ import i18n from '../lib/i18n';
 import { useAppStore } from '../lib/store';
 import { sendFriendRequestNotification } from '../lib/sendProut';
 import { playSound } from '@/lib/audioService';
+import * as Contacts from 'expo-contacts';
+import { ensureContactPermissionWithDisclosure } from '../lib/contactConsent';
+import { syncUserContacts } from '../lib/contactSync';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MODAL_MAX_HEIGHT = SCREEN_HEIGHT * 0.85;
@@ -35,7 +38,8 @@ const ROW_HEIGHT_ESTIMATE = 62;
 const MAX_VISIBLE_ROWS = 12;
 
 export function SearchUser({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-  const [activeTab, setActiveTab] = useState<'username' | 'qrcode'>('username');
+  const [activeTab, setActiveTab] = useState<'username' | 'contacts' | 'qrcode'>('username');
+  const [syncingContacts, setSyncingContacts] = useState(false);
   const [qrMode, setQrMode] = useState<'my_code' | 'scan'>('my_code');
   const [scanned, setScanned] = useState(false);
   const isProcessingScanRef = useRef(false);
@@ -361,9 +365,31 @@ export function SearchUser({ visible, onClose }: { visible: boolean; onClose: ()
     }
   };
 
+  const handleManualContactSync = async () => {
+    try {
+      setSyncingContacts(true);
+      const status = await ensureContactPermissionWithDisclosure(true);
+      if (status === Contacts.PermissionStatus.GRANTED) {
+        const count = await syncUserContacts(true);
+        queryClient.invalidateQueries({ queryKey: ['friends'] });
+        if (count > 0) {
+          Alert.alert(i18n.t('success'), i18n.t('contact_sync_success', { count }));
+        } else {
+          Alert.alert(i18n.t('info'), i18n.t('contact_sync_none'));
+        }
+      }
+    } catch (e) {
+      console.warn('Erreur sync contacts:', e);
+    } finally {
+      setSyncingContacts(false);
+    }
+  };
+
   const currentModalHeight =
     activeTab === 'qrcode'
       ? MODAL_QR_HEIGHT
+      : activeTab === 'contacts'
+      ? Math.min(SCREEN_HEIGHT * 0.58, 430)
       : Math.min(
           MODAL_MAX_HEIGHT,
           MODAL_MIN_HEIGHT + Math.min(results.length, MAX_VISIBLE_ROWS) * ROW_HEIGHT_ESTIMATE
@@ -387,7 +413,7 @@ export function SearchUser({ visible, onClose }: { visible: boolean; onClose: ()
             </TouchableOpacity>
           </View>
 
-          {/* Onglets Option A : Par pseudo / QR Code */}
+          {/* Onglets : Par pseudo / Contacts / QR Code */}
           <View style={styles.tabsBar}>
             <TouchableOpacity
               style={[styles.tabButton, activeTab === 'username' && styles.tabButtonActive]}
@@ -396,12 +422,28 @@ export function SearchUser({ visible, onClose }: { visible: boolean; onClose: ()
             >
               <Ionicons
                 name="search"
-                size={16}
+                size={15}
                 color={activeTab === 'username' ? '#fff' : '#604a3e'}
-                style={{ marginRight: 6 }}
+                style={{ marginRight: 4 }}
               />
               <Text style={[styles.tabText, activeTab === 'username' && styles.tabTextActive]}>
                 {i18n.t('search_tab_username') || 'Par pseudo'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.tabButton, activeTab === 'contacts' && styles.tabButtonActive]}
+              onPress={() => setActiveTab('contacts')}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name="people"
+                size={15}
+                color={activeTab === 'contacts' ? '#fff' : '#604a3e'}
+                style={{ marginRight: 4 }}
+              />
+              <Text style={[styles.tabText, activeTab === 'contacts' && styles.tabTextActive]}>
+                {i18n.t('search_tab_contacts') || 'Contacts'}
               </Text>
             </TouchableOpacity>
 
@@ -412,9 +454,9 @@ export function SearchUser({ visible, onClose }: { visible: boolean; onClose: ()
             >
               <Ionicons
                 name="qr-code"
-                size={16}
+                size={15}
                 color={activeTab === 'qrcode' ? '#fff' : '#604a3e'}
-                style={{ marginRight: 6 }}
+                style={{ marginRight: 4 }}
               />
               <Text style={[styles.tabText, activeTab === 'qrcode' && styles.tabTextActive]}>
                 {i18n.t('search_tab_qrcode') || 'QR Code'}
@@ -498,8 +540,38 @@ export function SearchUser({ visible, onClose }: { visible: boolean; onClose: ()
                 />
               )}
             </View>
+          ) : activeTab === 'contacts' ? (
+            <View style={styles.contactsContainer}>
+              <View style={styles.contactsCard}>
+                <View style={styles.contactsIconWrap}>
+                  <Ionicons name="people-outline" size={38} color="#604a3e" />
+                </View>
+                <Text style={styles.contactsCardTitle}>
+                  {i18n.t('contact_sync_button')}
+                </Text>
+                <Text style={styles.contactsCardDesc}>
+                  {i18n.t('contact_sync_explainer')}
+                </Text>
+
+                <TouchableOpacity
+                  style={[styles.contactSyncBtn, syncingContacts && styles.searchButtonDisabled]}
+                  onPress={handleManualContactSync}
+                  disabled={syncingContacts}
+                  activeOpacity={0.8}
+                >
+                  {syncingContacts ? (
+                    <ActivityIndicator size="small" color="#fff" style={{ marginRight: 8 }} />
+                  ) : (
+                    <Ionicons name="sync-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
+                  )}
+                  <Text style={styles.contactSyncBtnText}>
+                    {syncingContacts ? i18n.t('loading') : i18n.t('contact_sync_button')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           ) : (
-            /* Contenu Onglet 2 : QR Code (Mon Code / Scanner) */
+            /* Contenu Onglet 3 : QR Code (Mon Code / Scanner) */
             <View style={styles.qrContainer}>
               {/* Sous-sélecteur : Mon QR Code / Scanner un ami */}
               <View style={styles.qrSubToggle}>
@@ -691,10 +763,10 @@ const styles = StyleSheet.create({
   },
   tabsBar: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
+    paddingHorizontal: 10,
     paddingVertical: 10,
     backgroundColor: 'rgba(255, 255, 255, 0.5)',
-    gap: 10,
+    gap: 6,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(96, 74, 62, 0.08)',
   },
@@ -704,7 +776,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingHorizontal: 4,
     borderRadius: 14,
     backgroundColor: '#EFE7DC',
   },
@@ -712,7 +784,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#604a3e',
   },
   tabText: {
-    fontSize: 14,
+    fontSize: 12.5,
     fontWeight: '600',
     color: '#604a3e',
   },
@@ -1014,5 +1086,69 @@ const styles = StyleSheet.create({
     color: '#604a3e',
     fontSize: 12,
     fontWeight: '600',
+  },
+
+  // --- Styles Contacts ---
+  contactsContainer: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  contactsCard: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(96, 74, 62, 0.1)',
+  },
+  contactsIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(96, 74, 62, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  contactsCardTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#4A3428',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  contactsCardDesc: {
+    fontSize: 13.5,
+    color: '#604a3e',
+    textAlign: 'center',
+    lineHeight: 19,
+    opacity: 0.85,
+    marginBottom: 20,
+    paddingHorizontal: 6,
+  },
+  contactSyncBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#604a3e',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    width: '100%',
+  },
+  contactSyncBtnText: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+    fontSize: 14,
   },
 });

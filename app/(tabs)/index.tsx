@@ -14,6 +14,8 @@ import { safeReplace } from '@/lib/navigation';
 import { registerPushTokenForUser } from '@/lib/pushTokenRegistration';
 import { recordAppOpen } from '@/lib/userExperienceTracking';
 import { syncUserContacts } from '@/lib/contactSync';
+import { ensureContactPermissionWithDisclosure } from '@/lib/contactConsent';
+import * as Contacts from 'expo-contacts';
 import { supabase } from '@/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
@@ -29,7 +31,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const appVersion = appJson.expo.version ?? Constants.expoConfig?.version ?? '1.1.51';
+  const appVersion = appJson.expo.version ?? Constants.expoConfig?.version ?? '1.1.52';
   
   const isLoadedRef = useRef(false);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -763,6 +765,27 @@ useEffect(() => {
     }
   };
 
+  const handleFindFriend = useCallback(async () => {
+    setActiveView('list');
+    try {
+      const { status: existingStatus } = await Contacts.getPermissionsAsync();
+      if (existingStatus !== Contacts.PermissionStatus.GRANTED) {
+        const newStatus = await ensureContactPermissionWithDisclosure(true);
+        if (newStatus === Contacts.PermissionStatus.GRANTED) {
+          const count = await syncUserContacts(true);
+          if (count > 0) {
+            Alert.alert(i18n.t('success'), i18n.t('contact_sync_success', { count }));
+          }
+        }
+      } else {
+        void syncUserContacts(true);
+      }
+    } catch (e) {
+      console.warn('⚠️ Erreur handleFindFriend contacts:', e);
+    }
+    setShowSearch(true);
+  }, [setActiveView]);
+
   // Mémoïser le header pour éviter qu'il ne re-render pendant qu'on tape dans la recherche
   const headerComponent = useMemo(() => (
     <AppHeader
@@ -774,10 +797,7 @@ useEffect(() => {
       isSilentMode={isSilentMode}
       isSearchVisible={isSearchVisible}
       onSearchToggle={toggleSearchVisibility}
-      onAddFriendPress={() => {
-        setActiveView('list');
-        setShowSearch(true);
-      }}
+      onAddFriendPress={handleFindFriend}
       onGroopProotPress={() => {
         setActiveView('list');
         setShowGroopProotModal(true);
@@ -796,7 +816,7 @@ useEffect(() => {
       shakeX={shakeX}
       shakeY={shakeY}
     />
-  ), [currentPseudo, currentAvatarUrl, activeView, isZenMode, isSilentMode, isSearchVisible, toggleSearchVisibility, setActiveView, setShowGroopProotModal, isBlastModeActive, toggleBlastMode, applyZenMode, setSilentMode, handleSoundcheckPress, toggleProfileMenu, shakeX, shakeY]);
+  ), [currentPseudo, currentAvatarUrl, activeView, isZenMode, isSilentMode, isSearchVisible, toggleSearchVisibility, handleFindFriend, setShowGroopProotModal, isBlastModeActive, toggleBlastMode, applyZenMode, setSilentMode, handleSoundcheckPress, toggleProfileMenu, shakeX, shakeY]);
 
   return (
     <>
@@ -843,12 +863,13 @@ useEffect(() => {
                             { label: zenMenuLabel, icon: zenModeEnabled ? 'moon' : 'moon-outline', onPress: () => { void toggleZenMode(); }, iconColor: zenModeEnabled ? '#ebb89b' : (isNightMode ? '#f5e6dc' : '#604a3e') },
                              { label: i18n.t('silent_mode'), icon: isSilentMode ? 'volume-mute' : 'volume-mute-outline', onPress: () => { toggleSilentMode(); }, iconColor: isSilentMode ? '#ebb89b' : (isNightMode ? '#f5e6dc' : '#604a3e') },
                              { label: i18n.t('resonance_dashboard_menu'), icon: 'trophy', onPress: () => { setActiveView('list'); router.push('/complicity'); }, iconColor: isNightMode ? '#f5e6dc' : '#604a3e' },
+                            { label: i18n.t('search_friend'), icon: 'person-add-outline', onPress: handleFindFriend, iconColor: isNightMode ? '#f5e6dc' : '#604a3e' },
                             { label: i18n.t('invite_friend'), icon: 'share-social-outline', onPress: handleShare, iconColor: isNightMode ? '#f5e6dc' : '#604a3e' },
                              { label: i18n.t('review_app_functions'), icon: 'help-circle-outline', onPress: () => setActiveView('tutorial'), iconColor: isNightMode ? '#f5e6dc' : '#604a3e' },
                              { label: i18n.t('who_is_who'), icon: 'eye-outline', onPress: () => { setShowIdentity(true); setActiveView('list'); }, iconColor: isNightMode ? '#f5e6dc' : '#604a3e' },
                              { label: i18n.t('blocked_friends_menu'), icon: 'ban-outline', onPress: () => { setShowBlockedUsers(true); setActiveView('list'); }, iconColor: isNightMode ? '#f5e6dc' : '#604a3e' },
                              { label: i18n.t('haptic_feedback'), icon: isHapticEnabled ? 'phone-portrait' : 'phone-portrait-outline', onPress: toggleHapticFeedback, iconColor: isHapticEnabled ? '#ebb89b' : (isNightMode ? '#f5e6dc' : '#604a3e') },
-                             { label: i18n.t('night_mode'), icon: isNightMode ? 'moon' : 'moon-outline', onPress: toggleNightMode, iconColor: isNightMode ? '#ebb89b' : (isNightMode ? '#f5e6dc' : '#604a3e') },
+                             { label: isNightMode ? i18n.t('light_mode') : i18n.t('night_mode'), icon: isNightMode ? 'color-palette' : 'color-palette-outline', onPress: toggleNightMode, iconColor: isNightMode ? '#ebb89b' : (isNightMode ? '#f5e6dc' : '#604a3e') },
                              { label: i18n.t('privacy_policy_menu'), icon: 'document-text-outline', onPress: () => { setShowPrivacy(true); setActiveView('list'); }, iconColor: isNightMode ? '#f5e6dc' : '#604a3e' },
                            ].map((item, index) => (
                              <TouchableOpacity 
@@ -924,13 +945,14 @@ useEffect(() => {
                             { label: zenMenuLabel, icon: zenModeEnabled ? 'moon' : 'moon-outline', onPress: () => { void toggleZenMode(); }, iconColor: zenModeEnabled ? '#ebb89b' : (isNightMode ? '#f5e6dc' : '#604a3e') },
                             { label: i18n.t('silent_mode'), icon: isSilentMode ? 'volume-mute' : 'volume-mute-outline', onPress: () => { toggleSilentMode(); }, iconColor: isSilentMode ? '#ebb89b' : (isNightMode ? '#f5e6dc' : '#604a3e') },
                             { label: i18n.t('resonance_dashboard_menu'), icon: 'trophy', onPress: () => { setActiveView('list'); router.push('/complicity'); }, iconColor: isNightMode ? '#f5e6dc' : '#604a3e' },
+                            { label: i18n.t('search_friend'), icon: 'person-add-outline', onPress: handleFindFriend, iconColor: isNightMode ? '#f5e6dc' : '#604a3e' },
                             { label: i18n.t('invite_friend'), icon: 'share-social-outline', onPress: handleShare, iconColor: isNightMode ? '#f5e6dc' : '#604a3e' },
                             { label: i18n.t('review_app_functions'), icon: 'help-circle-outline', onPress: () => setActiveView('tutorial'), iconColor: isNightMode ? '#f5e6dc' : '#604a3e' },
                             { label: i18n.t('who_is_who'), icon: 'eye-outline', onPress: () => { setShowIdentity(true); setActiveView('list'); }, iconColor: isNightMode ? '#f5e6dc' : '#604a3e' },
                             { label: i18n.t('blocked_friends_menu'), icon: 'ban-outline', onPress: () => { setShowBlockedUsers(true); setActiveView('list'); }, iconColor: isNightMode ? '#f5e6dc' : '#604a3e' },
                             // Retour haptique uniquement sur iOS
                             { label: i18n.t('haptic_feedback'), icon: isHapticEnabled ? 'phone-portrait' : 'phone-portrait-outline', onPress: toggleHapticFeedback, iconColor: isHapticEnabled ? '#ebb89b' : (isNightMode ? '#f5e6dc' : '#604a3e') },
-                            { label: i18n.t('night_mode'), icon: isNightMode ? 'moon' : 'moon-outline', onPress: toggleNightMode, iconColor: isNightMode ? '#ebb89b' : (isNightMode ? '#f5e6dc' : '#604a3e') },
+                            { label: isNightMode ? i18n.t('light_mode') : i18n.t('night_mode'), icon: isNightMode ? 'color-palette' : 'color-palette-outline', onPress: toggleNightMode, iconColor: isNightMode ? '#ebb89b' : (isNightMode ? '#f5e6dc' : '#604a3e') },
                             { label: i18n.t('privacy_policy_menu'), icon: 'document-text-outline', onPress: () => { setShowPrivacy(true); setActiveView('list'); }, iconColor: isNightMode ? '#f5e6dc' : '#604a3e' },
                         ].map((item, index) => (
                           <TouchableOpacity 

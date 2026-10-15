@@ -1,6 +1,7 @@
 // app/Invitation.tsx
 import * as Contacts from 'expo-contacts';
 import { ensureContactPermissionWithDisclosure } from '../lib/contactConsent';
+import { syncUserContacts } from '../lib/contactSync';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, FlatList, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -389,15 +390,14 @@ export default function InvitationScreen() {
       setLoading(true);
 
       // Vérifier la permission avec divulgation
-      const status = await ensureContactPermissionWithDisclosure();
+      const status = await ensureContactPermissionWithDisclosure(true);
       if (status !== 'granted') {
-        Alert.alert(
-          i18n.t('error'),
-          i18n.t('contacts_access_required')
-        );
         setLoading(false);
         return;
       }
+
+      // Synchroniser les contacts avec Supabase pour connecter automatiquement les amis
+      syncUserContacts(true).catch(() => {});
 
       // Récupérer tous les contacts
       const { data } = await Contacts.getContactsAsync({

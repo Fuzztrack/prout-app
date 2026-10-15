@@ -486,6 +486,17 @@ const withAndroidProutMessaging = (config) => {
         'tools:node': 'remove',
       },
     });
+
+    // Supprimer WRITE_CONTACTS avec tools:node="remove" (l'application lit uniquement les contacts)
+    androidManifest.manifest['uses-permission'] = androidManifest.manifest['uses-permission'].filter(
+      (perm) => !(perm.$ && perm.$['android:name'] === 'android.permission.WRITE_CONTACTS')
+    );
+    androidManifest.manifest['uses-permission'].push({
+      $: {
+        'android:name': 'android.permission.WRITE_CONTACTS',
+        'tools:node': 'remove',
+      },
+    });
     
     const mainApplication = androidManifest.manifest.application[0];
     

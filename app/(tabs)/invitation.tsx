@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { safePush } from '../../lib/navigation';
 import { supabase } from '../../lib/supabase';
+import { ensureContactPermissionWithDisclosure } from '../../lib/contactConsent';
+import { syncUserContacts } from '../../lib/contactSync';
 import i18n from '../../lib/i18n';
 
 export default function InvitationScreen() {
@@ -34,6 +36,33 @@ export default function InvitationScreen() {
     };
     getPseudo();
   }, []);
+
+  const [syncingContacts, setSyncingContacts] = useState(false);
+
+  const handleSyncContacts = async () => {
+    try {
+      setSyncingContacts(true);
+      const status = await ensureContactPermissionWithDisclosure(true);
+      if (status === 'granted') {
+        const foundCount = await syncUserContacts(true);
+        if (foundCount > 0) {
+          Alert.alert(
+            i18n.t('success'),
+            i18n.t('contact_sync_success', { count: foundCount })
+          );
+        } else {
+          Alert.alert(
+            i18n.t('info'),
+            i18n.t('contact_sync_none')
+          );
+        }
+      }
+    } catch (e) {
+      console.warn('Erreur synchronisation contacts:', e);
+    } finally {
+      setSyncingContacts(false);
+    }
+  };
 
   const onShare = async () => {
     try {
@@ -75,6 +104,22 @@ export default function InvitationScreen() {
             Plus on est de fous, plus on rit ! Partage ton pseudo pour retrouver tes amis facilement. Tu peux aussi les chercher avec leurs pseudos.
           </Text>
         </View>
+
+        <TouchableOpacity 
+          style={styles.searchButton} 
+          onPress={handleSyncContacts}
+          disabled={syncingContacts}
+          activeOpacity={0.8}
+        >
+          {syncingContacts ? (
+            <ActivityIndicator size="small" color="#604a3e" style={{ marginRight: 10 }} />
+          ) : (
+            <Ionicons name="people-outline" size={24} color="#604a3e" />
+          )}
+          <Text style={styles.searchText}>
+            {syncingContacts ? i18n.t('loading') : i18n.t('contact_sync_button')}
+          </Text>
+        </TouchableOpacity>
 
         <TouchableOpacity style={styles.shareButton} onPress={onShare}>
           <Ionicons name="share-outline" size={24} color="#604a3e" />

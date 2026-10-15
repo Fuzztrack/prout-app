@@ -176,7 +176,9 @@ const i18n = new I18n({
     request_sent: "Demande d'ami envoyée !",
     already_linked: "Vous êtes déjà en lien avec cette personne.",
     search_tab_username: "Par pseudo",
+    search_tab_contacts: "Contacts",
     search_tab_qrcode: "QR Code",
+    contact_sync_explainer: "Retrouvez automatiquement vos amis enregistrés dans vos contacts qui utilisent déjà Proot !.",
     my_qr_code: "Mon QR Code",
     scan_qr_code: "Scanner un ami",
     qr_code_instruction: "Montre ce code à ton ami pour qu'il te scanne",
@@ -609,11 +611,16 @@ const i18n = new I18n({
     accept_notifications_message: "Clique sur 'C'est parti' puis autorise les notifications pour ne rien rater des attaques de tes potes !",
     authorize_notifications: "C'est parti, j'active ! 🚀",
 
-    // Contact Permission
-    contact_permission_title: "Ça reste en nous !",
-    contact_permission_message: "Pour identifier automatiquement les amis qui utilisent déjà Proot !, l'app doit envoyer les numéros de vos contacts vers nos serveurs sécurisés.\n\nC'est optionnel : vous pourrez toujours ajouter des amis manuellement par leur pseudo plus tard.",
-    contact_consent_title: "Contacts : utilisation et partage",
-    contact_consent_message: "Pour identifier automatiquement les amis qui utilisent déjà Proot !, l'app doit envoyer les numéros de vos contacts vers nos serveurs sécurisés.\n\nC'est optionnel : vous pourrez toujours ajouter des amis manuellement par leur pseudo plus tard.",
+    // Contact Permission & Prominent Disclosure (Google Play User Data Policy)
+    contact_permission_title: "Synchronisation des contacts",
+    contact_permission_message: "Proot ! collecte et téléverse les numéros de téléphone de votre carnet d'adresses vers nos serveurs sécurisés (https://utfwujyymaikraaigvuv.supabase.co) pour identifier automatiquement et connecter vos amis qui utilisent déjà l'application.\n\nVos contacts ne sont jamais vendus, loués ni partagés avec des tiers non autorisés.\n\nCette fonctionnalité est facultative : vous pouvez refuser et continuer à utiliser l'application en ajoutant vos amis manuellement par leur pseudo ou QR code.",
+    contact_consent_title: "Synchronisation des contacts",
+    contact_consent_message: "Proot ! collecte et téléverse les numéros de téléphone de votre carnet d'adresses vers nos serveurs sécurisés (https://utfwujyymaikraaigvuv.supabase.co) pour identifier automatiquement et connecter vos amis qui utilisent déjà l'application.\n\nVos contacts ne sont jamais vendus, loués ni partagés avec des tiers non autorisés.\n\nCette fonctionnalité est facultative : vous pouvez refuser et continuer à utiliser l'application en ajoutant vos amis manuellement par leur pseudo ou QR code.\n\nAcceptez-vous l'accès et le téléversement de vos contacts ?",
+    contact_consent_accept: "Accepter et continuer",
+    contact_consent_refuse: "Plus tard",
+    contact_sync_button: "Retrouver mes amis via mes contacts",
+    contact_sync_success: "%{count} ami(s) trouvé(s) et connecté(s) !",
+    contact_sync_none: "Aucun de vos contacts n'est encore sur Proot ! Invitez-les pour qu'ils vous rejoignent.",
     refuse: "Refuser",
     next: "Suivant",
 
@@ -666,8 +673,9 @@ const i18n = new I18n({
     blast_mode_swipe_hint: "👉 Swipe sur l'un d'eux pour envoyer à tous en même temps !",
     blast_toast_sent: "💥 Blast (%{count} amis) : %{sound} !",
 
-    // Thème sombre
+    // Thème sombre / clair
     night_mode: "Thème sombre",
+    light_mode: "Thème clair",
     night_mode_on: "Thème sombre activé",
     night_mode_off: "Thème sombre désactivé",
   },
@@ -842,7 +850,9 @@ const i18n = new I18n({
     request_sent: "Friend request sent!",
     already_linked: "You are already linked with this person.",
     search_tab_username: "By username",
+    search_tab_contacts: "Contacts",
     search_tab_qrcode: "QR Code",
+    contact_sync_explainer: "Automatically find friends from your address book who are already using Proot !.",
     my_qr_code: "My QR Code",
     scan_qr_code: "Scan a friend",
     qr_code_instruction: "Show this code to your friend to be scanned",
@@ -1300,11 +1310,16 @@ const i18n = new I18n({
     accept_notifications_message: "Tap 'Let's go' and allow notifications so you never miss a friend's blast!",
     authorize_notifications: "Let's go, turn it on! 🚀",
 
-    // Contact Permission
-    contact_permission_title: "It stays with us!",
-    contact_permission_message: "To automatically identify friends already using Proot !, the app needs to upload phone numbers from your contacts to our secure servers.\n\nThis is optional: You can still add friends manually by their username later.",
-    contact_consent_title: "Contacts: use and sharing",
-    contact_consent_message: "To automatically identify friends already using Proot !, the app needs to upload phone numbers from your contacts to our secure servers.\n\nThis is optional: You can still add friends manually by their username later.",
+    // Contact Permission & Prominent Disclosure (Google Play User Data Policy)
+    contact_permission_title: "Contact Synchronization",
+    contact_permission_message: "Proot ! collects and uploads phone numbers from your contact list to our secure servers (https://utfwujyymaikraaigvuv.supabase.co) to automatically find and connect friends who are already using the app.\n\nYour contacts are never sold, rented, or shared with unauthorized third parties.\n\nThis feature is optional: you can decline and continue using the app by adding friends manually via their username or QR code.",
+    contact_consent_title: "Contact Synchronization",
+    contact_consent_message: "Proot ! collects and uploads phone numbers from your contact list to our secure servers (https://utfwujyymaikraaigvuv.supabase.co) to automatically find and connect friends who are already using the app.\n\nYour contacts are never sold, rented, or shared with unauthorized third parties.\n\nThis feature is optional: you can decline and continue using the app by adding friends manually via their username or QR code.\n\nDo you accept contact access and upload?",
+    contact_consent_accept: "Accept & continue",
+    contact_consent_refuse: "Not now",
+    contact_sync_button: "Find friends via contacts",
+    contact_sync_success: "%{count} friend(s) found and connected!",
+    contact_sync_none: "None of your contacts are on Proot ! yet. Invite them to join!",
     refuse: "Refuse",
     next: "Next",
 
@@ -1357,8 +1372,9 @@ const i18n = new I18n({
     blast_mode_swipe_hint: "👉 Swipe one of them to blast everyone at once!",
     blast_toast_sent: "💥 Blast (%{count} friends): %{sound}!",
 
-    // Dark Theme
+    // Dark / Light Theme
     night_mode: "Dark Theme",
+    light_mode: "Light Theme",
     night_mode_on: "Dark Theme enabled",
     night_mode_off: "Dark Theme disabled",
   },
@@ -1531,7 +1547,9 @@ const i18n = new I18n({
     request_sent: "¡Solicitud de amistad enviada!",
     already_linked: "Ya estás vinculado con esta persona.",
     search_tab_username: "Por usuario",
+    search_tab_contacts: "Contactos",
     search_tab_qrcode: "Código QR",
+    contact_sync_explainer: "Encuentra automáticamente amigos de tu agenda que ya usan Proot !.",
     my_qr_code: "Mi código QR",
     scan_qr_code: "Escanear a un amigo",
     qr_code_instruction: "Muestra este código a tu amigo para que te escanee",
@@ -1965,11 +1983,16 @@ const i18n = new I18n({
     accept_notifications_message: "¡Pulsa '¡Vamos!' y permite las notificaciones para no perderte ningún ataque de tus amigos!",
     authorize_notifications: "¡Vamos, activar! 🚀",
 
-    // Contact Permission
-    contact_permission_title: "¡Esto queda entre nosotros!",
-    contact_permission_message: "Para identificar automáticamente a los amigos que ya usan Proot !, la aplicación debe enviar los números de tus contactos a nuestros servidores seguros.\n\nEs opcional: siempre podrás añadir amigos manualmente por su nombre de usuario más tarde.",
-    contact_consent_title: "Contactos: uso y compartición",
-    contact_consent_message: "Para identificar automáticamente a los amigos que ya usan Proot !, la aplicación debe enviar los números de tus contactos a nuestros servidores seguros.\n\nEs opcional: siempre podrás añadir amigos manualmente por su nombre de usuario más tarde.",
+    // Contact Permission & Prominent Disclosure (Google Play User Data Policy)
+    contact_permission_title: "Sincronización de contactos",
+    contact_permission_message: "Proot ! recopila y transfiere los números de teléfono de tu libreta de contactos a nuestros servidores seguros (https://utfwujyymaikraaigvuv.supabase.co) para identificar y conectar automáticamente a tus amigos que ya usan la aplicación.\n\nTus contactos nunca se venden, alquilan ni comparten con terceros no autorizados.\n\nEsta función es opcional: puedes rechazarla y seguir usando la aplicación añadiendo amigos manualmente con su nombre de usuario o código QR.",
+    contact_consent_title: "Sincronización de contactos",
+    contact_consent_message: "Proot ! recopila y transfiere los números de teléfono de tu libreta de contactos a nuestros servidores seguros (https://utfwujyymaikraaigvuv.supabase.co) para identificar y conectar automáticamente a tus amigos que ya usan la aplicación.\n\nTus contactos nunca se venden, alquilan ni comparten con terceros no autorizados.\n\nEsta función es opcional: puedes rechazarla y seguir usando la aplicación añadiendo amigos manualmente con su nombre de usuario o código QR.\n\n¿Aceptas el acceso y la transferencia de tus contactos?",
+    contact_consent_accept: "Aceptar y continuar",
+    contact_consent_refuse: "Más tarde",
+    contact_sync_button: "Encontrar amigos por contactos",
+    contact_sync_success: "¡%{count} amigo(s) encontrado(s) y conectado(s)!",
+    contact_sync_none: "Ninguno de tus contactos está en Proot ! todavía. ¡Invítalos a unirse!",
     refuse: "Rechazar",
     next: "Siguiente",
 
@@ -2022,8 +2045,9 @@ const i18n = new I18n({
     blast_mode_swipe_hint: "👉 ¡Desliza sobre uno de ellos para enviar a todos a la vez!",
     blast_toast_sent: "💥 ¡Blast (%{count} amigos): %{sound}!",
 
-    // Tema oscuro
+    // Tema oscuro / claro
     night_mode: "Tema oscuro",
+    light_mode: "Tema claro",
     night_mode_on: "Tema oscuro activado",
     night_mode_off: "Tema oscuro desactivado",
   },
@@ -2196,7 +2220,9 @@ const i18n = new I18n({
     request_sent: "Pedido enviado!",
     already_linked: "Vocês já tão conectados.",
     search_tab_username: "Por usuário",
+    search_tab_contacts: "Contatos",
     search_tab_qrcode: "Código QR",
+    contact_sync_explainer: "Encontre automaticamente amigos da sua lista de contatos que já usam o Proot !.",
     my_qr_code: "Meu código QR",
     scan_qr_code: "Escanear um amigo",
     qr_code_instruction: "Mostre este código ao seu amigo para ele escanear",
@@ -2630,11 +2656,16 @@ const i18n = new I18n({
     accept_notifications_message: "Toque em 'Bora lá' e permita as notificações para não perder nenhum ataque dos seus amigos!",
     authorize_notifications: "Bora lá, ativar! 🚀",
 
-    // Contact Permission
-    contact_permission_title: "Fica entre nós!",
-    contact_permission_message: "Para achar amigos que já usam o Proot ! automaticamente, o app precisa enviar os números dos seus contatos pros nossos servidores seguros.\n\nÉ opcional: você sempre pode adicionar amigos manualmente pelo pseudo depois.",
-    contact_consent_title: "Contatos: uso e compartilhamento",
-    contact_consent_message: "Para achar amigos que já usam o Proot ! automaticamente, o app precisa enviar os números dos seus contatos pros nossos servidores seguros.\n\nÉ opcional: você sempre pode adicionar amigos manualmente pelo pseudo depois.",
+    // Contact Permission & Prominent Disclosure (Google Play User Data Policy)
+    contact_permission_title: "Sincronização de contatos",
+    contact_permission_message: "O Proot ! coleta e envia os números de telefone da sua lista de contatos para nossos servidores seguros (https://utfwujyymaikraaigvuv.supabase.co) para encontrar e conectar automaticamente os amigos que já usam o app.\n\nSeus contatos nunca são vendidos, alugados nem compartilhados com terceiros não autorizados.\n\nEste recurso é opcional: você pode recusar e continuar usando o app adicionando amigos manualmente pelo nome de usuário ou código QR.",
+    contact_consent_title: "Sincronização de contatos",
+    contact_consent_message: "O Proot ! coleta e envia os números de telefone da sua lista de contatos para nossos servidores seguros (https://utfwujyymaikraaigvuv.supabase.co) para encontrar e conectar automaticamente os amigos que já usam o app.\n\nSeus contatos nunca são vendidos, alugados nem compartilhados com terceiros não autorizados.\n\nEste recurso é opcional: você pode recusar e continuar usando o app adicionando amigos manualmente pelo nome de usuário ou código QR.\n\nVocê aceita o acesso e o envio dos seus contatos?",
+    contact_consent_accept: "Aceitar e continuar",
+    contact_consent_refuse: "Mais tarde",
+    contact_sync_button: "Achar amigos pelos contatos",
+    contact_sync_success: "%{count} amigo(s) encontrado(s) e conectado(s)!",
+    contact_sync_none: "Nenhum dos seus contatos está no Proot ! ainda. Convide-os para entrar!",
     refuse: "Recusar",
     next: "Próximo",
 
@@ -2687,8 +2718,9 @@ const i18n = new I18n({
     blast_mode_swipe_hint: "👉 Deslize em um deles para enviar a todos ao mesmo tempo!",
     blast_toast_sent: "💥 Blast (%{count} amigos): %{sound}!",
 
-    // Tema escuro
+    // Tema escuro / claro
     night_mode: "Tema escuro",
+    light_mode: "Tema claro",
     night_mode_on: "Tema escuro ativado",
     night_mode_off: "Tema escuro desativado",
   },
@@ -2861,7 +2893,9 @@ const i18n = new I18n({
     request_sent: "Anfrage gesendet!",
     already_linked: "Ihr seid bereits verbunden.",
     search_tab_username: "Nach Benutzer",
+    search_tab_contacts: "Kontakte",
     search_tab_qrcode: "QR-Code",
+    contact_sync_explainer: "Finde automatisch Freunde aus deinem Adressbuch, die Proot ! bereits nutzen.",
     my_qr_code: "Mein QR-Code",
     scan_qr_code: "Freund scannen",
     qr_code_instruction: "Zeige diesen Code deinem Freund zum Scannen",
@@ -3288,11 +3322,16 @@ const i18n = new I18n({
     accept_notifications_message: "Tippe auf 'Los geht\\'s' und erlaube Benachrichtigungen, um keinen Angriff deiner Freunde zu verpassen!",
     authorize_notifications: "Los geht\\'s, aktivieren! 🚀",
 
-    // Contact Permission
-    contact_permission_title: "Bleib bei uns!",
-    contact_permission_message: "Um Freunde, die Proot ! bereits nutzen, automatisch zu erkennen, muss die App Telefonnummern aus deinen Kontakten auf unsere sicheren Server hochladen.\n\nDas ist optional: Du kannst später weiterhin Freunde manuell über ihren Benutzernamen hinzufügen.",
-    contact_consent_title: "Kontakte: Verwendung und Teilen",
-    contact_consent_message: "Um Freunde, die Proot ! bereits nutzen, automatisch zu erkennen, muss die App Telefonnummern aus deinen Kontakten auf unsere sicheren Server hochladen.\n\nDas ist optional: Du kannst später weiterhin Freunde manuell über ihren Benutzernamen hinzufügen.",
+    // Contact Permission & Prominent Disclosure (Google Play User Data Policy)
+    contact_permission_title: "Kontaktsynchronisierung",
+    contact_permission_message: "Proot ! erfasst und überträgt die Telefonnummern aus Ihrem Adressbuch auf unsere sicheren Server (https://utfwujyymaikraaigvuv.supabase.co), um automatisch Freunde zu finden und zu verbinden, die die App bereits nutzen.\n\nIhre Kontakte werden niemals verkauft, vermietet oder an unbefugte Dritte weitergegeben.\n\nDiese Funktion ist optional: Sie können ablehnen und die App weiterhin nutzen, indem Sie Freunde manuell über ihren Benutzernamen oder QR-Code hinzufügen.",
+    contact_consent_title: "Kontaktsynchronisierung",
+    contact_consent_message: "Proot ! erfasst und überträgt die Telefonnummern aus Ihrem Adressbuch auf unsere sicheren Server (https://utfwujyymaikraaigvuv.supabase.co), um automatisch Freunde zu finden und zu verbinden, die die App bereits nutzen.\n\nIhre Kontakte werden niemals verkauft, vermietet oder an unbefugte Dritte weitergegeben.\n\nDiese Funktion ist optional: Sie können ablehnen und die App weiterhin nutzen, indem Sie Freunde manuell über ihren Benutzernamen oder QR-Code hinzufügen.\n\nStimmen Sie dem Zugriff und der Übertragung Ihrer Kontakte zu?",
+    contact_consent_accept: "Zustimmen und fortfahren",
+    contact_consent_refuse: "Später",
+    contact_sync_button: "Freunde über Kontakte finden",
+    contact_sync_success: "%{count} Freund(e) gefunden und verbunden!",
+    contact_sync_none: "Noch keine Freunde in deinen Kontakten gefunden. Lade sie ein!",
     refuse: "Ablehnen",
     next: "Weiter",
 
@@ -3345,8 +3384,9 @@ const i18n = new I18n({
     blast_mode_swipe_hint: "👉 Wische über einen von ihnen, um an alle gleichzeitig zu senden!",
     blast_toast_sent: "💥 Blast (%{count} Freunde): %{sound}!",
 
-    // Dunkles Design
+    // Dunkles / Helles Design
     night_mode: "Dunkles Design",
+    light_mode: "Helles Design",
     night_mode_on: "Dunkles Design aktiviert",
     night_mode_off: "Dunkles Design deaktiviert",
   },
@@ -3519,7 +3559,9 @@ const i18n = new I18n({
     request_sent: "Richiesta inviata!",
     already_linked: "Siete già collegati.",
     search_tab_username: "Per utente",
+    search_tab_contacts: "Contatti",
     search_tab_qrcode: "Codice QR",
+    contact_sync_explainer: "Trova automaticamente gli amici della tua rubrica che usano già Proot !.",
     my_qr_code: "Il mio codice QR",
     scan_qr_code: "Scansiona un amico",
     qr_code_instruction: "Mostra questo codice al tuo amico per farti scansionare",
@@ -3935,11 +3977,16 @@ const i18n = new I18n({
     accept_notifications_message: "Tocca 'Iniziamo!' e autorizza le notifiche per non perderti gli attacchi dei tuoi amici!",
     authorize_notifications: "Iniziamo, attiva! 🚀",
 
-    // Contact Permission
-    contact_permission_title: "Resta tra noi!",
-    contact_permission_message: "Per identificare automaticamente gli amici che usano già Proot !, l'app deve inviare i numeri dei tuoi contatti ai nostri server sicuri.\n\nÈ opcional: potrai sempre aggiungere amici manualmente tramite il loro nome utente in seguito.",
-    contact_consent_title: "Contacti: utilizzo e condivisione",
-    contact_consent_message: "Per identificare automaticamente gli amici che usano già Proot !, l'app deve inviare i numeri dei tuoi contatti ai nostri server sicuri.\n\nÈ opcional: potrai sempre aggiungere amici manualmente tramite il loro nome utente in seguito.",
+    // Contact Permission & Prominent Disclosure (Google Play User Data Policy)
+    contact_permission_title: "Sincronizzazione contatti",
+    contact_permission_message: "Proot ! raccoglie e carica i numeri di telefono della tua rubrica sui nostri server sicuri (https://utfwujyymaikraaigvuv.supabase.co) per trovare e connettere automaticamente gli amici che già utilizzano l'app.\n\nI tuoi contatti non vengono mai venduti, noleggiati né condivisi con terzi non autorizzati.\n\nQuesta funzione è facoltativa: puoi rifiutare e continuare a usare l'app aggiungendo gli amici manualmente tramite il loro nome utente o codice QR.",
+    contact_consent_title: "Sincronizzazione contatti",
+    contact_consent_message: "Proot ! raccoglie e carica i numeri di telefono della tua rubrica sui nostri server sicuri (https://utfwujyymaikraaigvuv.supabase.co) per trovare e connettere automaticamente gli amici che già utilizzano l'app.\n\nI tuoi contatti non vengono mai venduti, noleggiati né condivisi con terzi non autorizzati.\n\nQuesta funzione è facoltativa: puoi rifiutare e continuare a usare l'app aggiungendo gli amici manualmente tramite il loro nome utente o codice QR.\n\nAccetti l'accesso e il caricamento dei tuoi contatti?",
+    contact_consent_accept: "Accetta e continua",
+    contact_consent_refuse: "Più tardi",
+    contact_sync_button: "Trova amici tramite contatti",
+    contact_sync_success: "%{count} amico/i trovato/i e connesso/i!",
+    contact_sync_none: "Nessun amico trovato nei tuoi contatti per ora. Invitali a unirsi!",
     refuse: "Rifiuta",
     next: "Avanti",
 
@@ -3992,8 +4039,9 @@ const i18n = new I18n({
     blast_mode_swipe_hint: "👉 Fai swipe su uno di essi per inviare a tutti contemporaneamente!",
     blast_toast_sent: "💥 Blast (%{count} amici): %{sound}!",
 
-    // Tema scuro
+    // Tema scuro / chiaro
     night_mode: "Tema scuro",
+    light_mode: "Tema chiaro",
     night_mode_on: "Tema scuro attivato",
     night_mode_off: "Tema scuro disattivato",
   }

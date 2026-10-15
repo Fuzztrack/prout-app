@@ -25,8 +25,6 @@ import { saveLocaleToSupabase } from '@/lib/services/AuthService';
 import { initializeApp } from '@/lib/services/AppInitializer';
 import { supabase } from '@/lib/supabase';
 import { registerPushTokenForUser } from '@/lib/pushTokenRegistration';
-import { ensureContactPermissionWithDisclosure } from '@/lib/contactConsent';
-import { syncUserContacts } from '@/lib/contactSync';
 import { hasAcceptedEulaLocally } from '@/lib/eula';
 
 // Components & Screens
@@ -188,14 +186,6 @@ const RootLayout = () => {
       if (status === 'granted') {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user?.id) registerPushTokenForUser(session.user.id).catch(() => {});
-      }
-    } catch (e) {}
-
-    // 2. Contacts
-    try {
-      const contactStatus = await ensureContactPermissionWithDisclosure();
-      if (contactStatus === 'granted') {
-        syncUserContacts(true).catch(() => {});
       }
     } catch (e) {}
 
