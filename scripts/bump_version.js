@@ -19,13 +19,15 @@ function bumpVersion() {
     versionParts[versionParts.length - 1] = parseInt(versionParts[versionParts.length - 1], 10) + 1;
     newVersion = versionParts.join('.');
     appJson.expo.version = newVersion;
+    // Étiquette OTA : doit suivre la version store (policy appVersion interdite en bare workflow)
+    appJson.expo.runtimeVersion = newVersion;
     appJson.expo.ios.buildNumber = (parseInt(appJson.expo.ios.buildNumber, 10) + 1).toString();
   }
 
   appJson.expo.android.versionCode = parseInt(appJson.expo.android.versionCode, 10) + 1;
 
   fs.writeFileSync(APP_JSON_PATH, JSON.stringify(appJson, null, 2) + '\n');
-  console.log(`✅ app.json mis à jour : ${newVersion} (Build ${appJson.expo.ios.buildNumber} / VC ${appJson.expo.android.versionCode})`);
+  console.log(`✅ app.json mis à jour : ${newVersion} (Build ${appJson.expo.ios.buildNumber} / VC ${appJson.expo.android.versionCode} / runtime ${appJson.expo.runtimeVersion})`);
 
   if (isAndroidOnly) {
     console.log(`✅ Mode --android-only : version principale et iOS ignorés.`);
@@ -69,3 +71,8 @@ function bumpVersion() {
 
 const version = bumpVersion();
 console.log(`🚀 Version incrémentée avec succès vers ${version}`);
+
+if (!process.argv.includes('--android-only')) {
+  console.log(`\n📋 Une fois la version EN LIGNE sur les deux stores (100 % Android), dans Supabase SQL Editor :`);
+  console.log(`   UPDATE app_config SET latest_version = '${version}', updated_at = now() WHERE id = 1;\n`);
+}
