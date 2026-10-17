@@ -4,7 +4,7 @@ import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
 import * as SystemUI from 'expo-system-ui';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Animated, AppState, NativeModules, Platform, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, AppState, NativeModules, Platform, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -23,9 +23,16 @@ Sentry.init({
 import { initNotificationHandler, setupNotificationListeners, injectMessageFromNotification } from '@/lib/services/NotificationService';
 import { saveLocaleToSupabase } from '@/lib/services/AuthService';
 import { initializeApp } from '@/lib/services/AppInitializer';
+import {
+  applyOtaUpdate,
+  checkStartupUpdates,
+  dismissSoftUpdateFor,
+} from '@/lib/services/UpdateService';
+import { openStoreForUpdate } from '@/lib/storeLinks';
 import { supabase } from '@/lib/supabase';
 import { registerPushTokenForUser } from '@/lib/pushTokenRegistration';
 import { hasAcceptedEulaLocally } from '@/lib/eula';
+import i18n from '@/lib/i18n';
 
 // Components & Screens
 import Onboarding from '@/components/Onboarding';
@@ -176,6 +183,64 @@ const RootLayout = () => {
       SplashScreen.hideAsync().catch(() => {});
     }
   }, [loading]);
+
+  // Soft update store + OTA (après UI, non bloquant)
+  useEffect(() => {
+    if (loading || checkingOnboarding || showOnboarding || showEulaGate) return;
+
+    let cancelled = false;
+
+    const run = async () => {
+      const result = await checkStartupUpdates();
+      if (cancelled || result.kind === 'none') return;
+
+      if (result.kind === 'ota') {
+        Alert.alert(
+          i18n.t('update_ota_title'),
+          i18n.t('update_ota_body'),
+          [
+            { text: i18n.t('later'), style: 'cancel' },
+            {
+              text: i18n.t('update_restart'),
+              onPress: () => {
+                void applyOtaUpdate();
+              },
+            },
+          ],
+        );
+        return;
+      }
+
+      Alert.alert(
+        i18n.t('update_store_title'),
+        result.message?.trim() || i18n.t('update_store_body'),
+        [
+          {
+            text: i18n.t('later'),
+            style: 'cancel',
+            onPress: () => {
+              void dismissSoftUpdateFor(result.latestVersion);
+            },
+          },
+          {
+            text: i18n.t('update_go_store'),
+            onPress: () => {
+              void openStoreForUpdate();
+            },
+          },
+        ],
+      );
+    };
+
+    const timer = setTimeout(() => {
+      void run();
+    }, 800);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [loading, checkingOnboarding, showOnboarding, showEulaGate]);
 
   const handleOnboardingFinish = async () => {
     try { await AsyncStorage.setItem('hasSeenWelcome', 'true'); } catch (e) {}

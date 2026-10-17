@@ -440,6 +440,12 @@ const i18n = new I18n({
     blocked_friends_menu: "Amis bloqués",
     privacy_policy_menu: "Politique de confidentialité",
     check_for_updates: "Vérifier la mise à jour",
+    update_ota_title: "Mise à jour prête",
+    update_ota_body: "Une mise à jour a été téléchargée. Redémarre l'app pour l'appliquer.",
+    update_restart: "Redémarrer",
+    update_store_title: "Mise à jour disponible",
+    update_store_body: "Une nouvelle version est disponible sur le store. Tu peux l'installer quand tu veux.",
+    update_go_store: "Mettre à jour",
 
     // Logout & Account
     logout_success_title: "Déconnexion réussie",
@@ -1115,6 +1121,12 @@ const i18n = new I18n({
     blocked_friends_menu: "Blocked friends",
     privacy_policy_menu: "Privacy Policy",
     check_for_updates: "Check for updates",
+    update_ota_title: "Update ready",
+    update_ota_body: "An update has been downloaded. Restart the app to apply it.",
+    update_restart: "Restart",
+    update_store_title: "Update available",
+    update_store_body: "A new version is available on the store. You can install it whenever you want.",
+    update_go_store: "Update",
 
     // Logout & Account
     logout_success_title: "Logout successful",
@@ -1815,6 +1827,12 @@ const i18n = new I18n({
     blocked_friends_menu: "Amigos bloqueados",
     privacy_policy_menu: "Política de privacidad",
     check_for_updates: "Buscar actualizaciones",
+    update_ota_title: "Actualización lista",
+    update_ota_body: "Se ha descargado una actualización. Reinicia la app para aplicarla.",
+    update_restart: "Reiniciar",
+    update_store_title: "Actualización disponible",
+    update_store_body: "Hay una nueva versión en la tienda. Puedes instalarla cuando quieras.",
+    update_go_store: "Actualizar",
 
     // Logout & Account
     logout_success_title: "Desconexión exitosa",
@@ -2488,6 +2506,12 @@ const i18n = new I18n({
     blocked_friends_menu: "Amigos bloqueados",
     privacy_policy_menu: "Privacidade",
     check_for_updates: "Verificar atualizações",
+    update_ota_title: "Atualização pronta",
+    update_ota_body: "Uma atualização foi baixada. Reinicie o app para aplicá-la.",
+    update_restart: "Reiniciar",
+    update_store_title: "Atualização disponível",
+    update_store_body: "Uma nova versão está disponível na loja. Você pode instalá-la quando quiser.",
+    update_go_store: "Atualizar",
 
     // Logout & Account
     logout_success_title: "Saiu com sucesso",
@@ -3143,6 +3167,12 @@ const i18n = new I18n({
     blocked_friends_menu: "Blockierte Freunde",
     privacy_policy_menu: "Datenschutz",
     check_for_updates: "Nach Updates suchen",
+    update_ota_title: "Update bereit",
+    update_ota_body: "Ein Update wurde heruntergeladen. Starte die App neu, um es anzuwenden.",
+    update_restart: "Neu starten",
+    update_store_title: "Update verfügbar",
+    update_store_body: "Eine neue Version ist im Store verfügbar. Du kannst sie jederzeit installieren.",
+    update_go_store: "Aktualisieren",
 
     // Logout & Account
     logout_success_title: "Erfolgreich abgemeldet",
@@ -3809,6 +3839,12 @@ const i18n = new I18n({
     blocked_friends_menu: "Amici bloccati",
     privacy_policy_menu: "Privacy",
     check_for_updates: "Verifica aggiornamenti",
+    update_ota_title: "Aggiornamento pronto",
+    update_ota_body: "Un aggiornamento è stato scaricato. Riavvia l'app per applicarlo.",
+    update_restart: "Riavvia",
+    update_store_title: "Aggiornamento disponibile",
+    update_store_body: "È disponibile una nuova versione sullo store. Puoi installarla quando vuoi.",
+    update_go_store: "Aggiorna",
 
     // Logout & Account
     logout_success_title: "Disconnesso con successo",
